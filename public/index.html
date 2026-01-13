@@ -213,10 +213,20 @@
 
         async function loadEmployeeList() {
             const res = await fetch('/api/users'); 
-            const workers = await res.json();
+            const allUsers = await res.json();
+            
+            // --- ФІЛЬТР: Прибираємо адмінів зі списку ---
+            // Тепер у графіку будуть тільки ті, у кого роль НЕ 'admin'
+            const workers = allUsers.filter(u => u.role !== 'admin');
+            
             globalUsers = workers;
-            const adminSelect = document.getElementById('employeeSelect'); adminSelect.innerHTML = '<option value="" disabled selected>Хто?</option>';
-            const filterSelect = document.getElementById('viewFilter'); filterSelect.innerHTML = '<option value="all">👥 Всі співробітники</option>';
+
+            const adminSelect = document.getElementById('employeeSelect'); 
+            adminSelect.innerHTML = '<option value="" disabled selected>Хто?</option>';
+            
+            const filterSelect = document.getElementById('viewFilter'); 
+            filterSelect.innerHTML = '<option value="all">👥 Всі співробітники</option>';
+            
             workers.forEach(w => {
                 const opt1 = document.createElement('option'); opt1.value = w.name; opt1.innerText = w.name; adminSelect.appendChild(opt1);
                 const opt2 = document.createElement('option'); opt2.value = w.name; opt2.innerText = w.name; filterSelect.appendChild(opt2);
