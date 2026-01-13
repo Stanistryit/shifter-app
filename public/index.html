@@ -4,65 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shifter Pro</title>
+    <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = { darkMode: 'class' }
     </script>
     <style>
-        /* Стилі для Timeline */
-        .timeline-grid {
-            display: grid;
-            grid-template-columns: repeat(10, 1fr); 
-            gap: 1px;
-            background-color: #f3f4f6; 
-            border: 1px solid #e5e7eb;
-            border-radius: 4px;
-            overflow: hidden;
-            position: relative;
-            height: 12px;
-            margin-bottom: 6px;
-        }
+        .timeline-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 1px; background-color: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 4px; overflow: hidden; position: relative; height: 12px; margin-bottom: 6px; }
         .dark .timeline-grid { background-color: #374151; border-color: #4b5563; }
         .timeline-mark { border-right: 1px dashed #d1d5db; height: 100%; }
         .dark .timeline-mark { border-right-color: #4b5563; }
         .timeline-mark:last-child { border-right: none; }
-        .shift-bar {
-            position: absolute; top: 0; bottom: 0;
-            border-radius: 2px; opacity: 0.9;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-            transition: all 0.3s;
-        }
+        .shift-bar { position: absolute; top: 0; bottom: 0; border-radius: 2px; opacity: 0.9; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 0.3s; }
         
-        /* Стилі для Календаря */
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
-        }
-        .calendar-day {
-            min-height: 80px;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            padding: 4px;
-            font-size: 12px;
-            background: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .calendar-day { min-height: 80px; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px; font-size: 12px; background: white; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; }
         .dark .calendar-day { background: #1f2937; border-color: #374151; color: white; }
         .calendar-day.empty { background: transparent; border: none; }
         .calendar-day.today { border: 2px solid #3b82f6; }
-        .day-label { font-weight: bold; margin-bottom: 2px; }
-        .work-badge {
-            background-color: #dbeafe; color: #1e40af;
-            padding: 2px 4px; border-radius: 4px; margin-top: 2px;
-            text-align: center; font-size: 10px;
-        }
+        .day-label { font-weight: bold; margin-bottom: 2px; display: flex; justify-content: space-between; }
+        .work-badge { background-color: #dbeafe; color: #1e40af; padding: 2px 4px; border-radius: 4px; margin-top: 2px; text-align: center; font-size: 10px; }
         .dark .work-badge { background-color: #1e3a8a; color: #93c5fd; }
+        .event-badge { background-color: #fef3c7; color: #92400e; padding: 1px 4px; border-radius: 3px; font-size: 9px; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dark .event-badge { background-color: #78350f; color: #fcd34d; }
 
         body, div, nav, input, select, button { transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
-        #archiveContainer { transition: max-height 0.5s ease-out; overflow: hidden; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100 font-sans min-h-screen flex flex-col">
@@ -83,7 +49,10 @@
                 <span class="text-xl">📅</span>
                 <div>
                     <h1 class="font-bold leading-tight">Shifter</h1>
-                    <span id="userNameDisplay" class="text-xs text-gray-500 dark:text-gray-400">...</span>
+                    <div class="flex flex-col text-xs text-gray-500 dark:text-gray-400">
+                        <span id="userNameDisplay">...</span>
+                        <span id="hoursDisplay" class="text-green-600 dark:text-green-400 font-bold hidden">0 год.</span>
+                    </div>
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -101,7 +70,6 @@
             <div id="userActionsPanel" class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg mb-4 flex justify-between items-center hidden">
                 <div class="text-sm">
                     <span class="font-bold text-blue-800 dark:text-blue-300">📅 Мій календар</span>
-                    <p class="text-[10px] text-blue-600 dark:text-blue-400">Синхронізація</p>
                 </div>
                 <button onclick="downloadAllMyShifts()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-2 rounded shadow flex items-center gap-1">📥 Експорт</button>
             </div>
@@ -114,12 +82,14 @@
             </div>
 
             <div id="adminPanel" class="hidden bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6 border-l-4 border-orange-500">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-bold text-orange-600">🛠 Управління</h2>
-                    <button onclick="toggleImport()" class="text-xs text-blue-500 underline">Масовий імпорт</button>
-                </div>
+                <h2 class="text-lg font-bold text-orange-600 mb-2">🛠 Управління</h2>
                 
-                <div id="singleAddForm">
+                <div class="flex gap-2 mb-4 text-xs">
+                    <button onclick="showAdminTab('shifts')" class="bg-orange-100 text-orange-800 px-2 py-1 rounded">Графік</button>
+                    <button onclick="showAdminTab('events')" class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Події/Нотатки</button>
+                </div>
+
+                <div id="adminTabShifts">
                     <div class="grid grid-cols-2 gap-2 mb-2">
                         <input type="date" id="shiftDate" class="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                         <select id="employeeSelect" class="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white">
@@ -131,21 +101,33 @@
                         <span class="text-gray-400">-</span>
                         <input type="time" id="endTime" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="20:00">
                     </div>
-                    <button onclick="addShift()" class="w-full bg-orange-500 text-white p-2 rounded font-bold hover:bg-orange-600">Додати зміну</button>
-                </div>
-
-                <div id="bulkImportForm" class="hidden mt-4 pt-4 border-t dark:border-gray-700">
-                    <p class="text-xs text-gray-500 mb-2">Формат: <code>2024-05-20, Олексій, 10:00, 20:00</code></p>
-                    <textarea id="bulkText" rows="5" class="w-full p-2 border rounded text-xs font-mono mb-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
-                    <button onclick="uploadBulk()" class="w-full bg-green-600 text-white p-2 rounded font-bold">Завантажити</button>
-                </div>
-
-                <div class="mt-6 pt-4 border-t dark:border-gray-700">
-                    <h3 class="text-sm font-bold text-red-500 mb-2">🧹 Очищення</h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="clearDay()" class="text-xs bg-red-50 text-red-600 border border-red-200 p-2 rounded hover:bg-red-100">День</button>
-                        <button onclick="clearMonth()" class="text-xs bg-red-50 text-red-600 border border-red-200 p-2 rounded hover:bg-red-100">Місяць</button>
+                    <button onclick="addShift()" class="w-full bg-orange-500 text-white p-2 rounded font-bold hover:bg-orange-600 mb-2">Додати зміну</button>
+                    
+                    <button onclick="toggleImport()" class="text-xs text-blue-500 underline block mb-2">Масовий імпорт</button>
+                    <div id="bulkImportForm" class="hidden pt-2 border-t dark:border-gray-700">
+                        <textarea id="bulkText" rows="3" class="w-full p-2 border rounded text-xs font-mono mb-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
+                        <button onclick="uploadBulk()" class="w-full bg-green-600 text-white p-2 rounded font-bold">Завантажити</button>
                     </div>
+
+                    <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t dark:border-gray-700">
+                        <button onclick="clearDay()" class="text-xs text-red-600 border border-red-200 p-1 rounded hover:bg-red-50">Очистити день</button>
+                        <button onclick="clearMonth()" class="text-xs text-red-600 border border-red-200 p-1 rounded hover:bg-red-50">Очистити місяць</button>
+                    </div>
+                </div>
+
+                <div id="adminTabEvents" class="hidden">
+                    <input type="text" id="eventTitle" placeholder="Назва події (напр. Ревізія)" class="w-full p-2 border rounded mb-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <input type="date" id="eventDate" class="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                        <select id="eventRepeat" class="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            <option value="none">Без повтору</option>
+                            <option value="weekly">Щотижня</option>
+                            <option value="monthly">Щомісяця</option>
+                            <option value="yearly">Щороку</option>
+                        </select>
+                    </div>
+                    <button onclick="addEvent()" class="w-full bg-yellow-500 text-white p-2 rounded font-bold hover:bg-yellow-600">Створити подію</button>
+                    <div id="eventListAdmin" class="mt-4 space-y-1 text-xs text-gray-600 dark:text-gray-400"></div>
                 </div>
             </div>
 
@@ -168,10 +150,6 @@
                     <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Нд</div>
                 </div>
                 <div id="calendarGrid" class="calendar-grid"></div>
-                
-                <div class="mt-4 text-center text-xs text-gray-500">
-                    * Зеленим показані твої зміни. Тицяй на день, щоб побачити деталі.
-                </div>
             </div>
 
         </div>
@@ -180,14 +158,14 @@
     <script>
         let currentUser = null;
         let globalShifts = [];
-        let globalUsers = []; // Список всіх юзерів для відображення "Вихідних"
+        let globalUsers = [];
+        let globalEvents = [];
         const START_HOUR = 10;
         const END_HOUR = 20;
         const TOTAL_HOURS = END_HOUR - START_HOUR;
-        
-        // Для календаря
         let currentCalendarDate = new Date();
 
+        // Ініціалізація теми
         function initTheme() {
             if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark'); document.getElementById('themeIcon').innerText = '☀️';
@@ -202,6 +180,7 @@
         }
         initTheme();
 
+        // АВТОРИЗАЦІЯ
         async function checkAuth() {
             const res = await fetch('/api/me'); const data = await res.json();
             if (data.loggedIn) showApp(data.user); else showLogin();
@@ -226,16 +205,18 @@
             if (user.role === 'admin') document.getElementById('adminPanel').classList.remove('hidden');
             else document.getElementById('adminPanel').classList.add('hidden');
             
-            loadEmployeeList().then(() => loadShifts());
+            Promise.all([loadEmployeeList(), loadShifts(), loadEvents()]).then(() => {
+                calculateHours();
+                if(user.role === 'admin') renderAdminEventList();
+            });
         }
 
         async function loadEmployeeList() {
             const res = await fetch('/api/users'); 
             const workers = await res.json();
-            globalUsers = workers; // Зберігаємо для використання в рендері
-
+            globalUsers = workers;
             const adminSelect = document.getElementById('employeeSelect'); adminSelect.innerHTML = '<option value="" disabled selected>Хто?</option>';
-            const filterSelect = document.getElementById('viewFilter'); filterSelect.innerHTML = '<option value="all">👥 Всі разом</option>';
+            const filterSelect = document.getElementById('viewFilter'); filterSelect.innerHTML = '<option value="all">👥 Всі співробітники</option>';
             workers.forEach(w => {
                 const opt1 = document.createElement('option'); opt1.value = w.name; opt1.innerText = w.name; adminSelect.appendChild(opt1);
                 const opt2 = document.createElement('option'); opt2.value = w.name; opt2.innerText = w.name; filterSelect.appendChild(opt2);
@@ -247,101 +228,102 @@
             if (response.status === 403) return;
             globalShifts = await response.json();
             renderCurrentShifts();
-            renderCalendar(); // Оновлюємо календар теж
+            renderCalendar();
         }
 
+        async function loadEvents() {
+            const res = await fetch('/api/events');
+            globalEvents = await res.json();
+            renderCalendar();
+            if (currentUser && currentUser.role === 'admin') renderAdminEventList();
+        }
+
+        // --- ЛОГІКА ГОДИН ---
+        function calculateHours() {
+            if (!currentUser) return;
+            const now = new Date();
+            const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+            
+            // Фільтруємо зміни: тільки мої і тільки за цей місяць
+            const myShifts = globalShifts.filter(s => 
+                s.name === currentUser.name && s.date.startsWith(currentMonthStr)
+            );
+
+            let totalMinutes = 0;
+            myShifts.forEach(s => {
+                const [startH, startM] = s.start.split(':').map(Number);
+                const [endH, endM] = s.end.split(':').map(Number);
+                const startTotal = startH * 60 + startM;
+                const endTotal = endH * 60 + endM;
+                totalMinutes += (endTotal - startTotal);
+            });
+
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            
+            const display = document.getElementById('hoursDisplay');
+            display.innerText = `${hours} год. ${minutes > 0 ? minutes + ' хв.' : ''} (у цьому місяці)`;
+            display.classList.remove('hidden');
+        }
+
+        // --- РЕНДЕРИНГ (СПИСОК) ---
         function renderCurrentShifts() {
             const filterValue = document.getElementById('viewFilter').value;
             renderTimeline(globalShifts, filterValue);
         }
 
-        // --- РЕЖИМИ ---
-        function setMode(mode) {
-            const listBtn = document.getElementById('btnModeList');
-            const calBtn = document.getElementById('btnModeCalendar');
-            const listContainer = document.getElementById('listViewContainer');
-            const calContainer = document.getElementById('calendarViewContainer');
-            const filterContainer = document.getElementById('filterContainer');
-
-            if (mode === 'list') {
-                listBtn.classList.remove('text-gray-500', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                listBtn.classList.add('bg-white', 'dark:bg-gray-600', 'shadow-sm');
-                calBtn.classList.add('text-gray-500', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                calBtn.classList.remove('bg-white', 'dark:bg-gray-600', 'shadow-sm');
-                
-                listContainer.classList.remove('hidden');
-                calContainer.classList.add('hidden');
-                filterContainer.classList.remove('hidden');
-            } else {
-                calBtn.classList.remove('text-gray-500', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                calBtn.classList.add('bg-white', 'dark:bg-gray-600', 'shadow-sm');
-                listBtn.classList.add('text-gray-500', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                listBtn.classList.remove('bg-white', 'dark:bg-gray-600', 'shadow-sm');
-                
-                listContainer.classList.add('hidden');
-                calContainer.classList.remove('hidden');
-                filterContainer.classList.add('hidden');
-                renderCalendar(); // Перемалювати при відкритті
-            }
-        }
-
-        // --- TIMELINE RENDER ---
         function renderTimeline(shifts, filterUser) {
             const mainContainer = document.getElementById('scheduleView');
             const archiveContainer = document.getElementById('archiveContainer');
             const archiveBtn = document.getElementById('archiveToggleBtn');
             const archiveCount = document.getElementById('archiveCount');
             
-            mainContainer.innerHTML = '';
-            archiveContainer.innerHTML = '';
+            mainContainer.innerHTML = ''; archiveContainer.innerHTML = '';
 
-            // 1. Збираємо унікальні дати
             const uniqueDates = [...new Set(shifts.map(s => s.date))].sort();
-            
-            // Додаємо "Сьогодні", якщо його немає, щоб список не був пустим
             const todayStr = new Date().toISOString().split('T')[0];
             if (!uniqueDates.includes(todayStr)) uniqueDates.push(todayStr);
             uniqueDates.sort();
 
-            const isAdmin = currentUser.role === 'admin';
             let pastDaysCount = 0;
             let todayElementId = null;
 
             uniqueDates.forEach(dateStr => {
-                const dateObj = new Date(dateStr);
-                const dayName = dateObj.toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'long' });
                 const isPast = dateStr < todayStr;
                 const isToday = dateStr === todayStr;
+                
+                // Перевірка подій (Events) для цього дня
+                const dayEvents = getEventsForDate(dateStr);
 
-                // Блок дня
                 const dayBlock = document.createElement('div');
                 dayBlock.className = 'bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden';
                 let headerBg = "bg-gray-50 dark:bg-gray-700/50";
-                
                 if (isToday) {
-                    dayBlock.classList.add('ring-4', 'ring-blue-400', 'dark:ring-blue-600', 'border-blue-500');
-                    dayBlock.id = "todayBlock";
+                    dayBlock.classList.add('ring-2', 'ring-blue-400', 'border-blue-500');
+                    dayBlock.id = "todayBlock"; todayElementId = "todayBlock";
                     headerBg = "bg-blue-100 dark:bg-blue-900";
-                    todayElementId = "todayBlock";
                 }
 
+                const dayDateObj = new Date(dateStr);
+                const dayName = dayDateObj.toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'long' });
+
+                let eventsHtml = '';
+                dayEvents.forEach(ev => {
+                    eventsHtml += `<div class="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded border border-yellow-200 inline-block mr-1">📌 ${ev.title}</div>`;
+                });
+
                 dayBlock.innerHTML = `
-                <div class="${headerBg} px-3 py-2 text-sm flex justify-between items-center border-b dark:border-gray-700">
-                    <span class="font-bold text-gray-700 dark:text-gray-200 capitalize">
-                        ${dayName} ${isToday ? '<span class="ml-2 bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full">СЬОГОДНІ</span>' : ''}
-                    </span>
-                    <div class="flex text-[10px] text-gray-400 font-mono gap-1"><span>10:00</span><span>-------</span><span>20:00</span></div>
+                <div class="${headerBg} px-3 py-2 text-sm flex flex-col border-b dark:border-gray-700">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-gray-700 dark:text-gray-200 capitalize">
+                            ${dayName} ${isToday ? '<span class="ml-2 bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full">СЬОГОДНІ</span>' : ''}
+                        </span>
+                    </div>
+                    ${eventsHtml ? `<div class="mt-1">${eventsHtml}</div>` : ''}
                 </div>`;
                 
                 const dayContent = document.createElement('div'); dayContent.className = 'p-2 space-y-3';
-                
-                // --- ЛОГІКА "ВСІ СПІВРОБІТНИКИ" ---
-                // Якщо обрано фільтр "Всі" -> показуємо список всіх юзерів (і хто працює, і хто ні)
-                // Якщо обрано конкретну людину -> показуємо тільки її
-                
                 let usersToShow = (filterUser === 'all') ? globalUsers : globalUsers.filter(u => u.name === filterUser);
-                
-                // Сортуємо: спочатку ті, у кого є зміна сьогодні
                 const shiftsOnThisDay = shifts.filter(s => s.date === dateStr);
                 
                 usersToShow.sort((a, b) => {
@@ -353,22 +335,17 @@
                 });
 
                 let hasAnyInfo = false;
-
                 usersToShow.forEach(user => {
                     const shift = shiftsOnThisDay.find(s => s.name === user.name);
-                    
+                    hasAnyInfo = true;
                     if (shift) {
-                        // Є зміна - малюємо графік
-                        hasAnyInfo = true;
                         const isMe = shift.name === currentUser.name;
                         const startH = parseInt(shift.start.split(':')[0]) + parseInt(shift.start.split(':')[1])/60;
                         const endH = parseInt(shift.end.split(':')[0]) + parseInt(shift.end.split(':')[1])/60;
-                        
                         let left = ((startH - START_HOUR) / TOTAL_HOURS) * 100;
                         let width = ((endH - startH) / TOTAL_HOURS) * 100;
                         if (left < 0) { width += left; left = 0; }
                         if (left + width > 100) width = 100 - left;
-                        
                         const barColor = isMe ? 'bg-green-500' : 'bg-blue-500';
                         const nameColor = isMe ? 'text-green-700 dark:text-green-400 font-bold' : 'text-gray-700 dark:text-gray-300 font-bold';
                         
@@ -381,12 +358,10 @@
                                     ${Array(10).fill('<div class="timeline-mark"></div>').join('')}
                                     <div class="shift-bar ${barColor}" style="left: ${left}%; width: ${width}%;"></div>
                                 </div>
-                                <div class="flex justify-end gap-2 h-4">${isAdmin ? `<button onclick="deleteShiftInGroup('${shift.date}', '${shift.name}')" class="text-[10px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-1 rounded">Видалити</button>` : ''}</div>
+                                <div class="flex justify-end gap-2 h-4">${currentUser.role==='admin' ? `<button onclick="deleteShiftInGroup('${shift.date}', '${shift.name}')" class="text-[10px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-1 rounded">Видалити</button>` : ''}</div>
                             </div>
                         `;
                     } else {
-                        // Немає зміни - малюємо "Вихідний"
-                        hasAnyInfo = true;
                         dayContent.innerHTML += `
                              <div class="opacity-60">
                                 <div class="flex justify-between text-xs mb-1 text-gray-500 dark:text-gray-400">
@@ -405,22 +380,26 @@
                 }
             });
 
-            if (pastDaysCount > 0) {
-                archiveBtn.classList.remove('hidden');
-                archiveCount.innerText = pastDaysCount;
-            } else {
-                archiveBtn.classList.add('hidden');
-            }
+            if (pastDaysCount > 0) { archiveBtn.classList.remove('hidden'); archiveCount.innerText = pastDaysCount; } 
+            else { archiveBtn.classList.add('hidden'); }
 
-            if (todayElementId) {
-                setTimeout(() => {
-                    const el = document.getElementById(todayElementId);
-                    if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 500);
-            }
+            if (todayElementId) { setTimeout(() => { const el = document.getElementById(todayElementId); if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 500); }
         }
 
-        // --- CALENDAR RENDER ---
+        // --- ЛОГІКА КАЛЕНДАРЯ (З ПОДІЯМИ) ---
+        function getEventsForDate(dateStr) {
+            // dateStr = "2024-05-20"
+            const checkDate = new Date(dateStr);
+            return globalEvents.filter(ev => {
+                const evDate = new Date(ev.date);
+                if (ev.repeat === 'none') return ev.date === dateStr;
+                if (ev.repeat === 'weekly') return checkDate >= evDate && checkDate.getDay() === evDate.getDay();
+                if (ev.repeat === 'monthly') return checkDate >= evDate && checkDate.getDate() === evDate.getDate();
+                if (ev.repeat === 'yearly') return checkDate >= evDate && checkDate.getMonth() === evDate.getMonth() && checkDate.getDate() === evDate.getDate();
+                return false;
+            });
+        }
+
         function renderCalendar() {
             const grid = document.getElementById('calendarGrid');
             const title = document.getElementById('calendarTitle');
@@ -428,47 +407,44 @@
             
             const year = currentCalendarDate.getFullYear();
             const month = currentCalendarDate.getMonth();
-            
             title.innerText = currentCalendarDate.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
             
             const firstDay = new Date(year, month, 1);
             const lastDay = new Date(year, month + 1, 0);
-            
-            // Поправка на дні тижня (Неділя = 0, а нам треба Пн = 0)
             let startDayIndex = firstDay.getDay() - 1;
             if (startDayIndex === -1) startDayIndex = 6;
             
-            // Пусті клітинки на початку
             for (let i = 0; i < startDayIndex; i++) {
                 const empty = document.createElement('div');
                 empty.className = 'calendar-day empty';
                 grid.appendChild(empty);
             }
             
-            // Дні місяця
             const todayStr = new Date().toISOString().split('T')[0];
             
             for (let d = 1; d <= lastDay.getDate(); d++) {
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                
                 const dayCell = document.createElement('div');
                 dayCell.className = 'calendar-day';
                 if (dateStr === todayStr) dayCell.classList.add('today');
                 
-                // Шукаємо зміну для ПОТОЧНОГО користувача (або обраного в фільтрі, якщо хочеш)
-                // Зараз зробимо для залогіненого юзера
+                // Зміни
                 const myShift = globalShifts.find(s => s.date === dateStr && s.name === currentUser.name);
+                // Події
+                const dayEvents = getEventsForDate(dateStr);
+
+                let content = `<div class="day-label"><span>${d}</span></div>`;
                 
-                let content = `<div class="day-label">${d}</div>`;
+                // Рендер подій
+                dayEvents.forEach(ev => {
+                    content += `<div class="event-badge" title="${ev.title}">${ev.title}</div>`;
+                });
+
                 if (myShift) {
                     dayCell.classList.add('bg-blue-50', 'dark:bg-blue-900/20');
-                    content += `
-                        <div class="work-badge">
-                            ${myShift.start}<br>${myShift.end}
-                        </div>
-                    `;
+                    content += `<div class="work-badge">${myShift.start}-${myShift.end}</div>`;
                 } else {
-                     content += `<div class="text-[10px] text-gray-400 text-center mt-2">Вих</div>`;
+                     content += `<div class="text-[10px] text-gray-300 dark:text-gray-600 text-center mt-auto">.</div>`;
                 }
                 
                 dayCell.innerHTML = content;
@@ -476,80 +452,68 @@
             }
         }
         
-        function changeMonth(delta) {
-            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
-            renderCalendar();
+        function changeMonth(delta) { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta); renderCalendar(); }
+        function setMode(mode) {
+            const listContainer = document.getElementById('listViewContainer');
+            const calContainer = document.getElementById('calendarViewContainer');
+            const filterContainer = document.getElementById('filterContainer');
+            
+            if (mode === 'list') {
+                document.getElementById('btnModeList').classList.replace('text-gray-500', 'bg-white');
+                document.getElementById('btnModeCalendar').classList.replace('bg-white', 'text-gray-500');
+                listContainer.classList.remove('hidden'); calContainer.classList.add('hidden'); filterContainer.classList.remove('hidden');
+            } else {
+                document.getElementById('btnModeCalendar').classList.replace('text-gray-500', 'bg-white');
+                document.getElementById('btnModeList').classList.replace('bg-white', 'text-gray-500');
+                listContainer.classList.add('hidden'); calContainer.classList.remove('hidden'); filterContainer.classList.add('hidden');
+                renderCalendar();
+            }
         }
 
-        // --- ФУНКЦІЇ ДІЙ (БЕЗ ЗМІН) ---
-        function toggleArchive() {
-            const container = document.getElementById('archiveContainer');
-            if (container.classList.contains('hidden')) {
-                container.classList.remove('hidden'); document.getElementById('archiveToggleBtn').innerText = `🔼 Приховати минулі дні`;
+        // --- ADMIN FUNCTIONS ---
+        function showAdminTab(tab) {
+            if(tab === 'shifts') {
+                document.getElementById('adminTabShifts').classList.remove('hidden');
+                document.getElementById('adminTabEvents').classList.add('hidden');
             } else {
-                container.classList.add('hidden'); document.getElementById('archiveToggleBtn').innerText = `📂 Показати минулі дні`;
+                document.getElementById('adminTabShifts').classList.add('hidden');
+                document.getElementById('adminTabEvents').classList.remove('hidden');
             }
         }
-        async function clearDay() {
-            const date = document.getElementById('shiftDate').value;
-            if (!date) return alert("Обери дату!");
-            if (!confirm(`Точно видалити всі зміни за ${date}?`)) return;
-            await fetch('/api/shifts/clear-day', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date }) });
-            loadShifts();
+
+        async function addEvent() {
+            const title = document.getElementById('eventTitle').value;
+            const date = document.getElementById('eventDate').value;
+            const repeat = document.getElementById('eventRepeat').value;
+            if(!title || !date) return alert("Вкажи назву і дату");
+            await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, date, repeat }) });
+            alert("Подію створено!");
+            loadEvents();
         }
-        async function clearMonth() {
-            const date = document.getElementById('shiftDate').value;
-            if (!date) return alert("Обери дату!");
-            const month = date.substring(0, 7);
-            if (!confirm(`УВАГА! Видалити ВЕСЬ графік за місяць ${month}?`)) return;
-            await fetch('/api/shifts/clear-month', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ month }) });
-            loadShifts();
-        }
-        async function addShift() {
-            const date = document.getElementById('shiftDate').value;
-            const name = document.getElementById('employeeSelect').value;
-            const start = document.getElementById('startTime').value;
-            const end = document.getElementById('endTime').value;
-            if (!date || !name || !start || !end) return alert("Заповни все!");
-            await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, name, start, end }) });
-            loadShifts();
-        }
-        async function uploadBulk() {
-            const text = document.getElementById('bulkText').value.trim();
-            if (!text) return;
-            const shifts = [];
-            text.split('\n').forEach(line => {
-                const parts = line.split(',');
-                if (parts.length >= 4) shifts.push({ date: parts[0].trim(), name: parts[1].trim(), start: parts[2].trim(), end: parts[3].trim() });
+
+        function renderAdminEventList() {
+            const list = document.getElementById('eventListAdmin');
+            list.innerHTML = '<b>Всі події:</b>';
+            globalEvents.forEach(ev => {
+                const rep = ev.repeat === 'none' ? '' : `(🔄 ${ev.repeat})`;
+                list.innerHTML += `<div class="flex justify-between border-b border-gray-100 p-1"><span>${ev.date}: ${ev.title} ${rep}</span> <button onclick="deleteEvent('${ev._id}')" class="text-red-500">x</button></div>`;
             });
-            if (shifts.length === 0) return alert("Невірний формат!");
-            await fetch('/api/shifts/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shifts }) });
-            document.getElementById('bulkText').value = ''; toggleImport(); loadShifts();
         }
-        async function deleteShiftInGroup(date, name) {
-            const res = await fetch('/api/shifts'); const allShifts = await res.json();
-            const shift = allShifts.find(s => s.date === date && s.name === name);
-            if (shift && confirm("Видалити цю зміну?")) {
-                await fetch('/api/delete-shift', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: shift._id }) });
-                loadShifts();
-            }
+        async function deleteEvent(id) {
+            if(!confirm("Видалити?")) return;
+            await fetch('/api/events/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+            loadEvents();
         }
+
+        // --- STANDARD FUNCTIONS (SHIFTS) ---
+        function toggleArchive() { document.getElementById('archiveContainer').classList.toggle('hidden'); }
+        async function clearDay() { /* ... той самий код ... */ const date = document.getElementById('shiftDate').value; if (!date) return alert("Обери дату!"); if (!confirm(`Точно видалити всі зміни за ${date}?`)) return; await fetch('/api/shifts/clear-day', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date }) }); loadShifts(); }
+        async function clearMonth() { /* ... той самий код ... */ const date = document.getElementById('shiftDate').value; if (!date) return alert("Обери дату!"); const month = date.substring(0, 7); if (!confirm(`УВАГА! Видалити ВЕСЬ графік за місяць ${month}?`)) return; await fetch('/api/shifts/clear-month', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ month }) }); loadShifts(); }
+        async function addShift() { /* ... той самий код ... */ const date = document.getElementById('shiftDate').value; const name = document.getElementById('employeeSelect').value; const start = document.getElementById('startTime').value; const end = document.getElementById('endTime').value; if (!date || !name || !start || !end) return alert("Заповни все!"); await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, name, start, end }) }); loadShifts(); }
+        async function uploadBulk() { /* ... той самий код ... */ const text = document.getElementById('bulkText').value.trim(); if (!text) return; const shifts = []; text.split('\n').forEach(line => { const parts = line.split(','); if (parts.length >= 4) shifts.push({ date: parts[0].trim(), name: parts[1].trim(), start: parts[2].trim(), end: parts[3].trim() }); }); if (shifts.length === 0) return alert("Невірний формат!"); await fetch('/api/shifts/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shifts }) }); document.getElementById('bulkText').value = ''; toggleImport(); loadShifts(); }
+        async function deleteShiftInGroup(date, name) { /* ... той самий код ... */ const res = await fetch('/api/shifts'); const allShifts = await res.json(); const shift = allShifts.find(s => s.date === date && s.name === name); if (shift && confirm("Видалити цю зміну?")) { await fetch('/api/delete-shift', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: shift._id }) }); loadShifts(); } }
         function toggleImport() { document.getElementById('bulkImportForm').classList.toggle('hidden'); }
-        function downloadAllMyShifts() {
-            if (!currentUser) return;
-            const today = new Date().toISOString().split('T')[0];
-            const myShifts = globalShifts.filter(s => s.name === currentUser.name && s.date >= today);
-            if (myShifts.length === 0) return alert("Немає змін!");
-            let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Shifter//UA\n";
-            myShifts.forEach(s => {
-                const start = s.date.replace(/-/g, '') + 'T' + s.start.replace(':', '') + '00';
-                const end = s.date.replace(/-/g, '') + 'T' + s.end.replace(':', '') + '00';
-                ics += `BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Робота\nEND:VEVENT\n`;
-            });
-            ics += "END:VCALENDAR";
-            const a = document.createElement('a'); a.href = window.URL.createObjectURL(new Blob([ics], {type: 'text/calendar'}));
-            a.download = `my-shifts.ics`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        }
+        function downloadAllMyShifts() { /* ... той самий код ... */ if (!currentUser) return; const today = new Date().toISOString().split('T')[0]; const myShifts = globalShifts.filter(s => s.name === currentUser.name && s.date >= today); if (myShifts.length === 0) return alert("Немає змін!"); let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Shifter//UA\n"; myShifts.forEach(s => { const start = s.date.replace(/-/g, '') + 'T' + s.start.replace(':', '') + '00'; const end = s.date.replace(/-/g, '') + 'T' + s.end.replace(':', '') + '00'; ics += `BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Робота\nEND:VEVENT\n`; }); ics += "END:VCALENDAR"; const a = document.createElement('a'); a.href = window.URL.createObjectURL(new Blob([ics], {type: 'text/calendar'})); a.download = `my-shifts.ics`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
         
         checkAuth();
     </script>
