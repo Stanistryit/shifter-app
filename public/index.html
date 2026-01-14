@@ -24,11 +24,11 @@
     <style>
         body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
         
-        /* Glassmorphism Header */
+        /* Glass Header */
         .glass-header { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(0,0,0,0.05); }
         .dark .glass-header { background: rgba(28, 28, 30, 0.85); border-bottom: 1px solid rgba(255,255,255,0.1); }
 
-        /* Elements */
+        /* Timeline */
         .timeline-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; border-radius: 8px; overflow: hidden; position: relative; height: 12px; margin-bottom: 8px; }
         .timeline-mark { border-right: 1px solid rgba(0,0,0,0.05); height: 100%; }
         .dark .timeline-mark { border-right-color: rgba(255,255,255,0.05); }
@@ -37,18 +37,20 @@
         .shift-bar { position: absolute; top: 0; bottom: 0; border-radius: 100px; opacity: 1; z-index: 10; transition: all 0.3s; }
         .task-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 100px; z-index: 20; background-color: #BF5AF2; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.2); }
         
+        /* Calendar */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
         .calendar-day { min-height: 85px; border-radius: 16px; padding: 6px; font-size: 13px; background: white; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03); border: 1px solid transparent; }
         .dark .calendar-day { background: #1C1C1E; color: white; }
         .calendar-day.today { border: 2px solid #007AFF; }
         
+        /* Badges */
         .work-badge { background-color: #007AFF15; color: #007AFF; padding: 3px 6px; border-radius: 6px; margin-top: 2px; text-align: center; font-size: 11px; font-weight: 600; }
         .dark .work-badge { background-color: #0A84FF20; color: #0A84FF; }
         .event-badge { background-color: #FFD60A20; color: #B49104; padding: 2px 5px; border-radius: 4px; font-size: 10px; margin-bottom: 2px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .dark .event-badge { background-color: #FFD60A20; color: #FFD60A; }
         .task-badge-full { color: #BF5AF2; font-size: 10px; font-weight: 700; }
         
-        /* iOS Inputs */
+        /* Inputs */
         .ios-input { background: #E5E5EA; border: none; border-radius: 12px; padding: 12px 14px; width: 100%; font-size: 16px; outline: none; transition: background 0.2s; -webkit-appearance: none; }
         .ios-input:focus { background: #D1D1D6; }
         .dark .ios-input { background: #2C2C2E; color: white; }
@@ -57,7 +59,6 @@
         .btn-primary { background: #007AFF; color: white; border-radius: 12px; font-weight: 600; padding: 12px; transition: opacity 0.2s; width: 100%; font-size: 16px; }
         .btn-primary:active { opacity: 0.7; }
         
-        /* Utils */
         ::-webkit-scrollbar { width: 0px; background: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -70,11 +71,7 @@
             <div class="w-16 h-16 bg-blue-500 rounded-[18px] mx-auto mb-6 flex items-center justify-center text-3xl shadow-lg shadow-blue-500/30">📅</div>
             <h1 class="text-3xl font-bold mb-2 tracking-tight">Shifter</h1>
             <p class="text-gray-400 mb-8 text-sm">Увійдіть для перегляду графіку</p>
-            
-            <div id="tgLoader" class="hidden mb-4 text-blue-500 font-medium animate-pulse">
-                🔄 Авторизація через Telegram...
-            </div>
-
+            <div id="tgLoader" class="hidden mb-4 text-blue-500 font-medium animate-pulse">🔄 Авторизація через Telegram...</div>
             <div id="loginForm" class="space-y-3">
                 <input type="text" id="loginUser" placeholder="Логін" class="ios-input">
                 <input type="password" id="loginPass" placeholder="Пароль" class="ios-input">
@@ -94,7 +91,7 @@
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <button id="toggleEditBtn" onclick="toggleEditMode()" class="hidden bg-gray-200 dark:bg-[#3A3A3C] text-black dark:text-white px-3 py-1.5 rounded-full text-xs font-bold transition">Ред.</button>
+                <button id="toggleEditBtn" onclick="toggleEditMode()" class="hidden bg-gray-200 dark:bg-[#3A3A3C] text-black dark:text-white px-3 py-1.5 rounded-full text-xs font-bold transition">Меню</button>
                 <button onclick="logout()" class="text-blue-500 text-sm font-medium">Вийти</button>
             </div>
         </nav>
@@ -246,19 +243,52 @@
             Promise.all([loadEmployeeList(), loadShifts(), loadEvents(), loadTasks()]).then(() => { calculateHours(); renderCurrentShifts(); if(['admin','SM','SSE'].includes(user.role)) renderAdminEventList(); });
         }
 
-        // --- DATA FETCHERS (WITH 403 FIX) ---
-        async function loadEmployeeList() { const r=await fetch('/api/users'); if(r.ok){const d=await r.json(); const w=d.filter(u=>u.role!=='admin'); globalUsers=w; const s1=document.getElementById('employeeSelect'); s1.innerHTML='<option value="" disabled selected>Хто?</option>'; const s2=document.getElementById('taskEmployee'); s2.innerHTML='<option value="" disabled selected>Кому?</option>'; const s3=document.getElementById('viewFilter'); s3.innerHTML='<option value="all">Всі співробітники</option>'; w.forEach(x=>{ s1.innerHTML+=`<option value="${x.name}">${x.name}</option>`; s2.innerHTML+=`<option value="${x.name}">${x.name}</option>`; s3.innerHTML+=`<option value="${x.name}">${x.name}</option>`; });}}
+        // --- DATA FETCHERS ---
+        async function loadEmployeeList() { 
+            const r=await fetch('/api/users'); 
+            if(r.ok){
+                const d=await r.json(); 
+                const w=d.filter(u=>u.role!=='admin'); 
+                globalUsers=w; 
+                const s1=document.getElementById('employeeSelect'); s1.innerHTML='<option value="" disabled selected>Хто?</option>'; 
+                const s2=document.getElementById('taskEmployee'); s2.innerHTML='<option value="" disabled selected>Кому?</option>'; 
+                const s3=document.getElementById('viewFilter'); s3.innerHTML='<option value="all">Всі співробітники</option>'; 
+                w.forEach(x=>{ 
+                    s1.innerHTML+=`<option value="${x.name}">${x.name}</option>`; 
+                    s2.innerHTML+=`<option value="${x.name}">${x.name}</option>`; 
+                    s3.innerHTML+=`<option value="${x.name}">${x.name}</option>`; 
+                });
+            }
+        }
         
         async function loadShifts() { 
             const r = await fetch('/api/shifts'); 
-            if(r.status === 403) { logout(); return; } // FIX: Вихід якщо сесія померла
+            if(r.status === 403) { logout(); return; } 
             if(r.ok) globalShifts = await r.json(); 
         }
         
         async function loadEvents(){const r=await fetch('/api/events');if(r.ok)globalEvents=await r.json();}
         async function loadTasks(){const r=await fetch('/api/tasks');if(r.ok)globalTasks=await r.json();}
         
-        async function loadRequests(){const r=await fetch('/api/requests');if(r.ok){const d=await r.json();const c=document.getElementById('requestsList');c.innerHTML='';if(d.length===0){c.innerHTML='<p class="text-gray-400 text-xs text-center">Пусто</p>';return;}d.forEach(q=>{let txt='';if(q.type==='add_shift')txt=`➕ Зміна: ${q.data.date} ${q.data.name}`;else if(q.type==='del_shift')txt=`❌ Видалення: ${q.data.details}`;else txt=q.type;c.innerHTML+=`<div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-xl flex justify-between items-center text-xs"><span class="font-medium">${txt}</span><div class="flex gap-2"><button onclick="handleRequest('${q._id}','approve')" class="text-green-500 font-bold">✓</button><button onclick="handleRequest('${q._id}','reject')" class="text-red-500 font-bold">✕</button></div></div>`});}}
+        async function loadRequests(){
+            const r=await fetch('/api/requests');
+            if(r.ok){
+                const d=await r.json();
+                const c=document.getElementById('requestsList');
+                c.innerHTML='';
+                if(d.length===0){c.innerHTML='<p class="text-gray-400 text-xs text-center">Пусто</p>';return;}
+                d.forEach(q=>{
+                    let txt='';
+                    if(q.type==='add_shift')txt=`➕ Зміна: ${q.data.date} ${q.data.name}`;
+                    else if(q.type==='del_shift')txt=`❌ Видалення: ${q.data.details}`;
+                    else if(q.type==='add_task')txt=`➕ Задача: ${q.data.title} для ${q.data.name}`;
+                    else if(q.type==='del_task')txt=`❌ Видалення задачі: ${q.data.details}`;
+                    else txt=q.type;
+                    
+                    c.innerHTML+=`<div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-xl flex justify-between items-center text-xs"><span class="font-medium">${txt}</span><div class="flex gap-2"><button onclick="handleRequest('${q._id}','approve')" class="text-green-500 font-bold">✓</button><button onclick="handleRequest('${q._id}','reject')" class="text-red-500 font-bold">✕</button></div></div>`
+                });
+            }
+        }
 
         // --- RENDERERS ---
         function calculateHours(){if(!currentUser)return;const now=new Date();const cm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;const ms=globalShifts.filter(s=>s.name===currentUser.name&&s.date.startsWith(cm));let tm=0;ms.forEach(s=>{const [sh,sm]=s.start.split(':').map(Number);const [eh,em]=s.end.split(':').map(Number);tm+=((eh*60+em)-(sh*60+sm));});const h=Math.floor(tm/60);document.getElementById('hoursDisplay').innerText=`${h} годин`;document.getElementById('hoursDisplay').classList.remove('hidden');}
