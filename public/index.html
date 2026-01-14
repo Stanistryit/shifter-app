@@ -28,7 +28,7 @@
         .glass-header { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(0,0,0,0.05); }
         .dark .glass-header { background: rgba(28, 28, 30, 0.85); border-bottom: 1px solid rgba(255,255,255,0.1); }
 
-        /* Timeline Elements */
+        /* Timeline */
         .timeline-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; border-radius: 6px; overflow: hidden; position: relative; height: 10px; margin-bottom: 6px; }
         .timeline-mark { border-right: 1px solid rgba(0,0,0,0.05); height: 100%; }
         .dark .timeline-mark { border-right-color: rgba(255,255,255,0.05); }
@@ -42,15 +42,16 @@
         .calendar-day { min-height: 85px; border-radius: 14px; padding: 6px; font-size: 13px; background: white; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03); border: 1px solid transparent; }
         .dark .calendar-day { background: #1C1C1E; color: white; }
         .calendar-day.today { border: 2px solid #007AFF; }
+        .day-label { font-weight: bold; margin-bottom: 2px; display: flex; justify-content: space-between; }
         
         /* Badges */
         .work-badge { background-color: #007AFF15; color: #007AFF; padding: 2px 4px; border-radius: 4px; margin-top: 2px; text-align: center; font-size: 10px; font-weight: 600; }
         .dark .work-badge { background-color: #0A84FF20; color: #0A84FF; }
         .event-badge { background-color: #FFD60A20; color: #B49104; padding: 2px 5px; border-radius: 4px; font-size: 10px; margin-bottom: 2px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .dark .event-badge { background-color: #FFD60A20; color: #FFD60A; }
-        .task-badge-full { color: #BF5AF2; font-size: 10px; font-weight: 700; }
+        .task-badge-full { color: #BF5AF2; font-size: 10px; font-weight: 700; border: 1px solid #BF5AF2; padding: 1px 4px; border-radius: 4px; margin-bottom: 1px; }
         
-        /* iOS Inputs & Buttons */
+        /* Inputs & Buttons */
         .ios-input { background: #E5E5EA; border: none; border-radius: 10px; padding: 10px 12px; width: 100%; font-size: 15px; outline: none; transition: background 0.2s; -webkit-appearance: none; }
         .ios-input:focus { background: #D1D1D6; }
         .dark .ios-input { background: #2C2C2E; color: white; }
@@ -59,7 +60,6 @@
         .btn-primary { background: #007AFF; color: white; border-radius: 12px; font-weight: 600; padding: 12px; transition: opacity 0.2s; width: 100%; font-size: 16px; }
         .btn-primary:active { opacity: 0.7; }
         
-        /* Utils */
         ::-webkit-scrollbar { width: 0px; background: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -69,7 +69,6 @@
 
     <div id="loginScreen" class="flex-grow flex items-center justify-center p-6">
         <div class="bg-white dark:bg-[#1C1C1E] p-8 rounded-[24px] shadow-xl w-full max-w-sm text-center">
-            <div class="w-16 h-16 bg-blue-500 rounded-[18px] mx-auto mb-6 flex items-center justify-center text-3xl shadow-lg shadow-blue-500/30">📅</div>
             <h1 class="text-3xl font-bold mb-2 tracking-tight">Shifter</h1>
             <p class="text-gray-400 mb-8 text-sm">Увійдіть для перегляду графіку</p>
             <div id="tgLoader" class="hidden mb-4 text-blue-500 font-medium animate-pulse">🔄 Авторизація...</div>
@@ -98,7 +97,8 @@
         </nav>
 
         <div class="container mx-auto p-4 max-w-lg space-y-4">
-            <div class="flex justify-between items-center bg-white dark:bg-[#1C1C1E] p-1.5 rounded-[14px] shadow-sm">
+            
+            <div id="userActionsPanel" class="hidden"></div> <div class="flex justify-between items-center bg-white dark:bg-[#1C1C1E] p-1.5 rounded-[14px] shadow-sm">
                 <div class="flex bg-[#E5E5EA] dark:bg-[#2C2C2E] rounded-[10px] p-0.5 w-full">
                     <button onclick="setMode('list')" id="btnModeList" class="flex-1 py-1.5 text-xs font-semibold rounded-[8px] transition-all bg-white dark:bg-[#636366] shadow-sm">Список</button>
                     <button onclick="setMode('calendar')" id="btnModeCalendar" class="flex-1 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 rounded-[8px] transition-all">Календар</button>
@@ -130,6 +130,7 @@
                     <div class="grid grid-cols-2 gap-3"><input type="date" id="shiftDate" class="ios-input"><select id="employeeSelect" class="ios-input bg-transparent"><option value="" disabled selected>Хто?</option></select></div>
                     <div class="flex gap-3 items-center"><input type="time" id="startTime" class="ios-input text-center" value="10:00"><span class="text-gray-300">to</span><input type="time" id="endTime" class="ios-input text-center" value="20:00"></div>
                     <button onclick="addShift()" class="btn-primary bg-orange-500 hover:bg-orange-600">Додати зміну</button>
+                    
                     <div id="adminOnlyFunctions" class="hidden pt-4 border-t border-gray-100 dark:border-gray-800">
                         <div class="grid grid-cols-2 gap-3"><button onclick="clearDay()" class="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 py-3 rounded-xl font-medium">Очистити день</button><button onclick="clearMonth()" class="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 py-3 rounded-xl font-medium">Очистити місяць</button></div>
                         <button onclick="toggleImport()" class="text-xs text-blue-500 underline block mt-2 text-center w-full">Масовий імпорт</button>
@@ -178,27 +179,25 @@
 
     <script>
         const tg = window.Telegram.WebApp;
-        const isTelegram = tg.platform && tg.platform !== 'unknown';
-
-        if (isTelegram) { try { tg.expand(); tg.enableClosingConfirmation(); } catch(e){} }
+        if (tg.platform && tg.platform !== 'unknown') { try { tg.expand(); tg.enableClosingConfirmation(); } catch(e){} }
 
         let currentUser = null; let globalShifts = []; let globalUsers = []; let globalEvents = []; let globalTasks = [];
         const START_HOUR = 10; const END_HOUR = 20; const TOTAL_HOURS = END_HOUR - START_HOUR;
         let currentCalendarDate = new Date();
 
         function initTheme() {
-            if ((isTelegram && tg.colorScheme === 'dark') || localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { 
+            if ((tg.platform !== 'unknown' && tg.colorScheme === 'dark') || localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { 
                 document.documentElement.classList.add('dark'); document.getElementById('themeIcon').innerText = '☀️'; 
-                if(isTelegram) { tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000'); }
+                if(tg.platform!=='unknown'){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');}
             } else { 
                 document.documentElement.classList.remove('dark'); document.getElementById('themeIcon').innerText = '🌙'; 
-                if(isTelegram) { tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7'); }
+                if(tg.platform!=='unknown'){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');}
             }
         }
         function toggleTheme() {
             const html = document.documentElement;
-            if (html.classList.contains('dark')) { html.classList.remove('dark'); localStorage.theme = 'light'; document.getElementById('themeIcon').innerText = '🌙'; if(isTelegram){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } 
-            else { html.classList.add('dark'); localStorage.theme = 'dark'; document.getElementById('themeIcon').innerText = '☀️'; if(isTelegram){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} }
+            if (html.classList.contains('dark')) { html.classList.remove('dark'); localStorage.theme = 'light'; document.getElementById('themeIcon').innerText = '🌙'; if(tg.platform!=='unknown'){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } 
+            else { html.classList.add('dark'); localStorage.theme = 'dark'; document.getElementById('themeIcon').innerText = '☀️'; if(tg.platform!=='unknown'){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} }
         }
         initTheme();
 
@@ -209,7 +208,7 @@
                 if (data.loggedIn) { showApp(data.user); return; } 
             } catch (e) {}
             
-            if (isTelegram && tg.initDataUnsafe?.user?.id) {
+            if (tg.platform && tg.platform !== 'unknown' && tg.initDataUnsafe?.user?.id) {
                 document.getElementById('loginForm').classList.add('hidden'); document.getElementById('tgLoader').classList.remove('hidden');
                 try {
                     const res = await fetch('/api/login-telegram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegramId: tg.initDataUnsafe.user.id }) });
@@ -221,149 +220,113 @@
 
         async function login() {
             const username = document.getElementById('loginUser').value; const password = document.getElementById('loginPass').value;
-            try { 
-                const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
-                const data = await res.json();
+            try { const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); const data = await res.json();
                 if (data.success) showApp(data.user); else { document.getElementById('loginError').innerText = data.message; document.getElementById('loginError').classList.remove('hidden'); }
-            } catch (e) { document.getElementById('loginError').innerText = "Помилка мережі"; document.getElementById('loginError').classList.remove('hidden'); }
+            } catch (e) { alert("Помилка з'єднання"); }
         }
-
         async function logout() { await fetch('/api/logout', { method: 'POST' }); window.location.reload(); }
         function showLogin() { currentUser = null; document.getElementById('appScreen').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); }
 
-        // --- MAIN APP INIT ---
         function showApp(user) {
-            currentUser = user; 
-            document.getElementById('loginScreen').classList.add('hidden'); 
-            document.getElementById('appScreen').classList.remove('hidden');
+            currentUser = user; document.getElementById('loginScreen').classList.add('hidden'); document.getElementById('appScreen').classList.remove('hidden');
             
-            // Name shortening logic
-            const shortName = user.name.split(' ')[0]; 
+            // Name Logic (Apple Style)
+            const shortName = user.name.split(' ')[0];
             document.getElementById('userNameDisplay').innerText = `Привіт, ${shortName}`; 
             
-            document.getElementById('userActionsPanel').classList.remove('hidden');
-            
-            // ROLE LOGIC (This was missing in your broken version)
-            if (['admin', 'SM', 'SSE'].includes(user.role)) {
+            // Permissions Logic (FROM WORKING CODE)
+            if (user.role === 'admin' || user.role === 'SM' || user.role === 'SSE') {
                 document.getElementById('toggleEditBtn').classList.remove('hidden');
-                if (['SM', 'admin'].includes(user.role)) { 
-                    document.getElementById('tabRequestsBtn').classList.remove('hidden'); 
-                    document.getElementById('adminOnlyFunctions').classList.remove('hidden'); 
-                    loadRequests(); 
-                } else { 
-                    document.getElementById('tabRequestsBtn').classList.add('hidden'); 
-                    document.getElementById('adminOnlyFunctions').classList.add('hidden'); 
+                if (user.role === 'SM' || user.role === 'admin') {
+                    document.getElementById('tabRequestsBtn').classList.remove('hidden'); document.getElementById('adminOnlyFunctions').classList.remove('hidden'); loadRequests();
+                } else {
+                    document.getElementById('tabRequestsBtn').classList.add('hidden'); document.getElementById('adminOnlyFunctions').classList.add('hidden');
                 }
-            } else { 
-                document.getElementById('toggleEditBtn').classList.add('hidden'); 
+            } else {
+                document.getElementById('toggleEditBtn').classList.add('hidden');
             }
-            
-            Promise.all([loadEmployeeList(), loadShifts(), loadEvents(), loadTasks()]).then(() => { 
-                calculateHours(); 
-                renderCurrentShifts(); 
-                if(['admin','SM','SSE'].includes(user.role)) renderAdminEventList(); 
-            });
+            Promise.all([loadEmployeeList(), loadShifts(), loadEvents(), loadTasks()]).then(() => { calculateHours(); renderCurrentShifts(); if(user.role === 'admin' || user.role === 'SM' || user.role === 'SSE') renderAdminEventList(); });
         }
 
-        // --- LOADERS ---
-        async function loadEmployeeList() { const r=await fetch('/api/users'); if(r.ok){const d=await r.json(); const w=d.filter(u=>u.role!=='admin'); globalUsers=w; const s1=document.getElementById('employeeSelect'); s1.innerHTML='<option value="" disabled selected>Хто?</option>'; const s2=document.getElementById('taskEmployee'); s2.innerHTML='<option value="" disabled selected>Кому?</option>'; const s3=document.getElementById('viewFilter'); s3.innerHTML='<option value="all">Всі співробітники</option>'; w.forEach(x=>{ s1.innerHTML+=`<option value="${x.name}">${x.name}</option>`; s2.innerHTML+=`<option value="${x.name}">${x.name}</option>`; s3.innerHTML+=`<option value="${x.name}">${x.name}</option>`; });}}
-        async function loadShifts() { const r = await fetch('/api/shifts'); if(r.status === 403) { logout(); return; } if(r.ok) globalShifts = await r.json(); }
-        async function loadEvents(){const r=await fetch('/api/events');if(r.ok)globalEvents=await r.json();}
-        async function loadTasks(){const r=await fetch('/api/tasks');if(r.ok)globalTasks=await r.json();}
-        async function loadRequests(){const r=await fetch('/api/requests');if(r.ok){const d=await r.json();const c=document.getElementById('requestsList');c.innerHTML='';if(d.length===0){c.innerHTML='<p class="text-gray-400 text-xs text-center">Пусто</p>';return;}d.forEach(q=>{let txt='';if(q.type==='add_shift')txt=`➕ Зміна: ${q.data.date} ${q.data.name}`;else if(q.type==='del_shift')txt=`❌ Видалення: ${q.data.details}`;else if(q.type==='add_task')txt=`➕ Задача: ${q.data.title} for ${q.data.name}`;else if(q.type==='del_task')txt=`❌ Видалення задачі: ${q.data.details}`;else txt=q.type;c.innerHTML+=`<div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-xl flex justify-between items-center text-xs"><span class="font-medium">${txt}</span><div class="flex gap-2"><button onclick="handleRequest('${q._id}','approve')" class="text-green-500 font-bold">✓</button><button onclick="handleRequest('${q._id}','reject')" class="text-red-500 font-bold">✕</button></div></div>`});}}
+        // --- LOADERS (FROM WORKING CODE) ---
+        async function loadEmployeeList() { const res = await fetch('/api/users'); const allUsers = await res.json(); const workers = allUsers.filter(u => u.role !== 'admin'); globalUsers = workers; const adminSelect = document.getElementById('employeeSelect'); adminSelect.innerHTML = '<option value="" disabled selected>Хто?</option>'; const taskSelect = document.getElementById('taskEmployee'); taskSelect.innerHTML = '<option value="" disabled selected>Кому?</option>'; const filterSelect = document.getElementById('viewFilter'); filterSelect.innerHTML = '<option value="all">👥 Всі співробітники</option>'; workers.forEach(w => { const opt1 = document.createElement('option'); opt1.value = w.name; opt1.innerText = w.name; adminSelect.appendChild(opt1); const optT = document.createElement('option'); optT.value = w.name; optT.innerText = w.name; taskSelect.appendChild(optT); const opt2 = document.createElement('option'); opt2.value = w.name; opt2.innerText = w.name; filterSelect.appendChild(opt2); }); }
+        async function loadShifts() { const response = await fetch('/api/shifts'); if (response.status === 403) {logout(); return;} if(response.ok) globalShifts = await response.json(); }
+        async function loadEvents() { const res = await fetch('/api/events'); globalEvents = await res.json(); }
+        async function loadTasks() { const res = await fetch('/api/tasks'); globalTasks = await res.json(); }
+        async function loadRequests() { const res = await fetch('/api/requests'); const requests = await res.json(); const container = document.getElementById('requestsList'); container.innerHTML = ''; if (requests.length === 0) { container.innerHTML = '<p class="text-gray-500 text-xs text-center">Запитів немає</p>'; return; } requests.forEach(req => { let desc = ''; if(req.type === 'add_shift') desc = `➕ Зміна: ${req.data.date}, ${req.data.name}`; else if(req.type === 'del_shift') desc = `❌ Видалення зміни: ${req.data.details}`; else if(req.type === 'add_task') desc = `➕ Задача: ${req.data.title}`; else if(req.type === 'del_task') desc = `❌ Видалення задачі: ${req.data.details}`; else desc = `Інше: ${req.type}`; container.innerHTML += `<div class="bg-gray-50 dark:bg-gray-700 p-2 rounded text-xs flex justify-between items-center shadow-sm"><div><div class="font-bold text-gray-700 dark:text-gray-200">${desc}</div><div class="text-[10px] text-gray-500">Від: ${req.createdBy}</div></div><div class="flex gap-2"><button onclick="handleRequest('${req._id}', 'approve')" class="text-green-600 font-bold border border-green-200 bg-green-50 px-2 py-1 rounded">✅</button><button onclick="handleRequest('${req._id}', 'reject')" class="text-red-600 font-bold border border-red-200 bg-red-50 px-2 py-1 rounded">❌</button></div></div>`; }); }
 
-        // --- RENDERERS (APPLE STYLE) ---
-        function calculateHours(){if(!currentUser)return;const now=new Date();const cm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;const ms=globalShifts.filter(s=>s.name===currentUser.name&&s.date.startsWith(cm));let tm=0;ms.forEach(s=>{const [sh,sm]=s.start.split(':').map(Number);const [eh,em]=s.end.split(':').map(Number);tm+=((eh*60+em)-(sh*60+sm));});const h=Math.floor(tm/60);document.getElementById('hoursDisplay').innerText=`${h} годин`;document.getElementById('hoursDisplay').classList.remove('hidden');}
-        
+        // --- RENDER (ONLY VISUAL CHANGES HERE) ---
         function renderTimeline(shifts, filterUser) {
-            const main=document.getElementById('scheduleView'); const archive=document.getElementById('archiveContainer'); const archBtn=document.getElementById('archiveToggleBtn'); const archCount=document.getElementById('archiveCount'); main.innerHTML=''; archive.innerHTML='';
-            const dates=[...new Set(shifts.map(s=>s.date))].sort(); const today=new Date().toISOString().split('T')[0]; if(!dates.includes(today))dates.push(today); dates.sort();
-            let pastC=0; let todayId=null;
+            const mainContainer = document.getElementById('scheduleView'); const archiveContainer = document.getElementById('archiveContainer'); const archiveBtn = document.getElementById('archiveToggleBtn'); const archiveCount = document.getElementById('archiveCount'); mainContainer.innerHTML = ''; archiveContainer.innerHTML = '';
+            const uniqueDates = [...new Set(shifts.map(s => s.date))].sort(); const todayStr = new Date().toISOString().split('T')[0]; if (!uniqueDates.includes(todayStr)) uniqueDates.push(todayStr); uniqueDates.sort(); let pastDaysCount = 0; let todayElementId = null;
+            
+            uniqueDates.forEach(dateStr => {
+                const isPast = dateStr < todayStr; const isToday = dateStr === todayStr; const dayEvents = getEventsForDate(dateStr);
+                
+                // APPLE CARD STYLE
+                const dayBlock = document.createElement('div'); 
+                dayBlock.className = 'bg-white dark:bg-[#1C1C1E] rounded-[24px] shadow-sm p-4';
+                if (isToday) { dayBlock.classList.add('ring-2', 'ring-blue-500'); dayBlock.id = "todayBlock"; todayElementId = "todayBlock"; }
+                
+                const dayDateObj = new Date(dateStr); const dayName = dayDateObj.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' }); 
+                let eventsHtml = ''; dayEvents.forEach(ev => { eventsHtml += `<span class="event-badge ml-2">📌 ${ev.title}</span>`; });
+                
+                // APPLE HEADER
+                dayBlock.innerHTML = `<div class="flex justify-between items-center mb-3 border-b border-gray-100 dark:border-gray-800 pb-2"><span class="font-bold text-lg capitalize tracking-tight ${isToday?'text-blue-500':'text-black dark:text-white'}">${dayName} ${isToday ? '<span class="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full ml-1 align-middle">Сьогодні</span>' : ''}</span><div>${eventsHtml}</div></div>`;
+                
+                const dayContent = document.createElement('div'); dayContent.className = 'space-y-4'; 
+                let usersToShow = (filterUser === 'all') ? globalUsers : globalUsers.filter(u => u.name === filterUser); const shiftsOnThisDay = shifts.filter(s => s.date === dateStr); 
+                usersToShow.sort((a, b) => { const aWork = shiftsOnThisDay.find(s => s.name === a.name); const bWork = shiftsOnThisDay.find(s => s.name === b.name); if (aWork && !bWork) return -1; if (!aWork && bWork) return 1; return a.name.localeCompare(b.name); });
+                
+                let hasAnyInfo = false;
+                usersToShow.forEach(user => {
+                    const shift = shiftsOnThisDay.find(s => s.name === user.name); const userTasks = globalTasks.filter(t => t.date === dateStr && t.name === user.name); if (shift || userTasks.length > 0) hasAnyInfo = true;
+                    
+                    // SHORT NAME LOGIC
+                    const shortName = user.name.split(' ')[0];
 
-            dates.forEach(dStr => {
-                const isPast = dStr < today; const isToday = dStr === today; const evs = getEventsForDate(dStr);
-                // Apple Card
-                const block = document.createElement('div');
-                block.className = 'bg-white dark:bg-[#1C1C1E] rounded-[20px] shadow-sm p-4';
-                if(isToday) { block.className += ' ring-2 ring-blue-500'; block.id='todayBlock'; todayId='todayBlock'; }
+                    if (shift) {
+                        const isMe = shift.name === currentUser.name; const [sH, sM] = shift.start.split(':').map(Number); const [eH, eM] = shift.end.split(':').map(Number); const startH = sH + sM/60; const endH = eH + eM/60; let left = ((startH - START_HOUR) / TOTAL_HOURS) * 100; let width = ((endH - startH) / TOTAL_HOURS) * 100; if (left < 0) { width += left; left = 0; } if (left + width > 100) width = 100 - left; 
+                        const barColor = isMe ? 'bg-blue-500' : 'bg-green-500'; const nameColor = isMe ? 'text-blue-500 font-bold' : 'text-gray-900 dark:text-gray-200 font-medium';
+                        let taskBadges = ''; let taskBars = ''; 
+                        userTasks.forEach(task => { if (task.isFullDay) { taskBadges += `<span class="task-badge-full ml-2">★ ${task.title}</span>`; } else { const [tsH, tsM] = task.start.split(':').map(Number); const [teH, teM] = task.end.split(':').map(Number); const tStartH = tsH + tsM/60; const tEndH = teH + teM/60; let tLeft = ((tStartH - START_HOUR) / TOTAL_HOURS) * 100; let tWidth = ((tEndH - tStartH) / TOTAL_HOURS) * 100; if (tLeft < 0) { tWidth += tLeft; tLeft = 0; } if (tLeft + tWidth > 100) tWidth = 100 - tLeft; const delBtn = (currentUser.role==='admin'||currentUser.role==='SM'||currentUser.role==='SSE') ? `onclick="deleteTask('${task._id}')" style="cursor:pointer;"` : ''; taskBars += `<div class="task-bar flex items-center justify-center text-[9px] text-white font-bold overflow-hidden" ${delBtn} style="left: ${tLeft}%; width: ${tWidth}%;">${task.title}</div>`; } });
+                        
+                        const delS = (['admin','SM','SSE'].includes(currentUser.role)) ? `<button onclick="deleteShiftInGroup('${shift.date}', '${shift.name}')" class="ml-2 text-gray-400 hover:text-red-500 text-xs">✕</button>` : '';
 
-                const dObj = new Date(dStr); const dName = dObj.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
-                let evHtml = ''; evs.forEach(e => evHtml+=`<span class="event-badge ml-2">📌 ${e.title}</span>`);
-
-                let html = `<div class="flex justify-between items-center mb-3 border-b border-gray-100 dark:border-gray-800 pb-2"><span class="font-bold text-lg capitalize tracking-tight ${isToday?'text-blue-500':'text-black dark:text-white'}">${dName} ${isToday?'<span class="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full ml-1 align-middle">Сьогодні</span>':''}</span><div>${evHtml}</div></div><div class="space-y-4">`;
-
-                let users = (filterUser==='all') ? globalUsers : globalUsers.filter(u=>u.name===filterUser);
-                const dayShifts = shifts.filter(s=>s.date===dStr);
-                users.sort((a,b) => { const sA=dayShifts.find(s=>s.name===a.name); const sB=dayShifts.find(s=>s.name===b.name); if(sA&&!sB)return -1; if(!sA&&sB)return 1; return a.name.localeCompare(b.name); });
-
-                let hasInfo = false;
-                users.forEach(u => {
-                    const s = dayShifts.find(x=>x.name===u.name); const ts = globalTasks.filter(t=>t.date===dStr && t.name===u.name);
-                    if(s || ts.length>0) hasInfo = true;
-
-                    if(s) {
-                        const isMe = s.name === currentUser.name;
-                        const [sH,sM] = s.start.split(':').map(Number); const [eH,eM] = s.end.split(':').map(Number);
-                        let l = ((sH+sM/60 - START_HOUR)/TOTAL_HOURS)*100; let w = ((eH+eM/60 - (sH+sM/60))/TOTAL_HOURS)*100;
-                        if(l<0){w+=l;l=0} if(l+w>100)w=100-l;
-
-                        let tBars = ''; let tBadges = '';
-                        ts.forEach(t => {
-                            if(t.isFullDay) { tBadges += `<span class="task-badge-full ml-2">★ ${t.title}</span>`; } 
-                            else {
-                                const [tS_h,tS_m] = t.start.split(':').map(Number); const [tE_h,tE_m] = t.end.split(':').map(Number);
-                                let tl = ((tS_h+tS_m/60 - START_HOUR)/TOTAL_HOURS)*100; let tw = ((tE_h+tE_m/60 - (tS_h+tS_m/60))/TOTAL_HOURS)*100;
-                                if(tl<0){tw+=tl;tl=0} if(tl+tw>100)tw=100-tl;
-                                const del = (['admin','SM','SSE'].includes(currentUser.role)) ? `onclick="deleteTask('${t._id}')"` : '';
-                                tBars += `<div class="task-bar flex items-center justify-center text-[9px] text-white font-bold" ${del} style="left:${tl}%; width:${tw}%;">${t.title}</div>`;
-                            }
-                        });
-                        const delS = (['admin','SM','SSE'].includes(currentUser.role)) ? `<button onclick="deleteShiftInGroup('${s.date}','${s.name}')" class="ml-2 text-gray-400 hover:text-red-500 text-xs">✕</button>` : '';
-                        const shortName = u.name.split(' ')[0];
-
-                        html += `<div><div class="flex items-center justify-between text-xs mb-1 font-medium ${isMe?'text-blue-500':'text-gray-900 dark:text-gray-200'}"><div class="flex items-center"><span class="text-sm font-semibold">${shortName}</span><span class="text-gray-400 ml-2 font-mono text-[10px]">${s.start}-${s.end}</span>${tBadges}</div>${delS}</div><div class="timeline-grid">${Array(10).fill('<div class="timeline-mark"></div>').join('')}<div class="shift-bar ${isMe?'bg-blue-500 shadow-lg shadow-blue-500/40':'bg-green-500'}" style="left:${l}%; width:${w}%"></div>${tBars}</div></div>`;
-                    } else if (ts.length > 0) {
-                        let tBadges = ''; ts.forEach(t=>tBadges+=`<span class="task-badge-full ml-2">★ ${t.title}</span>`);
-                        const shortName = u.name.split(' ')[0];
-                        html += `<div class="opacity-70"><div class="flex items-center text-xs mb-1"><span>${shortName}</span> <span class="text-gray-400 ml-2">Вихідний</span> ${tBadges}</div><div class="h-1 bg-gray-100 dark:bg-gray-800 rounded-full w-full"></div></div>`;
+                        dayContent.innerHTML += `<div><div class="flex items-center justify-between text-xs mb-1 ${nameColor}"><div class="flex items-center"><span class="text-sm">${shortName}</span> <span class="text-gray-400 dark:text-gray-500 ml-2 font-mono text-[10px]">${shift.start}-${shift.end}</span>${taskBadges}</div>${delS}</div><div class="timeline-grid">${Array(10).fill('<div class="timeline-mark"></div>').join('')}<div class="shift-bar ${barColor}" style="left: ${left}%; width: ${width}%;"></div>${taskBars}</div></div>`;
+                    } else if (userTasks.length > 0) {
+                        let taskBadges = ''; userTasks.forEach(task => taskBadges += `<span class="task-badge-full ml-2">★ ${task.title}</span>`); 
+                        dayContent.innerHTML += `<div class="opacity-70"><div class="flex items-center text-xs mb-1 text-gray-500 dark:text-gray-400"><span>${shortName}</span> <span class="ml-1">Вихідний</span>${taskBadges}</div><div class="h-1 bg-gray-100 dark:bg-gray-800 rounded w-full"></div></div>`;
                     }
                 });
-                
-                html += `</div>`; block.innerHTML = html;
-                if(hasInfo) { if(isPast) { archive.appendChild(block); pastC++; } else main.appendChild(block); }
+                if (hasAnyInfo) { dayBlock.appendChild(dayContent); if (isPast) { archiveContainer.appendChild(dayBlock); pastDaysCount++; } else { mainContainer.appendChild(dayBlock); } }
             });
-
-            if(pastC>0) { archBtn.classList.remove('hidden'); archCount.innerText=pastC; } else archBtn.classList.add('hidden');
-            if(todayId) setTimeout(()=>document.getElementById(todayId)?.scrollIntoView({behavior:'smooth',block:'center'}),500);
+            if (pastDaysCount > 0) { archiveBtn.classList.remove('hidden'); archiveCount.innerText = pastDaysCount; } else { archiveBtn.classList.add('hidden'); } if (todayElementId) { setTimeout(() => { const el = document.getElementById(todayElementId); if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 500); }
         }
 
-        // --- ACTIONS ---
-        async function handleRequest(id,a){await fetch('/api/requests/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:a})});loadRequests();loadShifts();loadTasks();setTimeout(()=>renderCurrentShifts(),500);}
-        async function approveAllRequests(){if(confirm('Всі?')){await fetch('/api/requests/approve-all',{method:'POST'});loadRequests();loadShifts();loadTasks();setTimeout(()=>renderCurrentShifts(),500);}}
-        async function addShift(){const date=document.getElementById('shiftDate').value;const name=document.getElementById('employeeSelect').value;const start=document.getElementById('startTime').value;const end=document.getElementById('endTime').value;if(!date||!name)return alert('Дані?');const r=await fetch('/api/shifts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,name,start,end})});const d=await r.json();if(d.pending)alert('На підтвердженні');loadShifts().then(()=>renderCurrentShifts());}
-        async function addTask(){const t=document.getElementById('taskTitle').value;const d=document.getElementById('taskDate').value;const n=document.getElementById('taskEmployee').value;const f=document.getElementById('taskFullDay').checked;const s=document.getElementById('taskStart').value;const e=document.getElementById('taskEnd').value;if(!t||!d||!n)return;await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:t,date:d,name:n,isFullDay:f,start:s,end:e})});loadTasks().then(()=>renderCurrentShifts());}
-        async function deleteShiftInGroup(d,n){if(confirm('Видалити?')){const r=await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d,name:n})});const all=globalShifts.find(s=>s.date===d&&s.name===n);if(all){const r2=await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:all._id})});const d2=await r2.json();if(d2.pending)alert('Запит на видалення');loadShifts().then(()=>renderCurrentShifts());}}}
-        async function deleteTask(id){if(confirm('Видалити?')){const r=await fetch('/api/tasks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const d=await r.json();if(d.pending)alert('Запит');loadTasks().then(()=>renderCurrentShifts());}}
-        async function addEvent(){const t=document.getElementById('eventTitle').value;const d=document.getElementById('eventDate').value;const r=document.getElementById('eventRepeat').value;if(!t)return;await fetch('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:t,date:d,repeat:r})});loadEvents().then(()=>renderCurrentShifts()); renderAdminEventList();}
-        async function deleteEvent(id){if(confirm('?'))await fetch('/api/events/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadEvents().then(()=>renderCurrentShifts());renderAdminEventList();}
-        
-        // --- HELPERS ---
-        function getEventsForDate(d){const ch=new Date(d);return globalEvents.filter(e=>{const ev=new Date(e.date);if(e.repeat==='none')return e.date===d;if(e.repeat==='weekly')return ch>=ev&&ch.getDay()===ev.getDay();if(e.repeat==='monthly')return ch>=ev&&ch.getDate()===ev.getDate();if(e.repeat==='yearly')return ch>=ev&&ch.getMonth()===ev.getMonth()&&ch.getDate()===ev.getDate();return false;});}
-        function renderCalendar(){const g=document.getElementById('calendarGrid');const t=document.getElementById('calendarTitle');g.innerHTML='';const y=currentCalendarDate.getFullYear();const m=currentCalendarDate.getMonth();t.innerText=currentCalendarDate.toLocaleDateString('uk-UA',{month:'long',year:'numeric'});const fd=new Date(y,m,1);const ld=new Date(y,m+1,0);let sdi=fd.getDay()-1;if(sdi===-1)sdi=6;for(let i=0;i<sdi;i++){const e=document.createElement('div');e.className='calendar-day empty';g.appendChild(e);}const td=new Date().toISOString().split('T')[0];for(let d=1;d<=ld.getDate();d++){const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const dc=document.createElement('div');dc.className='calendar-day';if(ds===td)dc.classList.add('today');const ms=globalShifts.find(s=>s.date===ds&&s.name===currentUser.name);const de=getEventsForDate(ds);const mt=globalTasks.filter(t=>t.date===ds&&t.name===currentUser.name);let c=`<div class="day-label"><span>${d}</span></div>`;de.forEach(e=>{c+=`<div class="event-badge" title="${e.title}">${e.title}</div>`;});mt.forEach(t=>{c+=`<div class="text-[9px] text-purple-700 font-bold leading-tight mb-0.5">★ ${t.title}</div>`;});if(ms){dc.classList.add('bg-blue-50','dark:bg-blue-900/20');c+=`<div class="work-badge">${ms.start}-${ms.end}</div>`;}else{c+=`<div class="text-[10px] text-gray-300 dark:text-gray-600 text-center mt-auto">.</div>`;}dc.innerHTML=c;g.appendChild(dc);}}
-        function changeMonth(d){currentCalendarDate.setMonth(currentCalendarDate.getMonth()+d);renderCalendar();}
-        function renderAdminEventList(){const l=document.getElementById('eventListAdmin');l.innerHTML='';globalEvents.forEach(e=>{l.innerHTML+=`<div class="flex justify-between border-b border-gray-100 dark:border-gray-800 p-2 text-xs"><span>${e.title} (${e.date})</span><button onclick="deleteEvent('${e._id}')" class="text-red-500">✕</button></div>`})}
-        function toggleEditMode(){const p=document.getElementById('adminPanel');const b=document.getElementById('toggleEditBtn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.classList.add('bg-blue-500','text-white');b.classList.remove('bg-gray-200','dark:bg-[#3A3A3C]','text-black');}else{p.classList.add('hidden');b.classList.remove('bg-blue-500','text-white');b.classList.add('bg-gray-200','dark:bg-[#3A3A3C]','text-black');}}
-        function showAdminTab(t){['shifts','tasks','events','requests'].forEach(x=>document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.add('hidden'));document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.remove('hidden');}
-        function toggleTaskTimeInputs(){const c=document.getElementById('taskFullDay').checked;const i=document.getElementById('taskTimeInputs');if(c)i.classList.add('opacity-30','pointer-events-none');else i.classList.remove('opacity-30','pointer-events-none');}
-        function toggleArchive(){document.getElementById('archiveContainer').classList.toggle('hidden');}
-        function renderCurrentShifts(){renderTimeline(globalShifts,document.getElementById('viewFilter').value);renderCalendar();}
-        function setMode(m){const l=document.getElementById('listViewContainer');const c=document.getElementById('calendarViewContainer');const f=document.getElementById('filterContainer');const b1=document.getElementById('btnModeList');const b2=document.getElementById('btnModeCalendar'); if(m==='list'){l.classList.remove('hidden');c.classList.add('hidden');f.classList.remove('hidden');b1.className="flex-1 py-1.5 text-xs font-semibold rounded-[8px] transition-all bg-white dark:bg-[#636366] shadow-sm";b2.className="flex-1 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 rounded-[8px] transition-all";}else{l.classList.add('hidden');c.classList.remove('hidden');f.classList.add('hidden');b2.className="flex-1 py-1.5 text-xs font-semibold rounded-[8px] transition-all bg-white dark:bg-[#636366] shadow-sm";b1.className="flex-1 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 rounded-[8px] transition-all";renderCalendar();}}
-        function toggleImport(){document.getElementById('bulkImportForm').classList.toggle('hidden');}
-        async function uploadBulk(){const text=document.getElementById('bulkText').value.trim();if(!text)return;const shifts=[];text.split('\n').forEach(line=>{const parts=line.split(',');if(parts.length>=4)shifts.push({date:parts[0].trim(),name:parts[1].trim(),start:parts[2].trim(),end:parts[3].trim()});});if(shifts.length===0)return alert('Невірний формат!');await fetch('/api/shifts/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shifts})});document.getElementById('bulkText').value='';toggleImport();loadShifts().then(()=>renderCurrentShifts());}
-        async function clearDay(){const date=document.getElementById('shiftDate').value;if(!date)return alert('Обери дату!');if(!confirm(`Точно видалити всі зміни за ${date}?`))return;await fetch('/api/shifts/clear-day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date})});loadShifts().then(()=>renderCurrentShifts());}
-        async function clearMonth(){const date=document.getElementById('shiftDate').value;if(!date)return alert('Обери дату!');const month=date.substring(0,7);if(!confirm(`УВАГА! Видалити ВЕСЬ графік за місяць ${month}?`))return;await fetch('/api/shifts/clear-month',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({month})});loadShifts().then(()=>renderCurrentShifts());}
-        function downloadAllMyShifts(){if(!currentUser)return;const today=new Date().toISOString().split('T')[0];const myShifts=globalShifts.filter(s=>s.name===currentUser.name&&s.date>=today);if(myShifts.length===0)return alert('Немає змін!');let ics="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Shifter//UA\n";myShifts.forEach(s=>{const start=s.date.replace(/-/g,'')+'T'+s.start.replace(':','')+'00';const end=s.date.replace(/-/g,'')+'T'+s.end.replace(':','')+'00';ics+=`BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Робота\nEND:VEVENT\n`;});ics+="END:VCALENDAR";const a=document.createElement('a');a.href=window.URL.createObjectURL(new Blob([ics],{type:'text/calendar'}));a.download=`my-shifts.ics`;document.body.appendChild(a);a.click();document.body.removeChild(a);}
-
+        // --- REST OF ACTIONS (FROM WORKING CODE) ---
+        async function handleRequest(id, action) { await fetch('/api/requests/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action }) }); loadRequests(); loadShifts(); loadTasks(); loadEvents(); setTimeout(() => renderCurrentShifts(), 500); }
+        async function approveAllRequests() { if(!confirm("Підтвердити ВСІ запити списком?")) return; await fetch('/api/requests/approve-all', { method: 'POST' }); loadRequests(); loadShifts(); loadTasks(); setTimeout(() => renderCurrentShifts(), 500); }
+        async function addShift() { const date = document.getElementById('shiftDate').value; const name = document.getElementById('employeeSelect').value; const start = document.getElementById('startTime').value; const end = document.getElementById('endTime').value; if (!date || !name || !start || !end) return alert("Заповни все!"); const res = await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, name, start, end }) }); const data = await res.json(); if (data.pending) alert("✅ Відправлено на підтвердження SM!"); else alert("✅ Зміну додано!"); loadShifts().then(() => renderCurrentShifts()); }
+        async function addTask() { const title = document.getElementById('taskTitle').value; const date = document.getElementById('taskDate').value; const name = document.getElementById('taskEmployee').value; const isFullDay = document.getElementById('taskFullDay').checked; const start = document.getElementById('taskStart').value; const end = document.getElementById('taskEnd').value; if(!title || !date || !name) return alert("Заповни все!"); const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, date, name, isFullDay, start, end }) }); const data = await res.json(); if (data.pending) alert("✅ Задача відправлена на підтвердження!"); else alert("✅ Задачу призначено!"); loadTasks().then(() => renderCurrentShifts()); }
+        async function deleteShiftInGroup(date, name) { const res = await fetch('/api/shifts'); const allShifts = await res.json(); const shift = allShifts.find(s => s.date === date && s.name === name); if (shift && confirm("Видалити цю зміну?")) { const r = await fetch('/api/delete-shift', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: shift._id }) }); const d = await r.json(); if(d.pending) alert("❌ Запит на видалення надіслано SM."); else loadShifts().then(() => renderCurrentShifts()); } }
+        async function deleteTask(id) { if(!confirm("Видалити задачу?")) return; const r = await fetch('/api/tasks/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); const d = await r.json(); if(d.pending) alert("❌ Запит на видалення надіслано SM."); else loadTasks().then(() => renderCurrentShifts()); }
+        function showAdminTab(tab) { document.getElementById('adminTabShifts').classList.add('hidden'); document.getElementById('adminTabEvents').classList.add('hidden'); document.getElementById('adminTabTasks').classList.add('hidden'); document.getElementById('adminTabRequests').classList.add('hidden'); if(tab === 'shifts') document.getElementById('adminTabShifts').classList.remove('hidden'); else if(tab === 'events') document.getElementById('adminTabEvents').classList.remove('hidden'); else if(tab === 'tasks') document.getElementById('adminTabTasks').classList.remove('hidden'); else if(tab === 'requests') { document.getElementById('adminTabRequests').classList.remove('hidden'); loadRequests(); } }
+        function calculateHours() { if (!currentUser) return; const now = new Date(); const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`; const myShifts = globalShifts.filter(s => s.name === currentUser.name && s.date.startsWith(currentMonthStr)); let totalMinutes = 0; myShifts.forEach(s => { const [startH, startM] = s.start.split(':').map(Number); const [endH, endM] = s.end.split(':').map(Number); totalMinutes += ((endH * 60 + endM) - (startH * 60 + startM)); }); const hours = Math.floor(totalMinutes / 60); document.getElementById('hoursDisplay').innerText = `${hours} год.`; document.getElementById('hoursDisplay').classList.remove('hidden'); }
+        function renderCurrentShifts() { renderTimeline(globalShifts, document.getElementById('viewFilter').value); renderCalendar(); }
+        function getEventsForDate(d) { const ch = new Date(d); return globalEvents.filter(e => { const ev = new Date(e.date); if(e.repeat==='none')return e.date===d; if(e.repeat==='weekly')return ch>=ev && ch.getDay()===ev.getDay(); if(e.repeat==='monthly')return ch>=ev && ch.getDate()===ev.getDate(); if(e.repeat==='yearly')return ch>=ev && ch.getMonth()===ev.getMonth() && ch.getDate()===ev.getDate(); return false; }); }
+        function renderCalendar() { const g = document.getElementById('calendarGrid'); const t = document.getElementById('calendarTitle'); g.innerHTML = ''; const y = currentCalendarDate.getFullYear(); const m = currentCalendarDate.getMonth(); t.innerText = currentCalendarDate.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' }); const fd = new Date(y, m, 1); const ld = new Date(y, m + 1, 0); let sdi = fd.getDay() - 1; if (sdi === -1) sdi = 6; for (let i = 0; i < sdi; i++) { const e = document.createElement('div'); e.className = 'calendar-day empty'; g.appendChild(e); } const td = new Date().toISOString().split('T')[0]; for (let d = 1; d <= ld.getDate(); d++) { const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`; const dc = document.createElement('div'); dc.className = 'calendar-day'; if (ds === td) dc.classList.add('today'); const ms = globalShifts.find(s => s.date === ds && s.name === currentUser.name); const de = getEventsForDate(ds); const mt = globalTasks.filter(t => t.date === ds && t.name === currentUser.name); let c = `<div class="day-label"><span>${d}</span></div>`; de.forEach(e => { c += `<div class="event-badge" title="${e.title}">${e.title}</div>`; }); mt.forEach(t => { c += `<div class="text-[9px] text-purple-700 font-bold leading-tight mb-0.5">★ ${t.title}</div>`; }); if (ms) { dc.classList.add('bg-blue-50', 'dark:bg-blue-900/20'); c += `<div class="work-badge">${ms.start}-${ms.end}</div>`; } else { c += `<div class="text-[10px] text-gray-300 dark:text-gray-600 text-center mt-auto">.</div>`; } dc.innerHTML = c; g.appendChild(dc); } }
+        function changeMonth(d) { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + d); renderCalendar(); }
+        function setMode(m) { const l = document.getElementById('listViewContainer'); const c = document.getElementById('calendarViewContainer'); const f = document.getElementById('filterContainer'); if (m === 'list') { document.getElementById('btnModeList').classList.replace('text-gray-500', 'bg-white'); document.getElementById('btnModeCalendar').classList.replace('bg-white', 'text-gray-500'); l.classList.remove('hidden'); c.classList.add('hidden'); f.classList.remove('hidden'); } else { document.getElementById('btnModeCalendar').classList.replace('text-gray-500', 'bg-white'); document.getElementById('btnModeList').classList.replace('bg-white', 'text-gray-500'); l.classList.add('hidden'); c.classList.remove('hidden'); f.classList.add('hidden'); renderCalendar(); } }
+        async function addEvent() { const title = document.getElementById('eventTitle').value; const date = document.getElementById('eventDate').value; const repeat = document.getElementById('eventRepeat').value; if(!title || !date) return alert("Вкажи назву і дату"); await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, date, repeat }) }); alert("Подію створено!"); loadEvents().then(() => renderCurrentShifts()); }
+        function renderAdminEventList() { const list = document.getElementById('eventListAdmin'); list.innerHTML = '<b>Всі події:</b>'; globalEvents.forEach(ev => { const rep = ev.repeat === 'none' ? '' : `(🔄 ${ev.repeat})`; list.innerHTML += `<div class="flex justify-between border-b border-gray-100 p-1"><span>${ev.date}: ${ev.title} ${rep}</span> <button onclick="deleteEvent('${ev._id}')" class="text-red-500">x</button></div>`; }); }
+        async function deleteEvent(id) { if(!confirm("Видалити?")) return; await fetch('/api/events/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); loadEvents().then(() => renderCurrentShifts()); }
+        function toggleArchive() { document.getElementById('archiveContainer').classList.toggle('hidden'); }
+        async function clearDay() { const date = document.getElementById('shiftDate').value; if (!date) return alert("Обери дату!"); if (!confirm(`Точно видалити всі зміни за ${date}?`)) return; await fetch('/api/shifts/clear-day', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date }) }); loadShifts().then(() => renderCurrentShifts()); }
+        async function clearMonth() { const date = document.getElementById('shiftDate').value; if (!date) return alert("Обери дату!"); const month = date.substring(0, 7); if (!confirm(`УВАГА! Видалити ВЕСЬ графік за місяць ${month}?`)) return; await fetch('/api/shifts/clear-month', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ month }) }); loadShifts().then(() => renderCurrentShifts()); }
+        async function uploadBulk() { const text = document.getElementById('bulkText').value.trim(); if (!text) return; const shifts = []; text.split('\n').forEach(line => { const parts = line.split(','); if (parts.length >= 4) shifts.push({ date: parts[0].trim(), name: parts[1].trim(), start: parts[2].trim(), end: parts[3].trim() }); }); if (shifts.length === 0) return alert("Невірний формат!"); await fetch('/api/shifts/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shifts }) }); document.getElementById('bulkText').value = ''; toggleImport(); loadShifts().then(() => renderCurrentShifts()); }
+        function toggleImport() { document.getElementById('bulkImportForm').classList.toggle('hidden'); }
+        function downloadAllMyShifts() { if (!currentUser) return; const today = new Date().toISOString().split('T')[0]; const myShifts = globalShifts.filter(s => s.name === currentUser.name && s.date >= today); if (myShifts.length === 0) return alert("Немає змін!"); let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Shifter//UA\n"; myShifts.forEach(s => { const start = s.date.replace(/-/g, '') + 'T' + s.start.replace(':', '') + '00'; const end = s.date.replace(/-/g, '') + 'T' + s.end.replace(':', '') + '00'; ics += `BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Робота\nEND:VEVENT\n`; }); ics += "END:VCALENDAR"; const a = document.createElement('a'); a.href = window.URL.createObjectURL(new Blob([ics], {type: 'text/calendar'})); a.download = `my-shifts.ics`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
         checkAuth();
     </script>
 </body>
