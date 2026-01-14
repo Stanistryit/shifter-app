@@ -11,6 +11,9 @@ const cron = require('node-cron');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// 1. ДОВІРЯЄМО RENDER (ОБОВ'ЯЗКОВО ДЛЯ СЕСІЙ)
+app.set('trust proxy', 1);
+
 // --- DB ---
 mongoose.connect(process.env.MONGO_URI)
     .then(() => { console.log("✅ Connected to MongoDB"); initDB(); })
@@ -46,11 +49,19 @@ const Request = mongoose.model('Request', RequestSchema);
 // --- MIDDLEWARE ---
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// 2. НАЛАШТУВАННЯ СЕСІЙ (ВИПРАВЛЕНО)
 app.use(session({
     secret: 'supersecretkey',
-    resave: false, saveUninitialized: false,
+    resave: false, 
+    saveUninitialized: false,
     store: MongoStore.create({ mongoUrl: process.env.MONGO_URI }),
-    cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
+    cookie: { 
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 днів
+        httpOnly: true,
+        secure: true,      // Обов'язково true для Render (HTTPS)
+        sameSite: 'none'   // Обов'язково 'none' для роботи в Telegram WebApp
+    }
 }));
 
 // --- PERMISSIONS ---
@@ -67,32 +78,49 @@ async function handlePermission(req, type, data) {
 
 // --- API ROUTES ---
 app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-    const user = await User.findOne({ username, password });
-    if (user) { req.session.userId = user._id; res.json({ success: true, user: { name: user.name, role: user.role } }); } 
-    else { res.json({ success: false, message: "Невірний логін або пароль" }); }
+    try {
+        const { username, password } = req.body;
+        const user = await User.findOne({ username, password });
+        if (user) { 
+            req.session.userId = user._id;
+            // Примусове збереження сесії
+            req.session.save(err => {
+                if(err) return res.json({ success: false, message: "Session Error" });
+                res.json({ success: true, user: { name: user.name, role: user.role } }); 
+            });
+        } 
+        else { 
+            res.json({ success: false, message: "Невірний логін або пароль" }); 
+        }
+    } catch (e) {
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
 });
 
-// НОВИЙ МАРШРУТ: Авто-вхід через Телеграм
 app.post('/api/login-telegram', async (req, res) => {
     const { telegramId } = req.body;
     if (!telegramId) return res.json({ success: false });
     const user = await User.findOne({ telegramChatId: telegramId });
     if (user) {
         req.session.userId = user._id;
-        res.json({ success: true, user: { name: user.name, role: user.role } });
+        req.session.save(err => {
+            if(err) return res.json({ success: false });
+            res.json({ success: true, user: { name: user.name, role: user.role } });
+        });
     } else {
         res.json({ success: false });
     }
 });
 
 app.post('/api/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
+
 app.get('/api/me', async (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
     const user = await User.findById(req.session.userId);
     if (!user) return res.json({ loggedIn: false });
     res.json({ loggedIn: true, user: { name: user.name, role: user.role } });
 });
+
 app.get('/api/users', async (req, res) => { const users = await User.find({}, 'name role'); res.json(users); });
 
 // Shifts
@@ -121,18 +149,15 @@ app.post('/api/requests/approve-all', async (req, res) => { const rs=await Reque
 async function initDB() { try { if ((await User.countDocuments()) === 0) await User.create([{ username: "admin", password: "123", role: "admin", name: "Адмін" }]); } catch (e) { console.log(e); } }
 
 // ============================================================
-// --- TELEGRAM BOT (WEBHOOK MODE) ---
+// --- TELEGRAM BOT (WEBHOOK) ---
 // ============================================================
 if (process.env.TELEGRAM_TOKEN) {
-    // ВАЖЛИВО: Прибираємо { polling: true }
     const bot = new TelegramBot(process.env.TELEGRAM_TOKEN); 
-    const APP_URL = 'https://shifter-app.onrender.com'; // Твоя адреса з логів
+    const APP_URL = 'https://shifter-app.onrender.com';
     
-    // Встановлюємо Webhook
     bot.setWebHook(`${APP_URL}/bot${process.env.TELEGRAM_TOKEN}`);
     console.log("🤖 Telegram Bot: Webhook set to", `${APP_URL}/bot***`);
 
-    // Обробляємо вхідні повідомлення від Телеграма
     app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => {
         bot.processUpdate(req.body);
         res.sendStatus(200);
@@ -147,12 +172,12 @@ if (process.env.TELEGRAM_TOKEN) {
         const s = await Shift.find({ name: u.name, date: { $gte: t } }).limit(5); const tk = await Task.find({ name: u.name, date: { $gte: t } });
         let r = "📋 **Події:**\n"; s.forEach(x => r+=`🔹 ${x.date}: ${x.start}-${x.end}\n`); tk.forEach(x => r+=`🔸 ${x.date}: ${x.title}\n`); bot.sendMessage(msg.chat.id, r || "Пусто.");
     });
+    
     bot.onText(/\/month/, async (msg) => { const u=await User.findOne({telegramChatId:msg.chat.id});if(!u)return; const d=new Date();const m=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;const s=await Shift.find({name:u.name,date:{$regex:`^${m}`}}).sort({date:1});let r=`📆 **${m}:**\n`;s.forEach(x=>r+=`${x.date.slice(8)}: ${x.start}-${x.end}\n`);bot.sendMessage(msg.chat.id,r||"Пусто."); });
     bot.onText(/\/off/, async (msg) => { const u=await User.findOne({telegramChatId:msg.chat.id});if(!u)return;const d=new Date();const m=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;const dim=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();const s=await Shift.find({name:u.name,date:{$regex:`^${m}`}});const wd=s.map(x=>parseInt(x.date.split('-')[2]));let off=[];for(let i=d.getDate();i<=dim;i++){if(!wd.includes(i))off.push(i);}bot.sendMessage(msg.chat.id,`🌴 Вихідні: ${off.join(', ')}`); });
     bot.onText(/\/settings/, async (msg) => { const u=await User.findOne({telegramChatId:msg.chat.id});if(!u)return; bot.sendMessage(msg.chat.id,`⚙️ Налаштування`,{reply_markup:{inline_keyboard:[[{text:'🌙 Вечір',callback_data:'set_remind_20'}],[{text:'☀️ Ранок',callback_data:'set_remind_08'}],[{text:'🔕 Вимкнути',callback_data:'set_remind_none'}]]}}); });
     bot.on('callback_query', async (q) => { const u=await User.findOne({telegramChatId:q.message.chat.id});if(!u)return; if(q.data.startsWith('set_remind_')){u.reminderTime=q.data.replace('set_remind_','').replace('none','none'); if(u.reminderTime==='20')u.reminderTime='20:00'; if(u.reminderTime==='08')u.reminderTime='08:00'; await u.save(); bot.sendMessage(q.message.chat.id, "✅ Збережено"); bot.answerCallbackQuery(q.id);} });
 
-    // CRON
     cron.schedule('0 18 * * *', async () => { 
         const t = new Date(); t.setDate(t.getDate() + 1); const d = t.toISOString().split('T')[0];
         const s = await Shift.find({ date: d }); const tasks = await Task.find({ date: d });
