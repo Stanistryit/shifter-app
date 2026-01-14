@@ -24,10 +24,11 @@
     <style>
         body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
         
-        /* --- APPLE STYLES --- */
+        /* Glass Header */
         .glass-header { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(0,0,0,0.05); }
         .dark .glass-header { background: rgba(28, 28, 30, 0.85); border-bottom: 1px solid rgba(255,255,255,0.1); }
 
+        /* Timeline */
         .timeline-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; border-radius: 6px; overflow: hidden; position: relative; height: 12px; margin-bottom: 8px; }
         .timeline-mark { border-right: 1px solid rgba(0,0,0,0.05); height: 100%; }
         .dark .timeline-mark { border-right-color: rgba(255,255,255,0.05); }
@@ -36,20 +37,22 @@
         .shift-bar { position: absolute; top: 0; bottom: 0; border-radius: 100px; opacity: 1; z-index: 10; transition: all 0.3s; }
         .task-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 100px; z-index: 20; background-color: #BF5AF2; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.3); }
         
+        /* Calendar */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
         .calendar-day { min-height: 85px; border-radius: 14px; padding: 6px; font-size: 13px; background: white; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03); border: 1px solid transparent; }
         .dark .calendar-day { background: #1C1C1E; color: white; }
         .calendar-day.today { border: 2px solid #007AFF; }
+        .day-label { font-weight: bold; margin-bottom: 2px; display: flex; justify-content: space-between; }
         
-        .work-badge { background-color: #007AFF15; color: #007AFF; padding: 3px 6px; border-radius: 6px; margin-top: 2px; text-align: center; font-size: 11px; font-weight: 600; }
+        /* Badges */
+        .work-badge { background-color: #007AFF15; color: #007AFF; padding: 2px 4px; border-radius: 4px; margin-top: 2px; text-align: center; font-size: 10px; font-weight: 600; }
         .dark .work-badge { background-color: #0A84FF20; color: #0A84FF; }
-        
         .event-badge { background-color: #FFD60A20; color: #B49104; padding: 2px 5px; border-radius: 4px; font-size: 10px; margin-bottom: 2px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .dark .event-badge { background-color: #FFD60A20; color: #FFD60A; }
-        
         .task-badge-full { color: #BF5AF2; font-size: 10px; font-weight: 700; border: 1px solid #BF5AF2; padding: 1px 4px; border-radius: 4px; margin-bottom: 1px; }
         .dark .task-badge-full { color: #E9D5FF; border-color: #E9D5FF; }
 
+        /* Inputs */
         .ios-input { background: #E5E5EA; border: none; border-radius: 10px; padding: 10px 12px; width: 100%; font-size: 15px; outline: none; transition: background 0.2s; -webkit-appearance: none; }
         .ios-input:focus { background: #D1D1D6; }
         .dark .ios-input { background: #2C2C2E; color: white; }
@@ -59,13 +62,14 @@
         .btn-primary:active { opacity: 0.7; }
         
         ::-webkit-scrollbar { width: 0px; background: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-[#F2F2F7] text-black dark:bg-black dark:text-white font-sans min-h-screen flex flex-col">
 
     <div id="loginScreen" class="flex-grow flex items-center justify-center p-6">
         <div class="bg-white dark:bg-[#1C1C1E] p-8 rounded-[24px] shadow-xl w-full max-w-sm text-center">
-            <div class="w-16 h-16 bg-blue-500 rounded-[18px] mx-auto mb-6 flex items-center justify-center text-3xl shadow-lg shadow-blue-500/30">📅</div>
             <h1 class="text-3xl font-bold mb-2 tracking-tight">Shifter</h1>
             <p class="text-gray-400 mb-8 text-sm">Увійдіть для перегляду графіку</p>
             <div id="tgLoader" class="hidden mb-4 text-blue-500 font-medium animate-pulse">🔄 Авторизація...</div>
@@ -177,25 +181,27 @@
 
     <script>
         const tg = window.Telegram.WebApp;
-        if (tg.platform && tg.platform !== 'unknown') { try { tg.expand(); tg.enableClosingConfirmation(); } catch(e){} }
+        const isTelegram = tg.platform && tg.platform !== 'unknown';
+
+        if (isTelegram) { try { tg.expand(); tg.enableClosingConfirmation(); } catch(e){} }
 
         let currentUser = null; let globalShifts = []; let globalUsers = []; let globalEvents = []; let globalTasks = [];
         const START_HOUR = 10; const END_HOUR = 20; const TOTAL_HOURS = END_HOUR - START_HOUR;
         let currentCalendarDate = new Date();
 
         function initTheme() {
-            if ((tg.platform !== 'unknown' && tg.colorScheme === 'dark') || localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { 
+            if ((isTelegram && tg.colorScheme === 'dark') || localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { 
                 document.documentElement.classList.add('dark'); document.getElementById('themeIcon').innerText = '☀️'; 
-                if(tg.platform!=='unknown'){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');}
+                if(isTelegram) { tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000'); }
             } else { 
                 document.documentElement.classList.remove('dark'); document.getElementById('themeIcon').innerText = '🌙'; 
-                if(tg.platform!=='unknown'){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');}
+                if(isTelegram) { tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7'); }
             }
         }
         function toggleTheme() {
             const html = document.documentElement;
-            if (html.classList.contains('dark')) { html.classList.remove('dark'); localStorage.theme = 'light'; document.getElementById('themeIcon').innerText = '🌙'; if(tg.platform!=='unknown'){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } 
-            else { html.classList.add('dark'); localStorage.theme = 'dark'; document.getElementById('themeIcon').innerText = '☀️'; if(tg.platform!=='unknown'){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} }
+            if (html.classList.contains('dark')) { html.classList.remove('dark'); localStorage.theme = 'light'; document.getElementById('themeIcon').innerText = '🌙'; if(isTelegram){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } 
+            else { html.classList.add('dark'); localStorage.theme = 'dark'; document.getElementById('themeIcon').innerText = '☀️'; if(isTelegram){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} }
         }
         initTheme();
 
@@ -206,7 +212,7 @@
                 if (data.loggedIn) { showApp(data.user); return; } 
             } catch (e) {}
             
-            if (tg.platform && tg.platform !== 'unknown' && tg.initDataUnsafe?.user?.id) {
+            if (isTelegram && tg.initDataUnsafe?.user?.id) {
                 document.getElementById('loginForm').classList.add('hidden'); document.getElementById('tgLoader').classList.remove('hidden');
                 try {
                     const res = await fetch('/api/login-telegram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegramId: tg.initDataUnsafe.user.id }) });
@@ -228,20 +234,19 @@
         async function logout() { await fetch('/api/logout', { method: 'POST' }); window.location.reload(); }
         function showLogin() { currentUser = null; document.getElementById('appScreen').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); }
 
-        // --- MAIN APP INIT ---
-        function showApp(user) {
+        // --- APP INIT ---
+        async function showApp(user) {
             currentUser = user; 
             document.getElementById('loginScreen').classList.add('hidden'); 
             document.getElementById('appScreen').classList.remove('hidden');
             
-            // FIX: NAME (Second Word)
+            // Name Fix
             const parts = user.name.split(' ');
             const shortName = parts.length > 1 ? parts[1] : parts[0];
             document.getElementById('userNameDisplay').innerText = `Привіт, ${shortName}`; 
             
             document.getElementById('userActionsPanel').classList.remove('hidden');
             
-            // PERMISSIONS
             if (['admin', 'SM', 'SSE'].includes(user.role)) {
                 document.getElementById('toggleEditBtn').classList.remove('hidden');
                 if (['SM', 'admin'].includes(user.role)) { 
@@ -256,53 +261,74 @@
                 document.getElementById('toggleEditBtn').classList.add('hidden'); 
             }
             
-            Promise.all([loadEmployeeList(), loadShifts(), loadEvents(), loadTasks()]).then(() => { 
-                calculateHours(); 
-                renderCurrentShifts(); 
-                if(['admin','SM','SSE'].includes(user.role)) renderAdminEventList(); 
-            });
+            // INDEPENDENT LOADING (Safer than Promise.all)
+            await loadEmployeeList();
+            await loadShifts();
+            await loadEvents();
+            await loadTasks();
+            
+            calculateHours(); 
+            renderCurrentShifts(); 
+            if(['admin','SM','SSE'].includes(user.role)) renderAdminEventList(); 
         }
 
-        // --- FIX: MENU TOGGLE LOGIC ---
-        function toggleEditMode() {
-            const panel = document.getElementById('adminPanel');
-            const btn = document.getElementById('toggleEditBtn');
-            
-            // Simple class toggle for visibility
-            panel.classList.toggle('hidden');
-            
-            // Visual feedback for Button
-            if (!panel.classList.contains('hidden')) {
-                // Active State (Blue)
-                btn.classList.remove('bg-gray-200', 'dark:bg-[#3A3A3C]', 'text-black', 'dark:text-white');
-                btn.classList.add('bg-[#007AFF]', 'text-white');
-            } else {
-                // Inactive State (Gray)
-                btn.classList.remove('bg-[#007AFF]', 'text-white');
-                btn.classList.add('bg-gray-200', 'dark:bg-[#3A3A3C]', 'text-black', 'dark:text-white');
-            }
+        // --- LOADERS ---
+        async function loadEmployeeList() { 
+            try {
+                const res = await fetch('/api/users'); 
+                if(res.ok){
+                    const d=await res.json(); 
+                    const w=d.filter(u=>u.role!=='admin'); 
+                    globalUsers=w; 
+                    const s1=document.getElementById('employeeSelect'); s1.innerHTML='<option value="" disabled selected>Хто?</option>'; 
+                    const s2=document.getElementById('taskEmployee'); s2.innerHTML='<option value="" disabled selected>Кому?</option>'; 
+                    const s3=document.getElementById('viewFilter'); s3.innerHTML='<option value="all">Всі співробітники</option>'; 
+                    w.forEach(x=>{ 
+                        const opt1 = document.createElement('option'); opt1.value = x.name; opt1.innerText = x.name; s1.appendChild(opt1);
+                        const opt2 = document.createElement('option'); opt2.value = x.name; opt2.innerText = x.name; s2.appendChild(opt2);
+                        const opt3 = document.createElement('option'); opt3.value = x.name; opt3.innerText = x.name; s3.appendChild(opt3);
+                    });
+                }
+            } catch(e) { console.error("Users load fail", e); }
         }
+        
+        async function loadShifts() { 
+            try {
+                const response = await fetch('/api/shifts'); 
+                if (response.status === 403) { logout(); return; } 
+                if(response.ok) globalShifts = await response.json(); 
+            } catch(e) { console.error("Shifts load fail", e); }
+        }
+        
+        async function loadEvents(){ try { const r=await fetch('/api/events'); if(r.ok)globalEvents=await r.json(); } catch(e){} }
+        async function loadTasks(){ try { const r=await fetch('/api/tasks'); if(r.ok)globalTasks=await r.json(); } catch(e){} }
+        async function loadRequests(){ try { const r=await fetch('/api/requests'); const d=await r.json(); const c=document.getElementById('requestsList'); c.innerHTML=''; if(d.length===0){c.innerHTML='<p class="text-gray-400 text-xs text-center">Пусто</p>';return;} d.forEach(q=>{ let txt=''; if(q.type==='add_shift')txt=`➕ Зміна: ${q.data.date} ${q.data.name}`; else if(q.type==='del_shift')txt=`❌ Видалення: ${q.data.details}`; else if(q.type==='add_task')txt=`➕ Задача: ${q.data.title}`; else if(q.type==='del_task')txt=`❌ Видалення задачі: ${q.data.details}`; else txt=q.type; c.innerHTML+=`<div class="bg-gray-50 dark:bg-gray-800 p-2 rounded text-xs flex justify-between items-center shadow-sm"><div><div class="font-bold text-gray-700 dark:text-gray-200">${txt}</div><div class="text-[10px] text-gray-500">Від: ${q.createdBy}</div></div><div class="flex gap-2"><button onclick="handleRequest('${q._id}','approve')" class="text-green-600 font-bold">✓</button><button onclick="handleRequest('${q._id}','reject')" class="text-red-600 font-bold">✕</button></div></div>`; }); } catch(e){} }
 
-        // --- LOADERS (FROM WORKING CODE) ---
-        async function loadEmployeeList() { const res = await fetch('/api/users'); const allUsers = await res.json(); const workers = allUsers.filter(u => u.role !== 'admin'); globalUsers = workers; const adminSelect = document.getElementById('employeeSelect'); adminSelect.innerHTML = '<option value="" disabled selected>Хто?</option>'; const taskSelect = document.getElementById('taskEmployee'); taskSelect.innerHTML = '<option value="" disabled selected>Кому?</option>'; const filterSelect = document.getElementById('viewFilter'); filterSelect.innerHTML = '<option value="all">👥 Всі співробітники</option>'; workers.forEach(w => { const opt1 = document.createElement('option'); opt1.value = w.name; opt1.innerText = w.name; adminSelect.appendChild(opt1); const optT = document.createElement('option'); optT.value = w.name; optT.innerText = w.name; taskSelect.appendChild(optT); const opt2 = document.createElement('option'); opt2.value = w.name; opt2.innerText = w.name; filterSelect.appendChild(opt2); }); }
-        async function loadShifts() { const response = await fetch('/api/shifts'); if (response.status === 403) {logout(); return;} if(response.ok) globalShifts = await response.json(); }
-        async function loadEvents() { const res = await fetch('/api/events'); globalEvents = await res.json(); }
-        async function loadTasks() { const res = await fetch('/api/tasks'); globalTasks = await res.json(); }
-        async function loadRequests() { const res = await fetch('/api/requests'); const requests = await res.json(); const container = document.getElementById('requestsList'); container.innerHTML = ''; if (requests.length === 0) { container.innerHTML = '<p class="text-gray-500 text-xs text-center">Запитів немає</p>'; return; } requests.forEach(req => { let desc = ''; if(req.type === 'add_shift') desc = `➕ Зміна: ${req.data.date}, ${req.data.name}`; else if(req.type === 'del_shift') desc = `❌ Видалення зміни: ${req.data.details}`; else if(req.type === 'add_task') desc = `➕ Задача: ${req.data.title}`; else if(req.type === 'del_task') desc = `❌ Видалення задачі: ${req.data.details}`; else desc = `Інше: ${req.type}`; container.innerHTML += `<div class="bg-gray-50 dark:bg-gray-700 p-2 rounded text-xs flex justify-between items-center shadow-sm"><div><div class="font-bold text-gray-700 dark:text-gray-200">${desc}</div><div class="text-[10px] text-gray-500">Від: ${req.createdBy}</div></div><div class="flex gap-2"><button onclick="handleRequest('${req._id}', 'approve')" class="text-green-600 font-bold border border-green-200 bg-green-50 px-2 py-1 rounded">✅</button><button onclick="handleRequest('${req._id}', 'reject')" class="text-red-600 font-bold border border-red-200 bg-red-50 px-2 py-1 rounded">❌</button></div></div>`; }); }
-
-        // --- RENDER (ONLY VISUAL CHANGES HERE) ---
+        // --- RENDER ---
         function calculateHours(){if(!currentUser)return;const now=new Date();const cm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;const ms=globalShifts.filter(s=>s.name===currentUser.name&&s.date.startsWith(cm));let tm=0;ms.forEach(s=>{const [sh,sm]=s.start.split(':').map(Number);const [eh,em]=s.end.split(':').map(Number);tm+=((eh*60+em)-(sh*60+sm));});const h=Math.floor(tm/60);document.getElementById('hoursDisplay').innerText=`${h} годин`;document.getElementById('hoursDisplay').classList.remove('hidden');}
         
         function renderTimeline(shifts, filterUser) {
-            const mainContainer = document.getElementById('scheduleView'); const archiveContainer = document.getElementById('archiveContainer'); const archiveBtn = document.getElementById('archiveToggleBtn'); const archiveCount = document.getElementById('archiveCount'); mainContainer.innerHTML = ''; archiveContainer.innerHTML = '';
-            const uniqueDates = [...new Set(shifts.map(s => s.date))].sort(); const todayStr = new Date().toISOString().split('T')[0]; if (!uniqueDates.includes(todayStr)) uniqueDates.push(todayStr); uniqueDates.sort(); let pastDaysCount = 0; let todayElementId = null;
+            const mainContainer = document.getElementById('scheduleView'); const archiveContainer = document.getElementById('archiveContainer'); const archiveBtn = document.getElementById('archiveToggleBtn'); const archiveCount = document.getElementById('archiveCount'); 
+            mainContainer.innerHTML = ''; archiveContainer.innerHTML = '';
+            
+            // Safety check
+            if (!globalUsers || globalUsers.length === 0) {
+                mainContainer.innerHTML = '<div class="text-center text-gray-400 p-4">Співробітники не завантажені</div>';
+                return;
+            }
+
+            const uniqueDates = [...new Set(shifts.map(s => s.date))].sort(); 
+            const todayStr = new Date().toISOString().split('T')[0]; 
+            if (!uniqueDates.includes(todayStr)) uniqueDates.push(todayStr); 
+            uniqueDates.sort(); 
+            
+            let pastDaysCount = 0; let todayElementId = null;
             
             uniqueDates.forEach(dateStr => {
                 const isPast = dateStr < todayStr; const isToday = dateStr === todayStr; const dayEvents = getEventsForDate(dateStr);
                 
-                // APPLE CARD STYLE
                 const dayBlock = document.createElement('div'); 
-                dayBlock.className = 'bg-white dark:bg-[#1C1C1E] rounded-[24px] shadow-sm p-4';
+                dayBlock.className = 'bg-white dark:bg-[#1C1C1E] rounded-[20px] shadow-sm p-4';
                 if (isToday) { dayBlock.classList.add('ring-2', 'ring-blue-500'); dayBlock.id = "todayBlock"; todayElementId = "todayBlock"; }
                 
                 const dayDateObj = new Date(dateStr); const dayName = dayDateObj.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' }); 
@@ -311,14 +337,16 @@
                 dayBlock.innerHTML = `<div class="flex justify-between items-center mb-3 border-b border-gray-100 dark:border-gray-800 pb-2"><span class="font-bold text-lg capitalize tracking-tight ${isToday?'text-blue-500':'text-black dark:text-white'}">${dayName} ${isToday ? '<span class="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full ml-1 align-middle">Сьогодні</span>' : ''}</span><div>${eventsHtml}</div></div>`;
                 
                 const dayContent = document.createElement('div'); dayContent.className = 'space-y-4'; 
-                let usersToShow = (filterUser === 'all') ? globalUsers : globalUsers.filter(u => u.name === filterUser); const shiftsOnThisDay = shifts.filter(s => s.date === dateStr); 
+                let usersToShow = (filterUser === 'all') ? globalUsers : globalUsers.filter(u => u.name === filterUser); 
+                const shiftsOnThisDay = shifts.filter(s => s.date === dateStr); 
+                
                 usersToShow.sort((a, b) => { const aWork = shiftsOnThisDay.find(s => s.name === a.name); const bWork = shiftsOnThisDay.find(s => s.name === b.name); if (aWork && !bWork) return -1; if (!aWork && bWork) return 1; return a.name.localeCompare(b.name); });
                 
                 let hasAnyInfo = false;
                 usersToShow.forEach(user => {
                     const shift = shiftsOnThisDay.find(s => s.name === user.name); const userTasks = globalTasks.filter(t => t.date === dateStr && t.name === user.name); if (shift || userTasks.length > 0) hasAnyInfo = true;
                     
-                    const nameParts = user.name.split(' ');
+                    const nameParts = (user.name || '').split(' ');
                     const shortName = nameParts.length > 1 ? nameParts[1] : nameParts[0];
 
                     if (shift) {
@@ -335,18 +363,30 @@
                         dayContent.innerHTML += `<div class="opacity-70"><div class="flex items-center text-xs mb-1 text-gray-500 dark:text-gray-400"><span>${shortName}</span> <span class="ml-1">Вихідний</span>${taskBadges}</div><div class="h-1 bg-gray-100 dark:bg-gray-800 rounded w-full"></div></div>`;
                     }
                 });
-                if (hasAnyInfo) { dayBlock.appendChild(dayContent); if (isPast) { archiveContainer.appendChild(dayBlock); pastDaysCount++; } else { mainContainer.appendChild(dayBlock); } }
+                
+                // FIXED: Explicitly append content
+                if (hasAnyInfo) { 
+                    dayBlock.appendChild(dayContent); 
+                    if (isPast) { 
+                        archiveContainer.appendChild(dayBlock); 
+                        pastDaysCount++; 
+                    } else { 
+                        mainContainer.appendChild(dayBlock); 
+                    } 
+                }
             });
-            if (pastDaysCount > 0) { archiveBtn.classList.remove('hidden'); archiveCount.innerText = pastDaysCount; } else { archiveBtn.classList.add('hidden'); } if (todayElementId) { setTimeout(() => { const el = document.getElementById(todayElementId); if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 500); }
+            
+            if (pastDaysCount > 0) { archiveBtn.classList.remove('hidden'); archiveCount.innerText = pastDaysCount; } else { archiveBtn.classList.add('hidden'); } 
+            if (todayElementId) { setTimeout(() => { const el = document.getElementById(todayElementId); if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 500); }
         }
 
-        // --- ACTIONS (FROM WORKING CODE) ---
-        async function handleRequest(id, action) { await fetch('/api/requests/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action }) }); loadRequests(); loadShifts(); loadTasks(); loadEvents(); setTimeout(() => renderCurrentShifts(), 500); }
-        async function approveAllRequests() { if(!confirm("Підтвердити ВСІ запити списком?")) return; await fetch('/api/requests/approve-all', { method: 'POST' }); loadRequests(); loadShifts(); loadTasks(); setTimeout(() => renderCurrentShifts(), 500); }
-        async function addShift() { const date = document.getElementById('shiftDate').value; const name = document.getElementById('employeeSelect').value; const start = document.getElementById('startTime').value; const end = document.getElementById('endTime').value; if (!date || !name || !start || !end) return alert("Заповни все!"); const res = await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, name, start, end }) }); const data = await res.json(); if (data.pending) alert("✅ Відправлено на підтвердження SM!"); else alert("✅ Зміну додано!"); loadShifts().then(() => renderCurrentShifts()); }
-        async function addTask() { const title = document.getElementById('taskTitle').value; const date = document.getElementById('taskDate').value; const name = document.getElementById('taskEmployee').value; const isFullDay = document.getElementById('taskFullDay').checked; const start = document.getElementById('taskStart').value; const end = document.getElementById('taskEnd').value; if(!title || !date || !name) return alert("Заповни все!"); const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, date, name, isFullDay, start, end }) }); const data = await res.json(); if (data.pending) alert("✅ Задача відправлена на підтвердження!"); else alert("✅ Задачу призначено!"); loadTasks().then(() => renderCurrentShifts()); }
-        async function deleteShiftInGroup(date, name) { const res = await fetch('/api/shifts'); const allShifts = await res.json(); const shift = allShifts.find(s => s.date === date && s.name === name); if (shift && confirm("Видалити цю зміну?")) { const r = await fetch('/api/delete-shift', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: shift._id }) }); const d = await r.json(); if(d.pending) alert("❌ Запит на видалення надіслано SM."); else loadShifts().then(() => renderCurrentShifts()); } }
-        async function deleteTask(id) { if(!confirm("Видалити задачу?")) return; const r = await fetch('/api/tasks/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); const d = await r.json(); if(d.pending) alert("❌ Запит на видалення надіслано SM."); else loadTasks().then(() => renderCurrentShifts()); }
+        // --- ACTIONS ---
+        async function handleRequest(id, a){await fetch('/api/requests/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:a})});loadRequests();loadShifts();loadTasks();setTimeout(()=>renderCurrentShifts(),500);}
+        async function approveAllRequests(){if(!confirm("Підтвердити ВСІ?")) return; await fetch('/api/requests/approve-all', { method: 'POST' }); loadRequests(); loadShifts(); loadTasks(); setTimeout(() => renderCurrentShifts(), 500); }
+        async function addShift() { const date = document.getElementById('shiftDate').value; const name = document.getElementById('employeeSelect').value; const start = document.getElementById('startTime').value; const end = document.getElementById('endTime').value; if (!date || !name || !start || !end) return alert("Заповни все!"); const res = await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, name, start, end }) }); const data = await res.json(); if (data.pending) alert("✅ Відправлено на підтвердження!"); else alert("✅ Зміну додано!"); loadShifts().then(() => renderCurrentShifts()); }
+        async function addTask() { const title = document.getElementById('taskTitle').value; const date = document.getElementById('taskDate').value; const name = document.getElementById('taskEmployee').value; const isFullDay = document.getElementById('taskFullDay').checked; const start = document.getElementById('taskStart').value; const end = document.getElementById('taskEnd').value; if(!title || !date || !name) return alert("Заповни все!"); const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, date, name, isFullDay, start, end }) }); const data = await res.json(); if (data.pending) alert("✅ Відправлено на підтвердження!"); else alert("✅ Задачу призначено!"); loadTasks().then(() => renderCurrentShifts()); }
+        async function deleteShiftInGroup(d,n){if(confirm('Видалити?')){const r=await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d,name:n})});const all=globalShifts.find(s=>s.date===d&&s.name===n);if(all){const r2=await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:all._id})});const d2=await r2.json();if(d2.pending)alert('Запит на видалення');loadShifts().then(()=>renderCurrentShifts());}}}
+        async function deleteTask(id){if(!confirm("Видалити?")) return; const r = await fetch('/api/tasks/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); const d = await r.json(); if(d.pending) alert("❌ Запит на видалення"); else loadTasks().then(() => renderCurrentShifts()); }
         function showAdminTab(tab) { document.getElementById('adminTabShifts').classList.add('hidden'); document.getElementById('adminTabEvents').classList.add('hidden'); document.getElementById('adminTabTasks').classList.add('hidden'); document.getElementById('adminTabRequests').classList.add('hidden'); if(tab === 'shifts') document.getElementById('adminTabShifts').classList.remove('hidden'); else if(tab === 'events') document.getElementById('adminTabEvents').classList.remove('hidden'); else if(tab === 'tasks') document.getElementById('adminTabTasks').classList.remove('hidden'); else if(tab === 'requests') { document.getElementById('adminTabRequests').classList.remove('hidden'); loadRequests(); } }
         function toggleTaskTimeInputs(){const c=document.getElementById('taskFullDay').checked;const i=document.getElementById('taskTimeInputs');if(c)i.classList.add('opacity-30','pointer-events-none');else i.classList.remove('opacity-30','pointer-events-none');}
         function toggleArchive(){document.getElementById('archiveContainer').classList.toggle('hidden');}
@@ -357,6 +397,13 @@
         async function clearDay(){const date=document.getElementById('shiftDate').value;if(!date)return alert('Обери дату!');if(!confirm(`Точно видалити всі зміни за ${date}?`))return;await fetch('/api/shifts/clear-day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date})});loadShifts().then(()=>renderCurrentShifts());}
         async function clearMonth(){const date=document.getElementById('shiftDate').value;if(!date)return alert('Обери дату!');const month=date.substring(0,7);if(!confirm(`УВАГА! Видалити ВЕСЬ графік за місяць ${month}?`))return;await fetch('/api/shifts/clear-month',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({month})});loadShifts().then(()=>renderCurrentShifts());}
         function downloadAllMyShifts(){if(!currentUser)return;const today=new Date().toISOString().split('T')[0];const myShifts=globalShifts.filter(s=>s.name===currentUser.name&&s.date>=today);if(myShifts.length===0)return alert('Немає змін!');let ics="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Shifter//UA\n";myShifts.forEach(s=>{const start=s.date.replace(/-/g,'')+'T'+s.start.replace(':','')+'00';const end=s.date.replace(/-/g,'')+'T'+s.end.replace(':','')+'00';ics+=`BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Робота\nEND:VEVENT\n`;});ics+="END:VCALENDAR";const a=document.createElement('a');a.href=window.URL.createObjectURL(new Blob([ics],{type:'text/calendar'}));a.download=`my-shifts.ics`;document.body.appendChild(a);a.click();document.body.removeChild(a);}
+        function toggleEditMode() { const p=document.getElementById('adminPanel'); const b=document.getElementById('toggleEditBtn'); p.classList.toggle('hidden'); if(!p.classList.contains('hidden')) { b.classList.remove('bg-gray-200','dark:bg-[#3A3A3C]','text-black','dark:text-white'); b.classList.add('bg-[#007AFF]','text-white'); } else { b.classList.remove('bg-[#007AFF]','text-white'); b.classList.add('bg-gray-200','dark:bg-[#3A3A3C]','text-black','dark:text-white'); } }
+        function getEventsForDate(d) { const ch = new Date(d); return globalEvents.filter(e => { const ev = new Date(e.date); if(e.repeat==='none')return e.date===d; if(e.repeat==='weekly')return ch>=ev && ch.getDay()===ev.getDay(); if(e.repeat==='monthly')return ch>=ev && ch.getDate()===ev.getDate(); if(e.repeat==='yearly')return ch>=ev && ch.getMonth()===ev.getMonth() && ch.getDate()===ev.getDate(); return false; }); }
+        function renderCalendar() { const g = document.getElementById('calendarGrid'); const t = document.getElementById('calendarTitle'); g.innerHTML = ''; const y = currentCalendarDate.getFullYear(); const m = currentCalendarDate.getMonth(); t.innerText = currentCalendarDate.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' }); const fd = new Date(y, m, 1); const ld = new Date(y, m + 1, 0); let sdi = fd.getDay() - 1; if (sdi === -1) sdi = 6; for (let i = 0; i < sdi; i++) { const e = document.createElement('div'); e.className = 'calendar-day empty'; g.appendChild(e); } const td = new Date().toISOString().split('T')[0]; for (let d = 1; d <= ld.getDate(); d++) { const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`; const dc = document.createElement('div'); dc.className = 'calendar-day'; if (ds === td) dc.classList.add('today'); const ms = globalShifts.find(s => s.date === ds && s.name === currentUser.name); const de = getEventsForDate(ds); const mt = globalTasks.filter(t => t.date === ds && t.name === currentUser.name); let c = `<div class="day-label"><span>${d}</span></div>`; de.forEach(e => { c += `<div class="event-badge" title="${e.title}">${e.title}</div>`; }); mt.forEach(t => { c += `<div class="text-[9px] text-purple-700 font-bold leading-tight mb-0.5">★ ${t.title}</div>`; }); if (ms) { dc.classList.add('bg-blue-50', 'dark:bg-blue-900/20'); c += `<div class="work-badge">${ms.start}-${ms.end}</div>`; } else { c += `<div class="text-[10px] text-gray-300 dark:text-gray-600 text-center mt-auto">.</div>`; } dc.innerHTML = c; g.appendChild(dc); } }
+        function changeMonth(d) { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + d); renderCalendar(); }
+        function renderAdminEventList() { const list = document.getElementById('eventListAdmin'); list.innerHTML = '<b>Всі події:</b>'; globalEvents.forEach(ev => { const rep = ev.repeat === 'none' ? '' : `(🔄 ${ev.repeat})`; list.innerHTML += `<div class="flex justify-between border-b border-gray-100 dark:border-gray-800 p-2 text-xs"><span>${ev.title} (${e.date})</span><button onclick="deleteEvent('${ev._id}')" class="text-red-500">x</button></div>`; }); }
+        async function addEvent() { const title = document.getElementById('eventTitle').value; const date = document.getElementById('eventDate').value; const repeat = document.getElementById('eventRepeat').value; if(!title || !date) return alert("Вкажи назву і дату"); await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, date, repeat }) }); alert("Подію створено!"); loadEvents().then(() => renderCurrentShifts()); renderAdminEventList();}
+        async function deleteEvent(id) { if(!confirm("Видалити?")) return; await fetch('/api/events/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); loadEvents().then(() => renderCurrentShifts()); renderAdminEventList();}
 
         checkAuth();
     </script>
