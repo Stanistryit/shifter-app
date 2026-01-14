@@ -80,6 +80,21 @@ app.post('/api/login', async (req, res) => {
     if (user) { req.session.userId = user._id; res.json({ success: true, user: { name: user.name, role: user.role } }); } 
     else { res.json({ success: false, message: "Невірний логін або пароль" }); }
 });
+app.post('/api/login-telegram', async (req, res) => {
+    const { telegramId } = req.body;
+    if (!telegramId) return res.json({ success: false });
+
+    // Шукаємо користувача, у якого прив'язаний цей Telegram ID
+    const user = await User.findOne({ telegramChatId: telegramId });
+    
+    if (user) {
+        // Якщо знайшли - створюємо сесію (ніби він ввів пароль)
+        req.session.userId = user._id;
+        res.json({ success: true, user: { name: user.name, role: user.role } });
+    } else {
+        res.json({ success: false });
+    }
+});
 app.post('/api/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
 app.get('/api/me', async (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });

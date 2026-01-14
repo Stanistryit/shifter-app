@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shifter Pro</title>
     <link rel="manifest" href="/manifest.json">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script> tailwind.config = { darkMode: 'class' } </script>
     <style>
-        /* Стилі без змін */
+        /* Стилі залишаються ті самі */
         .timeline-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 1px; background-color: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 4px; overflow: hidden; position: relative; height: 16px; margin-bottom: 6px; }
         .dark .timeline-grid { background-color: #374151; border-color: #4b5563; }
         .timeline-mark { border-right: 1px dashed #d1d5db; height: 100%; }
@@ -26,17 +27,25 @@
         .event-badge { background-color: #fef3c7; color: #92400e; padding: 1px 4px; border-radius: 3px; font-size: 9px; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .task-badge-full { background-color: #e9d5ff; color: #6b21a8; padding: 1px 4px; border-radius: 3px; font-size: 9px; margin-bottom: 1px; font-weight: bold; border: 1px solid #d8b4fe; }
         .dark .task-badge-full { background-color: #581c87; color: #e9d5ff; border-color: #6b21a8; }
+        body, div, nav, input, select, button { transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100 font-sans min-h-screen flex flex-col">
 
     <div id="loginScreen" class="flex-grow flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-sm">
-            <h1 class="text-2xl font-bold mb-6 text-center text-blue-600 dark:text-blue-400">Вхід у Shifter</h1>
-            <input type="text" id="loginUser" placeholder="Логін" class="w-full p-3 border rounded mb-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-            <input type="password" id="loginPass" placeholder="Пароль" class="w-full p-3 border rounded mb-6 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-            <button onclick="login()" class="w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700">Увійти</button>
-            <p id="loginError" class="text-red-500 text-center mt-4 hidden"></p>
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-sm text-center">
+            <h1 class="text-2xl font-bold mb-6 text-blue-600 dark:text-blue-400">Вхід у Shifter</h1>
+            
+            <div id="tgLoader" class="hidden mb-4 text-blue-500 font-bold animate-pulse">
+                🔄 Авторизація через Telegram...
+            </div>
+
+            <div id="loginForm">
+                <input type="text" id="loginUser" placeholder="Логін" class="w-full p-3 border rounded mb-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                <input type="password" id="loginPass" placeholder="Пароль" class="w-full p-3 border rounded mb-6 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                <button onclick="login()" class="w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700">Увійти</button>
+                <p id="loginError" class="text-red-500 text-center mt-4 hidden"></p>
+            </div>
         </div>
     </div>
 
@@ -62,119 +71,56 @@
                 <button onclick="logout()" class="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded text-gray-600 dark:text-gray-200">Вийти</button>
             </div>
         </nav>
-
+        
         <div class="container mx-auto p-2 max-w-lg">
-            
             <div id="userActionsPanel" class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg mb-4 flex justify-between items-center hidden">
                 <div class="text-sm"> <span class="font-bold text-blue-800 dark:text-blue-300">📅 Мій календар</span> </div>
                 <button onclick="downloadAllMyShifts()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-2 rounded shadow flex items-center gap-1">📥 Експорт</button>
             </div>
-
             <div id="filterContainer" class="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm mb-4 flex items-center justify-between">
                 <span class="text-sm font-bold text-gray-600 dark:text-gray-400">Фільтр:</span>
-                <select id="viewFilter" onchange="renderCurrentShifts()" class="text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white border rounded p-1 w-2/3">
-                    <option value="all">👥 Всі співробітники</option>
-                </select>
+                <select id="viewFilter" onchange="renderCurrentShifts()" class="text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white border rounded p-1 w-2/3"><option value="all">👥 Всі співробітники</option></select>
             </div>
-
             <div id="adminPanel" class="hidden bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6 border-l-4 border-orange-500">
                 <h2 class="text-lg font-bold text-orange-600 mb-2">🛠 Панель управління</h2>
-                
                 <div class="flex gap-2 mb-4 text-xs overflow-x-auto">
                     <button onclick="showAdminTab('shifts')" class="bg-orange-100 text-orange-800 px-2 py-1 rounded whitespace-nowrap">Графік</button>
                     <button onclick="showAdminTab('tasks')" class="bg-purple-100 text-purple-800 px-2 py-1 rounded whitespace-nowrap">Задачі</button>
                     <button onclick="showAdminTab('events')" class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded whitespace-nowrap">Події</button>
                     <button id="tabRequestsBtn" onclick="showAdminTab('requests')" class="hidden bg-red-100 text-red-800 px-2 py-1 rounded whitespace-nowrap font-bold">📬 Запити</button>
                 </div>
-
                 <div id="adminTabShifts">
-                    <div class="grid grid-cols-2 gap-2 mb-2">
-                        <input type="date" id="shiftDate" class="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                        <select id="employeeSelect" class="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="" disabled selected>Хто?</option></select>
-                    </div>
-                    <div class="flex gap-2 mb-2 items-center">
-                        <input type="time" id="startTime" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="10:00">
-                        <span class="text-gray-400">-</span>
-                        <input type="time" id="endTime" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="20:00">
-                    </div>
+                    <div class="grid grid-cols-2 gap-2 mb-2"><input type="date" id="shiftDate" class="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"><select id="employeeSelect" class="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="" disabled selected>Хто?</option></select></div>
+                    <div class="flex gap-2 mb-2 items-center"><input type="time" id="startTime" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="10:00"><span class="text-gray-400">-</span><input type="time" id="endTime" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="20:00"></div>
                     <button onclick="addShift()" class="w-full bg-orange-500 text-white p-2 rounded font-bold hover:bg-orange-600 mb-2">Додати зміну</button>
-                    
-                    <div id="adminOnlyFunctions" class="hidden">
-                         <button onclick="toggleImport()" class="text-xs text-blue-500 underline block mb-2">Масовий імпорт</button>
-                        <div id="bulkImportForm" class="hidden pt-2 border-t dark:border-gray-700">
-                            <textarea id="bulkText" rows="3" class="w-full p-2 border rounded text-xs font-mono mb-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
-                            <button onclick="uploadBulk()" class="w-full bg-green-600 text-white p-2 rounded font-bold">Завантажити</button>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t dark:border-gray-700">
-                            <button onclick="clearDay()" class="text-xs text-red-600 border border-red-200 p-1 rounded hover:bg-red-50">Очистити день</button>
-                            <button onclick="clearMonth()" class="text-xs text-red-600 border border-red-200 p-1 rounded hover:bg-red-50">Очистити місяць</button>
-                        </div>
-                    </div>
+                    <div id="adminOnlyFunctions" class="hidden"><button onclick="toggleImport()" class="text-xs text-blue-500 underline block mb-2">Масовий імпорт</button><div id="bulkImportForm" class="hidden pt-2 border-t dark:border-gray-700"><textarea id="bulkText" rows="3" class="w-full p-2 border rounded text-xs font-mono mb-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea><button onclick="uploadBulk()" class="w-full bg-green-600 text-white p-2 rounded font-bold">Завантажити</button></div><div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t dark:border-gray-700"><button onclick="clearDay()" class="text-xs text-red-600 border border-red-200 p-1 rounded hover:bg-red-50">Очистити день</button><button onclick="clearMonth()" class="text-xs text-red-600 border border-red-200 p-1 rounded hover:bg-red-50">Очистити місяць</button></div></div>
                 </div>
-
                 <div id="adminTabTasks" class="hidden">
-                    <input type="text" id="taskTitle" placeholder="Що робити?" class="w-full p-2 border rounded mb-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                    <div class="grid grid-cols-2 gap-2 mb-2">
-                        <input type="date" id="taskDate" class="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                        <select id="taskEmployee" class="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="" disabled selected>Кому?</option></select>
-                    </div>
-                    <div class="flex items-center gap-2 mb-2">
-                        <input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()" class="w-4 h-4">
-                        <label for="taskFullDay" class="text-sm dark:text-gray-300">Весь день</label>
-                    </div>
-                    <div id="taskTimeInputs" class="flex gap-2 mb-2 items-center">
-                        <input type="time" id="taskStart" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="12:00">
-                        <span class="text-gray-400">-</span>
-                        <input type="time" id="taskEnd" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="14:00">
-                    </div>
-                    <button onclick="addTask()" class="w-full bg-purple-600 text-white p-2 rounded font-bold hover:bg-purple-700">Призначити задачу</button>
+                    <input type="text" id="taskTitle" placeholder="Що робити?" class="w-full p-2 border rounded mb-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"><div class="grid grid-cols-2 gap-2 mb-2"><input type="date" id="taskDate" class="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"><select id="taskEmployee" class="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="" disabled selected>Кому?</option></select></div><div class="flex items-center gap-2 mb-2"><input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()" class="w-4 h-4"><label for="taskFullDay" class="text-sm dark:text-gray-300">Весь день</label></div><div id="taskTimeInputs" class="flex gap-2 mb-2 items-center"><input type="time" id="taskStart" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="12:00"><span class="text-gray-400">-</span><input type="time" id="taskEnd" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="14:00"></div><button onclick="addTask()" class="w-full bg-purple-600 text-white p-2 rounded font-bold hover:bg-purple-700">Призначити задачу</button>
                 </div>
-
-                <div id="adminTabEvents" class="hidden">
-                    <input type="text" id="eventTitle" placeholder="Подія" class="w-full p-2 border rounded mb-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                    <div class="grid grid-cols-2 gap-2 mb-2">
-                        <input type="date" id="eventDate" class="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                        <select id="eventRepeat" class="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="none">Без повтору</option><option value="weekly">Щотижня</option><option value="monthly">Щомісяця</option><option value="yearly">Щороку</option></select>
-                    </div>
-                    <button onclick="addEvent()" class="w-full bg-yellow-500 text-white p-2 rounded font-bold hover:bg-yellow-600">Створити</button>
-                    <div id="eventListAdmin" class="mt-4 space-y-1 text-xs text-gray-600 dark:text-gray-400"></div>
-                </div>
-
-                <div id="adminTabRequests" class="hidden">
-                    <button onclick="approveAllRequests()" class="w-full bg-green-600 text-white text-xs p-2 rounded font-bold mb-3">✅ Підтвердити Всі Запити</button>
-                    <div id="requestsList" class="space-y-2">
-                        <p class="text-center text-gray-400 text-xs">Завантаження...</p>
-                    </div>
-                </div>
+                <div id="adminTabEvents" class="hidden"><input type="text" id="eventTitle" placeholder="Подія" class="w-full p-2 border rounded mb-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"><div class="grid grid-cols-2 gap-2 mb-2"><input type="date" id="eventDate" class="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"><select id="eventRepeat" class="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="none">Без повтору</option><option value="weekly">Щотижня</option><option value="monthly">Щомісяця</option><option value="yearly">Щороку</option></select></div><button onclick="addEvent()" class="w-full bg-yellow-500 text-white p-2 rounded font-bold hover:bg-yellow-600">Створити</button><div id="eventListAdmin" class="mt-4 space-y-1 text-xs text-gray-600 dark:text-gray-400"></div></div>
+                <div id="adminTabRequests" class="hidden"><button onclick="approveAllRequests()" class="w-full bg-green-600 text-white text-xs p-2 rounded font-bold mb-3">✅ Підтвердити Всі Запити</button><div id="requestsList" class="space-y-2"><p class="text-center text-gray-400 text-xs">Завантаження...</p></div></div>
             </div>
-
-            <div id="listViewContainer">
-                <button id="archiveToggleBtn" onclick="toggleArchive()" class="hidden w-full text-center text-xs text-gray-500 py-2 border-b mb-2 hover:bg-gray-50 dark:hover:bg-gray-800">📂 Минулі дні (<span id="archiveCount">0</span>)</button>
-                <div id="archiveContainer" class="hidden space-y-4 mb-4 opacity-70 grayscale"></div>
-                <div id="scheduleView" class="space-y-4"></div>
-            </div>
-
-            <div id="calendarViewContainer" class="hidden">
-                <div class="flex justify-between items-center mb-4 bg-white dark:bg-gray-800 p-3 rounded shadow-sm">
-                    <button onclick="changeMonth(-1)" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">◀️</button>
-                    <h2 id="calendarTitle" class="font-bold text-lg capitalize"></h2>
-                    <button onclick="changeMonth(1)" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">▶️</button>
-                </div>
-                <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-gray-500 mb-2"><div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Нд</div></div>
-                <div id="calendarGrid" class="calendar-grid"></div>
-            </div>
+            <div id="listViewContainer"><button id="archiveToggleBtn" onclick="toggleArchive()" class="hidden w-full text-center text-xs text-gray-500 py-2 border-b mb-2 hover:bg-gray-50 dark:hover:bg-gray-800">📂 Минулі дні (<span id="archiveCount">0</span>)</button><div id="archiveContainer" class="hidden space-y-4 mb-4 opacity-70 grayscale"></div><div id="scheduleView" class="space-y-4"></div></div>
+            <div id="calendarViewContainer" class="hidden"><div class="flex justify-between items-center mb-4 bg-white dark:bg-gray-800 p-3 rounded shadow-sm"><button onclick="changeMonth(-1)" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">◀️</button><h2 id="calendarTitle" class="font-bold text-lg capitalize"></h2><button onclick="changeMonth(1)" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">▶️</button></div><div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-gray-500 mb-2"><div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Нд</div></div><div id="calendarGrid" class="calendar-grid"></div></div>
         </div>
     </div>
 
     <script>
-        let currentUser = null;
-        let globalShifts = []; let globalUsers = []; let globalEvents = []; let globalTasks = [];
+        // Ініціалізація Телеграм-додатка
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Розгорнути на весь екран
+
+        let currentUser = null; let globalShifts = []; let globalUsers = []; let globalEvents = []; let globalTasks = [];
         const START_HOUR = 10; const END_HOUR = 20; const TOTAL_HOURS = END_HOUR - START_HOUR;
         let currentCalendarDate = new Date();
 
         function initTheme() {
-            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); document.getElementById('themeIcon').innerText = '☀️'; } 
-            else { document.documentElement.classList.remove('dark'); document.getElementById('themeIcon').innerText = '🌙'; }
+            if (tg.colorScheme === 'dark' || localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { 
+                document.documentElement.classList.add('dark'); document.getElementById('themeIcon').innerText = '☀️'; 
+            } else { 
+                document.documentElement.classList.remove('dark'); document.getElementById('themeIcon').innerText = '🌙'; 
+            }
         }
         function toggleTheme() {
             const html = document.documentElement;
@@ -183,7 +129,53 @@
         }
         initTheme();
 
-        async function checkAuth() { try { const res = await fetch('/api/me'); const data = await res.json(); if (data.loggedIn) showApp(data.user); else showLogin(); } catch (e) { showLogin(); } }
+        // ГОЛОВНА ФУНКЦІЯ ПЕРЕВІРКИ ВХОДУ (ОНОВЛЕНА)
+        async function checkAuth() { 
+            // 1. Спочатку перевіряємо, чи є вже активна сесія
+            try { 
+                const res = await fetch('/api/me'); const data = await res.json(); 
+                if (data.loggedIn) {
+                    showApp(data.user);
+                    return;
+                }
+            } catch (e) {}
+
+            // 2. Якщо сесії немає, перевіряємо, чи ми в Телеграмі
+            const tgUserId = tg.initDataUnsafe?.user?.id;
+            
+            if (tgUserId) {
+                // Якщо ми в телеграмі - показуємо "Завантаження..." і пробуємо авто-вхід
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('tgLoader').classList.remove('hidden');
+
+                try {
+                    const res = await fetch('/api/login-telegram', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ telegramId: tgUserId })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        showApp(data.user);
+                    } else {
+                        // Якщо не знайшли юзера в базі
+                        document.getElementById('tgLoader').classList.add('hidden');
+                        document.getElementById('loginForm').classList.remove('hidden');
+                        document.getElementById('loginError').innerText = "Цей Telegram не прив'язаний до акаунту. Увійдіть через логін/пароль і прив'яжіть його через бота (/login).";
+                        document.getElementById('loginError').classList.remove('hidden');
+                    }
+                } catch (e) {
+                    // Помилка мережі
+                    document.getElementById('tgLoader').classList.add('hidden');
+                    document.getElementById('loginForm').classList.remove('hidden');
+                }
+            } else {
+                // Ми в звичайному браузері -> просто показуємо форму
+                showLogin();
+            }
+        }
+
         async function login() {
             const username = document.getElementById('loginUser').value; const password = document.getElementById('loginPass').value;
             try { const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); const data = await res.json();
@@ -196,170 +188,33 @@
         function showApp(user) {
             currentUser = user; document.getElementById('loginScreen').classList.add('hidden'); document.getElementById('appScreen').classList.remove('hidden');
             document.getElementById('userNameDisplay').innerText = user.name; document.getElementById('userActionsPanel').classList.remove('hidden');
-            
-            // ROLE MANAGEMENT
             if (user.role === 'admin' || user.role === 'SM' || user.role === 'SSE') {
                 document.getElementById('toggleEditBtn').classList.remove('hidden');
-                
-                // Якщо це SM або Admin - показуємо вкладку запитів і кнопки масових дій
                 if (user.role === 'SM' || user.role === 'admin') {
-                    document.getElementById('tabRequestsBtn').classList.remove('hidden');
-                    document.getElementById('adminOnlyFunctions').classList.remove('hidden'); // Bulk import/clear
-                    loadRequests(); // Завантажуємо запити
-                } else {
-                    // SSE
-                    document.getElementById('tabRequestsBtn').classList.add('hidden');
-                    document.getElementById('adminOnlyFunctions').classList.add('hidden');
-                }
-            } else {
-                document.getElementById('toggleEditBtn').classList.add('hidden');
-            }
-            
-            Promise.all([loadEmployeeList(), loadShifts(), loadEvents(), loadTasks()]).then(() => {
-                calculateHours(); renderCurrentShifts();
-                if(user.role === 'admin' || user.role === 'SM' || user.role === 'SSE') renderAdminEventList();
-            });
+                    document.getElementById('tabRequestsBtn').classList.remove('hidden'); document.getElementById('adminOnlyFunctions').classList.remove('hidden'); loadRequests();
+                } else { document.getElementById('tabRequestsBtn').classList.add('hidden'); document.getElementById('adminOnlyFunctions').classList.add('hidden'); }
+            } else { document.getElementById('toggleEditBtn').classList.add('hidden'); }
+            Promise.all([loadEmployeeList(), loadShifts(), loadEvents(), loadTasks()]).then(() => { calculateHours(); renderCurrentShifts(); if(user.role === 'admin' || user.role === 'SM' || user.role === 'SSE') renderAdminEventList(); });
         }
 
-        // ... [СТАНДАРТНІ ФУНКЦІЇ ЗАВАНТАЖЕННЯ ДАНИХ ТУТ ТАКІ Ж, ЯК І БУЛИ] ...
+        // --- ВСІ ІНШІ ФУНКЦІЇ БЕЗ ЗМІН ---
+        // (Я залишив весь JS код нижче, щоб він працював)
+        function toggleEditMode() { const panel = document.getElementById('adminPanel'); const btn = document.getElementById('toggleEditBtn'); if (panel.classList.contains('hidden')) { panel.classList.remove('hidden'); btn.classList.add('bg-orange-200', 'dark:bg-orange-800'); } else { panel.classList.add('hidden'); btn.classList.remove('bg-orange-200', 'dark:bg-orange-800'); } }
         async function loadEmployeeList() { const res = await fetch('/api/users'); const allUsers = await res.json(); const workers = allUsers.filter(u => u.role !== 'admin'); globalUsers = workers; const adminSelect = document.getElementById('employeeSelect'); adminSelect.innerHTML = '<option value="" disabled selected>Хто?</option>'; const taskSelect = document.getElementById('taskEmployee'); taskSelect.innerHTML = '<option value="" disabled selected>Кому?</option>'; const filterSelect = document.getElementById('viewFilter'); filterSelect.innerHTML = '<option value="all">👥 Всі співробітники</option>'; workers.forEach(w => { const opt1 = document.createElement('option'); opt1.value = w.name; opt1.innerText = w.name; adminSelect.appendChild(opt1); const optT = document.createElement('option'); optT.value = w.name; optT.innerText = w.name; taskSelect.appendChild(optT); const opt2 = document.createElement('option'); opt2.value = w.name; opt2.innerText = w.name; filterSelect.appendChild(opt2); }); }
         async function loadShifts() { const response = await fetch('/api/shifts'); if (response.status === 403) return; globalShifts = await response.json(); }
         async function loadEvents() { const res = await fetch('/api/events'); globalEvents = await res.json(); }
         async function loadTasks() { const res = await fetch('/api/tasks'); globalTasks = await res.json(); }
-
-        // --- NEW: REQUESTS LOGIC ---
-        async function loadRequests() {
-            const res = await fetch('/api/requests');
-            const requests = await res.json();
-            const container = document.getElementById('requestsList');
-            container.innerHTML = '';
-            
-            if (requests.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-xs text-center">Запитів немає</p>';
-                return;
-            }
-
-            requests.forEach(req => {
-                let desc = '';
-                // Формуємо опис залежно від типу
-                if(req.type === 'add_shift') desc = `➕ Зміна: ${req.data.date}, ${req.data.name} (${req.data.start}-${req.data.end})`;
-                else if(req.type === 'del_shift') desc = `❌ Видалення зміни: ${req.data.details}`;
-                else if(req.type === 'add_task') desc = `➕ Задача: ${req.data.title} для ${req.data.name}`;
-                else if(req.type === 'del_task') desc = `❌ Видалення задачі: ${req.data.details}`;
-                else desc = `Інше: ${req.type}`;
-
-                container.innerHTML += `
-                <div class="bg-gray-50 dark:bg-gray-700 p-2 rounded text-xs flex justify-between items-center shadow-sm">
-                    <div>
-                        <div class="font-bold text-gray-700 dark:text-gray-200">${desc}</div>
-                        <div class="text-[10px] text-gray-500">Від: ${req.createdBy}</div>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="handleRequest('${req._id}', 'approve')" class="text-green-600 font-bold border border-green-200 bg-green-50 px-2 py-1 rounded">✅</button>
-                        <button onclick="handleRequest('${req._id}', 'reject')" class="text-red-600 font-bold border border-red-200 bg-red-50 px-2 py-1 rounded">❌</button>
-                    </div>
-                </div>`;
-            });
-        }
-
-        async function handleRequest(id, action) {
-            await fetch('/api/requests/action', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, action })
-            });
-            loadRequests();
-            // Оновлюємо дані, бо ми могли щось підтвердити
-            loadShifts(); loadTasks(); loadEvents(); setTimeout(() => renderCurrentShifts(), 500);
-        }
-
-        async function approveAllRequests() {
-            if(!confirm("Підтвердити ВСІ запити списком?")) return;
-            await fetch('/api/requests/approve-all', { method: 'POST' });
-            loadRequests(); loadShifts(); loadTasks(); setTimeout(() => renderCurrentShifts(), 500);
-        }
-
-        // --- UPDATED ADD FUNCTIONS (Handle SSE Pending) ---
-        async function addShift() {
-            const date = document.getElementById('shiftDate').value; const name = document.getElementById('employeeSelect').value; const start = document.getElementById('startTime').value; const end = document.getElementById('endTime').value; 
-            if (!date || !name || !start || !end) return alert("Заповни все!"); 
-            const res = await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, name, start, end }) });
-            const data = await res.json();
-            if (data.pending) alert("✅ Відправлено на підтвердження SM!");
-            else alert("✅ Зміну додано!");
-            loadShifts().then(() => renderCurrentShifts());
-        }
-
-        async function addTask() {
-            const title = document.getElementById('taskTitle').value; const date = document.getElementById('taskDate').value; const name = document.getElementById('taskEmployee').value; const isFullDay = document.getElementById('taskFullDay').checked; const start = document.getElementById('taskStart').value; const end = document.getElementById('taskEnd').value;
-            if(!title || !date || !name) return alert("Заповни все!");
-            const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, date, name, isFullDay, start, end }) });
-            const data = await res.json();
-            if (data.pending) alert("✅ Задача відправлена на підтвердження!");
-            else alert("✅ Задачу призначено!");
-            loadTasks().then(() => renderCurrentShifts());
-        }
-
-        async function deleteShiftInGroup(date, name) {
-            const res = await fetch('/api/shifts'); const allShifts = await res.json(); const shift = allShifts.find(s => s.date === date && s.name === name);
-            if (shift && confirm("Видалити цю зміну?")) {
-                const r = await fetch('/api/delete-shift', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: shift._id }) });
-                const d = await r.json();
-                if(d.pending) alert("❌ Запит на видалення надіслано SM.");
-                else loadShifts().then(() => renderCurrentShifts());
-            }
-        }
-        
-        async function deleteTask(id) {
-            if(!confirm("Видалити задачу?")) return;
-            const r = await fetch('/api/tasks/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
-            const d = await r.json();
-            if(d.pending) alert("❌ Запит на видалення надіслано SM.");
-            else loadTasks().then(() => renderCurrentShifts());
-        }
-
-        // --- TABS & UI ---
-        function toggleEditMode() {
-            const panel = document.getElementById('adminPanel'); const btn = document.getElementById('toggleEditBtn');
-            if (panel.classList.contains('hidden')) { panel.classList.remove('hidden'); btn.classList.add('bg-orange-200', 'dark:bg-orange-800'); } 
-            else { panel.classList.add('hidden'); btn.classList.remove('bg-orange-200', 'dark:bg-orange-800'); }
-        }
-        function showAdminTab(tab) {
-            document.getElementById('adminTabShifts').classList.add('hidden'); document.getElementById('adminTabEvents').classList.add('hidden'); document.getElementById('adminTabTasks').classList.add('hidden'); document.getElementById('adminTabRequests').classList.add('hidden');
-            if(tab === 'shifts') document.getElementById('adminTabShifts').classList.remove('hidden');
-            else if(tab === 'events') document.getElementById('adminTabEvents').classList.remove('hidden');
-            else if(tab === 'tasks') document.getElementById('adminTabTasks').classList.remove('hidden');
-            else if(tab === 'requests') { document.getElementById('adminTabRequests').classList.remove('hidden'); loadRequests(); }
-        }
-
-        // --- RENDER FUNCTIONS ---
+        async function loadRequests() { const res = await fetch('/api/requests'); const requests = await res.json(); const container = document.getElementById('requestsList'); container.innerHTML = ''; if (requests.length === 0) { container.innerHTML = '<p class="text-gray-500 text-xs text-center">Запитів немає</p>'; return; } requests.forEach(req => { let desc = ''; if(req.type === 'add_shift') desc = `➕ Зміна: ${req.data.date}, ${req.data.name} (${req.data.start}-${req.data.end})`; else if(req.type === 'del_shift') desc = `❌ Видалення зміни: ${req.data.details}`; else if(req.type === 'add_task') desc = `➕ Задача: ${req.data.title} для ${req.data.name}`; else if(req.type === 'del_task') desc = `❌ Видалення задачі: ${req.data.details}`; else desc = `Інше: ${req.type}`; container.innerHTML += `<div class="bg-gray-50 dark:bg-gray-700 p-2 rounded text-xs flex justify-between items-center shadow-sm"><div><div class="font-bold text-gray-700 dark:text-gray-200">${desc}</div><div class="text-[10px] text-gray-500">Від: ${req.createdBy}</div></div><div class="flex gap-2"><button onclick="handleRequest('${req._id}', 'approve')" class="text-green-600 font-bold border border-green-200 bg-green-50 px-2 py-1 rounded">✅</button><button onclick="handleRequest('${req._id}', 'reject')" class="text-red-600 font-bold border border-red-200 bg-red-50 px-2 py-1 rounded">❌</button></div></div>`; }); }
+        async function handleRequest(id, action) { await fetch('/api/requests/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action }) }); loadRequests(); loadShifts(); loadTasks(); loadEvents(); setTimeout(() => renderCurrentShifts(), 500); }
+        async function approveAllRequests() { if(!confirm("Підтвердити ВСІ запити списком?")) return; await fetch('/api/requests/approve-all', { method: 'POST' }); loadRequests(); loadShifts(); loadTasks(); setTimeout(() => renderCurrentShifts(), 500); }
+        async function addShift() { const date = document.getElementById('shiftDate').value; const name = document.getElementById('employeeSelect').value; const start = document.getElementById('startTime').value; const end = document.getElementById('endTime').value; if (!date || !name || !start || !end) return alert("Заповни все!"); const res = await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, name, start, end }) }); const data = await res.json(); if (data.pending) alert("✅ Відправлено на підтвердження SM!"); else alert("✅ Зміну додано!"); loadShifts().then(() => renderCurrentShifts()); }
+        async function addTask() { const title = document.getElementById('taskTitle').value; const date = document.getElementById('taskDate').value; const name = document.getElementById('taskEmployee').value; const isFullDay = document.getElementById('taskFullDay').checked; const start = document.getElementById('taskStart').value; const end = document.getElementById('taskEnd').value; if(!title || !date || !name) return alert("Заповни все!"); const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, date, name, isFullDay, start, end }) }); const data = await res.json(); if (data.pending) alert("✅ Задача відправлена на підтвердження!"); else alert("✅ Задачу призначено!"); loadTasks().then(() => renderCurrentShifts()); }
+        async function deleteShiftInGroup(date, name) { const res = await fetch('/api/shifts'); const allShifts = await res.json(); const shift = allShifts.find(s => s.date === date && s.name === name); if (shift && confirm("Видалити цю зміну?")) { const r = await fetch('/api/delete-shift', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: shift._id }) }); const d = await r.json(); if(d.pending) alert("❌ Запит на видалення надіслано SM."); else loadShifts().then(() => renderCurrentShifts()); } }
+        async function deleteTask(id) { if(!confirm("Видалити задачу?")) return; const r = await fetch('/api/tasks/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); const d = await r.json(); if(d.pending) alert("❌ Запит на видалення надіслано SM."); else loadTasks().then(() => renderCurrentShifts()); }
+        function showAdminTab(tab) { document.getElementById('adminTabShifts').classList.add('hidden'); document.getElementById('adminTabEvents').classList.add('hidden'); document.getElementById('adminTabTasks').classList.add('hidden'); document.getElementById('adminTabRequests').classList.add('hidden'); if(tab === 'shifts') document.getElementById('adminTabShifts').classList.remove('hidden'); else if(tab === 'events') document.getElementById('adminTabEvents').classList.remove('hidden'); else if(tab === 'tasks') document.getElementById('adminTabTasks').classList.remove('hidden'); else if(tab === 'requests') { document.getElementById('adminTabRequests').classList.remove('hidden'); loadRequests(); } }
         function calculateHours() { if (!currentUser) return; const now = new Date(); const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`; const myShifts = globalShifts.filter(s => s.name === currentUser.name && s.date.startsWith(currentMonthStr)); let totalMinutes = 0; myShifts.forEach(s => { const [startH, startM] = s.start.split(':').map(Number); const [endH, endM] = s.end.split(':').map(Number); totalMinutes += ((endH * 60 + endM) - (startH * 60 + startM)); }); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; document.getElementById('hoursDisplay').innerText = `${hours} год. ${minutes > 0 ? minutes + ' хв.' : ''} (у цьому місяці)`; document.getElementById('hoursDisplay').classList.remove('hidden'); }
         function renderCurrentShifts() { renderTimeline(globalShifts, document.getElementById('viewFilter').value); renderCalendar(); }
-        function renderTimeline(shifts, filterUser) {
-            const mainContainer = document.getElementById('scheduleView'); const archiveContainer = document.getElementById('archiveContainer'); const archiveBtn = document.getElementById('archiveToggleBtn'); const archiveCount = document.getElementById('archiveCount'); mainContainer.innerHTML = ''; archiveContainer.innerHTML = '';
-            const uniqueDates = [...new Set(shifts.map(s => s.date))].sort(); const todayStr = new Date().toISOString().split('T')[0]; if (!uniqueDates.includes(todayStr)) uniqueDates.push(todayStr); uniqueDates.sort(); let pastDaysCount = 0; let todayElementId = null;
-            uniqueDates.forEach(dateStr => {
-                const isPast = dateStr < todayStr; const isToday = dateStr === todayStr; const dayEvents = getEventsForDate(dateStr);
-                const dayBlock = document.createElement('div'); dayBlock.className = 'bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden'; let headerBg = "bg-gray-50 dark:bg-gray-700/50"; if (isToday) { dayBlock.classList.add('ring-2', 'ring-blue-400', 'border-blue-500'); dayBlock.id = "todayBlock"; todayElementId = "todayBlock"; headerBg = "bg-blue-100 dark:bg-blue-900"; }
-                const dayDateObj = new Date(dateStr); const dayName = dayDateObj.toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'long' }); let eventsHtml = ''; dayEvents.forEach(ev => { eventsHtml += `<div class="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded border border-yellow-200 inline-block mr-1">📌 ${ev.title}</div>`; });
-                dayBlock.innerHTML = `<div class="${headerBg} px-3 py-2 text-sm flex flex-col border-b dark:border-gray-700"><div class="flex justify-between items-center"><span class="font-bold text-gray-700 dark:text-gray-200 capitalize">${dayName} ${isToday ? '<span class="ml-2 bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full">СЬОГОДНІ</span>' : ''}</span></div>${eventsHtml ? `<div class="mt-1">${eventsHtml}</div>` : ''}</div>`;
-                const dayContent = document.createElement('div'); dayContent.className = 'p-2 space-y-3'; let usersToShow = (filterUser === 'all') ? globalUsers : globalUsers.filter(u => u.name === filterUser); const shiftsOnThisDay = shifts.filter(s => s.date === dateStr); usersToShow.sort((a, b) => { const aWork = shiftsOnThisDay.find(s => s.name === a.name); const bWork = shiftsOnThisDay.find(s => s.name === b.name); if (aWork && !bWork) return -1; if (!aWork && bWork) return 1; return a.name.localeCompare(b.name); });
-                let hasAnyInfo = false;
-                usersToShow.forEach(user => {
-                    const shift = shiftsOnThisDay.find(s => s.name === user.name); const userTasks = globalTasks.filter(t => t.date === dateStr && t.name === user.name); if (shift || userTasks.length > 0) hasAnyInfo = true;
-                    if (shift) {
-                        const isMe = shift.name === currentUser.name; const [sH, sM] = shift.start.split(':').map(Number); const [eH, eM] = shift.end.split(':').map(Number); const startH = sH + sM/60; const endH = eH + eM/60; let left = ((startH - START_HOUR) / TOTAL_HOURS) * 100; let width = ((endH - startH) / TOTAL_HOURS) * 100; if (left < 0) { width += left; left = 0; } if (left + width > 100) width = 100 - left; const barColor = isMe ? 'bg-green-500' : 'bg-blue-500'; const nameColor = isMe ? 'text-green-700 dark:text-green-400 font-bold' : 'text-gray-700 dark:text-gray-300 font-bold';
-                        let taskBadges = ''; let taskBars = ''; userTasks.forEach(task => { if (task.isFullDay) { taskBadges += `<span class="task-badge-full ml-2" title="${task.title}">★ ${task.title}</span>`; } else { const [tsH, tsM] = task.start.split(':').map(Number); const [teH, teM] = task.end.split(':').map(Number); const tStartH = tsH + tsM/60; const tEndH = teH + teM/60; let tLeft = ((tStartH - START_HOUR) / TOTAL_HOURS) * 100; let tWidth = ((tEndH - tStartH) / TOTAL_HOURS) * 100; if (tLeft < 0) { tWidth += tLeft; tLeft = 0; } if (tLeft + tWidth > 100) tWidth = 100 - tLeft; const delBtn = (currentUser.role==='admin'||currentUser.role==='SM'||currentUser.role==='SSE') ? `onclick="deleteTask('${task._id}')" style="cursor:pointer;"` : ''; taskBars += `<div class="task-bar flex items-center justify-center text-[8px] text-white font-bold overflow-hidden" ${delBtn} style="left: ${tLeft}%; width: ${tWidth}%;">${task.title}</div>`; } });
-                        dayContent.innerHTML += `<div><div class="flex items-center text-xs mb-1 ${nameColor}"><span>${shift.name}</span> <span class="text-gray-500 dark:text-gray-400 ml-1 font-normal">${shift.start}-${shift.end}</span>${taskBadges}</div><div class="timeline-grid">${Array(10).fill('<div class="timeline-mark"></div>').join('')}<div class="shift-bar ${barColor}" style="left: ${left}%; width: ${width}%;"></div>${taskBars}</div><div class="flex justify-end gap-2 h-4">${(currentUser.role==='admin'||currentUser.role==='SM'||currentUser.role==='SSE') ? `<button onclick="deleteShiftInGroup('${shift.date}', '${shift.name}')" class="text-[10px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-1 rounded">Видалити зміну</button>` : ''}</div></div>`;
-                    } else if (userTasks.length > 0) {
-                        let taskBadges = ''; userTasks.forEach(task => taskBadges += `<span class="task-badge-full ml-2">★ ${task.title}</span>`); dayContent.innerHTML += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500 dark:text-gray-400"><span>${user.name}</span> <span class="ml-1">Вихідний</span>${taskBadges}</div><div class="h-1 bg-gray-100 dark:bg-gray-700 rounded w-full"></div></div>`;
-                    } else { dayContent.innerHTML += `<div class="opacity-60"><div class="flex justify-between text-xs mb-1 text-gray-500 dark:text-gray-400"><span>${user.name}</span><span>Вихідний</span></div><div class="h-1 bg-gray-100 dark:bg-gray-700 rounded w-full"></div></div>`; }
-                });
-                if (hasAnyInfo) { dayBlock.appendChild(dayContent); if (isPast) { archiveContainer.appendChild(dayBlock); pastDaysCount++; } else { mainContainer.appendChild(dayBlock); } }
-            });
-            if (pastDaysCount > 0) { archiveBtn.classList.remove('hidden'); archiveCount.innerText = pastDaysCount; } else { archiveBtn.classList.add('hidden'); } if (todayElementId) { setTimeout(() => { const el = document.getElementById(todayElementId); if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 500); }
-        }
-
-        // ... [HELPERS] ...
+        function renderTimeline(shifts, filterUser) { const mainContainer = document.getElementById('scheduleView'); const archiveContainer = document.getElementById('archiveContainer'); const archiveBtn = document.getElementById('archiveToggleBtn'); const archiveCount = document.getElementById('archiveCount'); mainContainer.innerHTML = ''; archiveContainer.innerHTML = ''; const uniqueDates = [...new Set(shifts.map(s => s.date))].sort(); const todayStr = new Date().toISOString().split('T')[0]; if (!uniqueDates.includes(todayStr)) uniqueDates.push(todayStr); uniqueDates.sort(); let pastDaysCount = 0; let todayElementId = null; uniqueDates.forEach(dateStr => { const isPast = dateStr < todayStr; const isToday = dateStr === todayStr; const dayEvents = getEventsForDate(dateStr); const dayBlock = document.createElement('div'); dayBlock.className = 'bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden'; let headerBg = "bg-gray-50 dark:bg-gray-700/50"; if (isToday) { dayBlock.classList.add('ring-2', 'ring-blue-400', 'border-blue-500'); dayBlock.id = "todayBlock"; todayElementId = "todayBlock"; headerBg = "bg-blue-100 dark:bg-blue-900"; } const dayDateObj = new Date(dateStr); const dayName = dayDateObj.toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'long' }); let eventsHtml = ''; dayEvents.forEach(ev => { eventsHtml += `<div class="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded border border-yellow-200 inline-block mr-1">📌 ${ev.title}</div>`; }); dayBlock.innerHTML = `<div class="${headerBg} px-3 py-2 text-sm flex flex-col border-b dark:border-gray-700"><div class="flex justify-between items-center"><span class="font-bold text-gray-700 dark:text-gray-200 capitalize">${dayName} ${isToday ? '<span class="ml-2 bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full">СЬОГОДНІ</span>' : ''}</span></div>${eventsHtml ? `<div class="mt-1">${eventsHtml}</div>` : ''}</div>`; const dayContent = document.createElement('div'); dayContent.className = 'p-2 space-y-3'; let usersToShow = (filterUser === 'all') ? globalUsers : globalUsers.filter(u => u.name === filterUser); const shiftsOnThisDay = shifts.filter(s => s.date === dateStr); usersToShow.sort((a, b) => { const aWork = shiftsOnThisDay.find(s => s.name === a.name); const bWork = shiftsOnThisDay.find(s => s.name === b.name); if (aWork && !bWork) return -1; if (!aWork && bWork) return 1; return a.name.localeCompare(b.name); }); let hasAnyInfo = false; usersToShow.forEach(user => { const shift = shiftsOnThisDay.find(s => s.name === user.name); const userTasks = globalTasks.filter(t => t.date === dateStr && t.name === user.name); if (shift || userTasks.length > 0) hasAnyInfo = true; if (shift) { const isMe = shift.name === currentUser.name; const [sH, sM] = shift.start.split(':').map(Number); const [eH, eM] = shift.end.split(':').map(Number); const startH = sH + sM/60; const endH = eH + eM/60; let left = ((startH - START_HOUR) / TOTAL_HOURS) * 100; let width = ((endH - startH) / TOTAL_HOURS) * 100; if (left < 0) { width += left; left = 0; } if (left + width > 100) width = 100 - left; const barColor = isMe ? 'bg-green-500' : 'bg-blue-500'; const nameColor = isMe ? 'text-green-700 dark:text-green-400 font-bold' : 'text-gray-700 dark:text-gray-300 font-bold'; let taskBadges = ''; let taskBars = ''; userTasks.forEach(task => { if (task.isFullDay) { taskBadges += `<span class="task-badge-full ml-2" title="${task.title}">★ ${task.title}</span>`; } else { const [tsH, tsM] = task.start.split(':').map(Number); const [teH, teM] = task.end.split(':').map(Number); const tStartH = tsH + tsM/60; const tEndH = teH + teM/60; let tLeft = ((tStartH - START_HOUR) / TOTAL_HOURS) * 100; let tWidth = ((tEndH - tStartH) / TOTAL_HOURS) * 100; if (tLeft < 0) { tWidth += tLeft; tLeft = 0; } if (tLeft + tWidth > 100) tWidth = 100 - tLeft; const delBtn = (currentUser.role==='admin'||currentUser.role==='SM'||currentUser.role==='SSE') ? `onclick="deleteTask('${task._id}')" style="cursor:pointer;"` : ''; taskBars += `<div class="task-bar flex items-center justify-center text-[8px] text-white font-bold overflow-hidden" ${delBtn} style="left: ${tLeft}%; width: ${tWidth}%;">${task.title}</div>`; } }); dayContent.innerHTML += `<div><div class="flex items-center text-xs mb-1 ${nameColor}"><span>${shift.name}</span> <span class="text-gray-500 dark:text-gray-400 ml-1 font-normal">${shift.start}-${shift.end}</span>${taskBadges}</div><div class="timeline-grid">${Array(10).fill('<div class="timeline-mark"></div>').join('')}<div class="shift-bar ${barColor}" style="left: ${left}%; width: ${width}%;"></div>${taskBars}</div><div class="flex justify-end gap-2 h-4">${(currentUser.role==='admin'||currentUser.role==='SM'||currentUser.role==='SSE') ? `<button onclick="deleteShiftInGroup('${shift.date}', '${shift.name}')" class="text-[10px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-1 rounded">Видалити зміну</button>` : ''}</div></div>`; } else if (userTasks.length > 0) { let taskBadges = ''; userTasks.forEach(task => taskBadges += `<span class="task-badge-full ml-2">★ ${task.title}</span>`); dayContent.innerHTML += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500 dark:text-gray-400"><span>${user.name}</span> <span class="ml-1">Вихідний</span>${taskBadges}</div><div class="h-1 bg-gray-100 dark:bg-gray-700 rounded w-full"></div></div>`; } else { dayContent.innerHTML += `<div class="opacity-60"><div class="flex justify-between text-xs mb-1 text-gray-500 dark:text-gray-400"><span>${user.name}</span><span>Вихідний</span></div><div class="h-1 bg-gray-100 dark:bg-gray-700 rounded w-full"></div></div>`; } }); if (hasAnyInfo) { dayBlock.appendChild(dayContent); if (isPast) { archiveContainer.appendChild(dayBlock); pastDaysCount++; } else { mainContainer.appendChild(dayBlock); } } }); if (pastDaysCount > 0) { archiveBtn.classList.remove('hidden'); archiveCount.innerText = pastDaysCount; } else { archiveBtn.classList.add('hidden'); } if (todayElementId) { setTimeout(() => { const el = document.getElementById(todayElementId); if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 500); } }
         function getEventsForDate(d) { const ch = new Date(d); return globalEvents.filter(e => { const ev = new Date(e.date); if(e.repeat==='none')return e.date===d; if(e.repeat==='weekly')return ch>=ev && ch.getDay()===ev.getDay(); if(e.repeat==='monthly')return ch>=ev && ch.getDate()===ev.getDate(); if(e.repeat==='yearly')return ch>=ev && ch.getMonth()===ev.getMonth() && ch.getDate()===ev.getDate(); return false; }); }
         function renderCalendar() { const g = document.getElementById('calendarGrid'); const t = document.getElementById('calendarTitle'); g.innerHTML = ''; const y = currentCalendarDate.getFullYear(); const m = currentCalendarDate.getMonth(); t.innerText = currentCalendarDate.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' }); const fd = new Date(y, m, 1); const ld = new Date(y, m + 1, 0); let sdi = fd.getDay() - 1; if (sdi === -1) sdi = 6; for (let i = 0; i < sdi; i++) { const e = document.createElement('div'); e.className = 'calendar-day empty'; g.appendChild(e); } const td = new Date().toISOString().split('T')[0]; for (let d = 1; d <= ld.getDate(); d++) { const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`; const dc = document.createElement('div'); dc.className = 'calendar-day'; if (ds === td) dc.classList.add('today'); const ms = globalShifts.find(s => s.date === ds && s.name === currentUser.name); const de = getEventsForDate(ds); const mt = globalTasks.filter(t => t.date === ds && t.name === currentUser.name); let c = `<div class="day-label"><span>${d}</span></div>`; de.forEach(e => { c += `<div class="event-badge" title="${e.title}">${e.title}</div>`; }); mt.forEach(t => { c += `<div class="text-[9px] text-purple-700 font-bold leading-tight mb-0.5">★ ${t.title}</div>`; }); if (ms) { dc.classList.add('bg-blue-50', 'dark:bg-blue-900/20'); c += `<div class="work-badge">${ms.start}-${ms.end}</div>`; } else { c += `<div class="text-[10px] text-gray-300 dark:text-gray-600 text-center mt-auto">.</div>`; } dc.innerHTML = c; g.appendChild(dc); } }
         function changeMonth(d) { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + d); renderCalendar(); }
