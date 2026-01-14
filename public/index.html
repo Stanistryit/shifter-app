@@ -240,8 +240,13 @@
             const res = await fetch('/api/users'); 
             const allUsers = await res.json();
             
+<<<<<<< HEAD
             // Фільтр: Прибираємо тільки 'admin', але 'SM' залишаємо в списку, 
             // бо менеджер теж людина і має зміни
+=======
+            // --- ФІЛЬТР: Прибираємо адмінів зі списку ---
+            // Тепер у графіку будуть тільки ті, у кого роль НЕ 'admin'
+>>>>>>> ee014c3740b39cc4cd8cd654b2542ab3ab1335f2
             const workers = allUsers.filter(u => u.role !== 'admin');
             
             globalUsers = workers;
