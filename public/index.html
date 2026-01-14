@@ -236,8 +236,10 @@
                 document.getElementById('toggleEditBtn').classList.add('hidden');
             }
             
+            // МИ ДОДАЛИ: renderCurrentShifts() в кінці
             Promise.all([loadEmployeeList(), loadShifts(), loadEvents()]).then(() => {
                 calculateHours();
+                renderCurrentShifts(); // <--- ОСЬ ЦЕЙ РЯДОК ВИПРАВЛЯЄ ПРОБЛЕМУ
                 if(user.role === 'admin' || user.role === 'SM') renderAdminEventList();
             });
         }

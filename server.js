@@ -11,37 +11,27 @@ const cron = require('node-cron');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- ПІДКЛЮЧЕННЯ ДО БД ---
+// --- DB CONNECTION ---
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => {
-        console.log("✅ Connected to MongoDB");
-        initDB();
-    })
+    .then(() => { console.log("✅ Connected to MongoDB"); initDB(); })
     .catch(err => console.error("❌ MongoDB connection error:", err));
 
-// --- МОДЕЛІ ---
+// --- SCHEMAS ---
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: { type: String, default: 'user' }, 
     name: { type: String, required: true },
-    telegramChatId: { type: Number, default: null } // Нове поле для ID телеграма
+    telegramChatId: { type: Number, default: null },
+    // НОВЕ ПОЛЕ: Час нагадування ('20:00' - вечір напередодні, '08:00' - ранок у день зміни, 'none' - вимкнено)
+    reminderTime: { type: String, default: '20:00' }
 });
 const User = mongoose.model('User', UserSchema);
 
-const ShiftSchema = new mongoose.Schema({
-    date: String, // YYYY-MM-DD
-    name: String,
-    start: String,
-    end: String
-});
+const ShiftSchema = new mongoose.Schema({ date: String, name: String, start: String, end: String });
 const Shift = mongoose.model('Shift', ShiftSchema);
 
-const EventSchema = new mongoose.Schema({
-    date: String,
-    title: String,
-    repeat: { type: String, default: 'none' }
-});
+const EventSchema = new mongoose.Schema({ date: String, title: String, repeat: { type: String, default: 'none' } });
 const Event = mongoose.model('Event', EventSchema);
 
 // --- MIDDLEWARE ---
@@ -55,126 +45,196 @@ app.use(session({
     cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
 
-// --- API ---
+// --- API ROUTES ---
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     const user = await User.findOne({ username, password });
-    if (user) {
-        req.session.userId = user._id;
-        res.json({ success: true, user: { name: user.name, role: user.role } });
-    } else {
-        res.json({ success: false, message: "Невірний логін або пароль" });
-    }
+    if (user) { req.session.userId = user._id; res.json({ success: true, user: { name: user.name, role: user.role } }); } 
+    else { res.json({ success: false, message: "Невірний логін або пароль" }); }
 });
-
 app.post('/api/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
-
 app.get('/api/me', async (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
     const user = await User.findById(req.session.userId);
     if (!user) return res.json({ loggedIn: false });
     res.json({ loggedIn: true, user: { name: user.name, role: user.role } });
 });
-
 app.get('/api/users', async (req, res) => { const users = await User.find({}, 'name role'); res.json(users); });
-
-app.get('/api/shifts', async (req, res) => {
-    if (!req.session.userId) return res.status(403).json({ error: "Unauthorized" });
-    const shifts = await Shift.find();
-    res.json(shifts);
-});
+app.get('/api/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({ error: "Unauthorized" }); const shifts = await Shift.find(); res.json(shifts); });
 app.post('/api/shifts', async (req, res) => { await Shift.create(req.body); res.json({ success: true }); });
 app.post('/api/delete-shift', async (req, res) => { await Shift.findByIdAndDelete(req.body.id); res.json({ success: true }); });
 app.post('/api/shifts/bulk', async (req, res) => { if (req.body.shifts?.length) await Shift.insertMany(req.body.shifts); res.json({ success: true }); });
 app.post('/api/shifts/clear-day', async (req, res) => { await Shift.deleteMany({ date: req.body.date }); res.json({ success: true }); });
 app.post('/api/shifts/clear-month', async (req, res) => { await Shift.deleteMany({ date: { $regex: `^${req.body.month}` } }); res.json({ success: true }); });
-
 app.get('/api/events', async (req, res) => { const events = await Event.find(); res.json(events); });
 app.post('/api/events', async (req, res) => { await Event.create(req.body); res.json({ success: true }); });
 app.post('/api/events/delete', async (req, res) => { await Event.findByIdAndDelete(req.body.id); res.json({ success: true }); });
 
-// --- INIT DB ---
 async function initDB() {
-    try {
-        const count = await User.countDocuments();
-        if (count === 0) {
-            await User.create([{ username: "admin", password: "123", role: "admin", name: "Адмін" }]);
-        }
-    } catch (e) { console.log("Init DB error", e); }
+    try { if ((await User.countDocuments()) === 0) await User.create([{ username: "admin", password: "123", role: "admin", name: "Адмін" }]); } catch (e) { console.log(e); }
 }
 
 // ============================================================
-// --- TELEGRAM BOT LOGIC ---
+// --- TELEGRAM BOT PRO ---
 // ============================================================
 if (process.env.TELEGRAM_TOKEN) {
     const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
     console.log("🤖 Telegram Bot Started!");
 
-    // 1. Команда /start
+    // Меню команд
+    bot.setMyCommands([
+        { command: '/me', description: '📅 Найближчі зміни' },
+        { command: '/month', description: '📆 Графік на цей місяць' },
+        { command: '/off', description: '🌴 Мої вихідні' },
+        { command: '/settings', description: '⚙️ Налаштування нагадувань' },
+        { command: '/login', description: '🔐 Вхід' }
+    ]);
+
+    // 1. START
     bot.onText(/\/start/, (msg) => {
-        bot.sendMessage(msg.chat.id, "Привіт! Я бот Shifter.\nЩоб підключити свій акаунт, напиши:\n`/login логін пароль`\nНаприклад: `/login alex 123`", { parse_mode: 'Markdown' });
+        bot.sendMessage(msg.chat.id, "Привіт! Щоб почати, увійди в систему:\n`/login логін пароль`", { parse_mode: 'Markdown' });
     });
 
-    // 2. Команда /login user pass
+    // 2. LOGIN
     bot.onText(/\/login (.+) (.+)/, async (msg, match) => {
         const chatId = msg.chat.id;
-        const username = match[1];
-        const password = match[2];
-
-        const user = await User.findOne({ username, password });
+        const user = await User.findOne({ username: match[1], password: match[2] });
         if (user) {
             user.telegramChatId = chatId;
             await user.save();
-            bot.sendMessage(chatId, `✅ Успішно! Привіт, ${user.name}. Тепер я буду надсилати тобі нагадування.`);
+            bot.sendMessage(chatId, `✅ Привіт, ${user.name}! Акаунт підключено.`);
         } else {
-            bot.sendMessage(chatId, "❌ Невірний логін або пароль. Спробуй ще раз.");
+            bot.sendMessage(chatId, "❌ Помилка входу.");
         }
     });
 
-    // 3. Команда /me (Моя наступна зміна)
+    // 3. ME (Найближчі 5 змін)
     bot.onText(/\/me/, async (msg) => {
         const user = await User.findOne({ telegramChatId: msg.chat.id });
-        if (!user) return bot.sendMessage(msg.chat.id, "Спочатку увійди через /login");
-
+        if (!user) return bot.sendMessage(msg.chat.id, "Спершу увійди через /login");
         const today = new Date().toISOString().split('T')[0];
-        // Шукаємо зміни починаючи з сьогодні, сортуємо за датою
         const shifts = await Shift.find({ name: user.name, date: { $gte: today } }).sort({ date: 1 }).limit(5);
-
-        if (shifts.length === 0) {
-            bot.sendMessage(msg.chat.id, "У тебе поки немає змін у графіку 🌴");
-        } else {
-            let response = "📋 **Твої найближчі зміни:**\n";
-            shifts.forEach(s => {
-                response += `📅 ${s.date}: ${s.start} - ${s.end}\n`;
-            });
-            bot.sendMessage(msg.chat.id, response);
-        }
+        if (shifts.length === 0) return bot.sendMessage(msg.chat.id, "Графік пустий 🤷‍♂️");
+        let res = "📋 **Найближчі зміни:**\n";
+        shifts.forEach(s => res += `🔹 ${s.date}: ${s.start}-${s.end}\n`);
+        bot.sendMessage(msg.chat.id, res);
     });
 
-    // 4. ЩОДЕННИЙ НАГАДУВАЧ (CRON)
-    // Запускається щодня о 20:00 за часом сервера (UTC). 
-    // Увага: Render працює в UTC (це -2 або -3 години від Києва).
-    // '0 18 * * *' означає 18:00 UTC = 20:00 або 21:00 Київ.
-    cron.schedule('0 18 * * *', async () => {
-        console.log("⏰ Checking shifts for tomorrow...");
+    // 4. MONTH (Весь місяць)
+    bot.onText(/\/month/, async (msg) => {
+        const user = await User.findOne({ telegramChatId: msg.chat.id });
+        if (!user) return bot.sendMessage(msg.chat.id, "Спершу увійди через /login");
         
-        // Визначаємо дату "Завтра"
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        const now = new Date();
+        const monthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        const shifts = await Shift.find({ name: user.name, date: { $regex: `^${monthStr}` } }).sort({ date: 1 });
+        
+        if (shifts.length === 0) return bot.sendMessage(msg.chat.id, "У цьому місяці змін немає.");
+        
+        let res = `📆 **Графік на ${monthStr}:**\n`;
+        shifts.forEach(s => res += `${s.date.slice(8)}го: ${s.start}-${s.end}\n`); // Показуємо тільки день (slice)
+        bot.sendMessage(msg.chat.id, res);
+    });
 
-        const shifts = await Shift.find({ date: tomorrowStr });
+    // 5. OFF (Вихідні у цьому місяці)
+    bot.onText(/\/off/, async (msg) => {
+        const user = await User.findOne({ telegramChatId: msg.chat.id });
+        if (!user) return bot.sendMessage(msg.chat.id, "Спершу увійди через /login");
+
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const todayDay = now.getDate();
+
+        // Беремо всі зміни за місяць
+        const monthStr = `${year}-${String(month+1).padStart(2,'0')}`;
+        const shifts = await Shift.find({ name: user.name, date: { $regex: `^${monthStr}` } });
+        const workDays = shifts.map(s => parseInt(s.date.split('-')[2])); // Отримуємо числа (1, 5, 12...)
+
+        let offDays = [];
+        for(let d = todayDay; d <= daysInMonth; d++) {
+            if (!workDays.includes(d)) offDays.push(d);
+        }
+
+        if (offDays.length === 0) return bot.sendMessage(msg.chat.id, "Ого, ти працюєш без вихідних до кінця місяця! 😱");
+        bot.sendMessage(msg.chat.id, `🌴 **Твої вихідні (залишок місяця):**\n${offDays.join(', ')} числа.`);
+    });
+
+    // 6. SETTINGS (Налаштування нагадувань)
+    bot.onText(/\/settings/, async (msg) => {
+        const user = await User.findOne({ telegramChatId: msg.chat.id });
+        if (!user) return bot.sendMessage(msg.chat.id, "Спершу увійди через /login");
+
+        const current = user.reminderTime === '20:00' ? 'Вечір (20:00)' : 
+                        user.reminderTime === '08:00' ? 'Ранок (08:00)' : 'Вимкнено';
+
+        bot.sendMessage(msg.chat.id, `⚙️ **Налаштування нагадувань**\nЗараз встановлено: ${current}\n\nКоли нагадувати про зміну?`, {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🌙 Увечері напередодні (20:00)', callback_data: 'set_remind_20' }],
+                    [{ text: '☀️ Вранці в день зміни (08:00)', callback_data: 'set_remind_08' }],
+                    [{ text: '🔕 Не нагадувати', callback_data: 'set_remind_none' }]
+                ]
+            }
+        });
+    });
+
+    // ОБРОБКА КНОПОК
+    bot.on('callback_query', async (query) => {
+        const chatId = query.message.chat.id;
+        const user = await User.findOne({ telegramChatId: chatId });
+        if (!user) return;
+
+        let text = "";
+        if (query.data === 'set_remind_20') {
+            user.reminderTime = '20:00';
+            text = "✅ Нагадування приходитимуть о 20:00 (за день до зміни).";
+        } else if (query.data === 'set_remind_08') {
+            user.reminderTime = '08:00';
+            text = "✅ Нагадування приходитимуть о 08:00 (у день зміни).";
+        } else if (query.data === 'set_remind_none') {
+            user.reminderTime = 'none';
+            text = "🔕 Нагадування вимкнено.";
+        }
+
+        await user.save();
+        bot.sendMessage(chatId, text);
+        bot.answerCallbackQuery(query.id); // Прибираємо часіки завантаження на кнопці
+    });
+
+    // --- CRON JOBS (БУДИЛЬНИКИ) ---
+    
+    // 1. Вечірнє нагадування (18:00 UTC = 20:00 Київ) -> Про ЗАВТРА
+    cron.schedule('0 18 * * *', async () => {
+        const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+        const dateStr = tomorrow.toISOString().split('T')[0];
+        const shifts = await Shift.find({ date: dateStr });
 
         for (const shift of shifts) {
             const user = await User.findOne({ name: shift.name });
-            if (user && user.telegramChatId) {
-                bot.sendMessage(user.telegramChatId, `🔔 **Нагадування!**\nЗавтра (${shift.date}) у тебе зміна:\n⏰ ${shift.start} - ${shift.end}`);
+            // Перевіряємо, чи юзер хоче нагадування саме ВВЕЧЕРІ ('20:00')
+            if (user && user.telegramChatId && user.reminderTime === '20:00') {
+                bot.sendMessage(user.telegramChatId, `🌙 **Нагадування!**\nЗавтра (${shift.date}) зміна:\n⏰ ${shift.start} - ${shift.end}`);
             }
         }
     });
-    
-    // Обробка помилок бота (щоб не падав сервер)
-    bot.on("polling_error", (err) => console.log(err));
+
+    // 2. Ранкове нагадування (06:00 UTC = 08:00 Київ) -> Про СЬОГОДНІ
+    cron.schedule('0 6 * * *', async () => {
+        const today = new Date().toISOString().split('T')[0];
+        const shifts = await Shift.find({ date: today });
+
+        for (const shift of shifts) {
+            const user = await User.findOne({ name: shift.name });
+            // Перевіряємо, чи юзер хоче нагадування ВРАНЦІ ('08:00')
+            if (user && user.telegramChatId && user.reminderTime === '08:00') {
+                bot.sendMessage(user.telegramChatId, `☀️ **Доброго ранку!**\nСьогодні у тебе зміна:\n⏰ ${shift.start} - ${shift.end}`);
+            }
+        }
+    });
+
+    bot.on("polling_error", (err) => console.log("Telegram Error:", err.message));
 }
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
