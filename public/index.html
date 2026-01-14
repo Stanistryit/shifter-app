@@ -24,34 +24,32 @@
     <style>
         body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
         
-        /* Glass Header */
+        /* --- APPLE STYLES --- */
         .glass-header { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(0,0,0,0.05); }
         .dark .glass-header { background: rgba(28, 28, 30, 0.85); border-bottom: 1px solid rgba(255,255,255,0.1); }
 
-        /* Timeline Elements */
-        .timeline-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; border-radius: 6px; overflow: hidden; position: relative; height: 10px; margin-bottom: 6px; }
+        .timeline-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; border-radius: 6px; overflow: hidden; position: relative; height: 12px; margin-bottom: 8px; }
         .timeline-mark { border-right: 1px solid rgba(0,0,0,0.05); height: 100%; }
         .dark .timeline-mark { border-right-color: rgba(255,255,255,0.05); }
         .timeline-mark:last-child { border-right: none; }
         
         .shift-bar { position: absolute; top: 0; bottom: 0; border-radius: 100px; opacity: 1; z-index: 10; transition: all 0.3s; }
-        .task-bar { position: absolute; top: 1px; bottom: 1px; border-radius: 100px; z-index: 20; background-color: #BF5AF2; box-shadow: 0 1px 2px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.3); }
+        .task-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 100px; z-index: 20; background-color: #BF5AF2; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.3); }
         
-        /* Calendar */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
         .calendar-day { min-height: 85px; border-radius: 14px; padding: 6px; font-size: 13px; background: white; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03); border: 1px solid transparent; }
         .dark .calendar-day { background: #1C1C1E; color: white; }
         .calendar-day.today { border: 2px solid #007AFF; }
-        .day-label { font-weight: bold; margin-bottom: 2px; display: flex; justify-content: space-between; }
         
-        /* Badges */
-        .work-badge { background-color: #007AFF15; color: #007AFF; padding: 2px 4px; border-radius: 4px; margin-top: 2px; text-align: center; font-size: 10px; font-weight: 600; }
+        .work-badge { background-color: #007AFF15; color: #007AFF; padding: 3px 6px; border-radius: 6px; margin-top: 2px; text-align: center; font-size: 11px; font-weight: 600; }
         .dark .work-badge { background-color: #0A84FF20; color: #0A84FF; }
+        
         .event-badge { background-color: #FFD60A20; color: #B49104; padding: 2px 5px; border-radius: 4px; font-size: 10px; margin-bottom: 2px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .dark .event-badge { background-color: #FFD60A20; color: #FFD60A; }
-        .task-badge-full { color: #BF5AF2; font-size: 10px; font-weight: 700; border: 1px solid #BF5AF2; padding: 1px 4px; border-radius: 4px; margin-bottom: 1px; }
         
-        /* Inputs & Buttons */
+        .task-badge-full { color: #BF5AF2; font-size: 10px; font-weight: 700; border: 1px solid #BF5AF2; padding: 1px 4px; border-radius: 4px; margin-bottom: 1px; }
+        .dark .task-badge-full { color: #E9D5FF; border-color: #E9D5FF; }
+
         .ios-input { background: #E5E5EA; border: none; border-radius: 10px; padding: 10px 12px; width: 100%; font-size: 15px; outline: none; transition: background 0.2s; -webkit-appearance: none; }
         .ios-input:focus { background: #D1D1D6; }
         .dark .ios-input { background: #2C2C2E; color: white; }
@@ -60,10 +58,7 @@
         .btn-primary { background: #007AFF; color: white; border-radius: 12px; font-weight: 600; padding: 12px; transition: opacity 0.2s; width: 100%; font-size: 16px; }
         .btn-primary:active { opacity: 0.7; }
         
-        /* Utils */
         ::-webkit-scrollbar { width: 0px; background: transparent; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-[#F2F2F7] text-black dark:bg-black dark:text-white font-sans min-h-screen flex flex-col">
@@ -182,27 +177,25 @@
 
     <script>
         const tg = window.Telegram.WebApp;
-        const isTelegram = tg.platform && tg.platform !== 'unknown';
-
-        if (isTelegram) { try { tg.expand(); tg.enableClosingConfirmation(); } catch(e){} }
+        if (tg.platform && tg.platform !== 'unknown') { try { tg.expand(); tg.enableClosingConfirmation(); } catch(e){} }
 
         let currentUser = null; let globalShifts = []; let globalUsers = []; let globalEvents = []; let globalTasks = [];
         const START_HOUR = 10; const END_HOUR = 20; const TOTAL_HOURS = END_HOUR - START_HOUR;
         let currentCalendarDate = new Date();
 
         function initTheme() {
-            if ((isTelegram && tg.colorScheme === 'dark') || localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { 
+            if ((tg.platform !== 'unknown' && tg.colorScheme === 'dark') || localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { 
                 document.documentElement.classList.add('dark'); document.getElementById('themeIcon').innerText = '☀️'; 
-                if(isTelegram) { tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000'); }
+                if(tg.platform!=='unknown'){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');}
             } else { 
                 document.documentElement.classList.remove('dark'); document.getElementById('themeIcon').innerText = '🌙'; 
-                if(isTelegram) { tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7'); }
+                if(tg.platform!=='unknown'){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');}
             }
         }
         function toggleTheme() {
             const html = document.documentElement;
-            if (html.classList.contains('dark')) { html.classList.remove('dark'); localStorage.theme = 'light'; document.getElementById('themeIcon').innerText = '🌙'; if(isTelegram){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } 
-            else { html.classList.add('dark'); localStorage.theme = 'dark'; document.getElementById('themeIcon').innerText = '☀️'; if(isTelegram){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} }
+            if (html.classList.contains('dark')) { html.classList.remove('dark'); localStorage.theme = 'light'; document.getElementById('themeIcon').innerText = '🌙'; if(tg.platform!=='unknown'){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } 
+            else { html.classList.add('dark'); localStorage.theme = 'dark'; document.getElementById('themeIcon').innerText = '☀️'; if(tg.platform!=='unknown'){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} }
         }
         initTheme();
 
@@ -213,7 +206,7 @@
                 if (data.loggedIn) { showApp(data.user); return; } 
             } catch (e) {}
             
-            if (isTelegram && tg.initDataUnsafe?.user?.id) {
+            if (tg.platform && tg.platform !== 'unknown' && tg.initDataUnsafe?.user?.id) {
                 document.getElementById('loginForm').classList.add('hidden'); document.getElementById('tgLoader').classList.remove('hidden');
                 try {
                     const res = await fetch('/api/login-telegram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegramId: tg.initDataUnsafe.user.id }) });
@@ -229,7 +222,7 @@
                 const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
                 const data = await res.json();
                 if (data.success) showApp(data.user); else { document.getElementById('loginError').innerText = data.message; document.getElementById('loginError').classList.remove('hidden'); }
-            } catch (e) { document.getElementById('loginError').innerText = "Помилка мережі"; document.getElementById('loginError').classList.remove('hidden'); }
+            } catch (e) { alert("Помилка з'єднання"); }
         }
 
         async function logout() { await fetch('/api/logout', { method: 'POST' }); window.location.reload(); }
@@ -290,14 +283,14 @@
             }
         }
 
-        // --- LOADERS ---
+        // --- LOADERS (FROM WORKING CODE) ---
         async function loadEmployeeList() { const res = await fetch('/api/users'); const allUsers = await res.json(); const workers = allUsers.filter(u => u.role !== 'admin'); globalUsers = workers; const adminSelect = document.getElementById('employeeSelect'); adminSelect.innerHTML = '<option value="" disabled selected>Хто?</option>'; const taskSelect = document.getElementById('taskEmployee'); taskSelect.innerHTML = '<option value="" disabled selected>Кому?</option>'; const filterSelect = document.getElementById('viewFilter'); filterSelect.innerHTML = '<option value="all">👥 Всі співробітники</option>'; workers.forEach(w => { const opt1 = document.createElement('option'); opt1.value = w.name; opt1.innerText = w.name; adminSelect.appendChild(opt1); const optT = document.createElement('option'); optT.value = w.name; optT.innerText = w.name; taskSelect.appendChild(optT); const opt2 = document.createElement('option'); opt2.value = w.name; opt2.innerText = w.name; filterSelect.appendChild(opt2); }); }
         async function loadShifts() { const response = await fetch('/api/shifts'); if (response.status === 403) {logout(); return;} if(response.ok) globalShifts = await response.json(); }
         async function loadEvents() { const res = await fetch('/api/events'); globalEvents = await res.json(); }
         async function loadTasks() { const res = await fetch('/api/tasks'); globalTasks = await res.json(); }
         async function loadRequests() { const res = await fetch('/api/requests'); const requests = await res.json(); const container = document.getElementById('requestsList'); container.innerHTML = ''; if (requests.length === 0) { container.innerHTML = '<p class="text-gray-500 text-xs text-center">Запитів немає</p>'; return; } requests.forEach(req => { let desc = ''; if(req.type === 'add_shift') desc = `➕ Зміна: ${req.data.date}, ${req.data.name}`; else if(req.type === 'del_shift') desc = `❌ Видалення зміни: ${req.data.details}`; else if(req.type === 'add_task') desc = `➕ Задача: ${req.data.title}`; else if(req.type === 'del_task') desc = `❌ Видалення задачі: ${req.data.details}`; else desc = `Інше: ${req.type}`; container.innerHTML += `<div class="bg-gray-50 dark:bg-gray-700 p-2 rounded text-xs flex justify-between items-center shadow-sm"><div><div class="font-bold text-gray-700 dark:text-gray-200">${desc}</div><div class="text-[10px] text-gray-500">Від: ${req.createdBy}</div></div><div class="flex gap-2"><button onclick="handleRequest('${req._id}', 'approve')" class="text-green-600 font-bold border border-green-200 bg-green-50 px-2 py-1 rounded">✅</button><button onclick="handleRequest('${req._id}', 'reject')" class="text-red-600 font-bold border border-red-200 bg-red-50 px-2 py-1 rounded">❌</button></div></div>`; }); }
 
-        // --- RENDER ---
+        // --- RENDER (ONLY VISUAL CHANGES HERE) ---
         function calculateHours(){if(!currentUser)return;const now=new Date();const cm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;const ms=globalShifts.filter(s=>s.name===currentUser.name&&s.date.startsWith(cm));let tm=0;ms.forEach(s=>{const [sh,sm]=s.start.split(':').map(Number);const [eh,em]=s.end.split(':').map(Number);tm+=((eh*60+em)-(sh*60+sm));});const h=Math.floor(tm/60);document.getElementById('hoursDisplay').innerText=`${h} годин`;document.getElementById('hoursDisplay').classList.remove('hidden');}
         
         function renderTimeline(shifts, filterUser) {
@@ -307,6 +300,7 @@
             uniqueDates.forEach(dateStr => {
                 const isPast = dateStr < todayStr; const isToday = dateStr === todayStr; const dayEvents = getEventsForDate(dateStr);
                 
+                // APPLE CARD STYLE
                 const dayBlock = document.createElement('div'); 
                 dayBlock.className = 'bg-white dark:bg-[#1C1C1E] rounded-[24px] shadow-sm p-4';
                 if (isToday) { dayBlock.classList.add('ring-2', 'ring-blue-500'); dayBlock.id = "todayBlock"; todayElementId = "todayBlock"; }
@@ -346,7 +340,7 @@
             if (pastDaysCount > 0) { archiveBtn.classList.remove('hidden'); archiveCount.innerText = pastDaysCount; } else { archiveBtn.classList.add('hidden'); } if (todayElementId) { setTimeout(() => { const el = document.getElementById(todayElementId); if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 500); }
         }
 
-        // --- ACTIONS ---
+        // --- ACTIONS (FROM WORKING CODE) ---
         async function handleRequest(id, action) { await fetch('/api/requests/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action }) }); loadRequests(); loadShifts(); loadTasks(); loadEvents(); setTimeout(() => renderCurrentShifts(), 500); }
         async function approveAllRequests() { if(!confirm("Підтвердити ВСІ запити списком?")) return; await fetch('/api/requests/approve-all', { method: 'POST' }); loadRequests(); loadShifts(); loadTasks(); setTimeout(() => renderCurrentShifts(), 500); }
         async function addShift() { const date = document.getElementById('shiftDate').value; const name = document.getElementById('employeeSelect').value; const start = document.getElementById('startTime').value; const end = document.getElementById('endTime').value; if (!date || !name || !start || !end) return alert("Заповни все!"); const res = await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, name, start, end }) }); const data = await res.json(); if (data.pending) alert("✅ Відправлено на підтвердження SM!"); else alert("✅ Зміну додано!"); loadShifts().then(() => renderCurrentShifts()); }
