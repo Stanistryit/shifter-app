@@ -32,11 +32,15 @@
         .timeline-track { position: relative; height: 24px; background: #F3F4F6; border-radius: 8px; overflow: hidden; width: 100%; margin-top: 4px; }
         .dark .timeline-track { background: #2C2C2E; }
         
-        /* Зміна (основа) */
+        /* 10 vertical grid lines for 10 hours */
+        .timeline-grid-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(10, 1fr); pointer-events: none; }
+        .timeline-line { border-right: 1px dashed rgba(0,0,0,0.05); height: 100%; }
+        .dark .timeline-line { border-color: rgba(255,255,255,0.05); }
+        .timeline-line:last-child { border: none; }
+
         .shift-segment { position: absolute; top: 0; bottom: 0; background: #34C759; border-radius: 6px; z-index: 10; opacity: 0.9; }
         .shift-segment.my-shift { background: #007AFF; }
         
-        /* Задачі (поверх зміни) */
         .task-segment { position: absolute; top: 2px; bottom: 2px; background: #AF52DE; border-radius: 4px; z-index: 20; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; }
         
         .ios-input { background: #E5E5EA; border: none; border-radius: 12px; padding: 10px 14px; width: 100%; font-size: 15px; outline: none; }
@@ -123,6 +127,8 @@
             </div>
 
             <div id="listViewContainer">
+                <button id="archiveToggleBtn" onclick="toggleArchive()" class="hidden w-full text-center text-xs text-gray-400 py-3 mb-2 font-medium">↓ Показати минулі дні (<span id="archiveCount">0</span>) ↓</button>
+                <div id="archiveContainer" class="hidden space-y-3 mb-3 opacity-60 grayscale"></div>
                 <div id="scheduleView" class="space-y-3"></div>
             </div>
 
@@ -139,7 +145,11 @@
         if (tg.platform && tg.platform !== 'unknown') { try { tg.expand(); } catch(e){} }
 
         let currentUser = null; let globalShifts = []; let globalUsers = []; let globalTasks = [];
-        const START_HOUR = 9; const END_HOUR = 21; const TOTAL_HOURS = END_HOUR - START_HOUR;
+        
+        // ВАЖЛИВО: Налаштування шкали часу
+        const START_HOUR = 10; 
+        const TOTAL_HOURS = 10; // 10 годин - це 100% ширини (з 10:00 до 20:00)
+        
         let currentCalendarDate = new Date();
 
         function initTheme() {
@@ -191,7 +201,6 @@
             
             // Permissions
             if (['admin', 'SM', 'SSE', 'RRP'].includes(user.role)) {
-                // RRP бачить меню, але кнопки дій будуть сховані логікою рендерингу
                 if(user.role !== 'RRP') document.getElementById('toggleEditBtn').classList.remove('hidden');
                 
                 if (['SM', 'admin'].includes(user.role)) { 
@@ -209,7 +218,6 @@
             const res = await fetch('/api/users'); 
             if(res.ok){
                 const d=await res.json(); 
-                // Фільтруємо: RRP не є "працівником" в графіку
                 const workers = d.filter(u => u.role !== 'admin' && u.role !== 'RRP'); 
                 globalUsers = workers; 
                 const s1=document.getElementById('employeeSelect'); s1.innerHTML='<option disabled selected>Хто?</option>'; 
@@ -226,20 +234,21 @@
         async function loadTasks() { const r = await fetch('/api/tasks'); if(r.ok) globalTasks = await r.json(); }
         async function loadRequests(){ const r=await fetch('/api/requests'); const d=await r.json(); const c=document.getElementById('requestsList'); c.innerHTML=''; if(d.length===0){c.innerHTML='<p class="text-gray-400 text-xs text-center">Пусто</p>';return;} d.forEach(q=>{c.innerHTML+=`<div class="bg-gray-50 dark:bg-gray-700 p-2 rounded text-xs flex justify-between"><span>${q.type}: ${q.createdBy}</span><div class="flex gap-2"><button onclick="handleRequest('${q._id}','approve')" class="text-green-600">✅</button><button onclick="handleRequest('${q._id}','reject')" class="text-red-600">❌</button></div></div>`}); }
 
-        // --- RENDER TIMELINE (IMPROVED) ---
+        // --- RENDER TIMELINE (CORRECTED MATH) ---
         function renderTimeline(shifts, filterUser) {
             const main = document.getElementById('scheduleView'); main.innerHTML = '';
+            const archive = document.getElementById('archiveContainer'); archive.innerHTML = '';
             
-            // 1. Отримуємо унікальні дати (відсортовані)
             const dates = [...new Set(shifts.map(s => s.date))].sort();
             const today = new Date().toISOString().split('T')[0];
             if (!dates.includes(today)) dates.push(today);
             dates.sort();
 
-            // 2. Фільтр юзерів
+            let pastDaysCount = 0;
             let usersToShow = (filterUser === 'all') ? globalUsers : globalUsers.filter(u => u.name === filterUser);
 
             dates.forEach(dateStr => {
+                const isPast = dateStr < today;
                 const isToday = dateStr === today;
                 const dObj = new Date(dateStr);
                 const dName = dObj.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -251,7 +260,6 @@
                 // Header
                 let html = `<div class="mb-3 border-b border-gray-100 dark:border-gray-800 pb-2"><h3 class="font-bold text-lg capitalize ${isToday?'text-blue-500':'text-black dark:text-white'}">${dName}</h3></div><div class="space-y-4">`;
 
-                // 3. Loop through ALL USERS (Feature #1)
                 usersToShow.forEach(user => {
                     const shift = shifts.find(s => s.date === dateStr && s.name === user.name);
                     const userTasks = globalTasks.filter(t => t.date === dateStr && t.name === user.name);
@@ -259,17 +267,24 @@
                     const shortName = parts.length > 1 ? parts[1] : parts[0];
 
                     if (shift) {
-                        // Є зміна
                         const isMe = shift.name === currentUser.name;
                         const [sH, sM] = shift.start.split(':').map(Number);
                         const [eH, eM] = shift.end.split(':').map(Number);
                         
-                        // Розрахунок позиції зміни
-                        let left = ((sH + sM/60 - START_HOUR) / TOTAL_HOURS) * 100;
-                        let width = ((eH + eM/60 - (sH + sM/60)) / TOTAL_HOURS) * 100;
-                        if(left<0){ width+=left; left=0; } if(left+width>100) width=100-left;
+                        // НОВА МАТЕМАТИКА
+                        const startDecimal = sH + sM/60; // 10:30 -> 10.5
+                        const endDecimal = eH + eM/60;   // 20:30 -> 20.5
+                        
+                        // Розрахунок відступу: (Початок - 10:00) / 10 * 100
+                        let left = ((startDecimal - START_HOUR) / TOTAL_HOURS) * 100;
+                        // Розрахунок ширини: Тривалість / 10 * 100
+                        let width = ((endDecimal - startDecimal) / TOTAL_HOURS) * 100;
 
-                        // Генерація задач (Feature #2)
+                        // Обмеження, щоб не вилазило
+                        if(left < 0) { width += left; left = 0; } 
+                        if(left + width > 100) width = 100 - left;
+
+                        // Tasks
                         let tasksHtml = '';
                         let badges = '';
                         userTasks.forEach(task => {
@@ -278,9 +293,12 @@
                             } else {
                                 const [tS_h, tS_m] = task.start.split(':').map(Number);
                                 const [tE_h, tE_m] = task.end.split(':').map(Number);
-                                let tLeft = ((tS_h + tS_m/60 - START_HOUR) / TOTAL_HOURS) * 100;
-                                let tWidth = ((tE_h + tE_m/60 - (tS_h + tS_m/60)) / TOTAL_HOURS) * 100;
-                                // Задача малюється ПОВЕРХ зміни
+                                const tStartD = tS_h + tS_m/60;
+                                const tEndD = tE_h + tE_m/60;
+                                
+                                let tLeft = ((tStartD - START_HOUR) / TOTAL_HOURS) * 100;
+                                let tWidth = ((tEndD - tStartD) / TOTAL_HOURS) * 100;
+                                
                                 const delTask = (['admin','SM','SSE'].includes(currentUser.role) && currentUser.role !== 'RRP') ? `onclick="deleteTask('${task._id}')"` : '';
                                 tasksHtml += `<div class="task-segment" ${delTask} style="left:${tLeft}%; width:${tWidth}%;">${task.title}</div>`;
                             }
@@ -294,44 +312,61 @@
                                 <span>${shortName}</span> <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}
                             </div>
                             <div class="timeline-track">
+                                <div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div>
                                 <div class="shift-segment ${isMe?'my-shift':''}" style="left:${left}%; width:${width}%"></div>
                                 ${tasksHtml}
                             </div>
                         </div>`;
                     } else if (userTasks.length > 0) {
-                        // Вихідний, але є задача (тренінг)
                         let tasksHtml = '';
                         userTasks.forEach(task => {
                             if(!task.isFullDay) {
                                 const [tS_h, tS_m] = task.start.split(':').map(Number);
                                 const [tE_h, tE_m] = task.end.split(':').map(Number);
-                                let tLeft = ((tS_h + tS_m/60 - START_HOUR) / TOTAL_HOURS) * 100;
-                                let tWidth = ((tE_h + tE_m/60 - (tS_h + tS_m/60)) / TOTAL_HOURS) * 100;
+                                const tStartD = tS_h + tS_m/60;
+                                const tEndD = tE_h + tE_m/60;
+                                let tLeft = ((tStartD - START_HOUR) / TOTAL_HOURS) * 100;
+                                let tWidth = ((tEndD - tStartD) / TOTAL_HOURS) * 100;
                                 tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%; background:#FF9500;">${task.title}</div>`;
                             }
                         });
                         html += `
                         <div class="opacity-80">
                             <div class="flex items-center text-xs mb-1 text-gray-500"><span>${shortName}</span> <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div>
-                            <div class="timeline-track">${tasksHtml}</div>
+                            <div class="timeline-track"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div>
                         </div>`;
                     } else {
-                        // Вихідний (Feature #1)
                         html += `
                         <div class="opacity-50">
-                            <div class="flex items-center justify-between text-xs mb-1 text-gray-400">
-                                <span>${shortName}</span> <span>Вихідний</span>
-                            </div>
-                            <div class="h-[2px] bg-gray-100 dark:bg-gray-800 rounded w-full mt-3 mb-4"></div>
+                            <div class="flex items-center justify-between text-xs mb-1 text-gray-400"><span>${shortName}</span> <span>Вихідний</span></div>
+                            <div class="h-[1px] bg-gray-100 dark:bg-gray-800 rounded w-full mt-3 mb-4"></div>
                         </div>`;
                     }
                 });
 
                 html += `</div>`;
                 block.innerHTML = html;
-                main.appendChild(block);
+                
+                // Сортування: Минулі -> Архів, Сьогодні/Майбутні -> Головний
+                if(isPast) {
+                    archive.appendChild(block);
+                    pastDaysCount++;
+                } else {
+                    main.appendChild(block);
+                }
+                
                 if(isToday) setTimeout(()=>block.scrollIntoView({behavior:'smooth',block:'center'}),500);
             });
+
+            // Показуємо кнопку архіву, якщо є минулі дні
+            const arcBtn = document.getElementById('archiveToggleBtn');
+            const arcCnt = document.getElementById('archiveCount');
+            if(pastDaysCount > 0) {
+                arcBtn.classList.remove('hidden');
+                arcCnt.innerText = pastDaysCount;
+            } else {
+                arcBtn.classList.add('hidden');
+            }
         }
 
         // --- CALENDAR RENDER ---
@@ -389,6 +424,7 @@
         function toggleTaskTimeInputs(){const c=document.getElementById('taskFullDay').checked;document.getElementById('taskTimeInputs').className=c?'hidden':'flex gap-3';}
         function showAdminTab(t){['shifts','tasks','requests'].forEach(x=>document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.add('hidden'));document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.remove('hidden');if(t==='requests')loadRequests();}
         function clearDay(){const d=document.getElementById('shiftDate').value; if(d&&confirm(`Clean ${d}?`))fetch('/api/shifts/clear-day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d})}).then(()=>{loadShifts().then(renderCurrentShifts)});}
+        function toggleArchive(){document.getElementById('archiveContainer').classList.toggle('hidden');}
         function downloadAllMyShifts(){/* ... old logic ... */}
 
         checkAuth();
