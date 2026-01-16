@@ -15,11 +15,10 @@ const PORT = process.env.PORT || 3000;
 app.set('trust proxy', 1);
 
 // --- TELEGRAM BOT INIT (GLOBAL) ---
-// Ініціалізуємо бота тут, щоб API могло його використовувати
 let bot = null;
 if (process.env.TELEGRAM_TOKEN) {
     bot = new TelegramBot(process.env.TELEGRAM_TOKEN);
-    const APP_URL = 'https://shifter-app.onrender.com'; // Твій URL
+    const APP_URL = 'https://shifter-app.onrender.com';
     bot.setWebHook(`${APP_URL}/bot${process.env.TELEGRAM_TOKEN}`);
     console.log("🤖 Telegram Bot: Webhook set");
 }
@@ -35,7 +34,7 @@ const UserSchema = new mongoose.Schema({
     password: { type: String, required: true },
     role: { type: String, default: 'user' },
     name: { type: String, required: true },
-    telegramChatId: { type: Number, default: null }, // Сюди ми шлемо повідомлення
+    telegramChatId: { type: Number, default: null },
     reminderTime: { type: String, default: '20:00' }
 });
 const User = mongoose.model('User', UserSchema);
@@ -56,39 +55,36 @@ const RequestSchema = new mongoose.Schema({
 });
 const Request = mongoose.model('Request', RequestSchema);
 
-// --- NOTIFICATION HELPERS ---
+// --- NOTIFICATION HELPERS (HTML MODE) ---
 
-// 1. Сповістити конкретного юзера (по імені)
 async function notifyUser(name, message) {
     if (!bot) return;
     try {
         const user = await User.findOne({ name: name });
         if (user && user.telegramChatId) {
-            await bot.sendMessage(user.telegramChatId, message, { parse_mode: 'Markdown' });
+            await bot.sendMessage(user.telegramChatId, message, { parse_mode: 'HTML' });
         }
     } catch (e) { console.error(`Failed to notify ${name}:`, e.message); }
 }
 
-// 2. Сповістити всіх юзерів певної ролі (наприклад, всіх SM)
 async function notifyRole(role, message) {
     if (!bot) return;
     try {
         const users = await User.find({ role: role });
         for (const user of users) {
             if (user.telegramChatId) {
-                await bot.sendMessage(user.telegramChatId, message, { parse_mode: 'Markdown' });
+                await bot.sendMessage(user.telegramChatId, message, { parse_mode: 'HTML' });
             }
         }
     } catch (e) { console.error(`Failed to notify role ${role}:`, e.message); }
 }
 
-// 3. Сповістити ВСІХ (для глобальних подій/задач)
 async function notifyAll(message) {
     if (!bot) return;
     try {
         const users = await User.find({ telegramChatId: { $ne: null } });
         for (const user of users) {
-            await bot.sendMessage(user.telegramChatId, message, { parse_mode: 'Markdown' });
+            await bot.sendMessage(user.telegramChatId, message, { parse_mode: 'HTML' });
         }
     } catch (e) { console.error("Failed to notify all:", e.message); }
 }
@@ -103,25 +99,23 @@ app.use(session({
     cookie: { maxAge: 1000 * 60 * 60 * 24 * 7, httpOnly: true, secure: true, sameSite: 'none' }
 }));
 
-// --- PERMISSIONS + NOTIFICATIONS (1.4 - Request to SM) ---
+// --- PERMISSIONS + NOTIFICATIONS ---
 async function handlePermission(req, type, data) {
     const user = await User.findById(req.session.userId);
     if (!user) return 'unauthorized';
     
     if (user.role === 'RRP') return 'forbidden';
 
-    // Якщо це SSE, він створює запит
     if (user.role === 'SSE') {
         await Request.create({ type, data, createdBy: user.name });
         
-        // 1.4: Сповіщаємо SM про новий запит
         let desc = "";
         if(type === 'add_shift') desc = `Додати зміну: ${data.date} для ${data.name}`;
         else if(type === 'del_shift') desc = `Видалити зміну: ${data.details}`;
         else if(type === 'add_task') desc = `Додати задачу: ${data.title}`;
         else desc = type;
 
-        notifyRole('SM', `🔔 **Новий запит від SSE (${user.name})**\n\n${desc}\n\n👉 Зайдіть в панель "Запити", щоб підтвердити.`);
+        notifyRole('SM', `🔔 <b>Новий запит від SSE (${user.name})</b>\n\n${desc}\n\n👉 Зайдіть в панель "Запити", щоб підтвердити.`);
         
         return 'pending';
     }
@@ -132,7 +126,6 @@ async function handlePermission(req, type, data) {
 
 // --- API ROUTES ---
 
-// LOGIN
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -169,37 +162,26 @@ app.get('/api/me', async (req, res) => {
 });
 app.get('/api/users', async (req, res) => { const users = await User.find({}, 'name role'); res.json(users); });
 
-// --- DATA API + NOTIFICATIONS ---
+// --- DATA API ---
 
 app.get('/api/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({ error: "Auth required" }); const shifts = await Shift.find(); res.json(shifts); });
 
-// 1.3: Зміна графіку (Додавання)
 app.post('/api/shifts', async (req, res) => { 
     const c = await handlePermission(req, 'add_shift', req.body); 
     if(c === 'pending') return res.json({success: true, pending: true}); 
     if(c === 'forbidden') return res.status(403).json({}); 
-    
     await Shift.create(req.body); 
-    
-    // Сповіщення юзера
-    notifyUser(req.body.name, `📅 **Тобі додано зміну!**\n\n🗓 Дата: ${req.body.date}\n⏰ Час: ${req.body.start} - ${req.body.end}`);
-    
+    notifyUser(req.body.name, `📅 <b>Тобі додано зміну!</b>\n\n🗓 Дата: ${req.body.date}\n⏰ Час: ${req.body.start} - ${req.body.end}`);
     res.json({success: true}); 
 });
 
-// 1.3: Зміна графіку (Видалення)
 app.post('/api/delete-shift', async (req, res) => { 
     const s = await Shift.findById(req.body.id); 
     if(!s) return res.json({success: false}); 
-    
     const c = await handlePermission(req, 'del_shift', {id: req.body.id, details: `${s.date} (${s.name})`}); 
     if(c === 'pending') return res.json({success: true, pending: true}); 
-    
     await Shift.findByIdAndDelete(req.body.id); 
-    
-    // Сповіщення юзера
-    notifyUser(s.name, `❌ **Твою зміну скасовано**\n\n🗓 Дата: ${s.date}`);
-    
+    notifyUser(s.name, `❌ <b>Твою зміну скасовано</b>\n\n🗓 Дата: ${s.date}`);
     res.json({success: true}); 
 });
 
@@ -209,16 +191,11 @@ app.post('/api/shifts/clear-month', async (req, res) => { await Shift.deleteMany
 
 app.get('/api/tasks', async (req, res) => { const tasks = await Task.find(); res.json(tasks); });
 
-// 1.1 & 1.2: Задачі
 app.post('/api/tasks', async (req, res) => { 
     const c = await handlePermission(req, 'add_task', req.body); 
     if(c === 'pending') return res.json({success: true, pending: true}); 
-    
     await Task.create(req.body); 
-    
-    // 1.1 Особиста задача
-    notifyUser(req.body.name, `📌 **Нова задача!**\n\n📝 Що: ${req.body.title}\n🗓 Коли: ${req.body.date}\n⏰ Час: ${req.body.isFullDay ? 'Весь день' : req.body.start + '-' + req.body.end}`);
-    
+    notifyUser(req.body.name, `📌 <b>Нова задача!</b>\n\n📝 Що: ${req.body.title}\n🗓 Коли: ${req.body.date}\n⏰ Час: ${req.body.isFullDay ? 'Весь день' : req.body.start + '-' + req.body.end}`);
     res.json({success: true}); 
 });
 
@@ -233,16 +210,11 @@ app.post('/api/tasks/delete', async (req, res) => {
 
 app.get('/api/events', async (req, res) => { const events = await Event.find(); res.json(events); });
 
-// Подія (для всіх)
 app.post('/api/events', async (req, res) => { 
     const c = await handlePermission(req, 'add_event', req.body); 
     if(c === 'pending') return res.json({success: true, pending: true}); 
-    
     await Event.create(req.body); 
-    
-    // 1.2 Сповіщення всім про нову подію
-    notifyAll(`📢 **Нова подія!**\n\n📌 ${req.body.title}\n🗓 Дата: ${req.body.date}`);
-    
+    notifyAll(`📢 <b>Нова подія!</b>\n\n📌 ${req.body.title}\n🗓 Дата: ${req.body.date}`);
     res.json({success: true}); 
 });
 
@@ -250,7 +222,7 @@ app.post('/api/events/delete', async (req, res) => { await Event.findByIdAndDele
 
 app.get('/api/requests', async (req, res) => { const u = await User.findById(req.session.userId); if (!u || (u.role !== 'SM' && u.role !== 'admin')) return res.json([]); const r = await Request.find().sort({ createdAt: -1 }); res.json(r); });
 
-// 1.5: SM прийняв/відхилив запит -> SSE отримує сповіщення
+// ACTION ON REQUEST
 app.post('/api/requests/action', async (req, res) => { 
     const { id, action } = req.body; 
     const r = await Request.findById(id); 
@@ -259,28 +231,24 @@ app.post('/api/requests/action', async (req, res) => {
     if (action === 'approve') { 
         if (r.type === 'add_shift') {
             await Shift.create(r.data);
-            notifyUser(r.data.name, `📅 **Зміна підтверджена!** (запит SSE)\n${r.data.date}`);
+            notifyUser(r.data.name, `📅 <b>Зміна підтверджена!</b> (запит SSE)\n${r.data.date}`);
         }
-        if (r.type === 'del_shift') {
-            await Shift.findByIdAndDelete(r.data.id);
-            // Тут складно дістати ім'я, бо в details текст, але ми сповістимо SSE
-        }
+        if (r.type === 'del_shift') await Shift.findByIdAndDelete(r.data.id);
         if (r.type === 'add_task') {
             await Task.create(r.data);
-            notifyUser(r.data.name, `📌 **Задача підтверджена!**\n${r.data.title}`);
+            notifyUser(r.data.name, `📌 <b>Задача підтверджена!</b>\n${r.data.title}`);
         }
         if (r.type === 'del_task') await Task.findByIdAndDelete(r.data.id);
         if (r.type === 'add_event') {
             await Event.create(r.data);
-            notifyAll(`📢 **Подія підтверджена!**\n${r.data.title}`);
+            notifyAll(`📢 <b>Подія підтверджена!</b>\n${r.data.title}`);
         }
     } 
     
-    // 1.5 Сповіщення SSE про рішення
     const statusIcon = action === 'approve' ? '✅' : '❌';
     const statusText = action === 'approve' ? 'Схвалено' : 'Відхилено';
     
-    notifyUser(r.createdBy, `${statusIcon} **Твій запит було ${statusText}**\n\nТип: ${r.type}`);
+    notifyUser(r.createdBy, `${statusIcon} <b>Твій запит було ${statusText}</b>\n\nТип: ${r.type}`);
 
     await Request.findByIdAndDelete(id); 
     res.json({ success: true }); 
@@ -294,10 +262,7 @@ app.post('/api/requests/approve-all', async (req, res) => {
         if (r.type === 'add_task') await Task.create(r.data); 
         if (r.type === 'del_task') await Task.findByIdAndDelete(r.data.id); 
         if (r.type === 'add_event') await Event.create(r.data); 
-        
-        // Сповіщаємо автора запиту
         notifyUser(r.createdBy, `✅ Твій запит (${r.type}) було схвалено масово.`);
-        
         await Request.findByIdAndDelete(r._id); 
     } 
     res.json({ success: true }); 
@@ -310,7 +275,7 @@ async function initDB() {
     } catch (e) { console.log(e); } 
 }
 
-// --- BOT LOGIC (UPDATED WITH GLOBAL BOT) ---
+// --- BOT LOGIC (HTML MODE) ---
 if (bot) {
     app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => { bot.processUpdate(req.body); res.sendStatus(200); });
 
@@ -322,6 +287,21 @@ if (bot) {
     bot.onText(/\/start/, (msg) => { bot.sendMessage(msg.chat.id, "👋 Привіт! Я Shifter Bot.", { reply_markup: mainMenu }); });
     bot.onText(/\/login (.+) (.+)/, async (msg, match) => { const u = await User.findOne({ username: match[1], password: match[2] }); if (u) { u.telegramChatId = msg.chat.id; await u.save(); bot.sendMessage(msg.chat.id, `✅ Привіт, ${u.name}! Акаунт прив'язано.`, { reply_markup: mainMenu }); } else { bot.sendMessage(msg.chat.id, "❌ Помилка."); } });
     
+    // Виправлений Settings (singular + plural)
+    bot.onText(/\/settings?/, async (msg) => { 
+        const u = await User.findOne({ telegramChatId: msg.chat.id }); 
+        if(!u) return bot.sendMessage(msg.chat.id, "Спершу увійди: /login логін пароль");
+        bot.sendMessage(msg.chat.id, `⚙️ Налаштування сповіщень`, {
+            reply_markup: {
+                inline_keyboard: [
+                    [{text:'🌙 Вечір (20:00)',callback_data:'set_remind_20'}],
+                    [{text:'☀️ Ранок (08:00)',callback_data:'set_remind_08'}],
+                    [{text:'🔕 Вимкнути',callback_data:'set_remind_none'}]
+                ]
+            }
+        }); 
+    });
+
     bot.on('message', async (msg) => {
         if (!msg.text) return;
         if (msg.text === '📋 Мої зміни') {
@@ -329,8 +309,10 @@ if (bot) {
             const t = new Date().toISOString().split('T')[0];
             const s = await Shift.find({ name: u.name, date: { $gte: t } }).sort({ date: 1 }).limit(5);
             const tk = await Task.find({ name: u.name, date: { $gte: t } }).sort({ date: 1 });
-            let r = "📋 **Твої найближчі події:**\n"; s.forEach(x => r+=`🔹 ${x.date.slice(5)}: ${x.start}-${x.end}\n`); tk.forEach(x => r+=`🔸 ${x.date.slice(5)}: ${x.title}\n`);
-            bot.sendMessage(msg.chat.id, s.length || tk.length ? r : "Пусто", { parse_mode: 'Markdown' });
+            let r = "📋 <b>Твої найближчі події:</b>\n"; 
+            s.forEach(x => r+=`🔹 ${x.date.slice(5)}: ${x.start}-${x.end}\n`); 
+            tk.forEach(x => r+=`🔸 ${x.date.slice(5)}: ${x.title}\n`);
+            bot.sendMessage(msg.chat.id, s.length || tk.length ? r : "Пусто", { parse_mode: 'HTML' });
         }
         if (msg.text === '🌴 Вихідні') {
             const u = await User.findOne({ telegramChatId: msg.chat.id }); if (!u) return;
@@ -341,6 +323,19 @@ if (bot) {
             let off = []; for(let i=d.getDate(); i<=dim; i++) if(!wd.includes(i)) off.push(i);
             bot.sendMessage(msg.chat.id, `🌴 Вихідні: ${off.join(', ')}`);
         }
+    });
+
+    bot.on('callback_query', async (q) => { 
+        const u = await User.findOne({ telegramChatId: q.message.chat.id });
+        if(!u) return; 
+        if(q.data.startsWith('set_remind_')){
+            u.reminderTime = q.data.replace('set_remind_','').replace('none','none'); 
+            if(u.reminderTime==='20') u.reminderTime='20:00'; 
+            if(u.reminderTime==='08') u.reminderTime='08:00'; 
+            await u.save(); 
+            bot.sendMessage(q.message.chat.id, `✅ Нагадування: ${u.reminderTime === 'none' ? 'Вимкнено' : u.reminderTime}`); 
+            bot.answerCallbackQuery(q.id);
+        } 
     });
 
     cron.schedule('0 18 * * *', async () => { 
