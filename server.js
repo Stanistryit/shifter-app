@@ -12,6 +12,7 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --- GOOGLE SHEETS URL ---
 const GOOGLE_SHEET_URL = ''; 
 
 app.set('trust proxy', 1);
@@ -57,7 +58,6 @@ const RequestSchema = new mongoose.Schema({
 });
 const Request = mongoose.model('Request', RequestSchema);
 
-// Config зберігає об'єкт { chatId, threadId }
 const ConfigSchema = new mongoose.Schema({ key: String, value: mongoose.Schema.Types.Mixed });
 const Config = mongoose.model('Config', ConfigSchema);
 
@@ -108,17 +108,11 @@ async function syncWithGoogleSheets() {
 }
 cron.schedule('0 * * * *', async () => { await syncWithGoogleSheets(); });
 
-// ============================================================
-// --- DAILY GROUP BRIEFING (SUPPORT FOR TOPICS) ---
-// ============================================================
+// --- DAILY GROUP BRIEFING ---
 async function sendDailyBriefing() {
     if (!bot) return;
-    
-    // 1. Отримуємо конфіг
-    const conf = await Config.findOne({ key: 'main_group_config' }); // Змінив ключ на 'config'
+    const conf = await Config.findOne({ key: 'main_group_config' }); 
     if (!conf || !conf.value) return; 
-    
-    // Дістаємо ID чату і ID гілки
     const { chatId, threadId } = conf.value;
 
     const tomorrow = new Date();
@@ -130,38 +124,18 @@ async function sendDailyBriefing() {
     const tasks = await Task.find({ date: dateStr });
 
     let msg = `🌙 <b>План на завтра (${dateDisplay}):</b>\n\n`;
-
     if (shifts.length > 0) {
         msg += `👷‍♂️ <b>На зміні:</b>\n`;
-        shifts.forEach(s => {
-            msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`;
-        });
-    } else {
-        msg += `🌴 <b>Завтра змін немає</b>\n`;
-    }
-
+        shifts.forEach(s => msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`);
+    } else { msg += `🌴 <b>Завтра змін немає</b>\n`; }
     if (tasks.length > 0) {
         msg += `\n📌 <b>Задачі та тренінги:</b>\n`;
-        tasks.forEach(t => {
-            const time = t.isFullDay ? "Весь день" : `${t.start}-${t.end}`;
-            msg += `🔸 <b>${t.name}</b>: ${t.title} (${time})\n`;
-        });
+        tasks.forEach(t => { const time = t.isFullDay ? "Весь день" : `${t.start}-${t.end}`; msg += `🔸 <b>${t.name}</b>: ${t.title} (${time})\n`; });
     }
-
     msg += `\nGood luck! 🚀`;
 
-    try {
-        // ВІДПРАВКА В КОНКРЕТНУ ГІЛКУ
-        await bot.sendMessage(chatId, msg, { 
-            parse_mode: 'HTML',
-            message_thread_id: threadId // Це параметр для гілок
-        });
-    } catch (e) {
-        console.error("Briefing Error:", e.message);
-    }
+    try { await bot.sendMessage(chatId, msg, { parse_mode: 'HTML', message_thread_id: threadId }); } catch (e) { console.error("Briefing Error:", e.message); }
 }
-
-// Запуск брифінгу щодня о 20:00 (18:00 UTC)
 cron.schedule('0 18 * * *', sendDailyBriefing);
 
 // ============================================================
@@ -224,23 +198,60 @@ if (bot) {
     bot.onText(/\/start/, (msg) => { bot.sendMessage(msg.chat.id, "👋 Привіт! Я Shifter Bot.", { reply_markup: mainMenu }); });
     bot.onText(/\/login (.+) (.+)/, async (msg, match) => { const u = await User.findOne({ username: match[1], password: match[2] }); if (u) { u.telegramChatId = msg.chat.id; await u.save(); bot.sendMessage(msg.chat.id, `✅ Привіт, ${u.name}! Акаунт прив'язано.`, { reply_markup: mainMenu }); } else { bot.sendMessage(msg.chat.id, "❌ Помилка."); } });
     bot.onText(/\/settings?/, async (msg) => { const u = await User.findOne({ telegramChatId: msg.chat.id }); if(!u) return bot.sendMessage(msg.chat.id, "Спершу увійди: /login"); bot.sendMessage(msg.chat.id, `⚙️ Налаштування сповіщень`, { reply_markup: { inline_keyboard: [ [{text:'🌙 Вечір (20:00)',callback_data:'set_remind_20'}], [{text:'☀️ Ранок (08:00)',callback_data:'set_remind_08'}], [{text:'🔕 Вимкнути',callback_data:'set_remind_none'}] ] } }); });
-
-    // НОВА КОМАНДА ДЛЯ ГРУП З ГІЛКАМИ
     bot.onText(/\/setgroup/, async (msg) => {
         const chatId = msg.chat.id;
-        const threadId = msg.message_thread_id; // Отримуємо ID гілки
-        
+        const threadId = msg.message_thread_id; 
         if (chatId > 0) return bot.sendMessage(chatId, "❌ Цю команду треба писати в групі (в конкретній гілці).");
-
-        // Зберігаємо об'єкт { chatId, threadId }
-        await Config.findOneAndUpdate(
-            { key: 'main_group_config' },
-            { key: 'main_group_config', value: { chatId, threadId } },
-            { upsert: true }
-        );
-
-        // Відповідаємо в ту ж гілку, щоб підтвердити
+        await Config.findOneAndUpdate({ key: 'main_group_config' }, { key: 'main_group_config', value: { chatId, threadId } }, { upsert: true });
         bot.sendMessage(chatId, "✅ Ця гілка встановлена для щоденних звітів.", { message_thread_id: threadId });
+    });
+
+    // ===========================================
+    // НОВІ КОМАНДИ: /now та /contacts
+    // ===========================================
+
+    // /now - Хто зараз працює?
+    bot.onText(/\/now/, async (msg) => {
+        const kyivTimeStr = new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev", hour12: false});
+        const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
+        
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+        
+        const [hStr, mStr] = kyivTimeStr.split(', ')[1].split(':');
+        const currentMinutes = parseInt(hStr) * 60 + parseInt(mStr);
+
+        const shifts = await Shift.find({ date: todayStr });
+        let activeWorkers = [];
+
+        shifts.forEach(s => {
+            const [sH, sM] = s.start.split(':').map(Number);
+            const [eH, eM] = s.end.split(':').map(Number);
+            const startMin = sH * 60 + sM;
+            const endMin = eH * 60 + eM;
+
+            if (currentMinutes >= startMin && currentMinutes < endMin) {
+                activeWorkers.push(`👤 <b>${s.name}</b> (до ${s.end})`);
+            }
+        });
+
+        const threadId = msg.message_thread_id;
+        if (activeWorkers.length > 0) {
+            bot.sendMessage(msg.chat.id, `🟢 <b>Зараз працюють:</b>\n\n${activeWorkers.join('\n')}`, { parse_mode: 'HTML', message_thread_id: threadId });
+        } else {
+            bot.sendMessage(msg.chat.id, "zzz... Зараз нікого немає на зміні 😴", { message_thread_id: threadId });
+        }
+    });
+
+    // /contacts - Список контактів (РЕДАГУВАТИ НИЖЧЕ)
+    bot.onText(/\/contacts?/, (msg) => {
+        const text = `📒 <b>Корисні контакти:</b>\n\n` +
+                     `👨‍💼 <b>RRP:</b> +380954101682 (Наташа)\n` +
+                     `🧑‍💻 <b>AM:</b> +380674652158 (Руслан)\n` ;
+        
+        bot.sendMessage(msg.chat.id, text, { parse_mode: 'HTML', message_thread_id: msg.message_thread_id });
     });
 
     bot.on('message', async (msg) => {
@@ -257,11 +268,6 @@ if (bot) {
             const d = new Date(); const m = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; const s = await Shift.find({ name: u.name, date: { $regex: `^${m}` } }); const dim = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); const wd = s.map(x => parseInt(x.date.split('-')[2])); let off = []; for(let i=d.getDate(); i<=dim; i++) if(!wd.includes(i)) off.push(i);
             bot.sendMessage(msg.chat.id, `🌴 Вихідні: ${off.join(', ')}`);
         }
-    });
-
-    bot.on('callback_query', async (q) => { 
-        const u = await User.findOne({ telegramChatId: q.message.chat.id }); if(!u) return; 
-        if(q.data.startsWith('set_remind_')){ u.reminderTime = q.data.replace('set_remind_','').replace('none','none'); if(u.reminderTime==='20') u.reminderTime='20:00'; if(u.reminderTime==='08') u.reminderTime='08:00'; await u.save(); bot.sendMessage(q.message.chat.id, `✅ Нагадування: ${u.reminderTime === 'none' ? 'Вимкнено' : u.reminderTime}`); bot.answerCallbackQuery(q.id); } 
     });
 
     cron.schedule('0 18 * * *', async () => { const t = new Date(); t.setDate(t.getDate() + 1); const d = t.toISOString().split('T')[0]; const s = await Shift.find({ date: d }); const tasks = await Task.find({ date: d }); for(const x of s){ const u=await User.findOne({name:x.name}); if(u?.telegramChatId && u.reminderTime==='20:00') bot.sendMessage(u.telegramChatId, `🌙 Завтра: ${x.start}-${x.end}`); } for(const x of tasks){ const u=await User.findOne({name:x.name}); if(u?.telegramChatId && u.reminderTime==='20:00') bot.sendMessage(u.telegramChatId, `📌 Завтра задача: ${x.title}`); } });
