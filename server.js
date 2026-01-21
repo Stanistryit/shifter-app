@@ -12,21 +12,21 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- CONFIG ---
+// --- GOOGLE SHEETS URL ---
 const GOOGLE_SHEET_URL = ''; 
 
 // ============================================================
 // --- НАЛАШТУВАННЯ ГРУПИ ТА ГІЛОК ---
 // ============================================================
 const TG_CONFIG = {
-    // ТЕПЕР БЕРЕМО З СЕРВЕРА (ЗМІННА ОТОЧЕННЯ)
-    // Якщо змінної немає, використовуємо пустий рядок (щоб код не впав)
-    groupId: process.env.TG_GROUP_ID || '', 
+    // ID групи беремо з сервера (Render Environment Variables)
+    // Це безпечно і правильно.
+    groupId: process.env.TG_GROUP_ID, 
     
-    // ID гілок (тем) безпечно тримати тут, вони локальні для групи
+    // ID гілок (topics) - це внутрішні "кімнати", їх можна тримати тут
     topics: {
-        schedule: 36793, // Графік роботи
-        news: 36865      // New's
+        schedule: 36793, // Графік роботи (Для звітів)
+        news: 36865      // New's (Для новин через /post)
     }
 };
 
@@ -124,7 +124,7 @@ async function syncWithGoogleSheets() {
 cron.schedule('0 * * * *', async () => { await syncWithGoogleSheets(); });
 
 // ============================================================
-// --- ЩОДЕННИЙ ЗВІТ (ЧИСТИЙ + БЕЗПЕЧНИЙ) ---
+// --- ЩОДЕННИЙ ЗВІТ (В ГІЛКУ "ГРАФІК РОБОТИ") ---
 // ============================================================
 async function sendDailyBriefing() {
     if (!bot) return;
@@ -132,9 +132,9 @@ async function sendDailyBriefing() {
     const chatId = TG_CONFIG.groupId;
     const threadId = TG_CONFIG.topics.schedule;
 
-    // Перевірка, чи заданий ID групи (щоб не було помилок, якщо забули додати в .env)
+    // Якщо ID групи не задано в env, виходимо, щоб не крашити бота
     if (!chatId) {
-        console.error("❌ TG_GROUP_ID is missing in environment variables!");
+        console.error("⚠️ TG_GROUP_ID is missing in env vars. Briefing skipped.");
         return;
     }
 
@@ -224,9 +224,9 @@ if (bot) {
     bot.onText(/\/login (.+) (.+)/, async (msg, match) => { const u = await User.findOne({ username: match[1], password: match[2] }); if (u) { u.telegramChatId = msg.chat.id; await u.save(); bot.sendMessage(msg.chat.id, `✅ Привіт, ${u.name}! Акаунт прив'язано.`, { reply_markup: mainMenu }); } else { bot.sendMessage(msg.chat.id, "❌ Помилка."); } });
     bot.onText(/\/settings?/, async (msg) => { const u = await User.findOne({ telegramChatId: msg.chat.id }); if(!u) return bot.sendMessage(msg.chat.id, "Спершу увійди: /login"); bot.sendMessage(msg.chat.id, `⚙️ Налаштування сповіщень`, { reply_markup: { inline_keyboard: [ [{text:'🌙 Вечір (20:00)',callback_data:'set_remind_20'}], [{text:'☀️ Ранок (08:00)',callback_data:'set_remind_08'}], [{text:'🔕 Вимкнути',callback_data:'set_remind_none'}] ] } }); });
     
-    // Заглушка, щоб не ламало старі звички, але функціонал тепер автоматичний
-    bot.onText(/\/setgroup/, async (msg) => { bot.sendMessage(msg.chat.id, "⚙️ ID групи вже налаштовано на сервері."); });
+    bot.onText(/\/setgroup/, async (msg) => { bot.sendMessage(msg.chat.id, "⚙️ ID групи вже налаштовано на сервері (Environment Variable)."); });
 
+    // /now - Хто зараз працює?
     bot.onText(/\/now/, async (msg) => {
         const kyivTimeStr = new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev", hour12: false});
         const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
@@ -251,33 +251,62 @@ if (bot) {
         bot.sendMessage(msg.chat.id, text, { parse_mode: 'HTML', message_thread_id: msg.message_thread_id });
     });
 
-    // /post (Тільки SM)
-    bot.onText(/\/post (.+)/, async (msg, match) => {
-        const text = match[1];
-        const userId = msg.from.id;
-        try {
-            const user = await User.findOne({ telegramChatId: userId });
-            
-            // Якщо користувача немає в базі АБО він не SM (і не admin)
-            if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
-                return bot.sendMessage(msg.chat.id, "⛔ Ця команда доступна тільки для SM.", { message_thread_id: msg.message_thread_id });
-            }
-
-            // Перевірка ID групи
-            if (!TG_CONFIG.groupId) return bot.sendMessage(msg.chat.id, "❌ Помилка конфігурації: Не задано ID групи (env).", { message_thread_id: msg.message_thread_id });
-
-            await bot.sendMessage(TG_CONFIG.groupId, `📢 <b>Новини:</b>\n\n${text}`, { 
-                parse_mode: 'HTML', 
-                message_thread_id: TG_CONFIG.topics.news 
-            });
-            bot.sendMessage(msg.chat.id, "✅ Новину опубліковано!", { message_thread_id: msg.message_thread_id });
-        } catch (e) {
-            bot.sendMessage(msg.chat.id, "❌ Помилка: " + e.message, { message_thread_id: msg.message_thread_id });
-        }
-    });
-
+    // ===========================================
+    // УНІВЕРСАЛЬНИЙ /post (ТЕКСТ + ФОТО)
+    // ===========================================
     bot.on('message', async (msg) => {
-        if (!msg.text) return;
+        // 1. Перевіряємо, чи є в повідомленні команда /post (у тексті АБО у підписі до фото)
+        const content = msg.text || msg.caption || "";
+        
+        // --- ОБРОБКА КОМАНДИ /post ---
+        if (content.trim().startsWith('/post')) {
+            const userId = msg.from.id;
+            const chatId = msg.chat.id;
+            const threadId = msg.message_thread_id;
+
+            try {
+                // 2. Перевірка прав (Тільки SM або Admin)
+                const user = await User.findOne({ telegramChatId: userId });
+                if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
+                    return bot.sendMessage(chatId, "⛔ Ця команда доступна тільки для SM.", { message_thread_id: threadId });
+                }
+
+                // 3. Очищаємо текст від самої команди "/post"
+                const cleanText = content.replace('/post', '').trim();
+
+                // Перевірка конфігурації
+                if (!TG_CONFIG.groupId) return bot.sendMessage(chatId, "❌ Не задано ID групи (env: TG_GROUP_ID).", { message_thread_id: threadId });
+
+                // 4. Логіка відправки
+                if (msg.photo) {
+                    // --- ЯКЩО Є ФОТО ---
+                    const fileId = msg.photo[msg.photo.length - 1].file_id;
+                    await bot.sendPhoto(TG_CONFIG.groupId, fileId, {
+                        caption: `📢 <b>Новини:</b>\n\n${cleanText}`,
+                        parse_mode: 'HTML',
+                        message_thread_id: TG_CONFIG.topics.news
+                    });
+                } else {
+                    // --- ЯКЩО ТІЛЬКИ ТЕКСТ ---
+                    if (!cleanText) return bot.sendMessage(chatId, "ℹ️ Напиши текст новини після /post", { message_thread_id: threadId });
+                    await bot.sendMessage(TG_CONFIG.groupId, `📢 <b>Новини:</b>\n\n${cleanText}`, { 
+                        parse_mode: 'HTML', 
+                        message_thread_id: TG_CONFIG.topics.news 
+                    });
+                }
+
+                bot.sendMessage(chatId, "✅ Новину опубліковано!", { message_thread_id: threadId });
+
+            } catch (e) {
+                console.error(e);
+                bot.sendMessage(chatId, "❌ Помилка: " + e.message, { message_thread_id: threadId });
+            }
+            return; // Завершуємо обробку цього повідомлення
+        }
+
+        // --- ІНШІ ПОВІДОМЛЕННЯ (МЕНЮ) ---
+        if (!msg.text) return; // Ігноруємо картинки без команди /post
+
         if (msg.text === '📋 Мої зміни') {
             const u = await User.findOne({ telegramChatId: msg.chat.id }); if (!u) return bot.sendMessage(msg.chat.id, "🔴 Авторизуйся: /login");
             const t = new Date().toISOString().split('T')[0];

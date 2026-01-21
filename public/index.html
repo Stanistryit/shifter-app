@@ -46,10 +46,59 @@
         .dark .ios-input { background: #2C2C2E; color: white; }
         .btn-primary { background: #007AFF; color: white; border-radius: 12px; font-weight: 600; padding: 12px; width: 100%; }
         
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-        .calendar-day { min-height: 80px; border-radius: 12px; padding: 4px; font-size: 12px; background: white; border: 1px solid transparent; display: flex; flex-direction: column; justify-content: space-between; }
-        .dark .calendar-day { background: #1C1C1E; color: white; }
-        .calendar-day.today { border: 2px solid #007AFF; }
+        /* CALENDAR STYLES (UPDATED FOR CONTRAST) */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        
+        .calendar-day { 
+            min-height: 80px; 
+            border-radius: 12px; 
+            padding: 6px; 
+            font-size: 12px; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; 
+            transition: all 0.2s;
+            /* Light Mode Default */
+            background: #FFFFFF;
+            border: 1px solid transparent;
+            color: #1c1c1e;
+        }
+
+        /* Dark Mode Default (Empty Day) - Dark Gray Card to stand out from Black bg */
+        .dark .calendar-day { 
+            background: #1C1C1E; 
+            color: #8E8E93; /* Dimmed text for empty days */
+        }
+        
+        /* TODAY Highlight */
+        .calendar-day.today { 
+            border: 2px solid #007AFF; 
+        }
+
+        /* WORK DAY (MY SHIFT) - GREEN THEME */
+        /* Light Mode */
+        .calendar-day.my-work-day {
+            background: #F0FDF4; /* Very light green */
+            border: 1px solid #BBF7D0;
+            color: #14532D;
+        }
+        
+        /* Dark Mode - The "Neon" Fix */
+        .dark .calendar-day.my-work-day {
+            background: rgba(52, 199, 89, 0.20) !important; /* Semi-transparent Green */
+            border: 1px solid rgba(52, 199, 89, 0.5); /* Subtle Green Border */
+            color: #FFFFFF; /* Bright text */
+        }
+
+        .work-badge {
+            font-size: 10px;
+            font-weight: 700;
+            margin-top: auto;
+            color: #34C759; /* Green text in calendar */
+        }
+        .dark .work-badge {
+            color: #4ADE80; /* Brighter green for dark mode */
+        }
         
         /* Modal Animation */
         .modal-enter { transform: translateY(100%); opacity: 0; }
@@ -166,7 +215,7 @@
         if (tg.platform && tg.platform !== 'unknown') { try { tg.expand(); } catch(e){} }
 
         let currentUser = null; let globalShifts = []; let globalUsers = []; let globalTasks = [];
-        let activeFilter = 'all'; // State for filter
+        let activeFilter = 'all'; 
         
         const START_HOUR = 10; const TOTAL_HOURS = 10;
         let currentCalendarDate = new Date();
@@ -230,42 +279,17 @@
             renderCurrentShifts();
         }
 
-        // --- NEW FILTER LOGIC ---
+        // --- FILTER ---
         function openFilterModal() {
             const modal = document.getElementById('filterModal');
             const list = document.getElementById('filterList');
             modal.classList.remove('hidden');
-            
-            // Build List
-            let html = `
-                <button onclick="applyFilter('all')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${activeFilter==='all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}">
-                    <span class="font-medium">Всі співробітники</span>
-                    ${activeFilter==='all' ? '<span>✓</span>' : ''}
-                </button>
-            `;
-            
-            globalUsers.forEach(u => {
-                const isSelected = activeFilter === u.name;
-                html += `
-                <button onclick="applyFilter('${u.name}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}">
-                    <span class="font-medium">${u.name}</span>
-                    ${isSelected ? '<span>✓</span>' : ''}
-                </button>`;
-            });
+            let html = `<button onclick="applyFilter('all')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${activeFilter==='all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">Всі співробітники</span>${activeFilter==='all' ? '<span>✓</span>' : ''}</button>`;
+            globalUsers.forEach(u => { const isSelected = activeFilter === u.name; html += `<button onclick="applyFilter('${u.name}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">${u.name}</span>${isSelected ? '<span>✓</span>' : ''}</button>`; });
             list.innerHTML = html;
         }
-
-        function closeFilterModal() {
-            document.getElementById('filterModal').classList.add('hidden');
-        }
-
-        function applyFilter(val) {
-            activeFilter = val;
-            const label = val === 'all' ? 'Всі співробітники' : val.split(' ')[1] || val; // Short name for label
-            document.getElementById('currentFilterLabel').innerText = label;
-            closeFilterModal();
-            renderCurrentShifts();
-        }
+        function closeFilterModal() { document.getElementById('filterModal').classList.add('hidden'); }
+        function applyFilter(val) { activeFilter = val; document.getElementById('currentFilterLabel').innerText = val === 'all' ? 'Всі співробітники' : val.split(' ')[1] || val; closeFilterModal(); renderCurrentShifts(); }
 
         // --- LOADERS ---
         async function loadEmployeeList() { 
@@ -274,14 +298,9 @@
                 const d=await res.json(); 
                 const workers = d.filter(u => u.role !== 'admin' && u.role !== 'RRP'); 
                 globalUsers = workers; 
-                
-                // Populate Admin Selects Only
                 const s1=document.getElementById('employeeSelect'); s1.innerHTML='<option disabled selected>Хто?</option>'; 
                 const s2=document.getElementById('taskEmployee'); s2.innerHTML='<option disabled selected>Кому?</option>'; 
-                workers.forEach(x=>{ 
-                    s1.innerHTML+=`<option value="${x.name}">${x.name}</option>`;
-                    s2.innerHTML+=`<option value="${x.name}">${x.name}</option>`;
-                });
+                workers.forEach(x=>{ s1.innerHTML+=`<option value="${x.name}">${x.name}</option>`; s2.innerHTML+=`<option value="${x.name}">${x.name}</option>`; });
             }
         }
         async function loadShifts() { const r = await fetch('/api/shifts'); if(r.ok) globalShifts = await r.json(); }
@@ -299,7 +318,6 @@
             dates.sort();
 
             let pastDaysCount = 0;
-            // Use activeFilter variable instead of DOM element
             let usersToShow = (activeFilter === 'all') ? globalUsers : globalUsers.filter(u => u.name === activeFilter);
 
             dates.forEach(dateStr => {
@@ -399,7 +417,7 @@
             if(pastDaysCount > 0) { arcBtn.classList.remove('hidden'); arcCnt.innerText = pastDaysCount; } else { arcBtn.classList.add('hidden'); }
         }
 
-        // --- CALENDAR RENDER ---
+        // --- CALENDAR RENDER (FIXED) ---
         function renderCalendar() {
             const g = document.getElementById('calendarGrid'); g.innerHTML=''; const t=document.getElementById('calendarTitle');
             const y=currentCalendarDate.getFullYear(); const m=currentCalendarDate.getMonth();
@@ -420,8 +438,11 @@
                 if(shift) content += `<div class="work-badge">${shift.start}-${shift.end}</div>`;
                 tasks.forEach(task => content += `<div class="text-[9px] text-purple-500 truncate">★ ${task.title}</div>`);
                 
-                // Color swap: User shift in calendar is now GREEN
-                g.innerHTML += `<div class="calendar-day ${ds===today?'today':''} ${shift?'bg-green-50 dark:bg-green-900/20':''}">${content}</div>`;
+                // ADDED CLASS 'my-work-day' IF SHIFT EXISTS
+                const workClass = shift ? 'my-work-day' : '';
+                const todayClass = ds === today ? 'today' : '';
+                
+                g.innerHTML += `<div class="calendar-day ${todayClass} ${workClass}">${content}</div>`;
             }
         }
 
@@ -447,28 +468,16 @@
 
         function renderCurrentShifts(){renderTimeline(globalShifts,null);renderCalendar();}
         function changeMonth(d){currentCalendarDate.setMonth(currentCalendarDate.getMonth()+d);renderCalendar();}
-        
-        // --- NEW VIEW MODE TOGGLE LOGIC ---
         function setMode(m){ 
             document.getElementById('listViewContainer').className = m === 'list' ? '' : 'hidden'; 
             document.getElementById('calendarViewContainer').className = m === 'list' ? 'hidden' : ''; 
-            
             const btnList = document.getElementById('btnModeList');
             const btnCal = document.getElementById('btnModeCalendar');
             const activeClass = "flex-1 py-1.5 text-xs font-semibold rounded-[8px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white";
             const inactiveClass = "flex-1 py-1.5 text-xs font-medium text-gray-500";
-
-            if (m === 'list') {
-                btnList.className = activeClass;
-                btnCal.className = inactiveClass;
-            } else {
-                btnList.className = inactiveClass;
-                btnCal.className = activeClass;
-            }
-
+            if (m === 'list') { btnList.className = activeClass; btnCal.className = inactiveClass; } else { btnList.className = inactiveClass; btnCal.className = activeClass; }
             if(m === 'calendar') renderCalendar(); 
         }
-
         function toggleEditMode(){document.getElementById('adminPanel').classList.toggle('hidden');}
         function toggleTaskTimeInputs(){const c=document.getElementById('taskFullDay').checked;document.getElementById('taskTimeInputs').className=c?'hidden':'flex gap-3';}
         function showAdminTab(t){['shifts','tasks','requests'].forEach(x=>document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.add('hidden'));document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.remove('hidden');if(t==='requests')loadRequests();}
