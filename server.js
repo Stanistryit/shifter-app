@@ -12,8 +12,23 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- GOOGLE SHEETS URL ---
+// --- CONFIG ---
 const GOOGLE_SHEET_URL = ''; 
+
+// ============================================================
+// --- НАЛАШТУВАННЯ ГРУПИ ТА ГІЛОК ---
+// ============================================================
+const TG_CONFIG = {
+    // ТЕПЕР БЕРЕМО З СЕРВЕРА (ЗМІННА ОТОЧЕННЯ)
+    // Якщо змінної немає, використовуємо пустий рядок (щоб код не впав)
+    groupId: process.env.TG_GROUP_ID || '', 
+    
+    // ID гілок (тем) безпечно тримати тут, вони локальні для групи
+    topics: {
+        schedule: 36793, // Графік роботи
+        news: 36865      // New's
+    }
+};
 
 app.set('trust proxy', 1);
 
@@ -108,12 +123,20 @@ async function syncWithGoogleSheets() {
 }
 cron.schedule('0 * * * *', async () => { await syncWithGoogleSheets(); });
 
-// --- DAILY GROUP BRIEFING ---
+// ============================================================
+// --- ЩОДЕННИЙ ЗВІТ (ЧИСТИЙ + БЕЗПЕЧНИЙ) ---
+// ============================================================
 async function sendDailyBriefing() {
     if (!bot) return;
-    const conf = await Config.findOne({ key: 'main_group_config' }); 
-    if (!conf || !conf.value) return; 
-    const { chatId, threadId } = conf.value;
+    
+    const chatId = TG_CONFIG.groupId;
+    const threadId = TG_CONFIG.topics.schedule;
+
+    // Перевірка, чи заданий ID групи (щоб не було помилок, якщо забули додати в .env)
+    if (!chatId) {
+        console.error("❌ TG_GROUP_ID is missing in environment variables!");
+        return;
+    }
 
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -128,10 +151,12 @@ async function sendDailyBriefing() {
         msg += `👷‍♂️ <b>На зміні:</b>\n`;
         shifts.forEach(s => msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`);
     } else { msg += `🌴 <b>Завтра змін немає</b>\n`; }
+    
     if (tasks.length > 0) {
         msg += `\n📌 <b>Задачі та тренінги:</b>\n`;
         tasks.forEach(t => { const time = t.isFullDay ? "Весь день" : `${t.start}-${t.end}`; msg += `🔸 <b>${t.name}</b>: ${t.title} (${time})\n`; });
     }
+    
     msg += `\nGood luck! 🚀`;
 
     try { await bot.sendMessage(chatId, msg, { parse_mode: 'HTML', message_thread_id: threadId }); } catch (e) { console.error("Briefing Error:", e.message); }
@@ -198,60 +223,57 @@ if (bot) {
     bot.onText(/\/start/, (msg) => { bot.sendMessage(msg.chat.id, "👋 Привіт! Я Shifter Bot.", { reply_markup: mainMenu }); });
     bot.onText(/\/login (.+) (.+)/, async (msg, match) => { const u = await User.findOne({ username: match[1], password: match[2] }); if (u) { u.telegramChatId = msg.chat.id; await u.save(); bot.sendMessage(msg.chat.id, `✅ Привіт, ${u.name}! Акаунт прив'язано.`, { reply_markup: mainMenu }); } else { bot.sendMessage(msg.chat.id, "❌ Помилка."); } });
     bot.onText(/\/settings?/, async (msg) => { const u = await User.findOne({ telegramChatId: msg.chat.id }); if(!u) return bot.sendMessage(msg.chat.id, "Спершу увійди: /login"); bot.sendMessage(msg.chat.id, `⚙️ Налаштування сповіщень`, { reply_markup: { inline_keyboard: [ [{text:'🌙 Вечір (20:00)',callback_data:'set_remind_20'}], [{text:'☀️ Ранок (08:00)',callback_data:'set_remind_08'}], [{text:'🔕 Вимкнути',callback_data:'set_remind_none'}] ] } }); });
-    bot.onText(/\/setgroup/, async (msg) => {
-        const chatId = msg.chat.id;
-        const threadId = msg.message_thread_id; 
-        if (chatId > 0) return bot.sendMessage(chatId, "❌ Цю команду треба писати в групі (в конкретній гілці).");
-        await Config.findOneAndUpdate({ key: 'main_group_config' }, { key: 'main_group_config', value: { chatId, threadId } }, { upsert: true });
-        bot.sendMessage(chatId, "✅ Ця гілка встановлена для щоденних звітів.", { message_thread_id: threadId });
-    });
+    
+    // Заглушка, щоб не ламало старі звички, але функціонал тепер автоматичний
+    bot.onText(/\/setgroup/, async (msg) => { bot.sendMessage(msg.chat.id, "⚙️ ID групи вже налаштовано на сервері."); });
 
-    // ===========================================
-    // НОВІ КОМАНДИ: /now та /contacts
-    // ===========================================
-
-    // /now - Хто зараз працює?
     bot.onText(/\/now/, async (msg) => {
         const kyivTimeStr = new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev", hour12: false});
         const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
-        
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const todayStr = `${year}-${month}-${day}`;
-        
-        const [hStr, mStr] = kyivTimeStr.split(', ')[1].split(':');
-        const currentMinutes = parseInt(hStr) * 60 + parseInt(mStr);
-
+        const year = now.getFullYear(); const month = String(now.getMonth() + 1).padStart(2, '0'); const day = String(now.getDate()).padStart(2, '0'); const todayStr = `${year}-${month}-${day}`;
+        const [hStr, mStr] = kyivTimeStr.split(', ')[1].split(':'); const currentMinutes = parseInt(hStr) * 60 + parseInt(mStr);
         const shifts = await Shift.find({ date: todayStr });
         let activeWorkers = [];
-
         shifts.forEach(s => {
-            const [sH, sM] = s.start.split(':').map(Number);
-            const [eH, eM] = s.end.split(':').map(Number);
-            const startMin = sH * 60 + sM;
-            const endMin = eH * 60 + eM;
-
-            if (currentMinutes >= startMin && currentMinutes < endMin) {
-                activeWorkers.push(`👤 <b>${s.name}</b> (до ${s.end})`);
-            }
+            const [sH, sM] = s.start.split(':').map(Number); const [eH, eM] = s.end.split(':').map(Number);
+            const startMin = sH * 60 + sM; const endMin = eH * 60 + eM;
+            if (currentMinutes >= startMin && currentMinutes < endMin) activeWorkers.push(`👤 <b>${s.name}</b> (до ${s.end})`);
         });
-
         const threadId = msg.message_thread_id;
-        if (activeWorkers.length > 0) {
-            bot.sendMessage(msg.chat.id, `🟢 <b>Зараз працюють:</b>\n\n${activeWorkers.join('\n')}`, { parse_mode: 'HTML', message_thread_id: threadId });
-        } else {
-            bot.sendMessage(msg.chat.id, "zzz... Зараз нікого немає на зміні 😴", { message_thread_id: threadId });
-        }
+        if (activeWorkers.length > 0) bot.sendMessage(msg.chat.id, `🟢 <b>Зараз працюють:</b>\n\n${activeWorkers.join('\n')}`, { parse_mode: 'HTML', message_thread_id: threadId });
+        else bot.sendMessage(msg.chat.id, "zzz... Зараз нікого немає на зміні 😴", { message_thread_id: threadId });
     });
 
-    // /contacts - Список контактів (РЕДАГУВАТИ НИЖЧЕ)
     bot.onText(/\/contacts?/, (msg) => {
         const text = `📒 <b>Корисні контакти:</b>\n\n` +
                      `👨‍💼 <b>RRP:</b> +380954101682 (Наташа)\n` +
                      `🧑‍💻 <b>AM:</b> +380674652158 (Руслан)\n` ;
-        
         bot.sendMessage(msg.chat.id, text, { parse_mode: 'HTML', message_thread_id: msg.message_thread_id });
+    });
+
+    // /post (Тільки SM)
+    bot.onText(/\/post (.+)/, async (msg, match) => {
+        const text = match[1];
+        const userId = msg.from.id;
+        try {
+            const user = await User.findOne({ telegramChatId: userId });
+            
+            // Якщо користувача немає в базі АБО він не SM (і не admin)
+            if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
+                return bot.sendMessage(msg.chat.id, "⛔ Ця команда доступна тільки для SM.", { message_thread_id: msg.message_thread_id });
+            }
+
+            // Перевірка ID групи
+            if (!TG_CONFIG.groupId) return bot.sendMessage(msg.chat.id, "❌ Помилка конфігурації: Не задано ID групи (env).", { message_thread_id: msg.message_thread_id });
+
+            await bot.sendMessage(TG_CONFIG.groupId, `📢 <b>Новини:</b>\n\n${text}`, { 
+                parse_mode: 'HTML', 
+                message_thread_id: TG_CONFIG.topics.news 
+            });
+            bot.sendMessage(msg.chat.id, "✅ Новину опубліковано!", { message_thread_id: msg.message_thread_id });
+        } catch (e) {
+            bot.sendMessage(msg.chat.id, "❌ Помилка: " + e.message, { message_thread_id: msg.message_thread_id });
+        }
     });
 
     bot.on('message', async (msg) => {
