@@ -434,4 +434,51 @@
             formData.append('text', text);
             if (file) formData.append('media', file);
 
-            const btn = document.querySelector('#admin
+            const btn = document.querySelector('#adminTabNews button:last-child');
+            const originalText = btn.innerText;
+            btn.innerText = "⏳ Публікую..."; btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/news/publish', { method: 'POST', body: formData });
+                if (res.ok) {
+                    alert("✅ Опубліковано!");
+                    document.getElementById('newsText').value = '';
+                    fileInput.value = '';
+                    updateFileName();
+                } else { const d = await res.json(); alert("❌ Помилка: " + (d.error || "Unknown")); }
+            } catch (e) { alert("❌ Помилка мережі"); } finally { btn.innerText = originalText; btn.disabled = false; }
+        }
+
+        async function delS(d,n){if(confirm("?")) await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d,name:n})});loadShifts().then(renderCurrentShifts);}
+        async function deleteTask(id){if(confirm("?")) await fetch('/api/tasks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadTasks().then(renderCurrentShifts);}
+
+        function renderCurrentShifts(){renderTimeline(globalShifts,null);renderCalendar();}
+        function changeMonth(d){currentCalendarDate.setMonth(currentCalendarDate.getMonth()+d);renderCalendar();}
+        function setMode(m){ 
+            document.getElementById('listViewContainer').className = m === 'list' ? '' : 'hidden'; 
+            document.getElementById('calendarViewContainer').className = m === 'list' ? 'hidden' : ''; 
+            const btnList = document.getElementById('btnModeList'); const btnCal = document.getElementById('btnModeCalendar');
+            const activeClass = "flex-1 py-1.5 text-xs font-semibold rounded-[8px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white";
+            const inactiveClass = "flex-1 py-1.5 text-xs font-medium text-gray-500";
+            if (m === 'list') { btnList.className = activeClass; btnCal.className = inactiveClass; } else { btnList.className = inactiveClass; btnCal.className = activeClass; }
+            if(m === 'calendar') renderCalendar(); 
+        }
+        function toggleEditMode(){document.getElementById('adminPanel').classList.toggle('hidden');}
+        function toggleTaskTimeInputs(){const c=document.getElementById('taskFullDay').checked;document.getElementById('taskTimeInputs').className=c?'hidden':'flex gap-3';}
+        function showAdminTab(t){['shifts','tasks','requests','import','news'].forEach(x=>document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.add('hidden'));document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.remove('hidden');if(t==='requests')loadRequests();}
+        function clearDay(){const d=document.getElementById('shiftDate').value; if(d&&confirm(`Clean ${d}?`))fetch('/api/shifts/clear-day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d})}).then(()=>{loadShifts().then(renderCurrentShifts)});}
+        function toggleArchive(){document.getElementById('archiveContainer').classList.toggle('hidden');}
+        function downloadAllMyShifts(){if(!currentUser)return;const today=new Date().toISOString().split('T')[0];const myShifts=globalShifts.filter(s=>s.name===currentUser.name&&s.date>=today);if(myShifts.length===0)return alert('Немає змін!');let ics="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Shifter//UA\n";myShifts.forEach(s=>{const start=s.date.replace(/-/g,'')+'T'+s.start.replace(':','')+'00';const end=s.date.replace(/-/g,'')+'T'+s.end.replace(':','')+'00';ics+=`BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Робота\nEND:VEVENT\n`;});ics+="END:VCALENDAR";const a=document.createElement('a');a.href=window.URL.createObjectURL(new Blob([ics],{type:'text/calendar'}));a.download=`my-shifts.ics`;document.body.appendChild(a);a.click();document.body.removeChild(a);}
+        
+        function openFilterModal() {
+            const modal = document.getElementById('filterModal'); const list = document.getElementById('filterList'); modal.classList.remove('hidden');
+            let html = `<button onclick="applyFilter('all')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${activeFilter==='all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">Всі співробітники</span>${activeFilter==='all' ? '<span>✓</span>' : ''}</button>`;
+            globalUsers.forEach(u => { const isSelected = activeFilter === u.name; html += `<button onclick="applyFilter('${u.name}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">${u.name}</span>${isSelected ? '<span>✓</span>' : ''}</button>`; });
+            list.innerHTML = html;
+        }
+        function closeFilterModal() { document.getElementById('filterModal').classList.add('hidden'); }
+        function applyFilter(val) { activeFilter = val; document.getElementById('currentFilterLabel').innerText = val === 'all' ? 'Всі співробітники' : val.split(' ')[1] || val; closeFilterModal(); renderCurrentShifts(); }
+        checkAuth();
+    </script>
+</body>
+</html>
