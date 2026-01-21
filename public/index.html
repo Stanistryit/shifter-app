@@ -13,7 +13,7 @@
             theme: {
                 extend: {
                     colors: {
-                        ios: { bg: '#F2F2F7', card: '#FFFFFF', blue: '#007AFF', input: '#E5E5EA' },
+                        ios: { bg: '#F2F2F7', card: '#FFFFFF', blue: '#007AFF', green: '#34C759', input: '#E5E5EA' },
                         darkios: { bg: '#000000', card: '#1C1C1E', input: '#2C2C2E' }
                     },
                     fontFamily: { sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'] }
@@ -36,8 +36,9 @@
         .dark .timeline-line { border-color: rgba(255,255,255,0.05); }
         .timeline-line:last-child { border: none; }
 
-        .shift-segment { position: absolute; top: 0; bottom: 0; background: #34C759; border-radius: 6px; z-index: 10; opacity: 0.9; }
-        .shift-segment.my-shift { background: #007AFF; }
+        /* COLORS UPDATED: Others - Blue, Me - Green */
+        .shift-segment { position: absolute; top: 0; bottom: 0; background: #007AFF; border-radius: 6px; z-index: 10; opacity: 0.9; }
+        .shift-segment.my-shift { background: #34C759; }
         
         .task-segment { position: absolute; top: 2px; bottom: 2px; background: #AF52DE; border-radius: 4px; z-index: 20; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; }
         
@@ -90,7 +91,7 @@
             
             <div class="flex justify-between items-center ios-card p-1.5">
                 <div class="flex bg-[#E5E5EA] dark:bg-[#2C2C2E] rounded-[10px] p-0.5 w-full">
-                    <button onclick="setMode('list')" id="btnModeList" class="flex-1 py-1.5 text-xs font-semibold rounded-[8px] bg-white dark:bg-[#636366] shadow-sm">Список</button>
+                    <button onclick="setMode('list')" id="btnModeList" class="flex-1 py-1.5 text-xs font-semibold rounded-[8px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white">Список</button>
                     <button onclick="setMode('calendar')" id="btnModeCalendar" class="flex-1 py-1.5 text-xs font-medium text-gray-500">Календар</button>
                 </div>
                 <div class="flex items-center gap-3 ml-3 pr-1">
@@ -419,7 +420,8 @@
                 if(shift) content += `<div class="work-badge">${shift.start}-${shift.end}</div>`;
                 tasks.forEach(task => content += `<div class="text-[9px] text-purple-500 truncate">★ ${task.title}</div>`);
                 
-                g.innerHTML += `<div class="calendar-day ${ds===today?'today':''} ${shift?'bg-blue-50 dark:bg-blue-900/20':''}">${content}</div>`;
+                // Color swap: User shift in calendar is now GREEN
+                g.innerHTML += `<div class="calendar-day ${ds===today?'today':''} ${shift?'bg-green-50 dark:bg-green-900/20':''}">${content}</div>`;
             }
         }
 
@@ -445,7 +447,28 @@
 
         function renderCurrentShifts(){renderTimeline(globalShifts,null);renderCalendar();}
         function changeMonth(d){currentCalendarDate.setMonth(currentCalendarDate.getMonth()+d);renderCalendar();}
-        function setMode(m){ document.getElementById('listViewContainer').className=m==='list'?'':'hidden'; document.getElementById('calendarViewContainer').className=m==='list'?'hidden':''; if(m==='calendar')renderCalendar(); }
+        
+        // --- NEW VIEW MODE TOGGLE LOGIC ---
+        function setMode(m){ 
+            document.getElementById('listViewContainer').className = m === 'list' ? '' : 'hidden'; 
+            document.getElementById('calendarViewContainer').className = m === 'list' ? 'hidden' : ''; 
+            
+            const btnList = document.getElementById('btnModeList');
+            const btnCal = document.getElementById('btnModeCalendar');
+            const activeClass = "flex-1 py-1.5 text-xs font-semibold rounded-[8px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white";
+            const inactiveClass = "flex-1 py-1.5 text-xs font-medium text-gray-500";
+
+            if (m === 'list') {
+                btnList.className = activeClass;
+                btnCal.className = inactiveClass;
+            } else {
+                btnList.className = inactiveClass;
+                btnCal.className = activeClass;
+            }
+
+            if(m === 'calendar') renderCalendar(); 
+        }
+
         function toggleEditMode(){document.getElementById('adminPanel').classList.toggle('hidden');}
         function toggleTaskTimeInputs(){const c=document.getElementById('taskFullDay').checked;document.getElementById('taskTimeInputs').className=c?'hidden':'flex gap-3';}
         function showAdminTab(t){['shifts','tasks','requests'].forEach(x=>document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.add('hidden'));document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.remove('hidden');if(t==='requests')loadRequests();}
