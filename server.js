@@ -19,14 +19,10 @@ const GOOGLE_SHEET_URL = '';
 // --- НАЛАШТУВАННЯ ГРУПИ ТА ГІЛОК ---
 // ============================================================
 const TG_CONFIG = {
-    // ID групи беремо з сервера (Render Environment Variables)
-    // Це безпечно і правильно.
     groupId: process.env.TG_GROUP_ID, 
-    
-    // ID гілок (topics) - це внутрішні "кімнати", їх можна тримати тут
     topics: {
-        schedule: 36793, // Графік роботи (Для звітів)
-        news: 36865      // New's (Для новин через /post)
+        schedule: 36793, 
+        news: 36865      
     }
 };
 
@@ -124,7 +120,7 @@ async function syncWithGoogleSheets() {
 cron.schedule('0 * * * *', async () => { await syncWithGoogleSheets(); });
 
 // ============================================================
-// --- ЩОДЕННИЙ ЗВІТ (В ГІЛКУ "ГРАФІК РОБОТИ") ---
+// --- ЩОДЕННИЙ ЗВІТ ---
 // ============================================================
 async function sendDailyBriefing() {
     if (!bot) return;
@@ -132,7 +128,6 @@ async function sendDailyBriefing() {
     const chatId = TG_CONFIG.groupId;
     const threadId = TG_CONFIG.topics.schedule;
 
-    // Якщо ID групи не задано в env, виходимо, щоб не крашити бота
     if (!chatId) {
         console.error("⚠️ TG_GROUP_ID is missing in env vars. Briefing skipped.");
         return;
@@ -223,10 +218,8 @@ if (bot) {
     bot.onText(/\/start/, (msg) => { bot.sendMessage(msg.chat.id, "👋 Привіт! Я Shifter Bot.", { reply_markup: mainMenu }); });
     bot.onText(/\/login (.+) (.+)/, async (msg, match) => { const u = await User.findOne({ username: match[1], password: match[2] }); if (u) { u.telegramChatId = msg.chat.id; await u.save(); bot.sendMessage(msg.chat.id, `✅ Привіт, ${u.name}! Акаунт прив'язано.`, { reply_markup: mainMenu }); } else { bot.sendMessage(msg.chat.id, "❌ Помилка."); } });
     bot.onText(/\/settings?/, async (msg) => { const u = await User.findOne({ telegramChatId: msg.chat.id }); if(!u) return bot.sendMessage(msg.chat.id, "Спершу увійди: /login"); bot.sendMessage(msg.chat.id, `⚙️ Налаштування сповіщень`, { reply_markup: { inline_keyboard: [ [{text:'🌙 Вечір (20:00)',callback_data:'set_remind_20'}], [{text:'☀️ Ранок (08:00)',callback_data:'set_remind_08'}], [{text:'🔕 Вимкнути',callback_data:'set_remind_none'}] ] } }); });
-    
     bot.onText(/\/setgroup/, async (msg) => { bot.sendMessage(msg.chat.id, "⚙️ ID групи вже налаштовано на сервері (Environment Variable)."); });
 
-    // /now - Хто зараз працює?
     bot.onText(/\/now/, async (msg) => {
         const kyivTimeStr = new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev", hour12: false});
         const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
@@ -252,61 +245,90 @@ if (bot) {
     });
 
     // ===========================================
-    // УНІВЕРСАЛЬНИЙ /post (ТЕКСТ + ФОТО)
+    // НОВА КОМАНДА: /stats (ТІЛЬКИ ДЛЯ SM)
     // ===========================================
-    bot.on('message', async (msg) => {
-        // 1. Перевіряємо, чи є в повідомленні команда /post (у тексті АБО у підписі до фото)
-        const content = msg.text || msg.caption || "";
-        
-        // --- ОБРОБКА КОМАНДИ /post ---
-        if (content.trim().startsWith('/post')) {
-            const userId = msg.from.id;
-            const chatId = msg.chat.id;
-            const threadId = msg.message_thread_id;
-
-            try {
-                // 2. Перевірка прав (Тільки SM або Admin)
-                const user = await User.findOne({ telegramChatId: userId });
-                if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
-                    return bot.sendMessage(chatId, "⛔ Ця команда доступна тільки для SM.", { message_thread_id: threadId });
-                }
-
-                // 3. Очищаємо текст від самої команди "/post"
-                const cleanText = content.replace('/post', '').trim();
-
-                // Перевірка конфігурації
-                if (!TG_CONFIG.groupId) return bot.sendMessage(chatId, "❌ Не задано ID групи (env: TG_GROUP_ID).", { message_thread_id: threadId });
-
-                // 4. Логіка відправки
-                if (msg.photo) {
-                    // --- ЯКЩО Є ФОТО ---
-                    const fileId = msg.photo[msg.photo.length - 1].file_id;
-                    await bot.sendPhoto(TG_CONFIG.groupId, fileId, {
-                        caption: `📢 <b>Новини:</b>\n\n${cleanText}`,
-                        parse_mode: 'HTML',
-                        message_thread_id: TG_CONFIG.topics.news
-                    });
-                } else {
-                    // --- ЯКЩО ТІЛЬКИ ТЕКСТ ---
-                    if (!cleanText) return bot.sendMessage(chatId, "ℹ️ Напиши текст новини після /post", { message_thread_id: threadId });
-                    await bot.sendMessage(TG_CONFIG.groupId, `📢 <b>Новини:</b>\n\n${cleanText}`, { 
-                        parse_mode: 'HTML', 
-                        message_thread_id: TG_CONFIG.topics.news 
-                    });
-                }
-
-                bot.sendMessage(chatId, "✅ Новину опубліковано!", { message_thread_id: threadId });
-
-            } catch (e) {
-                console.error(e);
-                bot.sendMessage(chatId, "❌ Помилка: " + e.message, { message_thread_id: threadId });
+    bot.onText(/\/stats/, async (msg) => {
+        const userId = msg.from.id;
+        try {
+            // 1. Перевірка прав
+            const user = await User.findOne({ telegramChatId: userId });
+            if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
+                return bot.sendMessage(msg.chat.id, "⛔ Ця команда доступна тільки для SM.", { message_thread_id: msg.message_thread_id });
             }
-            return; // Завершуємо обробку цього повідомлення
+
+            // 2. Визначаємо поточний місяць
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const monthName = startOfMonth.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
+
+            // 3. Беремо всі зміни за місяць
+            const shifts = await Shift.find({ date: { $regex: `^${monthStr}` } });
+
+            if (shifts.length === 0) {
+                return bot.sendMessage(msg.chat.id, `📊 <b>Табель за ${monthName}:</b>\n\nДаних немає.`, { message_thread_id: msg.message_thread_id });
+            }
+
+            // 4. Рахуємо години
+            const report = {};
+            shifts.forEach(s => {
+                const [h1, m1] = s.start.split(':').map(Number);
+                const [h2, m2] = s.end.split(':').map(Number);
+                
+                // Переведення в години (десятковий дріб)
+                const hours = (h2 + m2/60) - (h1 + m1/60);
+                
+                if (!report[s.name]) report[s.name] = { totalHours: 0, shifts: 0 };
+                report[s.name].totalHours += hours;
+                report[s.name].shifts += 1;
+            });
+
+            // 5. Формуємо повідомлення
+            let response = `📊 <b>Табель за ${monthName}:</b>\n\n`;
+            
+            // Сортуємо: у кого більше годин - той вище
+            Object.entries(report)
+                .sort((a, b) => b[1].totalHours - a[1].totalHours)
+                .forEach(([name, data], index) => {
+                    const cleanHours = parseFloat(data.totalHours.toFixed(1));
+                    const medal = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : '👤'));
+                    
+                    response += `${medal} <b>${name}:</b> ${cleanHours} год. (${data.shifts} зм.)\n`;
+                });
+
+            bot.sendMessage(msg.chat.id, response, { parse_mode: 'HTML', message_thread_id: msg.message_thread_id });
+
+        } catch (e) {
+            console.error(e);
+            bot.sendMessage(msg.chat.id, "❌ Помилка розрахунку.", { message_thread_id: msg.message_thread_id });
         }
+    });
 
-        // --- ІНШІ ПОВІДОМЛЕННЯ (МЕНЮ) ---
-        if (!msg.text) return; // Ігноруємо картинки без команди /post
+    // /post (Тільки SM)
+    bot.onText(/\/post (.+)/, async (msg, match) => {
+        const text = match[1];
+        const userId = msg.from.id;
+        try {
+            const user = await User.findOne({ telegramChatId: userId });
+            
+            if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
+                return bot.sendMessage(msg.chat.id, "⛔ Ця команда доступна тільки для SM.", { message_thread_id: msg.message_thread_id });
+            }
 
+            if (!TG_CONFIG.groupId) return bot.sendMessage(msg.chat.id, "❌ Помилка конфігурації: Не задано ID групи (env).", { message_thread_id: msg.message_thread_id });
+
+            await bot.sendMessage(TG_CONFIG.groupId, `📢 <b>Новини:</b>\n\n${text}`, { 
+                parse_mode: 'HTML', 
+                message_thread_id: TG_CONFIG.topics.news 
+            });
+            bot.sendMessage(msg.chat.id, "✅ Новину опубліковано!", { message_thread_id: msg.message_thread_id });
+        } catch (e) {
+            bot.sendMessage(msg.chat.id, "❌ Помилка: " + e.message, { message_thread_id: msg.message_thread_id });
+        }
+    });
+
+    bot.on('message', async (msg) => {
+        if (!msg.text) return;
         if (msg.text === '📋 Мої зміни') {
             const u = await User.findOne({ telegramChatId: msg.chat.id }); if (!u) return bot.sendMessage(msg.chat.id, "🔴 Авторизуйся: /login");
             const t = new Date().toISOString().split('T')[0];
