@@ -13,12 +13,12 @@ const multer = require('multer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- MULTER (Завантаження файлів в RAM) ---
+// --- MULTER (Завантаження файлів) ---
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 // --- CONFIG ---
-const GOOGLE_SHEET_URL = ''; // Опціонально
+const GOOGLE_SHEET_URL = ''; 
 const TG_CONFIG = {
     groupId: process.env.TG_GROUP_ID, 
     topics: {
@@ -33,11 +33,10 @@ app.set('trust proxy', 1);
 let bot = null;
 if (process.env.TELEGRAM_TOKEN) {
     bot = new TelegramBot(process.env.TELEGRAM_TOKEN);
-    const APP_URL = 'https://shifter-app.onrender.com'; // Переконайся, що це твій актуальний URL
+    const APP_URL = 'https://shifter-app.onrender.com';
     bot.setWebHook(`${APP_URL}/bot${process.env.TELEGRAM_TOKEN}`);
     console.log("🤖 Telegram Bot: Webhook set");
 
-    // Меню команд
     bot.setMyCommands([
         { command: '/start', description: '🏠 Головне меню' },
         { command: '/now', description: '👀 Хто зараз на зміні' },
@@ -51,7 +50,7 @@ if (process.env.TELEGRAM_TOKEN) {
     ]).then(() => console.log("✅ Команди меню оновлено"));
 }
 
-// --- DB CONNECTION ---
+// --- DB ---
 mongoose.connect(process.env.MONGO_URI)
     .then(() => { console.log("✅ Connected to MongoDB"); initDB(); })
     .catch(err => console.error("❌ MongoDB error:", err));
@@ -219,7 +218,7 @@ app.get('/api/requests', async (req, res) => { const u=await User.findById(req.s
 app.post('/api/requests/action', async (req, res) => { const {id,action}=req.body; const r=await Request.findById(id); if(!r)return res.json({success:false}); if(action==='approve'){ if(r.type==='add_shift'){await Shift.create(r.data); notifyUser(r.data.name, `📅 <b>Зміна підтверджена!</b>\n${r.data.date}`);} if(r.type==='del_shift')await Shift.findByIdAndDelete(r.data.id); if(r.type==='add_task'){await Task.create(r.data); notifyUser(r.data.name, `📌 <b>Задача підтверджена!</b>\n${r.data.title}`);} if(r.type==='del_task')await Task.findByIdAndDelete(r.data.id); if(r.type==='add_event'){await Event.create(r.data); notifyAll(`📢 <b>Подія підтверджена!</b>\n${r.data.title}`);} } const sIcon=action==='approve'?'✅':'❌'; const sTxt=action==='approve'?'Схвалено':'Відхилено'; notifyUser(r.createdBy, `${sIcon} <b>Твій запит було ${sTxt}</b>\n\nТип: ${r.type}`); await Request.findByIdAndDelete(id); res.json({success:true}); });
 app.post('/api/requests/approve-all', async (req, res) => { const rs=await Request.find(); for(const r of rs){ if(r.type==='add_shift')await Shift.create(r.data); if(r.type==='del_shift')await Shift.findByIdAndDelete(r.data.id); if(r.type==='add_task')await Task.create(r.data); if(r.type==='del_task')await Task.findByIdAndDelete(r.data.id); if(r.type==='add_event')await Event.create(r.data); notifyUser(r.createdBy, `✅ Твій запит (${r.type}) було схвалено масово.`); await Request.findByIdAndDelete(r._id); } res.json({success:true}); });
 
-// --- ПУБЛІКАЦІЯ НОВИН (САЙТ) ---
+// --- PUBLISH NEWS (Website) ---
 app.post('/api/news/publish', upload.single('media'), async (req, res) => {
     try {
         if (!req.session.userId) return res.status(403).json({ error: "No auth" });
@@ -243,7 +242,6 @@ app.post('/api/news/publish', upload.single('media'), async (req, res) => {
         let postType = 'text';
 
         if (file) {
-            // FIX: Виправлення кирилиці в назвах файлів (Latin1 -> UTF8)
             const originalNameFixed = Buffer.from(file.originalname, 'latin1').toString('utf8');
             const isImage = file.mimetype.startsWith('image/');
             const fileOptions = { filename: originalNameFixed, contentType: file.mimetype };
@@ -273,7 +271,6 @@ app.post('/api/news/publish', upload.single('media'), async (req, res) => {
     }
 });
 
-// --- INIT DB ---
 async function initDB() { try { if ((await User.countDocuments()) === 0) await User.create([{ username: "admin", password: "123", role: "admin", name: "Адмін" }]); const rrp=await User.findOne({role:'RRP'}); if(!rrp){await User.create({username:"rrp",password:"rrp",role:"RRP",name:"Регіональний Менеджер"});} 
 const c = await Contact.countDocuments(); if(c === 0) { await Contact.create([{name: "RRP Наташа", phone: "+380954101682"}, {name: "AM Руслан", phone: "+380674652158"}]); }
 } catch (e) { console.log(e); } }
@@ -288,7 +285,6 @@ if (bot) {
     bot.onText(/\/settings?/, async (msg) => { const u = await User.findOne({ telegramChatId: msg.chat.id }); if(!u) return bot.sendMessage(msg.chat.id, "Спершу увійди: /login"); bot.sendMessage(msg.chat.id, `⚙️ Налаштування сповіщень`, { reply_markup: { inline_keyboard: [ [{text:'🌙 Вечір (20:00)',callback_data:'set_remind_20'}], [{text:'☀️ Ранок (08:00)',callback_data:'set_remind_08'}], [{text:'🔕 Вимкнути',callback_data:'set_remind_none'}] ] } }); });
     bot.onText(/\/setgroup/, async (msg) => { bot.sendMessage(msg.chat.id, "⚙️ ID групи налаштовано."); });
 
-    // /now
     bot.onText(/\/now/, async (msg) => {
         const kyivTimeStr = new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev", hour12: false});
         const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
@@ -305,7 +301,6 @@ if (bot) {
         else bot.sendMessage(msg.chat.id, "zzz... Зараз нікого немає на зміні 😴", { message_thread_id: msg.message_thread_id });
     });
 
-    // Контакти
     bot.onText(/\/contacts?/, async (msg) => {
         try {
             const contacts = await Contact.find();
@@ -339,7 +334,6 @@ if (bot) {
         } catch (e) { bot.sendMessage(msg.chat.id, "❌ Помилка.", { message_thread_id: msg.message_thread_id }); }
     });
 
-    // Stats
     bot.onText(/\/stats/, async (msg) => {
         const userId = msg.from.id;
         try {
@@ -367,7 +361,6 @@ if (bot) {
         } catch (e) { bot.sendMessage(msg.chat.id, "❌ Помилка.", { message_thread_id: msg.message_thread_id }); }
     });
 
-    // /post (через чат, legacy)
     bot.on('message', async (msg) => {
         const content = msg.text || msg.caption || "";
         if (content.trim().startsWith('/post')) {
@@ -415,34 +408,31 @@ if (bot) {
         }
     });
 
-    // Callback Query (Кнопки)
+    // --- CALLBACKS (Fix: First Name logic) ---
     bot.on('callback_query', async (q) => {
         const chatId = q.message.chat.id; 
         const msgId = q.message.message_id; 
         const userId = q.from.id;
 
-        // --- ОБРОБКА КНОПКИ "ОЗНАЙОМЛЕНИЙ" ---
         if (q.data === 'read_news') {
             try {
-                // 1. Отримуємо користувача і скорочуємо ім'я
                 const user = await User.findOne({ telegramChatId: userId });
+                // FIX: Беремо ім'я (друге слово, якщо є), інакше перше
                 let rawName = user ? user.name : (q.from.first_name || 'User');
-                const shortName = rawName.split(' ')[0]; // "Стас Петров" -> "Стас"
+                const parts = rawName.trim().split(' ');
+                const shortName = parts.length > 1 ? parts[1] : parts[0];
 
                 const post = await NewsPost.findOne({ messageId: msgId });
                 if (!post) return bot.answerCallbackQuery(q.id, { text: "❌ Пост застарів.", show_alert: true });
 
-                // 2. Перевірка на дублікат
                 if (post.readBy.includes(shortName)) {
-                    // Alert: показує вікно
+                    // Alert: Ви вже відмітились
                     return bot.answerCallbackQuery(q.id, { text: "ℹ️ Ви вже відмітились!", show_alert: true });
                 }
 
-                // 3. Додаємо
                 post.readBy.push(shortName); 
                 await post.save();
 
-                // 4. Оновлюємо пост
                 const readList = post.readBy.join(', ');
                 const fullText = `📢 <b>Новини:</b>\n\n${post.text}\n\n👀 <b>Ознайомились:</b>\n${readList}`;
 
@@ -462,7 +452,7 @@ if (bot) {
                     });
                 }
                 
-                // 5. Успіх: Toast (спливаюча плашка)
+                // Success Toast
                 bot.answerCallbackQuery(q.id, { text: `Дякую, ${shortName}, зафіксовано! ✅` });
 
             } catch (e) { 
@@ -471,7 +461,6 @@ if (bot) {
             }
         }
 
-        // --- НАЛАШТУВАННЯ ---
         if (q.data.startsWith('set_remind_')) {
             const u = await User.findOne({ telegramChatId: userId }); 
             if(u) {
@@ -484,7 +473,6 @@ if (bot) {
         }
     });
 
-    // Reminders
     cron.schedule('0 18 * * *', async () => { const t = new Date(); t.setDate(t.getDate() + 1); const d = t.toISOString().split('T')[0]; const s = await Shift.find({ date: d }); const tasks = await Task.find({ date: d }); for(const x of s){ const u=await User.findOne({name:x.name}); if(u?.telegramChatId && u.reminderTime==='20:00') bot.sendMessage(u.telegramChatId, `🌙 Завтра: ${x.start}-${x.end}`); } for(const x of tasks){ const u=await User.findOne({name:x.name}); if(u?.telegramChatId && u.reminderTime==='20:00') bot.sendMessage(u.telegramChatId, `📌 Завтра задача: ${x.title}`); } });
     cron.schedule('0 6 * * *', async () => { const d = new Date().toISOString().split('T')[0]; const s = await Shift.find({ date: d }); const tasks = await Task.find({ date: d }); for(const x of s){ const u=await User.findOne({name:x.name}); if(u?.telegramChatId && u.reminderTime==='08:00') bot.sendMessage(u.telegramChatId, `☀️ Сьогодні: ${x.start}-${x.end}`); } for(const x of tasks){ const u=await User.findOne({name:x.name}); if(u?.telegramChatId && u.reminderTime==='08:00') bot.sendMessage(u.telegramChatId, `📌 Сьогодні задача: ${x.title}`); } });
 }
