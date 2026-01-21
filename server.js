@@ -70,16 +70,17 @@ const Request = mongoose.model('Request', RequestSchema);
 const ConfigSchema = new mongoose.Schema({ key: String, value: mongoose.Schema.Types.Mixed });
 const Config = mongoose.model('Config', ConfigSchema);
 
-// НОВА СХЕМА: Для зберігання постів і хто їх прочитав
 const NewsPostSchema = new mongoose.Schema({
-    messageId: Number,      // ID повідомлення в Telegram
-    chatId: Number,         // ID чату/групи
-    text: String,           // Текст новини (щоб не загубити при редагуванні)
-    type: String,           // 'text' або 'photo'
-    readBy: [String],       // Масив імен: ["Іван", "Петро"]
-    createdAt: { type: Date, default: Date.now }
+    messageId: Number, chatId: Number, text: String, type: String, readBy: [String], createdAt: { type: Date, default: Date.now }
 });
 const NewsPost = mongoose.model('NewsPost', NewsPostSchema);
+
+// НОВА СХЕМА КОНТАКТІВ
+const ContactSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    phone: { type: String, required: true }
+});
+const Contact = mongoose.model('Contact', ContactSchema);
 
 // --- NOTIFICATIONS ---
 async function notifyUser(name, message) {
@@ -214,7 +215,10 @@ app.post('/api/events/delete', async (req, res) => { await Event.findByIdAndDele
 app.get('/api/requests', async (req, res) => { const u=await User.findById(req.session.userId); if(!u||(u.role!=='SM'&&u.role!=='admin'))return res.json([]); const r=await Request.find().sort({createdAt:-1}); res.json(r); });
 app.post('/api/requests/action', async (req, res) => { const {id,action}=req.body; const r=await Request.findById(id); if(!r)return res.json({success:false}); if(action==='approve'){ if(r.type==='add_shift'){await Shift.create(r.data); notifyUser(r.data.name, `📅 <b>Зміна підтверджена!</b>\n${r.data.date}`);} if(r.type==='del_shift')await Shift.findByIdAndDelete(r.data.id); if(r.type==='add_task'){await Task.create(r.data); notifyUser(r.data.name, `📌 <b>Задача підтверджена!</b>\n${r.data.title}`);} if(r.type==='del_task')await Task.findByIdAndDelete(r.data.id); if(r.type==='add_event'){await Event.create(r.data); notifyAll(`📢 <b>Подія підтверджена!</b>\n${r.data.title}`);} } const sIcon=action==='approve'?'✅':'❌'; const sTxt=action==='approve'?'Схвалено':'Відхилено'; notifyUser(r.createdBy, `${sIcon} <b>Твій запит було ${sTxt}</b>\n\nТип: ${r.type}`); await Request.findByIdAndDelete(id); res.json({success:true}); });
 app.post('/api/requests/approve-all', async (req, res) => { const rs=await Request.find(); for(const r of rs){ if(r.type==='add_shift')await Shift.create(r.data); if(r.type==='del_shift')await Shift.findByIdAndDelete(r.data.id); if(r.type==='add_task')await Task.create(r.data); if(r.type==='del_task')await Task.findByIdAndDelete(r.data.id); if(r.type==='add_event')await Event.create(r.data); notifyUser(r.createdBy, `✅ Твій запит (${r.type}) було схвалено масово.`); await Request.findByIdAndDelete(r._id); } res.json({success:true}); });
-async function initDB() { try { if ((await User.countDocuments()) === 0) await User.create([{ username: "admin", password: "123", role: "admin", name: "Адмін" }]); const rrp=await User.findOne({role:'RRP'}); if(!rrp){await User.create({username:"rrp",password:"rrp",role:"RRP",name:"Регіональний Менеджер"});} } catch (e) { console.log(e); } }
+async function initDB() { try { if ((await User.countDocuments()) === 0) await User.create([{ username: "admin", password: "123", role: "admin", name: "Адмін" }]); const rrp=await User.findOne({role:'RRP'}); if(!rrp){await User.create({username:"rrp",password:"rrp",role:"RRP",name:"Регіональний Менеджер"});} 
+// Додаємо дефолтні контакти, якщо база порожня
+const c = await Contact.countDocuments(); if(c === 0) { await Contact.create([{name: "RRP Наташа", phone: "+380954101682"}, {name: "AM Руслан", phone: "+380674652158"}]); }
+} catch (e) { console.log(e); } }
 
 if (bot) {
     app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => { bot.processUpdate(req.body); res.sendStatus(200); });
@@ -241,10 +245,64 @@ if (bot) {
         else bot.sendMessage(msg.chat.id, "zzz... Зараз нікого немає на зміні 😴", { message_thread_id: msg.message_thread_id });
     });
 
-    bot.onText(/\/contacts?/, (msg) => {
-        const text = `📒 <b>Корисні контакти:</b>\n\n` + `👨‍💼 <b>RRP:</b> +380954101682 (Наташа)\n` + `🧑‍💻 <b>AM:</b> +380674652158 (Руслан)\n`;
-        bot.sendMessage(msg.chat.id, text, { parse_mode: 'HTML', message_thread_id: msg.message_thread_id });
+    // ===========================================
+    // КОНТАКТИ (ДИНАМІЧНІ)
+    // ===========================================
+    
+    // 1. Показати список
+    bot.onText(/\/contacts?/, async (msg) => {
+        try {
+            const contacts = await Contact.find();
+            if (contacts.length === 0) return bot.sendMessage(msg.chat.id, "📭 Список контактів поки порожній.", { message_thread_id: msg.message_thread_id });
+
+            let text = `📒 <b>Корисні контакти:</b>\n\n`;
+            contacts.forEach(c => {
+                text += `👤 <b>${c.name}:</b> ${c.phone}\n`;
+            });
+            
+            bot.sendMessage(msg.chat.id, text, { parse_mode: 'HTML', message_thread_id: msg.message_thread_id });
+        } catch(e) { console.error(e); }
     });
+
+    // 2. Додати контакт (Тільки SM)
+    bot.onText(/\/addcontact (.+)/, async (msg, match) => {
+        const userId = msg.from.id;
+        try {
+            const user = await User.findOne({ telegramChatId: userId });
+            if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
+                return bot.sendMessage(msg.chat.id, "⛔ Тільки для SM.", { message_thread_id: msg.message_thread_id });
+            }
+
+            // Парсинг: "Охорона +38050..." -> name="Охорона", phone="+38050..."
+            const args = match[1].trim().split(' ');
+            if (args.length < 2) return bot.sendMessage(msg.chat.id, "⚠️ Формат: /addcontact Ім'я Номер", { message_thread_id: msg.message_thread_id });
+
+            const phone = args.pop(); // Останнє слово - номер
+            const name = args.join(' '); // Все що перед цим - ім'я
+
+            await Contact.create({ name, phone });
+            bot.sendMessage(msg.chat.id, `✅ Додано контакт:\n${name}: ${phone}`, { message_thread_id: msg.message_thread_id });
+        } catch (e) { bot.sendMessage(msg.chat.id, "❌ Помилка.", { message_thread_id: msg.message_thread_id }); }
+    });
+
+    // 3. Видалити контакт (Тільки SM)
+    bot.onText(/\/delcontact (.+)/, async (msg, match) => {
+        const userId = msg.from.id;
+        try {
+            const user = await User.findOne({ telegramChatId: userId });
+            if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
+                return bot.sendMessage(msg.chat.id, "⛔ Тільки для SM.", { message_thread_id: msg.message_thread_id });
+            }
+
+            const nameToDelete = match[1].trim();
+            const res = await Contact.findOneAndDelete({ name: nameToDelete });
+
+            if(res) bot.sendMessage(msg.chat.id, `🗑 Контакт "${nameToDelete}" видалено.`, { message_thread_id: msg.message_thread_id });
+            else bot.sendMessage(msg.chat.id, `⚠️ Контакт "${nameToDelete}" не знайдено. (Пишіть точно як у списку)`, { message_thread_id: msg.message_thread_id });
+
+        } catch (e) { bot.sendMessage(msg.chat.id, "❌ Помилка.", { message_thread_id: msg.message_thread_id }); }
+    });
+
 
     // ===========================================
     // /stats (Тільки SM)
@@ -279,7 +337,7 @@ if (bot) {
     });
 
     // ===========================================
-    // УНІВЕРСАЛЬНИЙ /post (ТЕКСТ + ФОТО + ОЗНАЙОМЛЕННЯ)
+    // УНІВЕРСАЛЬНИЙ /post
     // ===========================================
     bot.on('message', async (msg) => {
         const content = msg.text || msg.caption || "";
@@ -414,7 +472,6 @@ if (bot) {
             }
         }
 
-        // 2. Обробка налаштувань (Старе)
         if (q.data.startsWith('set_remind_')) {
             const u = await User.findOne({ telegramChatId: userId }); 
             if(!u) return;
