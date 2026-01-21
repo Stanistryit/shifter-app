@@ -137,14 +137,20 @@
                 </div>
 
                 <div id="adminTabNews" class="hidden space-y-3">
-                    <textarea id="newsText" placeholder="Текст новини..." class="ios-input h-24"></textarea>
+                    <div class="flex gap-2 mb-1 overflow-x-auto pb-1">
+                        <button onclick="formatText('bold')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs font-bold min-w-[30px]">B</button>
+                        <button onclick="formatText('italic')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs italic min-w-[30px]">I</button>
+                        <button onclick="formatText('link')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs flex items-center gap-1">🔗 <span class="hidden sm:inline">Link</span></button>
+                        <button onclick="formatText('spoiler')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs text-gray-500">Spoiler</button>
+                    </div>
+                    <textarea id="newsText" placeholder="Текст новини... (підтримує HTML)" class="ios-input h-32 font-mono text-sm"></textarea>
                     <div class="flex items-center gap-2">
-                        <label class="flex-1 flex items-center justify-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] p-3 rounded-xl cursor-pointer">
+                        <label class="flex-1 flex items-center justify-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity">
                             <span>📎</span> <span id="fileName" class="text-xs truncate">Оберіть файл/фото</span>
                             <input type="file" id="newsFile" class="hidden" onchange="updateFileName()">
                         </label>
                     </div>
-                    <button onclick="publishNews()" class="btn-primary bg-pink-500">Опублікувати</button>
+                    <button onclick="publishNews()" class="btn-primary bg-pink-500 hover:bg-pink-600 transition-colors">Опублікувати</button>
                 </div>
                 
                 <div id="adminTabRequests" class="hidden space-y-3"><button onclick="approveAllRequests()" class="btn-primary bg-green-500">✅ Підтвердити Всі</button><div id="requestsList" class="space-y-3"></div></div>
@@ -201,7 +207,7 @@
         }
         initTheme();
 
-        // --- AUTH & LOADERS (Standard) ---
+        // --- AUTH ---
         async function checkAuth() { 
             try { 
                 const res = await fetch('/api/me'); const data = await res.json(); 
@@ -258,7 +264,7 @@
         async function loadTasks() { const r = await fetch('/api/tasks'); if(r.ok) globalTasks = await r.json(); }
         async function loadRequests(){ const r=await fetch('/api/requests'); const d=await r.json(); const c=document.getElementById('requestsList'); c.innerHTML=''; if(d.length===0){c.innerHTML='<p class="text-gray-400 text-xs text-center">Пусто</p>';return;} d.forEach(q=>{c.innerHTML+=`<div class="bg-gray-50 dark:bg-gray-700 p-2 rounded text-xs flex justify-between"><span>${q.type}: ${q.createdBy}</span><div class="flex gap-2"><button onclick="handleRequest('${q._id}','approve')" class="text-green-600">✅</button><button onclick="handleRequest('${q._id}','reject')" class="text-red-600">❌</button></div></div>`}); }
 
-        // --- RENDER TIMELINE & CALENDAR (Same as before) ---
+        // --- RENDER TIMELINE ---
         function renderTimeline(shifts, filterUser) {
             const main = document.getElementById('scheduleView'); main.innerHTML = '';
             const archive = document.getElementById('archiveContainer'); archive.innerHTML = '';
@@ -290,14 +296,11 @@
                         const isMe = shift.name === currentUser.name;
                         const [sH, sM] = shift.start.split(':').map(Number);
                         const [eH, eM] = shift.end.split(':').map(Number);
-                        const startDecimal = sH + sM/60; 
-                        const endDecimal = eH + eM/60;   
-                        let left = ((startDecimal - START_HOUR) / TOTAL_HOURS) * 100;
-                        let width = ((endDecimal - startDecimal) / TOTAL_HOURS) * 100;
-                        if(left < 0) { width += left; left = 0; } 
-                        if(left + width > 100) width = 100 - left;
-                        let tasksHtml = '';
-                        let badges = '';
+                        const startDecimal = sH + sM/60; const endDecimal = eH + eM/60;   
+                        let left = ((startDecimal - START_HOUR) / TOTAL_HOURS) * 100; let width = ((endDecimal - startDecimal) / TOTAL_HOURS) * 100;
+                        if(left < 0) { width += left; left = 0; } if(left + width > 100) width = 100 - left;
+
+                        let tasksHtml = ''; let badges = '';
                         userTasks.forEach(task => {
                             if(task.isFullDay) badges += `<span class="ml-2 text-[10px] text-purple-600 font-bold border border-purple-200 px-1 rounded">★ ${task.title}</span>`;
                             else {
@@ -333,6 +336,7 @@
             if(pastDaysCount > 0) { arcBtn.classList.remove('hidden'); arcCnt.innerText = pastDaysCount; } else { arcBtn.classList.add('hidden'); }
         }
 
+        // --- CALENDAR RENDER ---
         function renderCalendar() {
             const g = document.getElementById('calendarGrid'); g.innerHTML=''; const t=document.getElementById('calendarTitle');
             const y=currentCalendarDate.getFullYear(); const m=currentCalendarDate.getMonth();
@@ -373,7 +377,6 @@
             await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,date,name,isFullDay,start,end})});
             loadTasks().then(renderCurrentShifts);
         }
-        
         async function bulkImport() {
             const raw = document.getElementById('importData').value;
             if(!raw) return alert("Пусто");
@@ -392,7 +395,28 @@
             }
         }
 
-        // --- NEW: PUBLISH NEWS ---
+        // --- NEWS ACTIONS ---
+        function formatText(type) {
+            const field = document.getElementById('newsText');
+            const start = field.selectionStart;
+            const end = field.selectionEnd;
+            const text = field.value;
+            const selectedText = text.substring(start, end);
+            
+            let before = '', after = '';
+            if (type === 'bold') { before = '<b>'; after = '</b>'; }
+            else if (type === 'italic') { before = '<i>'; after = '</i>'; }
+            else if (type === 'spoiler') { before = '<tg-spoiler>'; after = '</tg-spoiler>'; }
+            else if (type === 'link') {
+                const url = prompt("Введіть URL:", "https://");
+                if (!url) return;
+                before = `<a href="${url}">`; after = '</a>';
+            }
+            const content = selectedText || (type === 'link' ? 'текст посилання' : 'текст');
+            field.value = text.substring(0, start) + before + content + after + text.substring(end);
+            field.focus();
+        }
+
         function updateFileName() {
             const input = document.getElementById('newsFile');
             const span = document.getElementById('fileName');
@@ -404,72 +428,10 @@
             const text = document.getElementById('newsText').value;
             const fileInput = document.getElementById('newsFile');
             const file = fileInput.files[0];
-
             if (!text && !file) return alert("Введіть текст або оберіть файл");
 
             const formData = new FormData();
             formData.append('text', text);
             if (file) formData.append('media', file);
 
-            // Button Loading State
-            const btn = document.querySelector('#adminTabNews button');
-            const originalText = btn.innerText;
-            btn.innerText = "⏳ Публікую...";
-            btn.disabled = true;
-
-            try {
-                const res = await fetch('/api/news/publish', {
-                    method: 'POST',
-                    body: formData // No Content-Type header needed for FormData
-                });
-                
-                if (res.ok) {
-                    alert("✅ Опубліковано!");
-                    document.getElementById('newsText').value = '';
-                    fileInput.value = '';
-                    updateFileName();
-                } else {
-                    const d = await res.json();
-                    alert("❌ Помилка: " + (d.error || "Unknown"));
-                }
-            } catch (e) {
-                alert("❌ Помилка мережі");
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
-        }
-
-        async function delS(d,n){if(confirm("?")) await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d,name:n})});loadShifts().then(renderCurrentShifts);}
-        async function deleteTask(id){if(confirm("?")) await fetch('/api/tasks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadTasks().then(renderCurrentShifts);}
-
-        function renderCurrentShifts(){renderTimeline(globalShifts,null);renderCalendar();}
-        function changeMonth(d){currentCalendarDate.setMonth(currentCalendarDate.getMonth()+d);renderCalendar();}
-        function setMode(m){ 
-            document.getElementById('listViewContainer').className = m === 'list' ? '' : 'hidden'; 
-            document.getElementById('calendarViewContainer').className = m === 'list' ? 'hidden' : ''; 
-            const btnList = document.getElementById('btnModeList'); const btnCal = document.getElementById('btnModeCalendar');
-            const activeClass = "flex-1 py-1.5 text-xs font-semibold rounded-[8px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white";
-            const inactiveClass = "flex-1 py-1.5 text-xs font-medium text-gray-500";
-            if (m === 'list') { btnList.className = activeClass; btnCal.className = inactiveClass; } else { btnList.className = inactiveClass; btnCal.className = activeClass; }
-            if(m === 'calendar') renderCalendar(); 
-        }
-        function toggleEditMode(){document.getElementById('adminPanel').classList.toggle('hidden');}
-        function toggleTaskTimeInputs(){const c=document.getElementById('taskFullDay').checked;document.getElementById('taskTimeInputs').className=c?'hidden':'flex gap-3';}
-        function showAdminTab(t){['shifts','tasks','requests','import','news'].forEach(x=>document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.add('hidden'));document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.remove('hidden');if(t==='requests')loadRequests();}
-        function clearDay(){const d=document.getElementById('shiftDate').value; if(d&&confirm(`Clean ${d}?`))fetch('/api/shifts/clear-day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d})}).then(()=>{loadShifts().then(renderCurrentShifts)});}
-        function toggleArchive(){document.getElementById('archiveContainer').classList.toggle('hidden');}
-        function downloadAllMyShifts(){if(!currentUser)return;const today=new Date().toISOString().split('T')[0];const myShifts=globalShifts.filter(s=>s.name===currentUser.name&&s.date>=today);if(myShifts.length===0)return alert('Немає змін!');let ics="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Shifter//UA\n";myShifts.forEach(s=>{const start=s.date.replace(/-/g,'')+'T'+s.start.replace(':','')+'00';const end=s.date.replace(/-/g,'')+'T'+s.end.replace(':','')+'00';ics+=`BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Робота\nEND:VEVENT\n`;});ics+="END:VCALENDAR";const a=document.createElement('a');a.href=window.URL.createObjectURL(new Blob([ics],{type:'text/calendar'}));a.download=`my-shifts.ics`;document.body.appendChild(a);a.click();document.body.removeChild(a);}
-        // --- FILTERS ---
-        function openFilterModal() {
-            const modal = document.getElementById('filterModal'); const list = document.getElementById('filterList'); modal.classList.remove('hidden');
-            let html = `<button onclick="applyFilter('all')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${activeFilter==='all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">Всі співробітники</span>${activeFilter==='all' ? '<span>✓</span>' : ''}</button>`;
-            globalUsers.forEach(u => { const isSelected = activeFilter === u.name; html += `<button onclick="applyFilter('${u.name}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">${u.name}</span>${isSelected ? '<span>✓</span>' : ''}</button>`; });
-            list.innerHTML = html;
-        }
-        function closeFilterModal() { document.getElementById('filterModal').classList.add('hidden'); }
-        function applyFilter(val) { activeFilter = val; document.getElementById('currentFilterLabel').innerText = val === 'all' ? 'Всі співробітники' : val.split(' ')[1] || val; closeFilterModal(); renderCurrentShifts(); }
-        checkAuth();
-    </script>
-</body>
-</html>
+            const btn = document.querySelector('#admin
