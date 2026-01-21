@@ -33,6 +33,21 @@ if (process.env.TELEGRAM_TOKEN) {
     const APP_URL = 'https://shifter-app.onrender.com';
     bot.setWebHook(`${APP_URL}/bot${process.env.TELEGRAM_TOKEN}`);
     console.log("🤖 Telegram Bot: Webhook set");
+
+    // === НАЛАШТУВАННЯ КНОПКИ "MENU" (СПИСОК КОМАНД) ===
+    bot.setMyCommands([
+        { command: '/start', description: '🏠 Головне меню' },
+        { command: '/now', description: '👀 Хто зараз на зміні' },
+        { command: '/contacts', description: '📒 Контакти' },
+        { command: '/settings', description: '⚙️ Налаштування' },
+        { command: '/login', description: '🔐 Авторизація' },
+        { command: '/stats', description: '📊 Табель (SM)' },
+        { command: '/post', description: '📢 Новина (SM)' },
+        { command: '/addcontact', description: '➕ Контакт (SM)' },
+        { command: '/delcontact', description: '➖ Контакт (SM)' }
+    ]).then(() => {
+        console.log("✅ Команди меню оновлено в Telegram");
+    });
 }
 
 // --- DB ---
@@ -75,7 +90,6 @@ const NewsPostSchema = new mongoose.Schema({
 });
 const NewsPost = mongoose.model('NewsPost', NewsPostSchema);
 
-// НОВА СХЕМА КОНТАКТІВ
 const ContactSchema = new mongoose.Schema({
     name: { type: String, required: true },
     phone: { type: String, required: true }
@@ -216,7 +230,6 @@ app.get('/api/requests', async (req, res) => { const u=await User.findById(req.s
 app.post('/api/requests/action', async (req, res) => { const {id,action}=req.body; const r=await Request.findById(id); if(!r)return res.json({success:false}); if(action==='approve'){ if(r.type==='add_shift'){await Shift.create(r.data); notifyUser(r.data.name, `📅 <b>Зміна підтверджена!</b>\n${r.data.date}`);} if(r.type==='del_shift')await Shift.findByIdAndDelete(r.data.id); if(r.type==='add_task'){await Task.create(r.data); notifyUser(r.data.name, `📌 <b>Задача підтверджена!</b>\n${r.data.title}`);} if(r.type==='del_task')await Task.findByIdAndDelete(r.data.id); if(r.type==='add_event'){await Event.create(r.data); notifyAll(`📢 <b>Подія підтверджена!</b>\n${r.data.title}`);} } const sIcon=action==='approve'?'✅':'❌'; const sTxt=action==='approve'?'Схвалено':'Відхилено'; notifyUser(r.createdBy, `${sIcon} <b>Твій запит було ${sTxt}</b>\n\nТип: ${r.type}`); await Request.findByIdAndDelete(id); res.json({success:true}); });
 app.post('/api/requests/approve-all', async (req, res) => { const rs=await Request.find(); for(const r of rs){ if(r.type==='add_shift')await Shift.create(r.data); if(r.type==='del_shift')await Shift.findByIdAndDelete(r.data.id); if(r.type==='add_task')await Task.create(r.data); if(r.type==='del_task')await Task.findByIdAndDelete(r.data.id); if(r.type==='add_event')await Event.create(r.data); notifyUser(r.createdBy, `✅ Твій запит (${r.type}) було схвалено масово.`); await Request.findByIdAndDelete(r._id); } res.json({success:true}); });
 async function initDB() { try { if ((await User.countDocuments()) === 0) await User.create([{ username: "admin", password: "123", role: "admin", name: "Адмін" }]); const rrp=await User.findOne({role:'RRP'}); if(!rrp){await User.create({username:"rrp",password:"rrp",role:"RRP",name:"Регіональний Менеджер"});} 
-// Додаємо дефолтні контакти, якщо база порожня
 const c = await Contact.countDocuments(); if(c === 0) { await Contact.create([{name: "RRP Наташа", phone: "+380954101682"}, {name: "AM Руслан", phone: "+380674652158"}]); }
 } catch (e) { console.log(e); } }
 
@@ -245,26 +258,18 @@ if (bot) {
         else bot.sendMessage(msg.chat.id, "zzz... Зараз нікого немає на зміні 😴", { message_thread_id: msg.message_thread_id });
     });
 
-    // ===========================================
-    // КОНТАКТИ (ДИНАМІЧНІ)
-    // ===========================================
-    
-    // 1. Показати список
+    // 1. Показати контакти
     bot.onText(/\/contacts?/, async (msg) => {
         try {
             const contacts = await Contact.find();
             if (contacts.length === 0) return bot.sendMessage(msg.chat.id, "📭 Список контактів поки порожній.", { message_thread_id: msg.message_thread_id });
-
             let text = `📒 <b>Корисні контакти:</b>\n\n`;
-            contacts.forEach(c => {
-                text += `👤 <b>${c.name}:</b> ${c.phone}\n`;
-            });
-            
+            contacts.forEach(c => { text += `👤 <b>${c.name}:</b> ${c.phone}\n`; });
             bot.sendMessage(msg.chat.id, text, { parse_mode: 'HTML', message_thread_id: msg.message_thread_id });
         } catch(e) { console.error(e); }
     });
 
-    // 2. Додати контакт (Тільки SM)
+    // 2. Додати контакт (SM)
     bot.onText(/\/addcontact (.+)/, async (msg, match) => {
         const userId = msg.from.id;
         try {
@@ -272,20 +277,16 @@ if (bot) {
             if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
                 return bot.sendMessage(msg.chat.id, "⛔ Тільки для SM.", { message_thread_id: msg.message_thread_id });
             }
-
-            // Парсинг: "Охорона +38050..." -> name="Охорона", phone="+38050..."
             const args = match[1].trim().split(' ');
             if (args.length < 2) return bot.sendMessage(msg.chat.id, "⚠️ Формат: /addcontact Ім'я Номер", { message_thread_id: msg.message_thread_id });
-
-            const phone = args.pop(); // Останнє слово - номер
-            const name = args.join(' '); // Все що перед цим - ім'я
-
+            const phone = args.pop(); 
+            const name = args.join(' '); 
             await Contact.create({ name, phone });
             bot.sendMessage(msg.chat.id, `✅ Додано контакт:\n${name}: ${phone}`, { message_thread_id: msg.message_thread_id });
         } catch (e) { bot.sendMessage(msg.chat.id, "❌ Помилка.", { message_thread_id: msg.message_thread_id }); }
     });
 
-    // 3. Видалити контакт (Тільки SM)
+    // 3. Видалити контакт (SM)
     bot.onText(/\/delcontact (.+)/, async (msg, match) => {
         const userId = msg.from.id;
         try {
@@ -293,20 +294,14 @@ if (bot) {
             if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
                 return bot.sendMessage(msg.chat.id, "⛔ Тільки для SM.", { message_thread_id: msg.message_thread_id });
             }
-
             const nameToDelete = match[1].trim();
             const res = await Contact.findOneAndDelete({ name: nameToDelete });
-
             if(res) bot.sendMessage(msg.chat.id, `🗑 Контакт "${nameToDelete}" видалено.`, { message_thread_id: msg.message_thread_id });
-            else bot.sendMessage(msg.chat.id, `⚠️ Контакт "${nameToDelete}" не знайдено. (Пишіть точно як у списку)`, { message_thread_id: msg.message_thread_id });
-
+            else bot.sendMessage(msg.chat.id, `⚠️ Контакт "${nameToDelete}" не знайдено.`, { message_thread_id: msg.message_thread_id });
         } catch (e) { bot.sendMessage(msg.chat.id, "❌ Помилка.", { message_thread_id: msg.message_thread_id }); }
     });
 
-
-    // ===========================================
-    // /stats (Тільки SM)
-    // ===========================================
+    // /stats (SM)
     bot.onText(/\/stats/, async (msg) => {
         const userId = msg.from.id;
         try {
@@ -336,37 +331,29 @@ if (bot) {
         } catch (e) { bot.sendMessage(msg.chat.id, "❌ Помилка.", { message_thread_id: msg.message_thread_id }); }
     });
 
-    // ===========================================
-    // УНІВЕРСАЛЬНИЙ /post
-    // ===========================================
+    // Універсальний /post
     bot.on('message', async (msg) => {
         const content = msg.text || msg.caption || "";
         
-        // --- ОБРОБКА КОМАНДИ /post ---
+        // --- ОБРОБКА /post ---
         if (content.trim().startsWith('/post')) {
             const userId = msg.from.id;
             const chatId = msg.chat.id;
             const threadId = msg.message_thread_id;
 
             try {
-                // Перевірка прав
                 const user = await User.findOne({ telegramChatId: userId });
                 if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
                     return bot.sendMessage(chatId, "⛔ Ця команда доступна тільки для SM.", { message_thread_id: threadId });
                 }
-
-                // Очищаємо текст
                 const cleanText = content.replace('/post', '').trim();
                 if (!cleanText && !msg.photo) return bot.sendMessage(chatId, "ℹ️ Напиши текст новини.", { message_thread_id: threadId });
                 if (!TG_CONFIG.groupId) return bot.sendMessage(chatId, "❌ Не задано ID групи (env).", { message_thread_id: threadId });
 
-                // Підготовка кнопки
                 const opts = {
                     parse_mode: 'HTML',
                     message_thread_id: TG_CONFIG.topics.news,
-                    reply_markup: {
-                        inline_keyboard: [[{ text: "✅ Ознайомлений", callback_data: 'read_news' }]]
-                    }
+                    reply_markup: { inline_keyboard: [[{ text: "✅ Ознайомлений", callback_data: 'read_news' }]] }
                 };
 
                 let sentMsg;
@@ -378,17 +365,11 @@ if (bot) {
                     sentMsg = await bot.sendMessage(TG_CONFIG.groupId, `📢 <b>Новини:</b>\n\n${cleanText}`, opts);
                 }
 
-                // Збереження в базу для трекінгу переглядів
                 await NewsPost.create({
-                    messageId: sentMsg.message_id,
-                    chatId: sentMsg.chat.id,
-                    text: cleanText,
-                    type: msg.photo ? 'photo' : 'text',
-                    readBy: []
+                    messageId: sentMsg.message_id, chatId: sentMsg.chat.id, text: cleanText,
+                    type: msg.photo ? 'photo' : 'text', readBy: []
                 });
-
                 bot.sendMessage(chatId, "✅ Новину опубліковано з кнопкою контролю!", { message_thread_id: threadId });
-
             } catch (e) {
                 console.error(e);
                 bot.sendMessage(chatId, "❌ Помилка: " + e.message, { message_thread_id: threadId });
@@ -396,7 +377,7 @@ if (bot) {
             return;
         }
 
-        // ... Інші обробники повідомлень (меню) ...
+        // --- МЕНЮ ---
         if (!msg.text) return;
         if (msg.text === '📋 Мої зміни') {
             const u = await User.findOne({ telegramChatId: msg.chat.id }); if (!u) return bot.sendMessage(msg.chat.id, "🔴 Авторизуйся: /login");
@@ -412,64 +393,32 @@ if (bot) {
         }
     });
 
-    // --- CALLBACK QUERIES (КНОПКИ) ---
+    // --- CALLBACKS ---
     bot.on('callback_query', async (q) => {
-        const chatId = q.message.chat.id;
-        const msgId = q.message.message_id;
-        const userId = q.from.id;
+        const chatId = q.message.chat.id; const msgId = q.message.message_id; const userId = q.from.id;
 
-        // 1. Обробка кнопки "Ознайомлений"
         if (q.data === 'read_news') {
             try {
-                // Знаходимо користувача в базі, щоб отримати нормальне ім'я
                 const user = await User.findOne({ telegramChatId: userId });
                 const userName = user ? user.name : (q.from.first_name + (q.from.last_name ? ' ' + q.from.last_name : ''));
-
-                // Знаходимо пост в базі
                 const post = await NewsPost.findOne({ messageId: msgId });
                 
-                if (!post) {
-                    return bot.answerCallbackQuery(q.id, { text: "❌ Пост застарів або не знайдено в базі.", show_alert: true });
-                }
+                if (!post) return bot.answerCallbackQuery(q.id, { text: "❌ Пост застарів.", show_alert: true });
+                if (post.readBy.includes(userName)) return bot.answerCallbackQuery(q.id, { text: "✅ Вже відмітились!", show_alert: false });
 
-                // Перевіряємо, чи вже читав
-                if (post.readBy.includes(userName)) {
-                    return bot.answerCallbackQuery(q.id, { text: "✅ Ви вже відмітились!", show_alert: false });
-                }
-
-                // Додаємо в список
-                post.readBy.push(userName);
-                await post.save();
-
-                // Формуємо новий текст
+                post.readBy.push(userName); await post.save();
                 const readList = post.readBy.join(', ');
                 const baseText = `📢 <b>Новини:</b>\n\n${post.text}`;
                 const footer = `\n\n👀 <b>Ознайомились:</b>\n${readList}`;
                 const newText = baseText + footer;
 
-                // Редагуємо повідомлення
                 if (post.type === 'photo') {
-                    await bot.editMessageCaption(newText, {
-                        chat_id: chatId,
-                        message_id: msgId,
-                        parse_mode: 'HTML',
-                        reply_markup: q.message.reply_markup
-                    });
+                    await bot.editMessageCaption(newText, { chat_id: chatId, message_id: msgId, parse_mode: 'HTML', reply_markup: q.message.reply_markup });
                 } else {
-                    await bot.editMessageText(newText, {
-                        chat_id: chatId,
-                        message_id: msgId,
-                        parse_mode: 'HTML',
-                        reply_markup: q.message.reply_markup
-                    });
+                    await bot.editMessageText(newText, { chat_id: chatId, message_id: msgId, parse_mode: 'HTML', reply_markup: q.message.reply_markup });
                 }
-
                 bot.answerCallbackQuery(q.id, { text: "Зараховано!" });
-
-            } catch (e) {
-                console.error(e);
-                bot.answerCallbackQuery(q.id, { text: "Помилка при оновленні." });
-            }
+            } catch (e) { console.error(e); bot.answerCallbackQuery(q.id, { text: "Помилка." }); }
         }
 
         if (q.data.startsWith('set_remind_')) {

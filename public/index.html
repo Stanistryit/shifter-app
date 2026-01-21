@@ -46,66 +46,26 @@
         .dark .ios-input { background: #2C2C2E; color: white; }
         .btn-primary { background: #007AFF; color: white; border-radius: 12px; font-weight: 600; padding: 12px; width: 100%; }
         
-        /* CALENDAR STYLES (UPDATED FOR CONTRAST) */
+        /* CALENDAR STYLES */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-        
         .calendar-day { 
-            min-height: 80px; 
-            border-radius: 12px; 
-            padding: 6px; 
-            font-size: 12px; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between; 
-            transition: all 0.2s;
-            /* Light Mode Default */
-            background: #FFFFFF;
-            border: 1px solid transparent;
-            color: #1c1c1e;
+            min-height: 80px; border-radius: 12px; padding: 6px; font-size: 12px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s;
+            background: #FFFFFF; border: 1px solid transparent; color: #1c1c1e;
         }
-
-        /* Dark Mode Default (Empty Day) - Dark Gray Card to stand out from Black bg */
-        .dark .calendar-day { 
-            background: #1C1C1E; 
-            color: #8E8E93; /* Dimmed text for empty days */
-        }
+        .dark .calendar-day { background: #1C1C1E; color: #8E8E93; }
+        .calendar-day.today { border: 2px solid #007AFF; }
         
-        /* TODAY Highlight */
-        .calendar-day.today { 
-            border: 2px solid #007AFF; 
-        }
-
         /* WORK DAY (MY SHIFT) - GREEN THEME */
-        /* Light Mode */
-        .calendar-day.my-work-day {
-            background: #F0FDF4; /* Very light green */
-            border: 1px solid #BBF7D0;
-            color: #14532D;
-        }
-        
-        /* Dark Mode - The "Neon" Fix */
-        .dark .calendar-day.my-work-day {
-            background: rgba(52, 199, 89, 0.20) !important; /* Semi-transparent Green */
-            border: 1px solid rgba(52, 199, 89, 0.5); /* Subtle Green Border */
-            color: #FFFFFF; /* Bright text */
-        }
-
-        .work-badge {
-            font-size: 10px;
-            font-weight: 700;
-            margin-top: auto;
-            color: #34C759; /* Green text in calendar */
-        }
-        .dark .work-badge {
-            color: #4ADE80; /* Brighter green for dark mode */
-        }
+        .calendar-day.my-work-day { background: #F0FDF4; border: 1px solid #BBF7D0; color: #14532D; }
+        .dark .calendar-day.my-work-day { background: rgba(52, 199, 89, 0.20) !important; border: 1px solid rgba(52, 199, 89, 0.5); color: #FFFFFF; }
+        .work-badge { font-size: 10px; font-weight: 700; margin-top: auto; color: #34C759; }
+        .dark .work-badge { color: #4ADE80; }
         
         /* Modal Animation */
         .modal-enter { transform: translateY(100%); opacity: 0; }
         .modal-enter-active { transform: translateY(0); opacity: 1; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .modal-exit { transform: translateY(0); opacity: 1; }
         .modal-exit-active { transform: translateY(100%); opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-
         ::-webkit-scrollbar { width: 0; }
     </style>
 </head>
@@ -162,6 +122,7 @@
                 <div class="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
                     <button onclick="showAdminTab('shifts')" class="bg-[#F2F2F7] dark:bg-[#2C2C2E] px-4 py-2 rounded-full text-xs font-bold">Графік</button>
                     <button onclick="showAdminTab('tasks')" class="bg-[#F2F2F7] dark:bg-[#2C2C2E] px-4 py-2 rounded-full text-xs font-bold">Задачі</button>
+                    <button onclick="showAdminTab('import')" class="bg-indigo-100 text-indigo-600 px-4 py-2 rounded-full text-xs font-bold">Імпорт</button>
                     <button onclick="showAdminTab('requests')" class="hidden bg-red-100 text-red-600 px-4 py-2 rounded-full text-xs font-bold" id="tabRequestsBtn">Запити</button>
                 </div>
 
@@ -178,6 +139,12 @@
                     <div class="flex items-center justify-between"><span class="text-sm">Весь день</span><input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()" class="w-5 h-5 accent-purple-500"></div>
                     <div id="taskTimeInputs" class="flex gap-3"><input type="time" id="taskStart" class="ios-input" value="12:00"><input type="time" id="taskEnd" class="ios-input" value="14:00"></div>
                     <button onclick="addTask()" class="btn-primary bg-purple-500">Призначити</button>
+                </div>
+                
+                <div id="adminTabImport" class="hidden space-y-3">
+                    <textarea id="importData" placeholder="2024-05-20 Name 10:00 20:00" class="ios-input h-24 font-mono text-xs"></textarea>
+                    <p class="text-[10px] text-gray-400">Формат: РРРР-ММ-ДД Ім'я Початок Кінець (можна вставити з Excel)</p>
+                    <button onclick="bulkImport()" class="btn-primary bg-indigo-500">Завантажити масово</button>
                 </div>
                 
                 <div id="adminTabRequests" class="hidden space-y-3"><button onclick="approveAllRequests()" class="btn-primary bg-green-500">✅ Підтвердити Всі</button><div id="requestsList" class="space-y-3"></div></div>
@@ -203,8 +170,7 @@
                     <h3 class="font-bold text-lg">Оберіть співробітника</h3>
                     <button onclick="closeFilterModal()" class="w-8 h-8 bg-gray-100 dark:bg-[#2C2C2E] rounded-full text-gray-500 text-sm font-bold">✕</button>
                 </div>
-                <div id="filterList" class="space-y-1">
-                    </div>
+                <div id="filterList" class="space-y-1"></div>
             </div>
         </div>
 
@@ -216,7 +182,6 @@
 
         let currentUser = null; let globalShifts = []; let globalUsers = []; let globalTasks = [];
         let activeFilter = 'all'; 
-        
         const START_HOUR = 10; const TOTAL_HOURS = 10;
         let currentCalendarDate = new Date();
 
@@ -274,16 +239,13 @@
                     loadRequests(); 
                 }
             }
-            
             await Promise.all([loadEmployeeList(), loadShifts(), loadTasks()]);
             renderCurrentShifts();
         }
 
         // --- FILTER ---
         function openFilterModal() {
-            const modal = document.getElementById('filterModal');
-            const list = document.getElementById('filterList');
-            modal.classList.remove('hidden');
+            const modal = document.getElementById('filterModal'); const list = document.getElementById('filterList'); modal.classList.remove('hidden');
             let html = `<button onclick="applyFilter('all')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${activeFilter==='all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">Всі співробітники</span>${activeFilter==='all' ? '<span>✓</span>' : ''}</button>`;
             globalUsers.forEach(u => { const isSelected = activeFilter === u.name; html += `<button onclick="applyFilter('${u.name}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">${u.name}</span>${isSelected ? '<span>✓</span>' : ''}</button>`; });
             list.innerHTML = html;
@@ -291,7 +253,7 @@
         function closeFilterModal() { document.getElementById('filterModal').classList.add('hidden'); }
         function applyFilter(val) { activeFilter = val; document.getElementById('currentFilterLabel').innerText = val === 'all' ? 'Всі співробітники' : val.split(' ')[1] || val; closeFilterModal(); renderCurrentShifts(); }
 
-        // --- LOADERS ---
+        // --- DATA LOADERS ---
         async function loadEmployeeList() { 
             const res = await fetch('/api/users'); 
             if(res.ok){
@@ -365,20 +327,9 @@
                                 tasksHtml += `<div class="task-segment" ${delTask} style="left:${tLeft}%; width:${tWidth}%;">${task.title}</div>`;
                             }
                         });
-
                         const delShift = (['admin','SM','SSE'].includes(currentUser.role) && currentUser.role !== 'RRP') ? `<button onclick="delS('${shift.date}','${shift.name}')" class="ml-auto text-gray-300 hover:text-red-500">✕</button>` : '';
 
-                        html += `
-                        <div>
-                            <div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-500':'text-gray-900 dark:text-gray-200'}">
-                                <span>${shortName}</span> <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}
-                            </div>
-                            <div class="timeline-track">
-                                <div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div>
-                                <div class="shift-segment ${isMe?'my-shift':''}" style="left:${left}%; width:${width}%"></div>
-                                ${tasksHtml}
-                            </div>
-                        </div>`;
+                        html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-500':'text-gray-900 dark:text-gray-200'}"><span>${shortName}</span> <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}</div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
                     } else if (userTasks.length > 0) {
                         let tasksHtml = '';
                         userTasks.forEach(task => {
@@ -392,32 +343,20 @@
                                 tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%; background:#FF9500;">${task.title}</div>`;
                             }
                         });
-                        html += `
-                        <div class="opacity-80">
-                            <div class="flex items-center text-xs mb-1 text-gray-500"><span>${shortName}</span> <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div>
-                            <div class="timeline-track"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div>
-                        </div>`;
+                        html += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500"><span>${shortName}</span> <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;
                     } else {
-                        html += `
-                        <div class="opacity-50">
-                            <div class="flex items-center justify-between text-xs mb-1 text-gray-400"><span>${shortName}</span> <span>Вихідний</span></div>
-                            <div class="h-[1px] bg-gray-100 dark:bg-gray-800 rounded w-full mt-3 mb-4"></div>
-                        </div>`;
+                        html += `<div class="opacity-50"><div class="flex items-center justify-between text-xs mb-1 text-gray-400"><span>${shortName}</span> <span>Вихідний</span></div><div class="h-[1px] bg-gray-100 dark:bg-gray-800 rounded w-full mt-3 mb-4"></div></div>`;
                     }
                 });
-
-                html += `</div>`;
-                block.innerHTML = html;
+                html += `</div>`; block.innerHTML = html;
                 if(isPast) { archive.appendChild(block); pastDaysCount++; } else { main.appendChild(block); }
                 if(isToday) setTimeout(()=>block.scrollIntoView({behavior:'smooth',block:'center'}),500);
             });
-
-            const arcBtn = document.getElementById('archiveToggleBtn');
-            const arcCnt = document.getElementById('archiveCount');
+            const arcBtn = document.getElementById('archiveToggleBtn'); const arcCnt = document.getElementById('archiveCount');
             if(pastDaysCount > 0) { arcBtn.classList.remove('hidden'); arcCnt.innerText = pastDaysCount; } else { arcBtn.classList.add('hidden'); }
         }
 
-        // --- CALENDAR RENDER (FIXED) ---
+        // --- CALENDAR RENDER ---
         function renderCalendar() {
             const g = document.getElementById('calendarGrid'); g.innerHTML=''; const t=document.getElementById('calendarTitle');
             const y=currentCalendarDate.getFullYear(); const m=currentCalendarDate.getMonth();
@@ -427,26 +366,21 @@
             const ld=new Date(y,m+1,0).getDate();
             
             for(let i=1; i<fd; i++) g.innerHTML+=`<div class="calendar-day opacity-0"></div>`;
-            
             const today = new Date().toISOString().split('T')[0];
             for(let d=1; d<=ld; d++){
                 const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                 const shift = globalShifts.find(s=>s.date===ds && s.name===currentUser.name);
                 const tasks = globalTasks.filter(t=>t.date===ds && t.name===currentUser.name);
-                
                 let content = `<div class="font-bold mb-1">${d}</div>`;
                 if(shift) content += `<div class="work-badge">${shift.start}-${shift.end}</div>`;
                 tasks.forEach(task => content += `<div class="text-[9px] text-purple-500 truncate">★ ${task.title}</div>`);
-                
-                // ADDED CLASS 'my-work-day' IF SHIFT EXISTS
                 const workClass = shift ? 'my-work-day' : '';
                 const todayClass = ds === today ? 'today' : '';
-                
                 g.innerHTML += `<div class="calendar-day ${todayClass} ${workClass}">${content}</div>`;
             }
         }
 
-        // --- ACTIONS ---
+        // --- ADMIN & IMPORT ACTIONS ---
         async function handleRequest(id, a){await fetch('/api/requests/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:a})});loadRequests();loadShifts();loadTasks();setTimeout(()=>renderCurrentShifts(),500);}
         async function approveAllRequests(){if(!confirm("Все?"))return;await fetch('/api/requests/approve-all',{method:'POST'});loadRequests();loadShifts();loadTasks();setTimeout(()=>renderCurrentShifts(),500);}
         async function addShift() { 
@@ -463,6 +397,44 @@
             await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,date,name,isFullDay,start,end})});
             loadTasks().then(renderCurrentShifts);
         }
+        
+        async function bulkImport() {
+            const raw = document.getElementById('importData').value;
+            if(!raw) return alert("Пусто");
+            
+            const rows = raw.trim().split('\n');
+            const shifts = [];
+            
+            rows.forEach(row => {
+                // Split by tab (Excel) or multiple spaces
+                const parts = row.split(/[\t, ]+/);
+                if(parts.length >= 4) {
+                    shifts.push({
+                        date: parts[0].trim(),
+                        name: parts[1].trim(),
+                        start: parts[2].trim(),
+                        end: parts[3].trim()
+                    });
+                }
+            });
+
+            if(shifts.length === 0) return alert("Не розпізнано жодного рядка");
+
+            if(confirm(`Завантажити ${shifts.length} змін?`)) {
+                const res = await fetch('/api/shifts/bulk', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ shifts })
+                });
+                if(res.ok) {
+                    document.getElementById('importData').value = '';
+                    loadShifts().then(renderCurrentShifts);
+                    alert("Успішно!");
+                } else {
+                    alert("Помилка завантаження");
+                }
+            }
+        }
+
         async function delS(d,n){if(confirm("?")) await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d,name:n})});loadShifts().then(renderCurrentShifts);}
         async function deleteTask(id){if(confirm("?")) await fetch('/api/tasks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadTasks().then(renderCurrentShifts);}
 
@@ -480,7 +452,7 @@
         }
         function toggleEditMode(){document.getElementById('adminPanel').classList.toggle('hidden');}
         function toggleTaskTimeInputs(){const c=document.getElementById('taskFullDay').checked;document.getElementById('taskTimeInputs').className=c?'hidden':'flex gap-3';}
-        function showAdminTab(t){['shifts','tasks','requests'].forEach(x=>document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.add('hidden'));document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.remove('hidden');if(t==='requests')loadRequests();}
+        function showAdminTab(t){['shifts','tasks','requests','import'].forEach(x=>document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.add('hidden'));document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.remove('hidden');if(t==='requests')loadRequests();}
         function clearDay(){const d=document.getElementById('shiftDate').value; if(d&&confirm(`Clean ${d}?`))fetch('/api/shifts/clear-day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d})}).then(()=>{loadShifts().then(renderCurrentShifts)});}
         function toggleArchive(){document.getElementById('archiveContainer').classList.toggle('hidden');}
         function downloadAllMyShifts(){if(!currentUser)return;const today=new Date().toISOString().split('T')[0];const myShifts=globalShifts.filter(s=>s.name===currentUser.name&&s.date>=today);if(myShifts.length===0)return alert('Немає змін!');let ics="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Shifter//UA\n";myShifts.forEach(s=>{const start=s.date.replace(/-/g,'')+'T'+s.start.replace(':','')+'00';const end=s.date.replace(/-/g,'')+'T'+s.end.replace(':','')+'00';ics+=`BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Робота\nEND:VEVENT\n`;});ics+="END:VCALENDAR";const a=document.createElement('a');a.href=window.URL.createObjectURL(new Blob([ics],{type:'text/calendar'}));a.download=`my-shifts.ics`;document.body.appendChild(a);a.click();document.body.removeChild(a);}
