@@ -24,13 +24,11 @@ const TG_CONFIG = {
 };
 const GOOGLE_SHEET_URL = ''; 
 
-// --- MULTER ---
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 app.set('trust proxy', 1);
 
-// --- DB ---
 mongoose.connect(process.env.MONGO_URI)
     .then(() => { console.log("✅ Connected to MongoDB"); initDB(); })
     .catch(err => console.error("❌ MongoDB error:", err));
@@ -43,7 +41,7 @@ const UserSchema = new mongoose.Schema({
     name: { type: String, required: true },
     telegramChatId: { type: Number, default: null },
     reminderTime: { type: String, default: '20:00' },
-    avatar: { type: String, default: null } // НОВЕ ПОЛЕ: Аватарка (Base64)
+    avatar: { type: String, default: null }
 });
 const User = mongoose.model('User', UserSchema);
 
@@ -60,24 +58,18 @@ const NewsPost = mongoose.model('NewsPost', NewsPostSchema);
 const ContactSchema = new mongoose.Schema({ name: { type: String, required: true }, phone: { type: String, required: true } });
 const Contact = mongoose.model('Contact', ContactSchema);
 
-// --- TELEGRAM BOT ---
-let bot = null;
-if (process.env.TELEGRAM_TOKEN) {
-    bot = new TelegramBot(process.env.TELEGRAM_TOKEN);
-    const APP_URL = 'https://shifter-app.onrender.com';
-    bot.setWebHook(`${APP_URL}/bot${process.env.TELEGRAM_TOKEN}`);
-    console.log("🤖 Telegram Bot: Webhook set");
-    bot.setMyCommands([
-        { command: '/start', description: '🏠 Головне меню' }, { command: '/now', description: '👀 Хто зараз на зміні' },
-        { command: '/contacts', description: '📒 Контакти' }, { command: '/settings', description: '⚙️ Налаштування' },
-        { command: '/login', description: '🔐 Авторизація' }, { command: '/stats', description: '📊 Табель (SM)' },
-        { command: '/post', description: '📢 Новина (SM)' }, { command: '/addcontact', description: '➕ Контакт (SM)' },
-        { command: '/delcontact', description: '➖ Контакт (SM)' }
-    ]);
-}
+// --- НОВА СХЕМА ДЛЯ НОТАТОК ---
+const NoteSchema = new mongoose.Schema({
+    date: { type: String, required: true }, // YYYY-MM-DD
+    text: { type: String, required: true },
+    type: { type: String, default: 'private' }, // 'private' або 'public'
+    author: { type: String, required: true }, // Ім'я автора
+    createdAt: { type: Date, default: Date.now }
+});
+const Note = mongoose.model('Note', NoteSchema);
+
 
 // --- MIDDLEWARE ---
-// ЗБІЛЬШЕНО ЛІМІТ ДЛЯ ЗАВАНТАЖЕННЯ АВАТАРОК
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -105,7 +97,7 @@ async function notifyUser(name, msg) { if(!bot) return; try { const u = await Us
 async function notifyRole(role, msg) { if(!bot) return; try { const us = await User.find({role}); for(const u of us) if(u.telegramChatId) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} }
 async function notifyAll(msg) { if(!bot) return; try { const us = await User.find({telegramChatId:{$ne:null}}); for(const u of us) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} }
 
-// --- SYNC & CRON ---
+// --- SYNC ---
 async function syncWithGoogleSheets() {
     if (!GOOGLE_SHEET_URL || GOOGLE_SHEET_URL.length < 10) return { success: false, message: "URL not set" };
     try {
@@ -168,16 +160,75 @@ app.get('/api/me', async (req, res) => {
     res.json({ loggedIn: true, user: { name: user.name, role: user.role, avatar: user.avatar } }); 
 });
 
-// НОВИЙ МАРШРУТ: ЗБЕРЕЖЕННЯ АВАТАРКИ
 app.post('/api/user/avatar', async (req, res) => {
     try {
         if (!req.session.userId) return res.status(403).json({ error: "Auth required" });
-        const { avatar } = req.body; // Base64 string
+        const { avatar } = req.body; 
         await User.findByIdAndUpdate(req.session.userId, { avatar });
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// --- NOTES API ---
+app.get('/api/notes', async (req, res) => {
+    if (!req.session.userId) return res.json([]);
+    const user = await User.findById(req.session.userId);
+    if (!user) return res.json([]);
+
+    // Отримуємо: Публічні нотатки + Приватні нотатки поточного юзера
+    const notes = await Note.find({
+        $or: [
+            { type: 'public' },
+            { type: 'private', author: user.name }
+        ]
+    });
+    res.json(notes);
+});
+
+app.post('/api/notes', async (req, res) => {
+    if (!req.session.userId) return res.status(403).json({});
+    const user = await User.findById(req.session.userId);
+    const { date, text, type } = req.body;
+
+    // Тільки SM/Admin може постити публічні
+    let finalType = 'private';
+    if (type === 'public' && (user.role === 'SM' || user.role === 'admin')) {
+        finalType = 'public';
+    }
+
+    await Note.create({
+        date,
+        text,
+        type: finalType,
+        author: user.name
+    });
+    
+    // Якщо публічна - сповіщаємо в групу (опціонально, можна прибрати)
+    if (finalType === 'public' && TG_CONFIG.groupId) {
+        // notifyAll(`📌 <b>Нотатка на ${date}:</b>\n${text}`); // Можна розкоментувати, якщо треба
+    }
+
+    res.json({ success: true });
+});
+
+app.post('/api/notes/delete', async (req, res) => {
+    if (!req.session.userId) return res.status(403).json({});
+    const user = await User.findById(req.session.userId);
+    const { id } = req.body;
+    
+    const note = await Note.findById(id);
+    if (!note) return res.json({ success: false });
+
+    // Видалити може автор АБО (якщо це публічна) Адмін/СМ
+    if (note.author === user.name || ((user.role === 'SM' || user.role === 'admin') && note.type === 'public')) {
+        await Note.findByIdAndDelete(id);
+        res.json({ success: true });
+    } else {
+        res.status(403).json({ success: false });
+    }
+});
+
+// --- BASIC API ---
 app.get('/api/users', async (req, res) => { const users = await User.find({}, 'name role'); res.json(users); });
 app.get('/api/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); const s = await Shift.find(); res.json(s); });
 app.post('/api/shifts', async (req, res) => { const c=await handlePermission(req,'add_shift',req.body); if(c) return res.json({success:true, pending:c==='pending'}); await Shift.create(req.body); notifyUser(req.body.name, `📅 Зміна: ${req.body.date}`); res.json({success:true}); });
@@ -289,7 +340,7 @@ if (bot) {
         const uid = q.from.id;
         if (q.data === 'read_news') {
             const u = await User.findOne({telegramChatId:uid});
-            let name = u ? u.name : q.from.first_name;
+            let name = u ? u.name : (q.from.first_name || 'User');
             const shortName = name.trim().split(' ').length > 1 ? name.trim().split(' ')[1] : name.trim().split(' ')[0];
             const p = await NewsPost.findOne({messageId:q.message.message_id});
             if(!p) return bot.answerCallbackQuery(q.id, {text:'❌ Старий пост'});

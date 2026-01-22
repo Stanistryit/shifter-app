@@ -50,13 +50,15 @@
         .dark .work-badge { color: #4ADE80; }
         .modal-enter-active { transform: translateY(0); opacity: 1; transition: all 0.3s; }
         .modal-enter { transform: translateY(100%); opacity: 0; }
-        
-        /* Avatar Styles */
-        .avatar-preview-container {
-            width: 200px; height: 200px; border-radius: 50%; overflow: hidden; border: 4px solid #007AFF; margin: 0 auto;
-            position: relative; background: #f0f0f0;
-        }
+        .avatar-preview-container { width: 200px; height: 200px; border-radius: 50%; overflow: hidden; border: 4px solid #007AFF; margin: 0 auto; position: relative; background: #f0f0f0; }
         .avatar-preview-img { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* NOTES STYLES */
+        .note-item { font-size: 11px; padding: 4px 8px; border-radius: 6px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .note-private { background: #FEF9C3; color: #854D0E; border: 1px solid #FEF08A; } /* Yellow */
+        .dark .note-private { background: #422006; color: #FEF9C3; border: 1px solid #713F12; }
+        .note-public { background: #DBEAFE; color: #1E40AF; border: 1px solid #BFDBFE; } /* Blue */
+        .dark .note-public { background: #172554; color: #DBEAFE; border: 1px solid #1E3A8A; }
     </style>
 </head>
 <body class="bg-[#F2F2F7] text-black dark:bg-black dark:text-white font-sans min-h-screen flex flex-col">
@@ -116,7 +118,6 @@
                     <button onclick="showAdminTab('news')" class="bg-pink-100 text-pink-600 px-4 py-2 rounded-full text-xs font-bold">Новини</button>
                     <button onclick="showAdminTab('requests')" class="hidden bg-red-100 text-red-600 px-4 py-2 rounded-full text-xs font-bold" id="tabRequestsBtn">Запити</button>
                 </div>
-                
                 <div id="adminTabShifts" class="space-y-3">
                     <div class="grid grid-cols-2 gap-3"><input type="date" id="shiftDate" class="ios-input"><select id="employeeSelect" class="ios-input bg-transparent"><option disabled selected>Хто?</option></select></div>
                     <div class="flex gap-3"><input type="time" id="startTime" class="ios-input" value="10:00"><input type="time" id="endTime" class="ios-input" value="20:00"></div>
@@ -135,17 +136,9 @@
                     <button onclick="bulkImport()" class="btn-primary bg-indigo-500">Завантажити масово</button>
                 </div>
                 <div id="adminTabNews" class="hidden space-y-3">
-                    <div class="flex gap-2 mb-1 overflow-x-auto pb-1">
-                        <button onclick="formatText('bold')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs font-bold min-w-[30px]">B</button>
-                        <button onclick="formatText('italic')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs italic min-w-[30px]">I</button>
-                        <button onclick="formatText('link')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs flex items-center gap-1">🔗</button>
-                        <button onclick="formatText('spoiler')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs text-gray-500">S</button>
-                    </div>
+                    <div class="flex gap-2 mb-1 overflow-x-auto pb-1"><button onclick="formatText('bold')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs font-bold">B</button><button onclick="formatText('italic')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs italic">I</button><button onclick="formatText('link')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs">🔗</button><button onclick="formatText('spoiler')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs">S</button></div>
                     <textarea id="newsText" placeholder="Текст..." class="ios-input h-32 font-mono text-sm"></textarea>
-                    <label class="flex-1 flex items-center justify-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity">
-                        <span>📎</span> <span id="fileName" class="text-xs truncate">Оберіть файл/фото</span>
-                        <input type="file" id="newsFile" class="hidden" onchange="updateFileName()">
-                    </label>
+                    <label class="flex-1 flex items-center justify-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity"><span>📎</span> <span id="fileName" class="text-xs truncate">Файл</span><input type="file" id="newsFile" class="hidden" onchange="updateFileName()"></label>
                     <button onclick="publishNews()" class="btn-primary bg-pink-500">Опублікувати</button>
                 </div>
                 <div id="adminTabRequests" class="hidden space-y-3"><button onclick="approveAllRequests()" class="btn-primary bg-green-500">✅ Підтвердити Всі</button><div id="requestsList" class="space-y-3"></div></div>
@@ -164,32 +157,29 @@
             </div>
         </div>
 
-        <div id="filterModal" class="hidden fixed inset-0 z-50">
-            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onclick="closeFilterModal()"></div>
-            <div class="absolute bottom-0 left-0 right-0 bg-white dark:bg-[#1C1C1E] rounded-t-[20px] max-h-[70vh] overflow-y-auto p-4 modal-enter-active">
-                <div class="flex justify-between items-center mb-4 px-2">
-                    <h3 class="font-bold text-lg">Фільтр</h3>
-                    <button onclick="closeFilterModal()" class="w-8 h-8 bg-gray-100 dark:bg-[#2C2C2E] rounded-full text-gray-500 text-sm font-bold">✕</button>
-                </div>
-                <div id="filterList" class="space-y-1"></div>
-            </div>
-        </div>
+        <div id="filterModal" class="hidden fixed inset-0 z-50"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeFilterModal()"></div><div class="absolute bottom-0 left-0 right-0 bg-white dark:bg-[#1C1C1E] rounded-t-[20px] max-h-[70vh] overflow-y-auto p-4 modal-enter-active"><div class="flex justify-between items-center mb-4 px-2"><h3 class="font-bold text-lg">Фільтр</h3><button onclick="closeFilterModal()" class="w-8 h-8 bg-gray-100 dark:bg-[#2C2C2E] rounded-full text-gray-500 text-sm font-bold">✕</button></div><div id="filterList" class="space-y-1"></div></div></div>
 
-        <div id="avatarModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="closeAvatarModal()"></div>
-            <div class="bg-white dark:bg-[#1C1C1E] rounded-2xl w-full max-w-sm p-6 relative z-10 text-center">
-                <h3 class="font-bold text-xl mb-4">Змінити фото</h3>
-                <div class="avatar-preview-container mb-6">
-                    <img id="avatarPreview" class="avatar-preview-img hidden">
-                    <div id="avatarPlaceholder" class="w-full h-full flex items-center justify-center text-4xl text-gray-400">📷</div>
+        <div id="avatarModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeAvatarModal()"></div><div class="bg-white dark:bg-[#1C1C1E] rounded-2xl w-full max-w-sm p-6 relative z-10 text-center"><h3 class="font-bold text-xl mb-4">Фото</h3><div class="avatar-preview-container mb-6"><img id="avatarPreview" class="avatar-preview-img hidden"><div id="avatarPlaceholder" class="w-full h-full flex items-center justify-center text-4xl text-gray-400">📷</div></div><label class="btn-primary block mb-3 cursor-pointer">Обрати фото<input type="file" id="avatarInput" accept="image/*" class="hidden" onchange="handleAvatarSelect(this)"></label><div id="avatarActions" class="hidden space-y-2"><button onclick="uploadAvatar()" class="btn-primary bg-green-500">Зберегти</button><button onclick="closeAvatarModal()" class="w-full py-3 text-red-500 font-medium">Скасувати</button></div></div></div>
+
+        <div id="notesModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeNotesModal()"></div>
+            <div class="bg-white dark:bg-[#1C1C1E] rounded-2xl w-full max-w-sm p-5 relative z-10">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg" id="notesModalTitle">Нотатки</h3>
+                    <button onclick="closeNotesModal()" class="text-gray-400 text-2xl">×</button>
                 </div>
-                <label class="btn-primary block mb-3 cursor-pointer">
-                    Обрати фото
-                    <input type="file" id="avatarInput" accept="image/*" class="hidden" onchange="handleAvatarSelect(this)">
-                </label>
-                <div id="avatarActions" class="hidden space-y-2">
-                    <button onclick="uploadAvatar()" class="btn-primary bg-green-500">Зберегти</button>
-                    <button onclick="closeAvatarModal()" class="w-full py-3 text-red-500 font-medium">Скасувати</button>
+                
+                <div id="notesList" class="space-y-2 mb-4 max-h-48 overflow-y-auto">
+                    </div>
+
+                <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+                    <textarea id="newNoteText" placeholder="Нова нотатка..." class="ios-input h-20 text-sm mb-3"></textarea>
+                    <div class="flex gap-2">
+                        <div id="noteTypeToggle" class="hidden items-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] px-3 rounded-lg cursor-pointer" onclick="toggleNoteType()">
+                            <span id="noteTypeIcon">🔒</span> <span class="text-xs font-bold" id="noteTypeLabel">Особиста</span>
+                        </div>
+                        <button onclick="saveNote()" class="btn-primary flex-1">Додати</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -200,18 +190,12 @@
         const tg = window.Telegram.WebApp;
         if(tg) tg.ready(); if(tg?.platform && tg.platform!=='unknown') try{tg.expand()}catch(e){}
 
-        let currentUser = null; let globalShifts = []; let globalUsers = []; let globalTasks = [];
+        let currentUser = null; let globalShifts = []; let globalUsers = []; let globalTasks = []; let globalNotes = [];
         let activeFilter = 'all'; const START_HOUR = 10; const TOTAL_HOURS = 10; let currentCalendarDate = new Date();
+        let selectedNoteDate = null; let currentNoteType = 'private';
 
-        function initTheme() {
-            if ((tg.platform !== 'unknown' && tg.colorScheme === 'dark') || localStorage.theme === 'dark') { document.documentElement.classList.add('dark'); document.getElementById('themeIcon').innerText = '☀️'; if(tg.platform!=='unknown'){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} } 
-            else { document.documentElement.classList.remove('dark'); document.getElementById('themeIcon').innerText = '🌙'; if(tg.platform!=='unknown'){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} }
-        }
-        function toggleTheme() {
-            const html = document.documentElement;
-            if (html.classList.contains('dark')) { html.classList.remove('dark'); localStorage.theme = 'light'; document.getElementById('themeIcon').innerText = '🌙'; if(tg.platform!=='unknown'){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } 
-            else { html.classList.add('dark'); localStorage.theme = 'dark'; document.getElementById('themeIcon').innerText = '☀️'; if(tg.platform!=='unknown'){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} }
-        }
+        function initTheme() { if ((tg.platform !== 'unknown' && tg.colorScheme === 'dark') || localStorage.theme === 'dark') { document.documentElement.classList.add('dark'); document.getElementById('themeIcon').innerText = '☀️'; if(tg.platform!=='unknown'){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} } else { document.documentElement.classList.remove('dark'); document.getElementById('themeIcon').innerText = '🌙'; if(tg.platform!=='unknown'){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } }
+        function toggleTheme() { const html = document.documentElement; if (html.classList.contains('dark')) { html.classList.remove('dark'); localStorage.theme = 'light'; document.getElementById('themeIcon').innerText = '🌙'; if(tg.platform!=='unknown'){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } else { html.classList.add('dark'); localStorage.theme = 'dark'; document.getElementById('themeIcon').innerText = '☀️'; if(tg.platform!=='unknown'){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} } }
         initTheme();
 
         async function checkAuth() { 
@@ -225,12 +209,7 @@
                 } catch (e) { document.getElementById('tgLoader').classList.add('hidden'); document.getElementById('loginForm').classList.remove('hidden'); }
             } else { showLogin(); }
         }
-        async function login() {
-            const username = document.getElementById('loginUser').value; const password = document.getElementById('loginPass').value;
-            try { const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); const data = await res.json();
-                if (data.success) showApp(data.user); else alert(data.message);
-            } catch (e) { alert("Error"); }
-        }
+        async function login() { const username = document.getElementById('loginUser').value; const password = document.getElementById('loginPass').value; try { const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); const data = await res.json(); if (data.success) showApp(data.user); else alert(data.message); } catch (e) { alert("Error"); } }
         async function logout() { await fetch('/api/logout', { method: 'POST' }); window.location.reload(); }
         function showLogin() { currentUser = null; document.getElementById('appScreen').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); }
 
@@ -238,97 +217,80 @@
             currentUser = user; 
             document.getElementById('loginScreen').classList.add('hidden'); document.getElementById('appScreen').classList.remove('hidden');
             const parts = user.name.split(' '); document.getElementById('userNameDisplay').innerText = `Привіт, ${parts.length > 1 ? parts[1] : parts[0]}`; 
-            
-            // Show avatar if exists
-            if(user.avatar) {
-                document.getElementById('userAvatarImg').src = user.avatar;
-                document.getElementById('userAvatarImg').classList.remove('hidden');
-                document.getElementById('userAvatarPlaceholder').classList.add('hidden');
-            }
-
+            if(user.avatar) { document.getElementById('userAvatarImg').src = user.avatar; document.getElementById('userAvatarImg').classList.remove('hidden'); document.getElementById('userAvatarPlaceholder').classList.add('hidden'); }
             if (['admin', 'SM', 'SSE', 'RRP'].includes(user.role)) {
                 if(user.role !== 'RRP') document.getElementById('toggleEditBtn').classList.remove('hidden');
                 if (['SM', 'admin'].includes(user.role)) { document.getElementById('tabRequestsBtn').classList.remove('hidden'); loadRequests(); }
+                if (user.role === 'SM' || user.role === 'admin') { document.getElementById('noteTypeToggle').classList.remove('hidden'); document.getElementById('noteTypeToggle').classList.add('flex'); }
             }
-            await Promise.all([loadEmployeeList(), loadShifts(), loadTasks()]);
+            await Promise.all([loadEmployeeList(), loadShifts(), loadTasks(), loadNotes()]);
             renderCurrentShifts();
         }
 
-        // --- AVATAR LOGIC (NEW) ---
-        function openAvatarModal() { document.getElementById('avatarModal').classList.remove('hidden'); }
-        function closeAvatarModal() { document.getElementById('avatarModal').classList.add('hidden'); resetAvatarPreview(); }
-        function resetAvatarPreview() {
-            document.getElementById('avatarInput').value = '';
-            document.getElementById('avatarPreview').classList.add('hidden');
-            document.getElementById('avatarPlaceholder').classList.remove('hidden');
-            document.getElementById('avatarActions').classList.add('hidden');
+        // --- NOTES LOGIC ---
+        async function loadNotes() { const r = await fetch('/api/notes'); if(r.ok) globalNotes = await r.json(); }
+        
+        function openNotesModal(dateStr) {
+            selectedNoteDate = dateStr;
+            document.getElementById('notesModalTitle').innerText = `Нотатки (${dateStr})`;
+            document.getElementById('notesModal').classList.remove('hidden');
+            renderNotesList();
+        }
+        function closeNotesModal() { document.getElementById('notesModal').classList.add('hidden'); }
+        
+        function renderNotesList() {
+            const list = document.getElementById('notesList'); list.innerHTML = '';
+            const dayNotes = globalNotes.filter(n => n.date === selectedNoteDate);
+            if (dayNotes.length === 0) list.innerHTML = '<p class="text-xs text-gray-400 text-center">Немає нотаток</p>';
+            dayNotes.forEach(n => {
+                const isPublic = n.type === 'public';
+                const style = isPublic ? 'note-public' : 'note-private';
+                const icon = isPublic ? '📢' : '🔒';
+                // Only allow delete if own note OR (admin/SM and public note)
+                const canDelete = (n.author === currentUser.name) || ((currentUser.role === 'SM' || currentUser.role === 'admin') && isPublic);
+                const deleteBtn = canDelete ? `<button onclick="deleteNote('${n._id}')" class="text-red-500 ml-2">×</button>` : '';
+                
+                list.innerHTML += `
+                    <div class="note-item ${style}">
+                        <div class="flex-1">
+                            <span class="mr-1">${icon}</span> 
+                            <span class="font-bold mr-1">${n.author}:</span>
+                            ${n.text}
+                        </div>
+                        ${deleteBtn}
+                    </div>
+                `;
+            });
         }
 
-        function handleAvatarSelect(input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = document.getElementById('avatarPreview');
-                    img.src = e.target.result;
-                    img.classList.remove('hidden');
-                    document.getElementById('avatarPlaceholder').classList.add('hidden');
-                    document.getElementById('avatarActions').classList.remove('hidden');
-                }
-                reader.readAsDataURL(input.files[0]);
-            }
+        function toggleNoteType() {
+            if (currentNoteType === 'private') { currentNoteType = 'public'; document.getElementById('noteTypeIcon').innerText = '📢'; document.getElementById('noteTypeLabel').innerText = 'Всім'; }
+            else { currentNoteType = 'private'; document.getElementById('noteTypeIcon').innerText = '🔒'; document.getElementById('noteTypeLabel').innerText = 'Особиста'; }
         }
 
-        function uploadAvatar() {
-            const imgElement = document.getElementById('avatarPreview');
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const size = 200; // Target size
-            canvas.width = size; canvas.height = size;
-
-            // Load image object to get dimensions
-            const img = new Image();
-            img.onload = function() {
-                // Calculate center crop
-                const minSide = Math.min(img.width, img.height);
-                const sx = (img.width - minSide) / 2;
-                const sy = (img.height - minSide) / 2;
-
-                // Draw cropped image
-                ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
-
-                // Export low quality JPEG
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-
-                // Send to server
-                fetch('/api/user/avatar', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ avatar: dataUrl })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if(data.success) {
-                        // Update UI
-                        document.getElementById('userAvatarImg').src = dataUrl;
-                        document.getElementById('userAvatarImg').classList.remove('hidden');
-                        document.getElementById('userAvatarPlaceholder').classList.add('hidden');
-                        closeAvatarModal();
-                    } else { alert('Error'); }
-                });
-            };
-            img.src = imgElement.src;
+        async function saveNote() {
+            const text = document.getElementById('newNoteText').value;
+            if(!text) return;
+            await fetch('/api/notes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ date: selectedNoteDate, text, type: currentNoteType }) });
+            document.getElementById('newNoteText').value = '';
+            await loadNotes();
+            renderNotesList();
+            renderCurrentShifts(); // Update timeline view
         }
 
-        // --- REST OF APP LOGIC ---
-        async function loadEmployeeList() { const r=await fetch('/api/users'); if(r.ok){const d=await r.json(); globalUsers=d.filter(u=>u.role!=='admin'&&u.role!=='RRP'); const s1=document.getElementById('employeeSelect'); const s2=document.getElementById('taskEmployee'); s1.innerHTML='<option disabled selected>Хто?</option>'; s2.innerHTML='<option disabled selected>Кому?</option>'; globalUsers.forEach(x=>{s1.innerHTML+=`<option value="${x.name}">${x.name}</option>`; s2.innerHTML+=`<option value="${x.name}">${x.name}</option>`;}); } }
-        async function loadShifts() { const r = await fetch('/api/shifts'); if(r.ok) globalShifts = await r.json(); }
-        async function loadTasks() { const r = await fetch('/api/tasks'); if(r.ok) globalTasks = await r.json(); }
-        async function loadRequests(){ const r=await fetch('/api/requests'); const d=await r.json(); const c=document.getElementById('requestsList'); c.innerHTML=''; if(!d.length){c.innerHTML='<p class="text-gray-400 text-xs text-center">Пусто</p>';return;} d.forEach(q=>{c.innerHTML+=`<div class="bg-gray-50 dark:bg-gray-700 p-2 rounded text-xs flex justify-between"><span>${q.type}: ${q.createdBy}</span><div class="flex gap-2"><button onclick="handleRequest('${q._id}','approve')" class="text-green-600">✅</button><button onclick="handleRequest('${q._id}','reject')" class="text-red-600">❌</button></div></div>`}); }
+        async function deleteNote(id) {
+            if(!confirm('Видалити?')) return;
+            await fetch('/api/notes/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id }) });
+            await loadNotes();
+            renderNotesList();
+            renderCurrentShifts();
+        }
 
+        // --- TIMELINE RENDER WITH NOTES ---
         function renderTimeline(shifts, filterUser) {
             const main = document.getElementById('scheduleView'); main.innerHTML = '';
             const archive = document.getElementById('archiveContainer'); archive.innerHTML = '';
-            const dates = [...new Set(shifts.map(s => s.date))].sort();
+            const dates = [...new Set([...shifts.map(s => s.date), ...globalNotes.map(n => n.date)])].sort(); // Include dates with notes
             const today = new Date().toISOString().split('T')[0];
             if (!dates.includes(today)) dates.push(today);
             dates.sort();
@@ -344,7 +306,25 @@
                 block.className = 'ios-card p-4';
                 if(isToday) block.classList.add('ring-2', 'ring-blue-500');
 
-                let html = `<div class="mb-3 border-b border-gray-100 dark:border-gray-800 pb-2"><h3 class="font-bold text-lg capitalize ${isToday?'text-blue-500':'text-black dark:text-white'}">${dName}</h3></div><div class="space-y-4">`;
+                // Header with clickable date for notes
+                let html = `<div class="mb-3 border-b border-gray-100 dark:border-gray-800 pb-2 flex justify-between items-center cursor-pointer" onclick="openNotesModal('${dateStr}')">
+                    <h3 class="font-bold text-lg capitalize ${isToday?'text-blue-500':'text-black dark:text-white'}">${dName}</h3>
+                    <div class="text-blue-500 text-sm font-medium flex items-center gap-1">📝 <span class="text-xs">Нотатки</span></div>
+                </div>`;
+
+                // Render Notes for this day
+                const dayNotes = globalNotes.filter(n => n.date === dateStr);
+                if (dayNotes.length > 0) {
+                    html += `<div class="mb-3 space-y-1">`;
+                    dayNotes.forEach(n => {
+                        const style = n.type === 'public' ? 'note-public' : 'note-private';
+                        const icon = n.type === 'public' ? '📢' : '🔒';
+                        html += `<div class="note-item ${style} text-[10px]"><span>${icon} <b>${n.author}:</b> ${n.text}</span></div>`;
+                    });
+                    html += `</div>`;
+                }
+
+                html += `<div class="space-y-4">`;
 
                 usersToShow.forEach(user => {
                     const shift = shifts.find(s => s.date === dateStr && s.name === user.name);
@@ -375,25 +355,18 @@
             if(pastDaysCount > 0) { arcBtn.classList.remove('hidden'); arcCnt.innerText = pastDaysCount; } else { arcBtn.classList.add('hidden'); }
         }
 
-        function renderCalendar() {
-            const g = document.getElementById('calendarGrid'); g.innerHTML=''; const t=document.getElementById('calendarTitle');
-            const y=currentCalendarDate.getFullYear(); const m=currentCalendarDate.getMonth();
-            t.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
-            const fd=new Date(y,m,1).getDay() || 7; const ld=new Date(y,m+1,0).getDate();
-            for(let i=1; i<fd; i++) g.innerHTML+=`<div class="calendar-day opacity-0"></div>`;
-            const today = new Date().toISOString().split('T')[0];
-            for(let d=1; d<=ld; d++){
-                const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-                const shift = globalShifts.find(s=>s.date===ds && s.name===currentUser.name);
-                const tasks = globalTasks.filter(t=>t.date===ds && t.name===currentUser.name);
-                let content = `<div class="font-bold mb-1">${d}</div>`;
-                if(shift) content += `<div class="work-badge">${shift.start}-${shift.end}</div>`;
-                tasks.forEach(task => content += `<div class="text-[9px] text-purple-500 truncate">★ ${task.title}</div>`);
-                const workClass = shift ? 'my-work-day' : ''; const todayClass = ds === today ? 'today' : '';
-                g.innerHTML += `<div class="calendar-day ${todayClass} ${workClass}">${content}</div>`;
-            }
-        }
+        // --- AVATAR & OTHER LOGIC ---
+        function openAvatarModal() { document.getElementById('avatarModal').classList.remove('hidden'); }
+        function closeAvatarModal() { document.getElementById('avatarModal').classList.add('hidden'); resetAvatarPreview(); }
+        function resetAvatarPreview() { document.getElementById('avatarInput').value = ''; document.getElementById('avatarPreview').classList.add('hidden'); document.getElementById('avatarPlaceholder').classList.remove('hidden'); document.getElementById('avatarActions').classList.add('hidden'); }
+        function handleAvatarSelect(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = function(e) { const img = document.getElementById('avatarPreview'); img.src = e.target.result; img.classList.remove('hidden'); document.getElementById('avatarPlaceholder').classList.add('hidden'); document.getElementById('avatarActions').classList.remove('hidden'); }; reader.readAsDataURL(input.files[0]); } }
+        function uploadAvatar() { const imgElement = document.getElementById('avatarPreview'); const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); const size = 200; canvas.width = size; canvas.height = size; const img = new Image(); img.onload = function() { const minSide = Math.min(img.width, img.height); const sx = (img.width - minSide) / 2; const sy = (img.height - minSide) / 2; ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size); const dataUrl = canvas.toDataURL('image/jpeg', 0.7); fetch('/api/user/avatar', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ avatar: dataUrl }) }).then(res => res.json()).then(data => { if(data.success) { document.getElementById('userAvatarImg').src = dataUrl; document.getElementById('userAvatarImg').classList.remove('hidden'); document.getElementById('userAvatarPlaceholder').classList.add('hidden'); closeAvatarModal(); } else { alert('Error'); } }); }; img.src = imgElement.src; }
 
+        async function loadEmployeeList() { const r=await fetch('/api/users'); if(r.ok){const d=await r.json(); globalUsers=d.filter(u=>u.role!=='admin'&&u.role!=='RRP'); const s1=document.getElementById('employeeSelect'); const s2=document.getElementById('taskEmployee'); s1.innerHTML='<option disabled selected>Хто?</option>'; s2.innerHTML='<option disabled selected>Кому?</option>'; globalUsers.forEach(x=>{s1.innerHTML+=`<option value="${x.name}">${x.name}</option>`; s2.innerHTML+=`<option value="${x.name}">${x.name}</option>`;}); } }
+        async function loadShifts() { const r = await fetch('/api/shifts'); if(r.ok) globalShifts = await r.json(); }
+        async function loadTasks() { const r = await fetch('/api/tasks'); if(r.ok) globalTasks = await r.json(); }
+        async function loadRequests(){ const r=await fetch('/api/requests'); const d=await r.json(); const c=document.getElementById('requestsList'); c.innerHTML=''; if(!d.length){c.innerHTML='<p class="text-gray-400 text-xs text-center">Пусто</p>';return;} d.forEach(q=>{c.innerHTML+=`<div class="bg-gray-50 dark:bg-gray-700 p-2 rounded text-xs flex justify-between"><span>${q.type}: ${q.createdBy}</span><div class="flex gap-2"><button onclick="handleRequest('${q._id}','approve')" class="text-green-600">✅</button><button onclick="handleRequest('${q._id}','reject')" class="text-red-600">❌</button></div></div>`}); }
+        function renderCalendar() { const g = document.getElementById('calendarGrid'); g.innerHTML=''; const t=document.getElementById('calendarTitle'); const y=currentCalendarDate.getFullYear(); const m=currentCalendarDate.getMonth(); t.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' }); const fd=new Date(y,m,1).getDay() || 7; const ld=new Date(y,m+1,0).getDate(); for(let i=1; i<fd; i++) g.innerHTML+=`<div class="calendar-day opacity-0"></div>`; const today = new Date().toISOString().split('T')[0]; for(let d=1; d<=ld; d++){ const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; const shift = globalShifts.find(s=>s.date===ds && s.name===currentUser.name); const tasks = globalTasks.filter(t=>t.date===ds && t.name===currentUser.name); let content = `<div class="font-bold mb-1">${d}</div>`; if(shift) content += `<div class="work-badge">${shift.start}-${shift.end}</div>`; tasks.forEach(task => content += `<div class="text-[9px] text-purple-500 truncate">★ ${task.title}</div>`); const workClass = shift ? 'my-work-day' : ''; const todayClass = ds === today ? 'today' : ''; g.innerHTML += `<div class="calendar-day ${todayClass} ${workClass}">${content}</div>`; } }
         async function handleRequest(id, a){await fetch('/api/requests/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:a})});loadRequests();loadShifts();loadTasks();setTimeout(()=>renderCurrentShifts(),500);}
         async function approveAllRequests(){if(!confirm("Все?"))return;await fetch('/api/requests/approve-all',{method:'POST'});loadRequests();loadShifts();loadTasks();setTimeout(()=>renderCurrentShifts(),500);}
         async function addShift() { const date=document.getElementById('shiftDate').value; const name=document.getElementById('employeeSelect').value; const start=document.getElementById('startTime').value; const end=document.getElementById('endTime').value; if(!date||!name)return alert("Дані?"); const r=await fetch('/api/shifts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,name,start,end})}); const d=await r.json(); if(d.pending)alert("На підтвердженні"); loadShifts().then(renderCurrentShifts); }
@@ -402,7 +375,6 @@
         async function publishNews() { const text = document.getElementById('newsText').value; const file = document.getElementById('newsFile').files[0]; if (!text && !file) return alert("Введіть текст або оберіть файл"); const formData = new FormData(); formData.append('text', text); if (file) formData.append('media', file); const btn = document.querySelector('#adminTabNews button:last-child'); btn.innerText = "⏳ Публікую..."; btn.disabled = true; try { const res = await fetch('/api/news/publish', { method: 'POST', body: formData }); if (res.ok) { alert("✅ Опубліковано!"); document.getElementById('newsText').value = ''; document.getElementById('newsFile').value = ''; updateFileName(); } else { alert("Помилка"); } } catch (e) { alert("Помилка"); } finally { btn.innerText = "Опублікувати"; btn.disabled = false; } }
         async function delS(d,n){if(confirm("?")) await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d,name:n})});loadShifts().then(renderCurrentShifts);}
         async function deleteTask(id){if(confirm("?")) await fetch('/api/tasks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadTasks().then(renderCurrentShifts);}
-
         function formatText(type) { const field = document.getElementById('newsText'); const start = field.selectionStart; const end = field.selectionEnd; const text = field.value; const selectedText = text.substring(start, end); let before = '', after = ''; if (type === 'bold') { before = '<b>'; after = '</b>'; } else if (type === 'italic') { before = '<i>'; after = '</i>'; } else if (type === 'spoiler') { before = '<tg-spoiler>'; after = '</tg-spoiler>'; } else if (type === 'link') { const url = prompt("URL:", "https://"); if (!url) return; before = `<a href="${url}">`; after = '</a>'; } const content = selectedText || (type === 'link' ? 'посилання' : 'текст'); field.value = text.substring(0, start) + before + content + after + text.substring(end); field.focus(); }
         function updateFileName() { const input = document.getElementById('newsFile'); document.getElementById('fileName').innerText = input.files.length > 0 ? input.files[0].name : "Оберіть файл/фото"; }
         function renderCurrentShifts(){renderTimeline(globalShifts,null);renderCalendar();}
