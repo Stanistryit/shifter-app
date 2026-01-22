@@ -9,15 +9,14 @@ const TelegramBot = require('node-telegram-bot-api');
 const cron = require('node-cron');
 const axios = require('axios');
 const multer = require('multer');
+const ExcelJS = require('exceljs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- MULTER (Завантаження файлів) ---
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// --- CONFIG ---
 const GOOGLE_SHEET_URL = ''; 
 const TG_CONFIG = {
     groupId: process.env.TG_GROUP_ID, 
@@ -29,7 +28,6 @@ const TG_CONFIG = {
 
 app.set('trust proxy', 1);
 
-// --- TELEGRAM BOT ---
 let bot = null;
 if (process.env.TELEGRAM_TOKEN) {
     bot = new TelegramBot(process.env.TELEGRAM_TOKEN);
@@ -50,18 +48,16 @@ if (process.env.TELEGRAM_TOKEN) {
     ]).then(() => console.log("✅ Команди меню оновлено"));
 }
 
-// --- DB ---
 mongoose.connect(process.env.MONGO_URI)
     .then(() => { console.log("✅ Connected to MongoDB"); initDB(); })
     .catch(err => console.error("❌ MongoDB error:", err));
 
-// --- SCHEMAS ---
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: { type: String, default: 'user' },
     name: { type: String, required: true },
-    telegramChatId: { type: Number, default: null },
+    telegramChatId: { type: Number, default: null }, // Важливо: Number
     reminderTime: { type: String, default: '20:00' }
 });
 const User = mongoose.model('User', UserSchema);
@@ -93,7 +89,6 @@ const ContactSchema = new mongoose.Schema({
 });
 const Contact = mongoose.model('Contact', ContactSchema);
 
-// --- HELPERS ---
 async function notifyUser(name, message) {
     if (!bot) return;
     try {
@@ -116,7 +111,6 @@ async function notifyAll(message) {
     } catch (e) {}
 }
 
-// --- SYNC ---
 async function syncWithGoogleSheets() {
     if (!GOOGLE_SHEET_URL || GOOGLE_SHEET_URL.length < 10) return { success: false, message: "URL not set" };
     try {
@@ -140,7 +134,6 @@ async function syncWithGoogleSheets() {
 }
 cron.schedule('0 * * * *', async () => { await syncWithGoogleSheets(); });
 
-// --- BRIEFING ---
 async function sendDailyBriefing() {
     if (!bot) return;
     const chatId = TG_CONFIG.groupId;
@@ -170,7 +163,6 @@ async function sendDailyBriefing() {
 }
 cron.schedule('0 18 * * *', sendDailyBriefing);
 
-// --- MIDDLEWARE ---
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
@@ -193,9 +185,34 @@ async function handlePermission(req, type, data) {
     return 'forbidden';
 }
 
-// --- API ROUTES ---
 app.post('/api/login', async (req, res) => { try { const { username, password } = req.body; const user = await User.findOne({ username, password }); if (user) { req.session.userId = user._id; req.session.save(err => { if(err) return res.json({ success: false }); res.json({ success: true, user: { name: user.name, role: user.role } }); }); } else { res.json({ success: false, message: "Невірний логін" }); } } catch (e) { res.status(500).json({ success: false }); } });
-app.post('/api/login-telegram', async (req, res) => { const { telegramId } = req.body; if (!telegramId) return res.json({ success: false }); const user = await User.findOne({ telegramChatId: telegramId }); if (user) { req.session.userId = user._id; req.session.save(err => { if(err) return res.json({ success: false }); res.json({ success: true, user: { name: user.name, role: user.role } }); }); } else { res.json({ success: false }); } });
+
+// --- ВИПРАВЛЕНИЙ ЛОГІН ЧЕРЕЗ ТЕЛЕГРАМ ---
+app.post('/api/login-telegram', async (req, res) => { 
+    const { telegramId } = req.body; 
+    console.log("Login attempt TG ID:", telegramId); // Лог для перевірки
+
+    if (!telegramId) return res.json({ success: false }); 
+    
+    // Шукаємо користувача з таким ID
+    const user = await User.findOne({ telegramChatId: telegramId }); 
+    
+    if (user) { 
+        console.log("User found:", user.name);
+        req.session.userId = user._id; 
+        req.session.save(err => { 
+            if(err) {
+                console.error("Session save error:", err);
+                return res.json({ success: false }); 
+            }
+            res.json({ success: true, user: { name: user.name, role: user.role } }); 
+        }); 
+    } else { 
+        console.log("User NOT found for ID:", telegramId);
+        res.json({ success: false }); 
+    } 
+});
+
 app.post('/api/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
 app.get('/api/me', async (req, res) => { if (!req.session.userId) return res.json({ loggedIn: false }); const user = await User.findById(req.session.userId); if (!user) return res.json({ loggedIn: false }); res.json({ loggedIn: true, user: { name: user.name, role: user.role } }); });
 app.get('/api/users', async (req, res) => { const users = await User.find({}, 'name role'); res.json(users); });
@@ -218,7 +235,6 @@ app.get('/api/requests', async (req, res) => { const u=await User.findById(req.s
 app.post('/api/requests/action', async (req, res) => { const {id,action}=req.body; const r=await Request.findById(id); if(!r)return res.json({success:false}); if(action==='approve'){ if(r.type==='add_shift'){await Shift.create(r.data); notifyUser(r.data.name, `📅 <b>Зміна підтверджена!</b>\n${r.data.date}`);} if(r.type==='del_shift')await Shift.findByIdAndDelete(r.data.id); if(r.type==='add_task'){await Task.create(r.data); notifyUser(r.data.name, `📌 <b>Задача підтверджена!</b>\n${r.data.title}`);} if(r.type==='del_task')await Task.findByIdAndDelete(r.data.id); if(r.type==='add_event'){await Event.create(r.data); notifyAll(`📢 <b>Подія підтверджена!</b>\n${r.data.title}`);} } const sIcon=action==='approve'?'✅':'❌'; const sTxt=action==='approve'?'Схвалено':'Відхилено'; notifyUser(r.createdBy, `${sIcon} <b>Твій запит було ${sTxt}</b>\n\nТип: ${r.type}`); await Request.findByIdAndDelete(id); res.json({success:true}); });
 app.post('/api/requests/approve-all', async (req, res) => { const rs=await Request.find(); for(const r of rs){ if(r.type==='add_shift')await Shift.create(r.data); if(r.type==='del_shift')await Shift.findByIdAndDelete(r.data.id); if(r.type==='add_task')await Task.create(r.data); if(r.type==='del_task')await Task.findByIdAndDelete(r.data.id); if(r.type==='add_event')await Event.create(r.data); notifyUser(r.createdBy, `✅ Твій запит (${r.type}) було схвалено масово.`); await Request.findByIdAndDelete(r._id); } res.json({success:true}); });
 
-// --- PUBLISH NEWS (Website) ---
 app.post('/api/news/publish', upload.single('media'), async (req, res) => {
     try {
         if (!req.session.userId) return res.status(403).json({ error: "No auth" });
@@ -275,7 +291,6 @@ async function initDB() { try { if ((await User.countDocuments()) === 0) await U
 const c = await Contact.countDocuments(); if(c === 0) { await Contact.create([{name: "RRP Наташа", phone: "+380954101682"}, {name: "AM Руслан", phone: "+380674652158"}]); }
 } catch (e) { console.log(e); } }
 
-// --- BOT LOGIC ---
 if (bot) {
     app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => { bot.processUpdate(req.body); res.sendStatus(200); });
     const mainMenu = { keyboard: [ [{ text: "📅 Відкрити Графік", web_app: { url: 'https://shifter-app.onrender.com' } }], [{ text: "📋 Мої зміни" }, { text: "🌴 Вихідні" }] ], resize_keyboard: true };
@@ -338,27 +353,92 @@ if (bot) {
         const userId = msg.from.id;
         try {
             const user = await User.findOne({ telegramChatId: userId });
-            if (!user || (user.role !== 'SM' && user.role !== 'admin')) return bot.sendMessage(msg.chat.id, "⛔ Тільки для SM.", { message_thread_id: msg.message_thread_id });
+            if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
+                return bot.sendMessage(msg.chat.id, "⛔ Тільки для SM.", { message_thread_id: msg.message_thread_id });
+            }
+
             const now = new Date();
-            const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-            const monthName = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
+            const year = now.getFullYear();
+            const month = now.getMonth(); 
+            const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+            const monthName = new Date(year, month, 1).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
+
             const shifts = await Shift.find({ date: { $regex: `^${monthStr}` } });
-            if (shifts.length === 0) return bot.sendMessage(msg.chat.id, `📊 <b>Табель за ${monthName}:</b>\n\nДаних немає.`, { message_thread_id: msg.message_thread_id });
+
+            if (shifts.length === 0) {
+                return bot.sendMessage(msg.chat.id, `📊 <b>Табель за ${monthName}:</b>\n\nДаних немає.`, { message_thread_id: msg.message_thread_id });
+            }
+
             const report = {};
             shifts.forEach(s => {
-                const [h1, m1] = s.start.split(':').map(Number); const [h2, m2] = s.end.split(':').map(Number);
+                const [h1, m1] = s.start.split(':').map(Number);
+                const [h2, m2] = s.end.split(':').map(Number);
                 const hours = (h2 + m2/60) - (h1 + m1/60);
                 if (!report[s.name]) report[s.name] = { totalHours: 0, shifts: 0 };
                 report[s.name].totalHours += hours;
                 report[s.name].shifts += 1;
             });
+
             let response = `📊 <b>Табель за ${monthName}:</b>\n\n`;
             Object.entries(report).sort((a, b) => b[1].totalHours - a[1].totalHours).forEach(([name, data], index) => {
                 const medal = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : '👤'));
                 response += `${medal} <b>${name}:</b> ${parseFloat(data.totalHours.toFixed(1))} год. (${data.shifts} зм.)\n`;
             });
-            bot.sendMessage(msg.chat.id, response, { parse_mode: 'HTML', message_thread_id: msg.message_thread_id });
-        } catch (e) { bot.sendMessage(msg.chat.id, "❌ Помилка.", { message_thread_id: msg.message_thread_id }); }
+            
+            await bot.sendMessage(msg.chat.id, response, { parse_mode: 'HTML', message_thread_id: msg.message_thread_id });
+
+            const workbook = new ExcelJS.Workbook();
+            const sheet = workbook.addWorksheet(monthName);
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate(); 
+            const columns = [
+                { header: 'Ім\'я', key: 'name', width: 20 }
+            ];
+            
+            for (let i = 1; i <= daysInMonth; i++) {
+                columns.push({ header: `${i}`, key: `d${i}`, width: 12 });
+            }
+            columns.push({ header: 'Всього', key: 'total', width: 15 });
+            
+            sheet.columns = columns;
+
+            const allNames = [...new Set(shifts.map(s => s.name))].sort();
+            
+            allNames.forEach(name => {
+                const rowData = { name: name, total: 0 };
+                const personShifts = shifts.filter(s => s.name === name);
+                
+                personShifts.forEach(s => {
+                    const day = parseInt(s.date.split('-')[2]); 
+                    const timeRange = `${s.start}-${s.end}`;
+                    rowData[`d${day}`] = timeRange;
+
+                    const [h1, m1] = s.start.split(':').map(Number);
+                    const [h2, m2] = s.end.split(':').map(Number);
+                    const hours = (h2 + m2/60) - (h1 + m1/60);
+                    rowData.total += hours;
+                });
+
+                rowData.total = parseFloat(rowData.total.toFixed(1));
+                sheet.addRow(rowData);
+            });
+
+            sheet.getRow(1).font = { bold: true };
+            
+            const buffer = await workbook.xlsx.writeBuffer();
+            
+            await bot.sendDocument(msg.chat.id, buffer, {
+                caption: `📂 Файл: Табель_${monthStr}.xlsx`,
+                message_thread_id: msg.message_thread_id
+            }, {
+                filename: `Табель_${monthStr}.xlsx`,
+                contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+
+        } catch (e) {
+            console.error(e);
+            bot.sendMessage(msg.chat.id, "❌ Помилка генерації звіту.", { message_thread_id: msg.message_thread_id });
+        }
     });
 
     bot.on('message', async (msg) => {
@@ -408,7 +488,6 @@ if (bot) {
         }
     });
 
-    // --- CALLBACKS (Fix: First Name logic) ---
     bot.on('callback_query', async (q) => {
         const chatId = q.message.chat.id; 
         const msgId = q.message.message_id; 
@@ -426,7 +505,6 @@ if (bot) {
                 if (!post) return bot.answerCallbackQuery(q.id, { text: "❌ Пост застарів.", show_alert: true });
 
                 if (post.readBy.includes(shortName)) {
-                    // Alert: Ви вже відмітились
                     return bot.answerCallbackQuery(q.id, { text: "ℹ️ Ви вже відмітились!", show_alert: true });
                 }
 
@@ -452,7 +530,6 @@ if (bot) {
                     });
                 }
                 
-                // Success Toast
                 bot.answerCallbackQuery(q.id, { text: `Дякую, ${shortName}, зафіксовано! ✅` });
 
             } catch (e) { 

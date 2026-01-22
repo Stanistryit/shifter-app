@@ -69,6 +69,9 @@
                 <input type="password" id="loginPass" placeholder="Пароль" class="ios-input">
                 <button onclick="login()" class="btn-primary mt-4">Увійти</button>
             </div>
+            <div id="authErrorMsg" class="hidden text-xs text-red-500 mt-4 bg-red-50 dark:bg-red-900/20 p-2 rounded">
+                Автоматичний вхід не вдався.<br>Напиши <b>/login</b> у боті.
+            </div>
         </div>
     </div>
 
@@ -184,6 +187,8 @@
 
     <script>
         const tg = window.Telegram.WebApp;
+        // 1. Повідомляємо Телеграм, що додаток готовий
+        if (tg) { tg.ready(); }
         if (tg.platform && tg.platform !== 'unknown') { try { tg.expand(); } catch(e){} }
 
         let currentUser = null; let globalShifts = []; let globalUsers = []; let globalTasks = [];
@@ -214,14 +219,30 @@
                 if (data.loggedIn) { showApp(data.user); return; } 
             } catch (e) {}
             
-            if (tg.platform && tg.platform !== 'unknown' && tg.initDataUnsafe?.user?.id) {
-                document.getElementById('loginForm').classList.add('hidden'); document.getElementById('tgLoader').classList.remove('hidden');
+            // 2. Якщо є контекст Телеграму — пробуємо авто-вхід
+            if (tg.initDataUnsafe?.user?.id) {
+                document.getElementById('loginForm').classList.add('hidden'); 
+                document.getElementById('tgLoader').classList.remove('hidden');
+                
                 try {
                     const res = await fetch('/api/login-telegram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegramId: tg.initDataUnsafe.user.id }) });
                     const data = await res.json();
-                    if (data.success) showApp(data.user); else { document.getElementById('tgLoader').classList.add('hidden'); document.getElementById('loginForm').classList.remove('hidden'); }
-                } catch (e) { document.getElementById('tgLoader').classList.add('hidden'); document.getElementById('loginForm').classList.remove('hidden'); }
-            } else { showLogin(); }
+                    
+                    if (data.success) {
+                        showApp(data.user);
+                    } else { 
+                        // 3. Якщо авто-вхід не вдався — показуємо помилку
+                        document.getElementById('tgLoader').classList.add('hidden'); 
+                        document.getElementById('loginForm').classList.remove('hidden');
+                        document.getElementById('authErrorMsg').classList.remove('hidden');
+                    }
+                } catch (e) { 
+                    document.getElementById('tgLoader').classList.add('hidden'); 
+                    document.getElementById('loginForm').classList.remove('hidden'); 
+                }
+            } else { 
+                showLogin(); 
+            }
         }
         async function login() {
             const username = document.getElementById('loginUser').value; const password = document.getElementById('loginPass').value;
