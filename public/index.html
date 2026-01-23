@@ -109,6 +109,26 @@
 
         .skeleton { background: #E5E5EA; border-radius: 12px; }
         .dark .skeleton { background: #2C2C2E; }
+
+        /* CALENDAR FIXED STYLES */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .calendar-day { 
+            aspect-ratio: 1/1; min-height: 50px; border-radius: 12px; padding: 4px; font-size: 12px; 
+            display: flex; flex-direction: column; justify-content: flex-start; align-items: center;
+            background: rgba(255, 255, 255, 0.5); border: 1px solid rgba(0,0,0,0.05);
+            transition: all 0.2s; position: relative; overflow: hidden;
+        }
+        .dark .calendar-day { background: rgba(28, 28, 30, 0.5); border-color: rgba(255,255,255,0.05); color: #E5E5EA; }
+        .calendar-day.today { border: 2px solid #007AFF; box-shadow: 0 0 10px rgba(0, 122, 255, 0.2); }
+        .calendar-day.my-work-day { background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.2)); border: 1px solid rgba(16, 185, 129, 0.3); color: #065F46; }
+        .dark .calendar-day.my-work-day { background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.3)); color: #D1FAE5; }
+        .calendar-day.vacation-day { background: linear-gradient(135deg, rgba(20, 184, 166, 0.15), rgba(13, 148, 136, 0.2)); border: 1px solid rgba(20, 184, 166, 0.3); color: #0F766E; }
+        .dark .calendar-day.vacation-day { background: linear-gradient(135deg, rgba(20, 184, 166, 0.2), rgba(13, 148, 136, 0.3)); color: #CCFBF1; }
+        .work-badge { font-size: 9px; font-weight: 700; margin-top: auto; margin-bottom: 2px; padding: 2px 4px; border-radius: 4px; text-align: center; width: 100%; }
+        .calendar-day.my-work-day .work-badge { background: rgba(16, 185, 129, 0.2); color: #047857; }
+        .dark .calendar-day.my-work-day .work-badge { background: rgba(16, 185, 129, 0.3); color: #6EE7B7; }
+        .calendar-day.vacation-day .work-badge { background: rgba(20, 184, 166, 0.2); color: #0F766E; }
+        .dark .calendar-day.vacation-day .work-badge { background: rgba(20, 184, 166, 0.3); color: #5EEAD4; }
     </style>
 </head>
 <body class="bg-[#F2F2F7] text-black dark:bg-black dark:text-white font-sans min-h-screen flex flex-col selection:bg-blue-500 selection:text-white">
@@ -151,7 +171,6 @@
         </nav>
 
         <div class="container mx-auto p-4 max-w-lg space-y-4">
-            
             <div class="flex justify-between items-center ios-card p-1.5 glass-panel">
                 <div class="flex bg-[#E5E5EA] dark:bg-[#2C2C2E] rounded-[12px] p-1 w-full">
                     <button onclick="setMode('list')" id="btnModeList" class="flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all">Список</button>
@@ -199,7 +218,7 @@
             <div id="calendarViewContainer" class="hidden ios-card p-4 animate-slide-up">
                 <div class="flex justify-between items-center mb-4"><button onclick="changeMonth(-1)" class="text-blue-500 text-2xl font-bold p-2">‹</button><h2 id="calendarTitle" class="font-bold text-xl capitalize"></h2><button onclick="changeMonth(1)" class="text-blue-500 text-2xl font-bold p-2">›</button></div>
                 <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-gray-400 uppercase mb-2 font-bold"><div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div class="text-red-400">Нд</div></div>
-                <div id="calendarGrid" class="grid grid-cols-7 gap-1"></div>
+                <div id="calendarGrid" class="calendar-grid"></div>
             </div>
         </div>
 
@@ -240,7 +259,6 @@
             await Promise.all([loadEmployeeList(), loadShifts(), loadTasks(), loadNotes()]); renderCurrentShifts();
         }
 
-        // --- RENDER TIMELINE (With Animation) ---
         function renderTimeline(shifts, filterUser) {
             const main = document.getElementById('scheduleView'); main.innerHTML = '';
             const archive = document.getElementById('archiveContainer'); archive.innerHTML = '';
@@ -322,7 +340,52 @@
         function downloadAllMyShifts(){ triggerHaptic(); if(!currentUser)return;const today=new Date().toISOString().split('T')[0];const myShifts=globalShifts.filter(s=>s.name===currentUser.name&&s.date>=today);if(myShifts.length===0)return alert('Немає змін!');let ics="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Shifter//UA\n";myShifts.forEach(s=>{if(s.start==='Відпустка')return;const start=s.date.replace(/-/g,'')+'T'+s.start.replace(':','')+'00';const end=s.date.replace(/-/g,'')+'T'+s.end.replace(':','')+'00';ics+=`BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Робота\nEND:VEVENT\n`;});ics+="END:VCALENDAR";const a=document.createElement('a');a.href=window.URL.createObjectURL(new Blob([ics],{type:'text/calendar'}));a.download=`my-shifts.ics`;document.body.appendChild(a);a.click();document.body.removeChild(a);}
         function renderCurrentShifts(){renderTimeline(globalShifts,null);renderCalendar();}
         function changeMonth(d){triggerHaptic(); currentCalendarDate.setMonth(currentCalendarDate.getMonth()+d);renderCalendar();}
-        function renderCalendar() { const g = document.getElementById('calendarGrid'); g.innerHTML=''; const t=document.getElementById('calendarTitle'); const y=currentCalendarDate.getFullYear(); const m=currentCalendarDate.getMonth(); t.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' }); const fd=new Date(y,m,1).getDay() || 7; const ld=new Date(y,m+1,0).getDate(); for(let i=1; i<fd; i++) g.innerHTML+=`<div class="calendar-day p-1 opacity-0"></div>`; const today = new Date().toISOString().split('T')[0]; for(let d=1; d<=ld; d++){ const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; const shift = globalShifts.find(s=>s.date===ds && s.name===currentUser.name); const tasks = globalTasks.filter(t=>t.date===ds && t.name===currentUser.name); let content = `<div class="font-bold mb-1 text-xs">${d}</div>`; if(shift) { if(shift.start === 'Відпустка') { content += `<div class="work-badge">🌴</div>`; } else { content += `<div class="work-badge">${shift.start}-${shift.end}</div>`; } } tasks.forEach(task => content += `<div class="text-[8px] text-purple-500 truncate">★</div>`); const workClass = shift ? (shift.start === 'Відпустка' ? 'vacation-day' : 'my-work-day') : ''; const todayClass = ds === today ? 'today border-blue-500' : ''; g.innerHTML += `<div class="calendar-day p-1 ${todayClass} ${workClass} rounded-lg border border-transparent bg-white dark:bg-[#1C1C1E] flex flex-col justify-between h-16 transition-colors">${content}</div>`; } }
+        function renderCalendar() { 
+            const g = document.getElementById('calendarGrid'); 
+            g.innerHTML=''; 
+            const t = document.getElementById('calendarTitle'); 
+            
+            const y = currentCalendarDate.getFullYear(); 
+            const m = currentCalendarDate.getMonth(); 
+            t.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' }); 
+            
+            const fd = new Date(y, m, 1).getDay() || 7; 
+            const ld = new Date(y, m + 1, 0).getDate(); 
+            const today = new Date().toISOString().split('T')[0];
+
+            // Empty cells
+            for(let i = 1; i < fd; i++) {
+                g.innerHTML += `<div class="calendar-day opacity-0 pointer-events-none"></div>`;
+            }
+
+            // Days
+            for(let d = 1; d <= ld; d++){ 
+                const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`; 
+                const shift = globalShifts.find(s => s.date === ds && s.name === currentUser.name); 
+                const tasks = globalTasks.filter(t => t.date === ds && t.name === currentUser.name); 
+                
+                let dayClass = '';
+                let content = `<span class="font-bold mb-1">${d}</span>`; 
+                
+                if (shift) { 
+                    if (shift.start === 'Відпустка') { 
+                        dayClass = 'vacation-day';
+                        content += `<div class="work-badge">🌴</div>`; 
+                    } else { 
+                        dayClass = 'my-work-day';
+                        content += `<div class="work-badge">${shift.start}-${shift.end}</div>`; 
+                    } 
+                } 
+                
+                if(tasks.length > 0) {
+                    content += `<div class="absolute top-1 right-1 w-1.5 h-1.5 bg-purple-500 rounded-full"></div>`;
+                }
+
+                if (ds === today) dayClass += ' today'; 
+                
+                g.innerHTML += `<div class="calendar-day ${dayClass}" onclick="triggerHaptic(); openNotesModal('${ds}')">${content}</div>`; 
+            } 
+        }
         
         function openAvatarModal() { triggerHaptic(); document.getElementById('avatarModal').classList.remove('hidden'); }
         function closeAvatarModal() { document.getElementById('avatarModal').classList.add('hidden'); }
