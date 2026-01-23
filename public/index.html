@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Shifter</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗓️</text></svg>">
-    <link rel="manifest" href="/manifest.json">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -14,254 +13,253 @@
             theme: {
                 extend: {
                     colors: {
-                        ios: { bg: '#F2F2F7', card: '#FFFFFF', blue: '#007AFF', green: '#34C759', input: '#E5E5EA' },
+                        ios: { bg: '#F2F2F7', card: '#FFFFFF', input: '#E5E5EA' },
                         darkios: { bg: '#000000', card: '#1C1C1E', input: '#2C2C2E' }
                     },
-                    fontFamily: { sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'] }
+                    fontFamily: { sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'] },
+                    animation: {
+                        'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                    },
+                    keyframes: {
+                        slideUp: {
+                            '0%': { transform: 'translateY(30px)', opacity: 0 },
+                            '100%': { transform: 'translateY(0)', opacity: 1 },
+                        }
+                    }
                 }
             }
         }
     </script>
     <style>
         body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-        .glass-header { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(0,0,0,0.05); }
-        .dark .glass-header { background: rgba(28, 28, 30, 0.85); border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .ios-card { background: white; border-radius: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+        
+        /* HEAVY GLASS */
+        .glass-header { 
+            background: rgba(255, 255, 255, 0.65); 
+            backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid rgba(0,0,0,0.05); 
+        }
+        .dark .glass-header { 
+            background: rgba(28, 28, 30, 0.65); 
+            border-bottom: 1px solid rgba(255,255,255,0.1); 
+        }
+        
+        .glass-panel { 
+            background: rgba(255, 255, 255, 0.7); 
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); 
+        }
+        .dark .glass-panel { background: rgba(28, 28, 30, 0.7); }
+
+        .glass-modal { 
+            background: rgba(255, 255, 255, 0.85); 
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); 
+        }
+        .dark .glass-modal { background: rgba(28, 28, 30, 0.85); }
+
+        .ios-card { background: white; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); transition: transform 0.1s; }
         .dark .ios-card { background: #1C1C1E; box-shadow: none; }
-        .timeline-track { position: relative; height: 24px; background: #F3F4F6; border-radius: 8px; overflow: hidden; width: 100%; margin-top: 4px; }
+        .ios-card:active { transform: scale(0.98); }
+
+        .btn-primary { 
+            background: linear-gradient(135deg, #007AFF, #0056b3); 
+            color: white; border-radius: 14px; font-weight: 600; padding: 12px; width: 100%; 
+            box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3); transition: all 0.2s;
+        }
+        .btn-primary:active { transform: scale(0.96); box-shadow: 0 2px 5px rgba(0, 122, 255, 0.2); }
+
+        /* Animation Stagger */
+        .stagger-1 { animation-delay: 0.05s; }
+        .stagger-2 { animation-delay: 0.1s; }
+        .stagger-3 { animation-delay: 0.15s; }
+        .stagger-4 { animation-delay: 0.2s; }
+        .stagger-5 { animation-delay: 0.25s; }
+
+        /* Timeline Gradient Segments */
+        .timeline-track { position: relative; height: 28px; background: #F3F4F6; border-radius: 10px; overflow: hidden; width: 100%; margin-top: 6px; }
         .dark .timeline-track { background: #2C2C2E; }
         .timeline-grid-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(10, 1fr); pointer-events: none; }
         .timeline-line { border-right: 1px dashed rgba(0,0,0,0.05); height: 100%; }
         .dark .timeline-line { border-color: rgba(255,255,255,0.05); }
-        .timeline-line:last-child { border: none; }
-        .shift-segment { position: absolute; top: 0; bottom: 0; background: #007AFF; border-radius: 6px; z-index: 10; opacity: 0.9; }
-        .shift-segment.my-shift { background: #34C759; }
-        .shift-segment.vacation-segment { background: #14B8A6; width: 100% !important; left: 0 !important; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: white; }
-        .task-segment { position: absolute; top: 2px; bottom: 2px; background: #AF52DE; border-radius: 4px; z-index: 20; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; }
-        .ios-input { background: #E5E5EA; border: none; border-radius: 12px; padding: 10px 14px; width: 100%; font-size: 15px; outline: none; }
+        
+        /* GRADIENTS */
+        /* Others: Blue */
+        .shift-segment { 
+            position: absolute; top: 0; bottom: 0; 
+            background: linear-gradient(90deg, #3B82F6, #4F46E5); /* Blue to Indigo */
+            border-radius: 8px; z-index: 10; opacity: 0.9; 
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+        }
+        /* Mine: Green */
+        .shift-segment.my-shift { 
+            background: linear-gradient(90deg, #10B981, #059669); /* Emerald */
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4); 
+        }
+        /* Vacation: Teal */
+        .shift-segment.vacation-segment { 
+            background: linear-gradient(90deg, #2DD4BF, #0D9488); /* Teal */
+            width: 100% !important; left: 0 !important; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 10px; font-weight: bold; color: white; letter-spacing: 1px; text-transform: uppercase;
+            box-shadow: 0 2px 6px rgba(45, 212, 191, 0.3);
+        }
+        
+        .ios-input { background: #E5E5EA; border: none; border-radius: 12px; padding: 12px 16px; width: 100%; font-size: 16px; outline: none; transition: background 0.2s; }
         .dark .ios-input { background: #2C2C2E; color: white; }
-        .btn-primary { background: #007AFF; color: white; border-radius: 12px; font-weight: 600; padding: 12px; width: 100%; }
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-        .calendar-day { min-height: 80px; border-radius: 12px; padding: 6px; font-size: 12px; display: flex; flex-direction: column; justify-content: space-between; background: #FFFFFF; color: #1c1c1e; }
-        .dark .calendar-day { background: #1C1C1E; color: #8E8E93; }
-        .calendar-day.today { border: 2px solid #007AFF; }
-        .calendar-day.my-work-day { background: #F0FDF4; border: 1px solid #BBF7D0; color: #14532D; }
-        .dark .calendar-day.my-work-day { background: rgba(52, 199, 89, 0.20) !important; border: 1px solid rgba(52, 199, 89, 0.5); color: #FFFFFF; }
-        .calendar-day.vacation-day { background: #F0FDFA; border: 1px solid #CCFBF1; color: #0F766E; }
-        .dark .calendar-day.vacation-day { background: rgba(20, 184, 166, 0.2); border: 1px solid rgba(20, 184, 166, 0.5); color: #FFFFFF; }
-        .work-badge { font-size: 10px; font-weight: 700; margin-top: auto; color: #34C759; }
-        .dark .work-badge { color: #4ADE80; }
-        .modal-enter-active { transform: translateY(0); opacity: 1; transition: all 0.3s; }
-        .modal-enter { transform: translateY(100%); opacity: 0; }
-        .avatar-preview-container { width: 200px; height: 200px; border-radius: 50%; overflow: hidden; border: 4px solid #007AFF; margin: 0 auto; position: relative; background: #f0f0f0; }
-        .avatar-preview-img { width: 100%; height: 100%; object-fit: cover; }
-        .note-item { font-size: 11px; padding: 4px 8px; border-radius: 6px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: flex-start; }
-        .note-private { background: #FEF9C3; color: #854D0E; border: 1px solid #FEF08A; }
-        .dark .note-private { background: #422006; color: #FEF9C3; border: 1px solid #713F12; }
-        .note-public { background: #DBEAFE; color: #1E40AF; border: 1px solid #BFDBFE; }
-        .dark .note-public { background: #172554; color: #DBEAFE; border: 1px solid #1E3A8A; }
+        .dark .ios-input:focus { background: #3A3A3C; }
+
+        .skeleton { background: #E5E5EA; border-radius: 12px; }
+        .dark .skeleton { background: #2C2C2E; }
     </style>
 </head>
-<body class="bg-[#F2F2F7] text-black dark:bg-black dark:text-white font-sans min-h-screen flex flex-col">
+<body class="bg-[#F2F2F7] text-black dark:bg-black dark:text-white font-sans min-h-screen flex flex-col selection:bg-blue-500 selection:text-white">
 
-    <div id="loginScreen" class="flex-grow flex items-center justify-center p-6">
-        <div class="ios-card p-8 w-full max-w-sm text-center">
-            <h1 class="text-3xl font-bold mb-2 tracking-tight">Shifter</h1>
-            <p class="text-gray-400 mb-8 text-sm">Увійдіть для перегляду графіку</p>
-            <div id="tgLoader" class="hidden mb-4 text-blue-500 font-medium animate-pulse">🔄 Авторизація...</div>
-            <div id="loginForm" class="space-y-3">
-                <input type="text" id="loginUser" placeholder="Логін" class="ios-input">
-                <input type="password" id="loginPass" placeholder="Пароль" class="ios-input">
-                <button onclick="login()" class="btn-primary mt-4">Увійти</button>
-            </div>
-            <div id="authErrorMsg" class="hidden text-xs text-red-500 mt-4 bg-red-50 dark:bg-red-900/20 p-2 rounded">Помилка авто-входу.</div>
+    <div id="skeletonLoader" class="fixed inset-0 z-50 p-4 space-y-4 bg-[#F2F2F7] dark:bg-black flex flex-col">
+        <div class="h-14 w-full skeleton animate-pulse"></div>
+        <div class="h-12 w-full skeleton animate-pulse"></div>
+        <div class="space-y-4 flex-1 mt-4">
+            <div class="h-32 w-full skeleton animate-pulse"></div>
+            <div class="h-32 w-full skeleton animate-pulse"></div>
+            <div class="h-32 w-full skeleton animate-pulse"></div>
         </div>
     </div>
 
-    <div id="appScreen" class="hidden w-full pb-24 relative">
+    <div id="loginScreen" class="hidden flex-grow flex items-center justify-center p-6">
+        <div class="ios-card p-8 w-full max-w-sm text-center">
+            <h1 class="text-4xl font-bold mb-2 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-indigo-600">Shifter</h1>
+            <p class="text-gray-400 mb-8 text-sm">Увійдіть для доступу</p>
+            <div id="loginForm" class="space-y-3">
+                <input type="text" id="loginUser" placeholder="Логін" class="ios-input">
+                <input type="password" id="loginPass" placeholder="Пароль" class="ios-input">
+                <button onclick="login()" class="btn-primary mt-4 shadow-lg shadow-blue-500/30">Увійти</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="appScreen" class="hidden w-full pb-24 relative opacity-0 transition-opacity duration-500">
         <nav class="glass-header px-4 py-3 sticky top-0 z-40 flex justify-between items-center">
-            <div class="flex items-center gap-3 cursor-pointer" onclick="openAvatarModal()">
-                <div class="w-10 h-10 bg-gray-100 dark:bg-[#2C2C2E] rounded-full overflow-hidden flex items-center justify-center text-lg border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center gap-3 cursor-pointer active:opacity-70 transition-opacity" onclick="triggerHaptic(); openAvatarModal()">
+                <div class="w-10 h-10 bg-gray-100 dark:bg-[#2C2C2E] rounded-full overflow-hidden flex items-center justify-center text-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                     <img id="userAvatarImg" src="" class="hidden w-full h-full object-cover">
                     <span id="userAvatarPlaceholder">👤</span>
                 </div>
                 <div><h1 id="userNameDisplay" class="font-bold text-lg leading-tight">...</h1></div>
             </div>
             <div class="flex items-center gap-2">
-                <button id="toggleEditBtn" onclick="toggleEditMode()" class="hidden bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1.5 rounded-full text-xs font-bold">Меню</button>
-                <button onclick="logout()" class="text-blue-500 text-sm font-medium">Вийти</button>
+                <button id="toggleEditBtn" onclick="toggleEditMode()" class="hidden bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1.5 rounded-full text-xs font-bold active:scale-95 transition-transform">Меню</button>
+                <button onclick="logout()" class="text-blue-500 text-sm font-medium active:opacity-60">Вийти</button>
             </div>
         </nav>
 
         <div class="container mx-auto p-4 max-w-lg space-y-4">
-            <div class="flex justify-between items-center ios-card p-1.5">
-                <div class="flex bg-[#E5E5EA] dark:bg-[#2C2C2E] rounded-[10px] p-0.5 w-full">
-                    <button onclick="setMode('list')" id="btnModeList" class="flex-1 py-1.5 text-xs font-semibold rounded-[8px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white">Список</button>
-                    <button onclick="setMode('calendar')" id="btnModeCalendar" class="flex-1 py-1.5 text-xs font-medium text-gray-500">Календар</button>
+            
+            <div class="flex justify-between items-center ios-card p-1.5 glass-panel">
+                <div class="flex bg-[#E5E5EA] dark:bg-[#2C2C2E] rounded-[12px] p-1 w-full">
+                    <button onclick="setMode('list')" id="btnModeList" class="flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all">Список</button>
+                    <button onclick="setMode('calendar')" id="btnModeCalendar" class="flex-1 py-2 text-xs font-medium text-gray-500 transition-all">Календар</button>
                 </div>
-                <div class="flex items-center gap-3 ml-3 pr-1">
-                    <button onclick="downloadAllMyShifts()" class="text-blue-500 text-xl">📥</button>
-                    <button onclick="toggleTheme()" class="text-gray-400 text-xl"><span id="themeIcon">🌙</span></button>
+                <div class="flex items-center gap-4 ml-4 pr-2">
+                    <button onclick="downloadAllMyShifts()" class="text-blue-500 text-xl active:scale-90 transition-transform">📥</button>
+                    <button onclick="toggleTheme()" class="text-gray-400 text-xl active:scale-90 transition-transform"><span id="themeIcon">🌙</span></button>
                 </div>
             </div>
 
-            <button onclick="openFilterModal()" class="ios-card w-full px-4 py-3 flex justify-between items-center active:scale-[0.98] transition-transform">
-                <span class="text-sm font-semibold text-gray-500">Фільтр</span>
-                <div class="flex items-center gap-2"><span id="currentFilterLabel" class="text-blue-500 font-medium text-sm">Всі співробітники</span><span class="text-gray-300 text-xs">▼</span></div>
+            <button onclick="openFilterModal()" class="ios-card w-full px-4 py-4 flex justify-between items-center active:scale-[0.98] transition-transform glass-panel">
+                <span class="text-sm font-semibold text-gray-500">Фільтр відображення</span>
+                <div class="flex items-center gap-2"><span id="currentFilterLabel" class="text-blue-500 font-bold text-sm">Всі співробітники</span><span class="text-gray-300 text-xs">▼</span></div>
             </button>
 
-            <div id="adminPanel" class="hidden ios-card p-5 border border-orange-100 dark:border-orange-900/30">
+            <div id="adminPanel" class="hidden ios-card p-5 border border-orange-100 dark:border-orange-900/30 animate-slide-up">
                 <h2 class="text-xl font-bold mb-4">Панель управління</h2>
                 <div class="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
-                    <button onclick="showAdminTab('shifts')" class="bg-[#F2F2F7] dark:bg-[#2C2C2E] px-4 py-2 rounded-full text-xs font-bold">Графік</button>
-                    <button onclick="showAdminTab('tasks')" class="bg-[#F2F2F7] dark:bg-[#2C2C2E] px-4 py-2 rounded-full text-xs font-bold">Задачі</button>
-                    <button onclick="showAdminTab('import')" class="bg-indigo-100 text-indigo-600 px-4 py-2 rounded-full text-xs font-bold">Імпорт</button>
-                    <button onclick="showAdminTab('news')" class="bg-pink-100 text-pink-600 px-4 py-2 rounded-full text-xs font-bold">Новини</button>
-                    <button onclick="showAdminTab('requests')" class="hidden bg-red-100 text-red-600 px-4 py-2 rounded-full text-xs font-bold" id="tabRequestsBtn">Запити</button>
+                    <button onclick="showAdminTab('shifts')" class="bg-[#F2F2F7] dark:bg-[#2C2C2E] px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Графік</button>
+                    <button onclick="showAdminTab('tasks')" class="bg-[#F2F2F7] dark:bg-[#2C2C2E] px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Задачі</button>
+                    <button onclick="showAdminTab('import')" class="bg-indigo-100 text-indigo-600 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Імпорт</button>
+                    <button onclick="showAdminTab('news')" class="bg-pink-100 text-pink-600 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Новини</button>
+                    <button onclick="showAdminTab('requests')" class="hidden bg-red-100 text-red-600 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap" id="tabRequestsBtn">Запити</button>
                 </div>
-                
                 <div id="adminTabShifts" class="space-y-3">
                     <div class="grid grid-cols-2 gap-3"><input type="date" id="shiftDate" class="ios-input"><select id="employeeSelect" class="ios-input bg-transparent"><option disabled selected>Хто?</option></select></div>
-                    <div class="flex items-center justify-between"><span class="text-sm">🌴 Відпустка</span><input type="checkbox" id="shiftVacation" onchange="toggleShiftTimeInputs()" class="w-5 h-5 accent-teal-500"></div>
+                    <div class="flex items-center justify-between"><span class="text-sm font-medium">🌴 Відпустка</span><input type="checkbox" id="shiftVacation" onchange="toggleShiftTimeInputs()" class="w-6 h-6 accent-teal-500 rounded-lg"></div>
                     <div id="shiftTimeInputs" class="flex gap-3"><input type="time" id="startTime" class="ios-input" value="10:00"><input type="time" id="endTime" class="ios-input" value="20:00"></div>
                     <button onclick="addShift()" class="btn-primary">Додати зміну</button>
-                    <button onclick="clearDay()" class="text-xs text-red-500 w-full mt-2">Очистити день</button>
+                    <button onclick="clearDay()" class="text-xs text-red-500 w-full mt-2 font-medium">Очистити день</button>
                 </div>
-                <div id="adminTabTasks" class="hidden space-y-3">
-                    <input type="text" id="taskTitle" placeholder="Назва" class="ios-input">
-                    <div class="grid grid-cols-2 gap-3"><input type="date" id="taskDate" class="ios-input"><select id="taskEmployee" class="ios-input bg-transparent"><option disabled selected>Кому?</option></select></div>
-                    <div class="flex items-center justify-between"><span class="text-sm">Весь день</span><input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()" class="w-5 h-5 accent-purple-500"></div>
-                    <div id="taskTimeInputs" class="flex gap-3"><input type="time" id="taskStart" class="ios-input" value="12:00"><input type="time" id="taskEnd" class="ios-input" value="14:00"></div>
-                    <button onclick="addTask()" class="btn-primary bg-purple-500">Призначити</button>
-                </div>
-                <div id="adminTabImport" class="hidden space-y-3">
-                    <textarea id="importData" placeholder="2024-05-20 Name 10:00 20:00&#10;2024-05-21 Name Відпустка" class="ios-input h-24 font-mono text-xs"></textarea>
-                    <p class="text-[10px] text-gray-400">Формат: "РРРР-ММ-ДД Ім'я Початок Кінець" АБО "РРРР-ММ-ДД Ім'я Відпустка"</p>
-                    <button onclick="bulkImport()" class="btn-primary bg-indigo-500">Завантажити масово</button>
-                </div>
-                <div id="adminTabNews" class="hidden space-y-3">
-                    <div class="flex gap-2 mb-1 overflow-x-auto pb-1"><button onclick="formatText('bold')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs font-bold">B</button><button onclick="formatText('italic')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs italic">I</button><button onclick="formatText('link')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs">🔗</button><button onclick="formatText('spoiler')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs">S</button></div>
-                    <textarea id="newsText" placeholder="Текст..." class="ios-input h-32 font-mono text-sm"></textarea>
-                    <label class="flex-1 flex items-center justify-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity"><span>📎</span> <span id="fileName" class="text-xs truncate">Файл</span><input type="file" id="newsFile" class="hidden" onchange="updateFileName()"></label>
-                    <button onclick="publishNews()" class="btn-primary bg-pink-500">Опублікувати</button>
-                </div>
+                <div id="adminTabTasks" class="hidden space-y-3"><input type="text" id="taskTitle" placeholder="Назва" class="ios-input"><div class="grid grid-cols-2 gap-3"><input type="date" id="taskDate" class="ios-input"><select id="taskEmployee" class="ios-input bg-transparent"><option disabled selected>Кому?</option></select></div><div class="flex items-center justify-between"><span class="text-sm">Весь день</span><input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()" class="w-5 h-5 accent-purple-500"></div><div id="taskTimeInputs" class="flex gap-3"><input type="time" id="taskStart" class="ios-input" value="12:00"><input type="time" id="taskEnd" class="ios-input" value="14:00"></div><button onclick="addTask()" class="btn-primary bg-purple-500">Призначити</button></div>
+                <div id="adminTabImport" class="hidden space-y-3"><textarea id="importData" placeholder="2026-01-01 Ім'я 10:00 20:00" class="ios-input h-24 font-mono text-xs"></textarea><button onclick="bulkImport()" class="btn-primary bg-indigo-500">Завантажити</button></div>
+                <div id="adminTabNews" class="hidden space-y-3"><textarea id="newsText" placeholder="Новина..." class="ios-input h-32 text-sm"></textarea><input type="file" id="newsFile" class="ios-input"><button onclick="publishNews()" class="btn-primary bg-pink-500">Опублікувати</button></div>
                 <div id="adminTabRequests" class="hidden space-y-3"><button onclick="approveAllRequests()" class="btn-primary bg-green-500">✅ Підтвердити Всі</button><div id="requestsList" class="space-y-3"></div></div>
             </div>
 
             <div id="listViewContainer">
-                <button id="archiveToggleBtn" onclick="toggleArchive()" class="hidden w-full text-center text-xs text-gray-400 py-3 mb-2 font-medium">↓ Минулі дні (<span id="archiveCount">0</span>) ↓</button>
+                <button id="archiveToggleBtn" onclick="toggleArchive()" class="hidden w-full text-center text-xs text-gray-400 py-3 mb-2 font-medium active:scale-95 transition-transform">↓ Минулі дні (<span id="archiveCount">0</span>) ↓</button>
                 <div id="archiveContainer" class="hidden space-y-3 mb-3 opacity-60 grayscale"></div>
-                <div id="scheduleView" class="space-y-3"></div>
+                <div id="scheduleView" class="space-y-4 pb-10"></div>
             </div>
 
-            <div id="calendarViewContainer" class="hidden ios-card p-4">
-                <div class="flex justify-between items-center mb-4"><button onclick="changeMonth(-1)" class="text-blue-500 text-xl font-bold">‹</button><h2 id="calendarTitle" class="font-bold text-xl capitalize"></h2><button onclick="changeMonth(1)" class="text-blue-500 text-xl font-bold">›</button></div>
-                <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-gray-400 uppercase mb-2"><div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div class="text-red-400">Нд</div></div>
-                <div id="calendarGrid" class="calendar-grid"></div>
-            </div>
-        </div>
-
-        <div id="filterModal" class="hidden fixed inset-0 z-50"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeFilterModal()"></div><div class="absolute bottom-0 left-0 right-0 bg-white dark:bg-[#1C1C1E] rounded-t-[20px] max-h-[70vh] overflow-y-auto p-4 modal-enter-active"><div class="flex justify-between items-center mb-4 px-2"><h3 class="font-bold text-lg">Фільтр</h3><button onclick="closeFilterModal()" class="w-8 h-8 bg-gray-100 dark:bg-[#2C2C2E] rounded-full text-gray-500 text-sm font-bold">✕</button></div><div id="filterList" class="space-y-1"></div></div></div>
-
-        <div id="avatarModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeAvatarModal()"></div><div class="bg-white dark:bg-[#1C1C1E] rounded-2xl w-full max-w-sm p-6 relative z-10 text-center"><h3 class="font-bold text-xl mb-4">Фото</h3><div class="avatar-preview-container mb-6"><img id="avatarPreview" class="avatar-preview-img hidden"><div id="avatarPlaceholder" class="w-full h-full flex items-center justify-center text-4xl text-gray-400">📷</div></div><label class="btn-primary block mb-3 cursor-pointer">Обрати фото<input type="file" id="avatarInput" accept="image/*" class="hidden" onchange="handleAvatarSelect(this)"></label><div id="avatarActions" class="hidden space-y-2"><button onclick="uploadAvatar()" class="btn-primary bg-green-500">Зберегти</button><button onclick="closeAvatarModal()" class="w-full py-3 text-red-500 font-medium">Скасувати</button></div></div></div>
-
-        <div id="notesModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeNotesModal()"></div>
-            <div class="bg-white dark:bg-[#1C1C1E] rounded-2xl w-full max-w-sm p-5 relative z-10">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold text-lg" id="notesModalTitle">Нотатки</h3>
-                    <button onclick="closeNotesModal()" class="text-gray-400 text-2xl">×</button>
-                </div>
-                
-                <div id="notesList" class="space-y-2 mb-4 max-h-48 overflow-y-auto"></div>
-
-                <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
-                    <textarea id="newNoteText" placeholder="Нова нотатка..." class="ios-input h-20 text-sm mb-3"></textarea>
-                    <div class="flex gap-2">
-                        <div id="noteTypeToggle" class="hidden items-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] px-3 rounded-lg cursor-pointer" onclick="toggleNoteType()">
-                            <span id="noteTypeIcon">🔒</span> <span class="text-xs font-bold" id="noteTypeLabel">Особиста</span>
-                        </div>
-                        <button onclick="saveNote()" class="btn-primary flex-1">Додати</button>
-                    </div>
-                </div>
+            <div id="calendarViewContainer" class="hidden ios-card p-4 animate-slide-up">
+                <div class="flex justify-between items-center mb-4"><button onclick="changeMonth(-1)" class="text-blue-500 text-2xl font-bold p-2">‹</button><h2 id="calendarTitle" class="font-bold text-xl capitalize"></h2><button onclick="changeMonth(1)" class="text-blue-500 text-2xl font-bold p-2">›</button></div>
+                <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-gray-400 uppercase mb-2 font-bold"><div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div class="text-red-400">Нд</div></div>
+                <div id="calendarGrid" class="grid grid-cols-7 gap-1"></div>
             </div>
         </div>
+
+        <div id="filterModal" class="hidden fixed inset-0 z-50"><div class="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity" onclick="closeFilterModal()"></div><div class="absolute bottom-0 left-0 right-0 glass-modal rounded-t-[24px] max-h-[70vh] overflow-y-auto p-4 animate-slide-up shadow-2xl"><div class="flex justify-between items-center mb-4 px-2"><h3 class="font-bold text-lg">Фільтр</h3><button onclick="closeFilterModal()" class="w-8 h-8 bg-gray-100 dark:bg-[#2C2C2E] rounded-full text-gray-500 text-sm font-bold">✕</button></div><div id="filterList" class="space-y-2"></div></div></div>
+        <div id="avatarModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeAvatarModal()"></div><div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 text-center animate-slide-up"><h3 class="font-bold text-xl mb-4">Ваше фото</h3><div class="avatar-preview-container mb-6 shadow-xl"><img id="avatarPreview" class="avatar-preview-img hidden"><div id="avatarPlaceholder" class="w-full h-full flex items-center justify-center text-4xl text-gray-400">📷</div></div><label class="btn-primary block mb-3 cursor-pointer shadow-lg shadow-blue-500/30">Обрати нове фото<input type="file" id="avatarInput" accept="image/*" class="hidden" onchange="handleAvatarSelect(this)"></label><div id="avatarActions" class="hidden space-y-2"><button onclick="uploadAvatar()" class="btn-primary bg-green-500 shadow-green-500/30">Зберегти</button><button onclick="closeAvatarModal()" class="w-full py-3 text-red-500 font-medium">Скасувати</button></div></div></div>
+        <div id="notesModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeNotesModal()"></div><div class="glass-modal rounded-2xl w-full max-w-sm p-5 relative z-10 animate-slide-up"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg" id="notesModalTitle">Нотатки</h3><button onclick="closeNotesModal()" class="text-gray-400 text-2xl">×</button></div><div id="notesList" class="space-y-2 mb-4 max-h-48 overflow-y-auto"></div><div class="border-t border-gray-100 dark:border-gray-800 pt-4"><textarea id="newNoteText" placeholder="Напишіть щось..." class="ios-input h-20 text-sm mb-3"></textarea><div class="flex gap-2"><div id="noteTypeToggle" class="hidden items-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] px-3 rounded-lg cursor-pointer active:scale-95 transition-transform" onclick="toggleNoteType()"><span id="noteTypeIcon">🔒</span> <span class="text-xs font-bold" id="noteTypeLabel">Особиста</span></div><button onclick="saveNote()" class="btn-primary flex-1">Додати</button></div></div></div></div>
 
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
-        if(tg) tg.ready(); if(tg?.platform && tg.platform!=='unknown') try{tg.expand()}catch(e){}
+        if(tg) { tg.ready(); if(tg.platform && tg.platform!=='unknown') try{tg.expand()}catch(e){} }
+        function triggerHaptic() { if(tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light'); }
 
         let currentUser = null; let globalShifts = []; let globalUsers = []; let globalTasks = []; let globalNotes = [];
         let activeFilter = 'all'; const START_HOUR = 10; const TOTAL_HOURS = 10; let currentCalendarDate = new Date();
         let selectedNoteDate = null; let currentNoteType = 'private';
 
-        function initTheme() { if ((tg.platform !== 'unknown' && tg.colorScheme === 'dark') || localStorage.theme === 'dark') { document.documentElement.classList.add('dark'); document.getElementById('themeIcon').innerText = '☀️'; if(tg.platform!=='unknown'){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} } else { document.documentElement.classList.remove('dark'); document.getElementById('themeIcon').innerText = '🌙'; if(tg.platform!=='unknown'){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } }
-        function toggleTheme() { const html = document.documentElement; if (html.classList.contains('dark')) { html.classList.remove('dark'); localStorage.theme = 'light'; document.getElementById('themeIcon').innerText = '🌙'; if(tg.platform!=='unknown'){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } else { html.classList.add('dark'); localStorage.theme = 'dark'; document.getElementById('themeIcon').innerText = '☀️'; if(tg.platform!=='unknown'){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} } }
+        function initTheme() { if ((tg?.colorScheme === 'dark') || localStorage.theme === 'dark') { document.documentElement.classList.add('dark'); document.getElementById('themeIcon').innerText = '☀️'; if(tg?.setHeaderColor){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} } else { document.documentElement.classList.remove('dark'); document.getElementById('themeIcon').innerText = '🌙'; if(tg?.setHeaderColor){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } }
+        function toggleTheme() { triggerHaptic(); const html = document.documentElement; if (html.classList.contains('dark')) { html.classList.remove('dark'); localStorage.theme = 'light'; document.getElementById('themeIcon').innerText = '🌙'; if(tg?.setHeaderColor){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } else { html.classList.add('dark'); localStorage.theme = 'dark'; document.getElementById('themeIcon').innerText = '☀️'; if(tg?.setHeaderColor){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} } }
         initTheme();
 
         async function checkAuth() { 
             try { const res = await fetch('/api/me'); const data = await res.json(); if (data.loggedIn) { showApp(data.user); return; } } catch (e) {}
-            if (tg.initDataUnsafe?.user?.id) {
-                document.getElementById('loginForm').classList.add('hidden'); document.getElementById('tgLoader').classList.remove('hidden');
-                try {
-                    const res = await fetch('/api/login-telegram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegramId: tg.initDataUnsafe.user.id }) });
-                    const data = await res.json();
-                    if (data.success) showApp(data.user); else { document.getElementById('tgLoader').classList.add('hidden'); document.getElementById('loginForm').classList.remove('hidden'); document.getElementById('authErrorMsg').classList.remove('hidden'); }
-                } catch (e) { document.getElementById('tgLoader').classList.add('hidden'); document.getElementById('loginForm').classList.remove('hidden'); }
-            } else { showLogin(); }
+            if (!tg.initDataUnsafe?.user?.id) { document.getElementById('skeletonLoader').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); return; }
+            try { const res = await fetch('/api/login-telegram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegramId: tg.initDataUnsafe.user.id }) }); const data = await res.json(); if (data.success) showApp(data.user); else { document.getElementById('skeletonLoader').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); } } catch (e) { document.getElementById('skeletonLoader').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); }
         }
-        async function login() { const username = document.getElementById('loginUser').value; const password = document.getElementById('loginPass').value; try { const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); const data = await res.json(); if (data.success) showApp(data.user); else alert(data.message); } catch (e) { alert("Error"); } }
-        async function logout() { await fetch('/api/logout', { method: 'POST' }); window.location.reload(); }
-        function showLogin() { currentUser = null; document.getElementById('appScreen').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); }
+        async function login() { triggerHaptic(); const u = document.getElementById('loginUser').value; const p = document.getElementById('loginPass').value; try { const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username:u, password:p }) }); const data = await res.json(); if (data.success) showApp(data.user); else alert(data.message); } catch (e) { alert("Error"); } }
+        async function logout() { triggerHaptic(); await fetch('/api/logout', { method: 'POST' }); window.location.reload(); }
 
         async function showApp(user) {
-            currentUser = user; 
-            document.getElementById('loginScreen').classList.add('hidden'); document.getElementById('appScreen').classList.remove('hidden');
+            currentUser = user;
+            document.getElementById('loginScreen').classList.add('hidden'); document.getElementById('skeletonLoader').classList.add('hidden');
+            const app = document.getElementById('appScreen'); app.classList.remove('hidden'); setTimeout(() => app.classList.remove('opacity-0'), 50);
             const parts = user.name.split(' '); document.getElementById('userNameDisplay').innerText = `Привіт, ${parts.length > 1 ? parts[1] : parts[0]}`; 
             if(user.avatar) { document.getElementById('userAvatarImg').src = user.avatar; document.getElementById('userAvatarImg').classList.remove('hidden'); document.getElementById('userAvatarPlaceholder').classList.add('hidden'); }
-            if (['admin', 'SM', 'SSE', 'RRP'].includes(user.role)) {
-                if(user.role !== 'RRP') document.getElementById('toggleEditBtn').classList.remove('hidden');
-                if (['SM', 'admin'].includes(user.role)) { document.getElementById('tabRequestsBtn').classList.remove('hidden'); loadRequests(); }
-                if (user.role === 'SM' || user.role === 'admin') { document.getElementById('noteTypeToggle').classList.remove('hidden'); document.getElementById('noteTypeToggle').classList.add('flex'); }
-            }
-            await Promise.all([loadEmployeeList(), loadShifts(), loadTasks(), loadNotes()]);
-            renderCurrentShifts();
+            if (['admin', 'SM', 'SSE', 'RRP'].includes(user.role)) { if(user.role !== 'RRP') document.getElementById('toggleEditBtn').classList.remove('hidden'); if (['SM', 'admin'].includes(user.role)) { document.getElementById('tabRequestsBtn').classList.remove('hidden'); loadRequests(); } if (user.role === 'SM' || user.role === 'admin') { document.getElementById('noteTypeToggle').classList.remove('hidden'); document.getElementById('noteTypeToggle').classList.add('flex'); } }
+            await Promise.all([loadEmployeeList(), loadShifts(), loadTasks(), loadNotes()]); renderCurrentShifts();
         }
 
-        async function loadNotes() { const r = await fetch('/api/notes'); if(r.ok) globalNotes = await r.json(); }
-        function openNotesModal(dateStr) { selectedNoteDate = dateStr; document.getElementById('notesModalTitle').innerText = `Нотатки (${dateStr})`; document.getElementById('notesModal').classList.remove('hidden'); renderNotesList(); }
-        function closeNotesModal() { document.getElementById('notesModal').classList.add('hidden'); }
-        function renderNotesList() { const list = document.getElementById('notesList'); list.innerHTML = ''; const dayNotes = globalNotes.filter(n => n.date === selectedNoteDate); if (dayNotes.length === 0) list.innerHTML = '<p class="text-xs text-gray-400 text-center">Немає нотаток</p>'; dayNotes.forEach(n => { const isPublic = n.type === 'public'; const style = isPublic ? 'note-public' : 'note-private'; const icon = isPublic ? '📢' : '🔒'; const canDelete = (n.author === currentUser.name) || ((currentUser.role === 'SM' || currentUser.role === 'admin') && isPublic); const deleteBtn = canDelete ? `<button onclick="deleteNote('${n._id}')" class="text-red-500 ml-2">×</button>` : ''; list.innerHTML += `<div class="note-item ${style}"><div class="flex-1"><span class="mr-1">${icon}</span> <span class="font-bold mr-1">${n.author}:</span> ${n.text}</div>${deleteBtn}</div>`; }); }
-        function toggleNoteType() { if (currentNoteType === 'private') { currentNoteType = 'public'; document.getElementById('noteTypeIcon').innerText = '📢'; document.getElementById('noteTypeLabel').innerText = 'Всім'; } else { currentNoteType = 'private'; document.getElementById('noteTypeIcon').innerText = '🔒'; document.getElementById('noteTypeLabel').innerText = 'Особиста'; } }
-        async function saveNote() { const text = document.getElementById('newNoteText').value; if(!text) return; await fetch('/api/notes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ date: selectedNoteDate, text, type: currentNoteType }) }); document.getElementById('newNoteText').value = ''; await loadNotes(); renderNotesList(); renderCurrentShifts(); }
-        async function deleteNote(id) { if(!confirm('Видалити?')) return; await fetch('/api/notes/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id }) }); await loadNotes(); renderNotesList(); renderCurrentShifts(); }
-
+        // --- RENDER TIMELINE (With Animation) ---
         function renderTimeline(shifts, filterUser) {
             const main = document.getElementById('scheduleView'); main.innerHTML = '';
             const archive = document.getElementById('archiveContainer'); archive.innerHTML = '';
             const dates = [...new Set([...shifts.map(s => s.date), ...globalNotes.map(n => n.date)])].sort();
-            const today = new Date().toISOString().split('T')[0];
-            if (!dates.includes(today)) dates.push(today);
-            dates.sort();
+            const today = new Date().toISOString().split('T')[0]; if (!dates.includes(today)) dates.push(today); dates.sort();
             let pastDaysCount = 0;
             let usersToShow = (activeFilter === 'all') ? globalUsers : globalUsers.filter(u => u.name === activeFilter);
 
-            dates.forEach(dateStr => {
-                const isPast = dateStr < today;
-                const isToday = dateStr === today;
-                const dObj = new Date(dateStr);
-                const dName = dObj.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
+            dates.forEach((dateStr, index) => {
+                const isPast = dateStr < today; const isToday = dateStr === today;
+                const dObj = new Date(dateStr); const dName = dObj.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
+                const animClass = isPast ? '' : `animate-slide-up stagger-${(index % 5) + 1}`;
                 const block = document.createElement('div');
-                block.className = 'ios-card p-4';
-                if(isToday) block.classList.add('ring-2', 'ring-blue-500');
+                block.className = `ios-card p-4 ${animClass}`;
+                if(isToday) block.classList.add('ring-2', 'ring-blue-500', 'shadow-lg', 'shadow-blue-500/20');
 
-                let html = `<div class="mb-3 border-b border-gray-100 dark:border-gray-800 pb-2 flex justify-between items-center cursor-pointer" onclick="openNotesModal('${dateStr}')"><h3 class="font-bold text-lg capitalize ${isToday?'text-blue-500':'text-black dark:text-white'}">${dName}</h3><div class="text-blue-500 text-sm font-medium flex items-center gap-1">📝 <span class="text-xs">Нотатки</span></div></div>`;
-
+                let html = `<div class="mb-3 border-b border-gray-100 dark:border-gray-800 pb-2 flex justify-between items-center cursor-pointer active:opacity-60" onclick="triggerHaptic(); openNotesModal('${dateStr}')"><h3 class="font-bold text-lg capitalize ${isToday?'text-blue-500':'text-black dark:text-white'}">${dName}</h3><div class="text-blue-500 text-xs font-bold px-2 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-lg">📝 Нотатки</div></div>`;
                 const dayNotes = globalNotes.filter(n => n.date === dateStr);
-                if (dayNotes.length > 0) { html += `<div class="mb-3 space-y-1">`; dayNotes.forEach(n => { const style = n.type === 'public' ? 'note-public' : 'note-private'; const icon = n.type === 'public' ? '📢' : '🔒'; html += `<div class="note-item ${style} text-[10px]"><span>${icon} <b>${n.author}:</b> ${n.text}</span></div>`; }); html += `</div>`; }
-
+                if (dayNotes.length > 0) { html += `<div class="mb-3 space-y-1.5">`; dayNotes.forEach(n => { const style = n.type === 'public' ? 'bg-blue-50 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200 border-l-2 border-blue-500' : 'bg-yellow-50 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border-l-2 border-yellow-500'; const icon = n.type === 'public' ? '📢' : '🔒'; html += `<div class="text-[11px] p-2 rounded-r-md ${style} flex items-start gap-1"><span>${icon}</span> <span><b>${n.author}:</b> ${n.text}</span></div>`; }); html += `</div>`; }
                 html += `<div class="space-y-4">`;
 
                 usersToShow.forEach(user => {
@@ -271,92 +269,73 @@
 
                     if (shift) {
                         const isMe = shift.name === currentUser.name;
-                        
-                        // IF VACATION
                         if (shift.start === 'Відпустка') {
                             const delShift = (['admin','SM','SSE'].includes(currentUser.role) && currentUser.role !== 'RRP') ? `<button onclick="delS('${shift.date}','${shift.name}')" class="ml-auto text-gray-300 hover:text-red-500">✕</button>` : '';
-                            html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-500':'text-gray-900 dark:text-gray-200'}"><span>${shortName}</span> <span class="ml-2 text-teal-600 font-mono">Відпустка</span> ${delShift}</div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment vacation-segment">ВІДПУСТКА</div></div></div>`;
+                            html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-teal-600 font-bold':'text-gray-900 dark:text-gray-200'}"><span>${shortName}</span> <span class="ml-2 text-teal-500 font-mono">Відпустка</span> ${delShift}</div><div class="timeline-track"><div class="shift-segment vacation-segment">ВІДПУСТКА 🌴</div></div></div>`;
                         } else {
-                            const [sH, sM] = shift.start.split(':').map(Number);
-                            const [eH, eM] = shift.end.split(':').map(Number);
-                            const startDecimal = sH + sM/60; const endDecimal = eH + eM/60;   
-                            let left = ((startDecimal - START_HOUR) / TOTAL_HOURS) * 100; let width = ((endDecimal - startDecimal) / TOTAL_HOURS) * 100;
-                            if(left < 0) { width += left; left = 0; } if(left + width > 100) width = 100 - left;
+                            const [sH, sM] = shift.start.split(':').map(Number); const [eH, eM] = shift.end.split(':').map(Number); const startDecimal = sH + sM/60; const endDecimal = eH + eM/60;   
+                            let left = ((startDecimal - START_HOUR) / TOTAL_HOURS) * 100; let width = ((endDecimal - startDecimal) / TOTAL_HOURS) * 100; if(left < 0) { width += left; left = 0; } if(left + width > 100) width = 100 - left;
                             let tasksHtml = ''; let badges = '';
-                            userTasks.forEach(task => { if(task.isFullDay) badges += `<span class="ml-2 text-[10px] text-purple-600 font-bold border border-purple-200 px-1 rounded">★ ${task.title}</span>`; else { const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number); const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60; let tLeft = ((tStartD - START_HOUR) / TOTAL_HOURS) * 100; let tWidth = ((tEndD - tStartD) / TOTAL_HOURS) * 100; const delTask = (['admin','SM','SSE'].includes(currentUser.role) && currentUser.role !== 'RRP') ? `onclick="deleteTask('${task._id}')"` : ''; tasksHtml += `<div class="task-segment" ${delTask} style="left:${tLeft}%; width:${tWidth}%;">${task.title}</div>`; } });
-                            const delShift = (['admin','SM','SSE'].includes(currentUser.role) && currentUser.role !== 'RRP') ? `<button onclick="delS('${shift.date}','${shift.name}')" class="ml-auto text-gray-300 hover:text-red-500">✕</button>` : '';
-                            html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-500':'text-gray-900 dark:text-gray-200'}"><span>${shortName}</span> <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}</div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
+                            userTasks.forEach(task => { if(task.isFullDay) badges += `<span class="ml-2 text-[10px] text-purple-600 font-bold border border-purple-200 bg-purple-50 px-1 rounded">★ ${task.title}</span>`; else { const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number); const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60; let tLeft = ((tStartD - START_HOUR) / TOTAL_HOURS) * 100; let tWidth = ((tEndD - tStartD) / TOTAL_HOURS) * 100; const delTask = (['admin','SM','SSE'].includes(currentUser.role) && currentUser.role !== 'RRP') ? `onclick="deleteTask('${task._id}')"` : ''; tasksHtml += `<div class="task-segment" ${delTask} style="left:${tLeft}%; width:${tWidth}%;">${task.title}</div>`; } });
+                            const delShift = (['admin','SM','SSE'].includes(currentUser.role) && currentUser.role !== 'RRP') ? `<button onclick="delS('${shift.date}','${shift.name}')" class="ml-auto text-gray-300 hover:text-red-500 p-1">✕</button>` : '';
+                            html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}"><span>${shortName}</span> <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
                         }
-                    } else if (userTasks.length > 0) {
-                        let tasksHtml = ''; userTasks.forEach(task => { if(!task.isFullDay) { const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number); const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60; let tLeft = ((tStartD - START_HOUR) / TOTAL_HOURS) * 100; let tWidth = ((tEndD - tStartD) / TOTAL_HOURS) * 100; tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%; background:#FF9500;">${task.title}</div>`; } });
-                        html += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500"><span>${shortName}</span> <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;
-                    } else { html += `<div class="opacity-50"><div class="flex items-center justify-between text-xs mb-1 text-gray-400"><span>${shortName}</span> <span>Вихідний</span></div><div class="h-[1px] bg-gray-100 dark:bg-gray-800 rounded w-full mt-3 mb-4"></div></div>`; }
+                    } else if (userTasks.length > 0) { html += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500"><span>${shortName}</span> <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div></div></div>`; } 
+                    else { html += `<div class="opacity-40"><div class="flex items-center justify-between text-xs mb-1 text-gray-400"><span>${shortName}</span> <span>Вихідний</span></div><div class="h-[1px] bg-gray-200 dark:bg-gray-800 rounded w-full mt-3 mb-4"></div></div>`; }
                 });
-                html += `</div>`; block.innerHTML = html;
-                if(isPast) { archive.appendChild(block); pastDaysCount++; } else { main.appendChild(block); }
-                if(isToday) setTimeout(()=>block.scrollIntoView({behavior:'smooth',block:'center'}),500);
+                html += `</div>`; block.innerHTML = html; if(isPast) { archive.appendChild(block); pastDaysCount++; } else { main.appendChild(block); } if(isToday) setTimeout(()=>block.scrollIntoView({behavior:'smooth',block:'center'}),600);
             });
             const arcBtn = document.getElementById('archiveToggleBtn'); const arcCnt = document.getElementById('archiveCount');
             if(pastDaysCount > 0) { arcBtn.classList.remove('hidden'); arcCnt.innerText = pastDaysCount; } else { arcBtn.classList.add('hidden'); }
         }
 
-        function openAvatarModal() { document.getElementById('avatarModal').classList.remove('hidden'); }
-        function closeAvatarModal() { document.getElementById('avatarModal').classList.add('hidden'); resetAvatarPreview(); }
-        function resetAvatarPreview() { document.getElementById('avatarInput').value = ''; document.getElementById('avatarPreview').classList.add('hidden'); document.getElementById('avatarPlaceholder').classList.remove('hidden'); document.getElementById('avatarActions').classList.add('hidden'); }
-        function handleAvatarSelect(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = function(e) { const img = document.getElementById('avatarPreview'); img.src = e.target.result; img.classList.remove('hidden'); document.getElementById('avatarPlaceholder').classList.add('hidden'); document.getElementById('avatarActions').classList.remove('hidden'); }; reader.readAsDataURL(input.files[0]); } }
-        function uploadAvatar() { const imgElement = document.getElementById('avatarPreview'); const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); const size = 200; canvas.width = size; canvas.height = size; const img = new Image(); img.onload = function() { const minSide = Math.min(img.width, img.height); const sx = (img.width - minSide) / 2; const sy = (img.height - minSide) / 2; ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size); const dataUrl = canvas.toDataURL('image/jpeg', 0.7); fetch('/api/user/avatar', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ avatar: dataUrl }) }).then(res => res.json()).then(data => { if(data.success) { document.getElementById('userAvatarImg').src = dataUrl; document.getElementById('userAvatarImg').classList.remove('hidden'); document.getElementById('userAvatarPlaceholder').classList.add('hidden'); closeAvatarModal(); } else { alert('Error'); } }); }; img.src = imgElement.src; }
+        document.querySelectorAll('button').forEach(b => b.addEventListener('click', () => triggerHaptic()));
 
+        // Utils & Data
         async function loadEmployeeList() { const r=await fetch('/api/users'); if(r.ok){const d=await r.json(); globalUsers=d.filter(u=>u.role!=='admin'&&u.role!=='RRP'); const s1=document.getElementById('employeeSelect'); const s2=document.getElementById('taskEmployee'); s1.innerHTML='<option disabled selected>Хто?</option>'; s2.innerHTML='<option disabled selected>Кому?</option>'; globalUsers.forEach(x=>{s1.innerHTML+=`<option value="${x.name}">${x.name}</option>`; s2.innerHTML+=`<option value="${x.name}">${x.name}</option>`;}); } }
         async function loadShifts() { const r = await fetch('/api/shifts'); if(r.ok) globalShifts = await r.json(); }
         async function loadTasks() { const r = await fetch('/api/tasks'); if(r.ok) globalTasks = await r.json(); }
+        async function loadNotes() { const r = await fetch('/api/notes'); if(r.ok) globalNotes = await r.json(); }
         async function loadRequests(){ const r=await fetch('/api/requests'); const d=await r.json(); const c=document.getElementById('requestsList'); c.innerHTML=''; if(!d.length){c.innerHTML='<p class="text-gray-400 text-xs text-center">Пусто</p>';return;} d.forEach(q=>{c.innerHTML+=`<div class="bg-gray-50 dark:bg-gray-700 p-2 rounded text-xs flex justify-between"><span>${q.type}: ${q.createdBy}</span><div class="flex gap-2"><button onclick="handleRequest('${q._id}','approve')" class="text-green-600">✅</button><button onclick="handleRequest('${q._id}','reject')" class="text-red-600">❌</button></div></div>`}); }
-        function renderCalendar() { const g = document.getElementById('calendarGrid'); g.innerHTML=''; const t=document.getElementById('calendarTitle'); const y=currentCalendarDate.getFullYear(); const m=currentCalendarDate.getMonth(); t.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' }); const fd=new Date(y,m,1).getDay() || 7; const ld=new Date(y,m+1,0).getDate(); for(let i=1; i<fd; i++) g.innerHTML+=`<div class="calendar-day opacity-0"></div>`; const today = new Date().toISOString().split('T')[0]; for(let d=1; d<=ld; d++){ const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; const shift = globalShifts.find(s=>s.date===ds && s.name===currentUser.name); const tasks = globalTasks.filter(t=>t.date===ds && t.name===currentUser.name); let content = `<div class="font-bold mb-1">${d}</div>`; if(shift) { if(shift.start === 'Відпустка') { content += `<div class="work-badge">🌴</div>`; } else { content += `<div class="work-badge">${shift.start}-${shift.end}</div>`; } } tasks.forEach(task => content += `<div class="text-[9px] text-purple-500 truncate">★ ${task.title}</div>`); const workClass = shift ? (shift.start === 'Відпустка' ? 'vacation-day' : 'my-work-day') : ''; const todayClass = ds === today ? 'today' : ''; g.innerHTML += `<div class="calendar-day ${todayClass} ${workClass}">${content}</div>`; } }
-        async function handleRequest(id, a){await fetch('/api/requests/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:a})});loadRequests();loadShifts();loadTasks();setTimeout(()=>renderCurrentShifts(),500);}
-        async function approveAllRequests(){if(!confirm("Все?"))return;await fetch('/api/requests/approve-all',{method:'POST'});loadRequests();loadShifts();loadTasks();setTimeout(()=>renderCurrentShifts(),500);}
+
+        // Actions
+        function setMode(m){ triggerHaptic(); document.getElementById('listViewContainer').className = m === 'list' ? '' : 'hidden'; document.getElementById('calendarViewContainer').className = m === 'list' ? 'hidden' : 'ios-card p-4 animate-slide-up'; const btnList = document.getElementById('btnModeList'); const btnCal = document.getElementById('btnModeCalendar'); if (m === 'list') { btnList.className = "flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all"; btnCal.className = "flex-1 py-2 text-xs font-medium text-gray-500 transition-all"; } else { btnList.className = "flex-1 py-2 text-xs font-medium text-gray-500 transition-all"; btnCal.className = "flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all"; } if(m === 'calendar') renderCalendar(); }
+        function toggleEditMode(){ triggerHaptic(); document.getElementById('adminPanel').classList.toggle('hidden'); }
+        function toggleTaskTimeInputs(){ const c=document.getElementById('taskFullDay').checked;document.getElementById('taskTimeInputs').className=c?'hidden':'flex gap-3'; }
+        function toggleShiftTimeInputs(){ const c=document.getElementById('shiftVacation').checked;document.getElementById('shiftTimeInputs').className=c?'hidden':'flex gap-3'; }
+        function showAdminTab(t){ triggerHaptic(); ['shifts','tasks','requests','import','news'].forEach(x=>document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.add('hidden'));document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.remove('hidden');if(t==='requests')loadRequests(); }
         
-        async function addShift() { 
-            const date=document.getElementById('shiftDate').value; const name=document.getElementById('employeeSelect').value; const isVacation = document.getElementById('shiftVacation').checked;
-            let start, end;
-            if (isVacation) { start = 'Відпустка'; end = 'Відпустка'; } 
-            else { start=document.getElementById('startTime').value; end=document.getElementById('endTime').value; }
-            if(!date||!name)return alert("Дані?"); 
-            const r=await fetch('/api/shifts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,name,start,end})}); 
-            const d=await r.json(); if(d.pending)alert("На підтвердженні"); loadShifts().then(renderCurrentShifts); 
-        }
-        
+        function openFilterModal() { triggerHaptic(); document.getElementById('filterModal').classList.remove('hidden'); renderFilterList(); }
+        function renderFilterList() { let html = `<button onclick="applyFilter('all')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${activeFilter==='all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">Всі співробітники</span>${activeFilter==='all' ? '<span>✓</span>' : ''}</button>`; globalUsers.forEach(u => { const isSelected = activeFilter === u.name; html += `<button onclick="applyFilter('${u.name}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">${u.name}</span>${isSelected ? '<span>✓</span>' : ''}</button>`; }); document.getElementById('filterList').innerHTML = html; }
+        function closeFilterModal() { document.getElementById('filterModal').classList.add('hidden'); }
+        function applyFilter(val) { triggerHaptic(); activeFilter = val; document.getElementById('currentFilterLabel').innerText = val === 'all' ? 'Всі співробітники' : val.split(' ')[1] || val; closeFilterModal(); renderCurrentShifts(); }
+
+        // Operations
+        async function addShift() { const date=document.getElementById('shiftDate').value; const name=document.getElementById('employeeSelect').value; const isVacation = document.getElementById('shiftVacation').checked; let start, end; if (isVacation) { start = 'Відпустка'; end = 'Відпустка'; } else { start=document.getElementById('startTime').value; end=document.getElementById('endTime').value; } if(!date||!name)return alert("Дані?"); const r=await fetch('/api/shifts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,name,start,end})}); const d=await r.json(); if(d.pending)alert("На підтвердженні"); loadShifts().then(renderCurrentShifts); }
         async function addTask() { const title=document.getElementById('taskTitle').value; const date=document.getElementById('taskDate').value; const name=document.getElementById('taskEmployee').value; const isFullDay=document.getElementById('taskFullDay').checked; const start=document.getElementById('taskStart').value; const end=document.getElementById('taskEnd').value; if(!title||!date||!name)return alert("Дані?"); await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,date,name,isFullDay,start,end})}); loadTasks().then(renderCurrentShifts); }
-        
-        async function bulkImport() { 
-            const raw = document.getElementById('importData').value; if(!raw) return alert("Пусто"); const rows = raw.trim().split('\n'); const shifts = []; 
-            rows.forEach(row => { 
-                const parts = row.split(/[\t, ]+/); 
-                // Check if Vacation (length 3, last part is Vacation)
-                if(parts.length === 3 && parts[2].toLowerCase().includes('відпустка')) {
-                    shifts.push({ date: parts[0].trim(), name: parts[1].trim(), start: 'Відпустка', end: 'Відпустка' });
-                }
-                else if(parts.length >= 4) { shifts.push({ date: parts[0].trim(), name: parts[1].trim(), start: parts[2].trim(), end: parts[3].trim() }); } 
-            }); 
-            if(shifts.length === 0) return alert("Не розпізнано"); if(confirm(`Завантажити ${shifts.length} змін?`)) { const res = await fetch('/api/shifts/bulk', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ shifts }) }); if(res.ok) { document.getElementById('importData').value = ''; loadShifts().then(renderCurrentShifts); alert("Успішно!"); } else { alert("Помилка"); } } 
-        }
-        
-        async function publishNews() { const text = document.getElementById('newsText').value; const file = document.getElementById('newsFile').files[0]; if (!text && !file) return alert("Введіть текст або оберіть файл"); const formData = new FormData(); formData.append('text', text); if (file) formData.append('media', file); const btn = document.querySelector('#adminTabNews button:last-child'); btn.innerText = "⏳ Публікую..."; btn.disabled = true; try { const res = await fetch('/api/news/publish', { method: 'POST', body: formData }); if (res.ok) { alert("✅ Опубліковано!"); document.getElementById('newsText').value = ''; document.getElementById('newsFile').value = ''; updateFileName(); } else { alert("Помилка"); } } catch (e) { alert("Помилка"); } finally { btn.innerText = "Опублікувати"; btn.disabled = false; } }
+        async function bulkImport() { const raw = document.getElementById('importData').value; if(!raw) return alert("Пусто"); const rows = raw.trim().split('\n'); const shifts = []; rows.forEach(row => { const parts = row.split(/[\t, ]+/); if(parts.length === 3 && parts[2].toLowerCase().includes('відпустка')) { shifts.push({ date: parts[0].trim(), name: parts[1].trim(), start: 'Відпустка', end: 'Відпустка' }); } else if(parts.length >= 4) { shifts.push({ date: parts[0].trim(), name: parts[1].trim(), start: parts[2].trim(), end: parts[3].trim() }); } }); if(shifts.length === 0) return alert("Не розпізнано"); if(confirm(`Завантажити ${shifts.length} змін?`)) { const res = await fetch('/api/shifts/bulk', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ shifts }) }); if(res.ok) { document.getElementById('importData').value = ''; loadShifts().then(renderCurrentShifts); alert("Успішно!"); } else { alert("Помилка"); } } }
+        async function publishNews() { const text = document.getElementById('newsText').value; const file = document.getElementById('newsFile').files[0]; if (!text && !file) return alert("Введіть текст або оберіть файл"); const formData = new FormData(); formData.append('text', text); if (file) formData.append('media', file); const btn = document.querySelector('#adminTabNews button:last-child'); btn.innerText = "⏳ Публікую..."; btn.disabled = true; try { const res = await fetch('/api/news/publish', { method: 'POST', body: formData }); if (res.ok) { alert("✅ Опубліковано!"); document.getElementById('newsText').value = ''; document.getElementById('newsFile').value = ''; } else { alert("Помилка"); } } catch (e) { alert("Помилка"); } finally { btn.innerText = "Опублікувати"; btn.disabled = false; } }
         async function delS(d,n){if(confirm("?")) await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d,name:n})});loadShifts().then(renderCurrentShifts);}
         async function deleteTask(id){if(confirm("?")) await fetch('/api/tasks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadTasks().then(renderCurrentShifts);}
-        function formatText(type) { const field = document.getElementById('newsText'); const start = field.selectionStart; const end = field.selectionEnd; const text = field.value; const selectedText = text.substring(start, end); let before = '', after = ''; if (type === 'bold') { before = '<b>'; after = '</b>'; } else if (type === 'italic') { before = '<i>'; after = '</i>'; } else if (type === 'spoiler') { before = '<tg-spoiler>'; after = '</tg-spoiler>'; } else if (type === 'link') { const url = prompt("URL:", "https://"); if (!url) return; before = `<a href="${url}">`; after = '</a>'; } const content = selectedText || (type === 'link' ? 'посилання' : 'текст'); field.value = text.substring(0, start) + before + content + after + text.substring(end); field.focus(); }
-        function updateFileName() { const input = document.getElementById('newsFile'); document.getElementById('fileName').innerText = input.files.length > 0 ? input.files[0].name : "Оберіть файл/фото"; }
-        function renderCurrentShifts(){renderTimeline(globalShifts,null);renderCalendar();}
-        function changeMonth(d){currentCalendarDate.setMonth(currentCalendarDate.getMonth()+d);renderCalendar();}
-        function setMode(m){ document.getElementById('listViewContainer').className = m === 'list' ? '' : 'hidden'; document.getElementById('calendarViewContainer').className = m === 'list' ? 'hidden' : ''; const btnList = document.getElementById('btnModeList'); const btnCal = document.getElementById('btnModeCalendar'); const activeClass = "flex-1 py-1.5 text-xs font-semibold rounded-[8px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white"; const inactiveClass = "flex-1 py-1.5 text-xs font-medium text-gray-500"; if (m === 'list') { btnList.className = activeClass; btnCal.className = inactiveClass; } else { btnList.className = inactiveClass; btnCal.className = activeClass; } if(m === 'calendar') renderCalendar(); }
-        function toggleEditMode(){document.getElementById('adminPanel').classList.toggle('hidden');}
-        function toggleTaskTimeInputs(){const c=document.getElementById('taskFullDay').checked;document.getElementById('taskTimeInputs').className=c?'hidden':'flex gap-3';}
-        function toggleShiftTimeInputs(){const c=document.getElementById('shiftVacation').checked;document.getElementById('shiftTimeInputs').className=c?'hidden':'flex gap-3';}
-        function showAdminTab(t){['shifts','tasks','requests','import','news'].forEach(x=>document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.add('hidden'));document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.remove('hidden');if(t==='requests')loadRequests();}
         function clearDay(){const d=document.getElementById('shiftDate').value; if(d&&confirm(`Clean ${d}?`))fetch('/api/shifts/clear-day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d})}).then(()=>{loadShifts().then(renderCurrentShifts)});}
-        function toggleArchive(){document.getElementById('archiveContainer').classList.toggle('hidden');}
-        function downloadAllMyShifts(){if(!currentUser)return;const today=new Date().toISOString().split('T')[0];const myShifts=globalShifts.filter(s=>s.name===currentUser.name&&s.date>=today);if(myShifts.length===0)return alert('Немає змін!');let ics="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Shifter//UA\n";myShifts.forEach(s=>{if(s.start==='Відпустка')return;const start=s.date.replace(/-/g,'')+'T'+s.start.replace(':','')+'00';const end=s.date.replace(/-/g,'')+'T'+s.end.replace(':','')+'00';ics+=`BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Робота\nEND:VEVENT\n`;});ics+="END:VCALENDAR";const a=document.createElement('a');a.href=window.URL.createObjectURL(new Blob([ics],{type:'text/calendar'}));a.download=`my-shifts.ics`;document.body.appendChild(a);a.click();document.body.removeChild(a);}
-        function openFilterModal() { document.getElementById('filterModal').classList.remove('hidden'); let html = `<button onclick="applyFilter('all')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${activeFilter==='all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">Всі співробітники</span>${activeFilter==='all' ? '<span>✓</span>' : ''}</button>`; globalUsers.forEach(u => { const isSelected = activeFilter === u.name; html += `<button onclick="applyFilter('${u.name}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">${u.name}</span>${isSelected ? '<span>✓</span>' : ''}</button>`; }); document.getElementById('filterList').innerHTML = html; }
-        function closeFilterModal() { document.getElementById('filterModal').classList.add('hidden'); }
-        function applyFilter(val) { activeFilter = val; document.getElementById('currentFilterLabel').innerText = val === 'all' ? 'Всі співробітники' : val.split(' ')[1] || val; closeFilterModal(); renderCurrentShifts(); }
+        function toggleArchive(){ triggerHaptic(); document.getElementById('archiveContainer').classList.toggle('hidden'); }
+        function downloadAllMyShifts(){ triggerHaptic(); if(!currentUser)return;const today=new Date().toISOString().split('T')[0];const myShifts=globalShifts.filter(s=>s.name===currentUser.name&&s.date>=today);if(myShifts.length===0)return alert('Немає змін!');let ics="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Shifter//UA\n";myShifts.forEach(s=>{if(s.start==='Відпустка')return;const start=s.date.replace(/-/g,'')+'T'+s.start.replace(':','')+'00';const end=s.date.replace(/-/g,'')+'T'+s.end.replace(':','')+'00';ics+=`BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Робота\nEND:VEVENT\n`;});ics+="END:VCALENDAR";const a=document.createElement('a');a.href=window.URL.createObjectURL(new Blob([ics],{type:'text/calendar'}));a.download=`my-shifts.ics`;document.body.appendChild(a);a.click();document.body.removeChild(a);}
+        function renderCurrentShifts(){renderTimeline(globalShifts,null);renderCalendar();}
+        function changeMonth(d){triggerHaptic(); currentCalendarDate.setMonth(currentCalendarDate.getMonth()+d);renderCalendar();}
+        function renderCalendar() { const g = document.getElementById('calendarGrid'); g.innerHTML=''; const t=document.getElementById('calendarTitle'); const y=currentCalendarDate.getFullYear(); const m=currentCalendarDate.getMonth(); t.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' }); const fd=new Date(y,m,1).getDay() || 7; const ld=new Date(y,m+1,0).getDate(); for(let i=1; i<fd; i++) g.innerHTML+=`<div class="calendar-day p-1 opacity-0"></div>`; const today = new Date().toISOString().split('T')[0]; for(let d=1; d<=ld; d++){ const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; const shift = globalShifts.find(s=>s.date===ds && s.name===currentUser.name); const tasks = globalTasks.filter(t=>t.date===ds && t.name===currentUser.name); let content = `<div class="font-bold mb-1 text-xs">${d}</div>`; if(shift) { if(shift.start === 'Відпустка') { content += `<div class="work-badge">🌴</div>`; } else { content += `<div class="work-badge">${shift.start}-${shift.end}</div>`; } } tasks.forEach(task => content += `<div class="text-[8px] text-purple-500 truncate">★</div>`); const workClass = shift ? (shift.start === 'Відпустка' ? 'vacation-day' : 'my-work-day') : ''; const todayClass = ds === today ? 'today border-blue-500' : ''; g.innerHTML += `<div class="calendar-day p-1 ${todayClass} ${workClass} rounded-lg border border-transparent bg-white dark:bg-[#1C1C1E] flex flex-col justify-between h-16 transition-colors">${content}</div>`; } }
+        
+        function openAvatarModal() { triggerHaptic(); document.getElementById('avatarModal').classList.remove('hidden'); }
+        function closeAvatarModal() { document.getElementById('avatarModal').classList.add('hidden'); }
+        function handleAvatarSelect(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = function(e) { const img = document.getElementById('avatarPreview'); img.src = e.target.result; img.classList.remove('hidden'); document.getElementById('avatarPlaceholder').classList.add('hidden'); document.getElementById('avatarActions').classList.remove('hidden'); }; reader.readAsDataURL(input.files[0]); } }
+        function uploadAvatar() { const imgElement = document.getElementById('avatarPreview'); const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); const size = 200; canvas.width = size; canvas.height = size; const img = new Image(); img.onload = function() { const minSide = Math.min(img.width, img.height); const sx = (img.width - minSide) / 2; const sy = (img.height - minSide) / 2; ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size); const dataUrl = canvas.toDataURL('image/jpeg', 0.7); fetch('/api/user/avatar', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ avatar: dataUrl }) }).then(res => res.json()).then(data => { if(data.success) { document.getElementById('userAvatarImg').src = dataUrl; document.getElementById('userAvatarImg').classList.remove('hidden'); document.getElementById('userAvatarPlaceholder').classList.add('hidden'); closeAvatarModal(); } else { alert('Error'); } }); }; img.src = imgElement.src; }
+        
+        function openNotesModal(dateStr) { triggerHaptic(); selectedNoteDate = dateStr; document.getElementById('notesModalTitle').innerText = `Нотатки (${dateStr})`; document.getElementById('notesModal').classList.remove('hidden'); renderNotesList(); }
+        function closeNotesModal() { document.getElementById('notesModal').classList.add('hidden'); }
+        function renderNotesList() { const list = document.getElementById('notesList'); list.innerHTML = ''; const dayNotes = globalNotes.filter(n => n.date === selectedNoteDate); if (dayNotes.length === 0) list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Немає нотаток</p>'; dayNotes.forEach(n => { const isPublic = n.type === 'public'; const style = isPublic ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' : 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200'; const icon = isPublic ? '📢' : '🔒'; const canDelete = (n.author === currentUser.name) || ((currentUser.role === 'SM' || currentUser.role === 'admin') && isPublic); const deleteBtn = canDelete ? `<button onclick="deleteNote('${n._id}')" class="text-red-500 ml-2 font-bold px-2">×</button>` : ''; list.innerHTML += `<div class="note-item ${style} p-2 rounded-lg flex justify-between items-center mb-1"><div class="flex-1 text-xs"><span class="mr-1">${icon}</span> <span class="font-bold mr-1">${n.author}:</span> ${n.text}</div>${deleteBtn}</div>`; }); }
+        function toggleNoteType() { triggerHaptic(); if (currentNoteType === 'private') { currentNoteType = 'public'; document.getElementById('noteTypeIcon').innerText = '📢'; document.getElementById('noteTypeLabel').innerText = 'Всім'; } else { currentNoteType = 'private'; document.getElementById('noteTypeIcon').innerText = '🔒'; document.getElementById('noteTypeLabel').innerText = 'Особиста'; } }
+        async function saveNote() { const text = document.getElementById('newNoteText').value; if(!text) return; await fetch('/api/notes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ date: selectedNoteDate, text, type: currentNoteType }) }); document.getElementById('newNoteText').value = ''; await loadNotes(); renderNotesList(); renderCurrentShifts(); }
+        async function deleteNote(id) { if(!confirm('Видалити?')) return; await fetch('/api/notes/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id }) }); await loadNotes(); renderNotesList(); renderCurrentShifts(); }
+
         checkAuth();
     </script>
 </body>
