@@ -29,7 +29,7 @@ const upload = multer({ storage: storage });
 
 app.set('trust proxy', 1);
 
-// --- TELEGRAM BOT INIT (ЦЬОГО НЕ ВИСТАЧАЛО) ---
+// --- TELEGRAM BOT INIT ---
 let bot = null;
 if (process.env.TELEGRAM_TOKEN) {
     bot = new TelegramBot(process.env.TELEGRAM_TOKEN);
@@ -79,14 +79,7 @@ const NewsPostSchema = new mongoose.Schema({ messageId: Number, chatId: Number, 
 const NewsPost = mongoose.model('NewsPost', NewsPostSchema);
 const ContactSchema = new mongoose.Schema({ name: { type: String, required: true }, phone: { type: String, required: true } });
 const Contact = mongoose.model('Contact', ContactSchema);
-
-const NoteSchema = new mongoose.Schema({
-    date: { type: String, required: true },
-    text: { type: String, required: true },
-    type: { type: String, default: 'private' },
-    author: { type: String, required: true },
-    createdAt: { type: Date, default: Date.now }
-});
+const NoteSchema = new mongoose.Schema({ date: { type: String, required: true }, text: { type: String, required: true }, type: { type: String, default: 'private' }, author: { type: String, required: true }, createdAt: { type: Date, default: Date.now } });
 const Note = mongoose.model('Note', NoteSchema);
 
 // --- MIDDLEWARE ---
@@ -149,8 +142,13 @@ async function sendDailyBriefing() {
     const shifts = await Shift.find({ date: dateStr }).sort({ start: 1 });
     const tasks = await Task.find({ date: dateStr });
     let msg = `🌙 <b>План на завтра (${display}):</b>\n\n`;
-    if (shifts.length) { msg += `👷‍♂️ <b>На зміні:</b>\n`; shifts.forEach(s => msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`); } 
-    else { msg += `🌴 <b>Завтра змін немає</b>\n`; }
+    if (shifts.length) { 
+        msg += `👷‍♂️ <b>На зміні:</b>\n`; 
+        shifts.forEach(s => {
+            if(s.start === 'Відпустка') msg += `🌴 <b>${s.name}</b>: Відпустка\n`;
+            else msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`;
+        }); 
+    } else { msg += `🌴 <b>Завтра змін немає</b>\n`; }
     if (tasks.length) { msg += `\n📌 <b>Задачі:</b>\n`; tasks.forEach(t => { const time = t.isFullDay ? "Весь день" : `${t.start}-${t.end}`; msg += `🔸 <b>${t.name}</b>: ${t.title} (${time})\n`; }); }
     msg += `\nGood luck! 🚀`;
     try { await bot.sendMessage(TG_CONFIG.groupId, msg, { parse_mode: 'HTML', message_thread_id: TG_CONFIG.topics.schedule }); } catch (e) {}
@@ -189,20 +187,13 @@ app.post('/api/user/avatar', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- NOTES API ---
 app.get('/api/notes', async (req, res) => {
     if (!req.session.userId) return res.json([]);
     const user = await User.findById(req.session.userId);
     if (!user) return res.json([]);
-    const notes = await Note.find({
-        $or: [
-            { type: 'public' },
-            { type: 'private', author: user.name }
-        ]
-    });
+    const notes = await Note.find({ $or: [ { type: 'public' }, { type: 'private', author: user.name } ] });
     res.json(notes);
 });
-
 app.post('/api/notes', async (req, res) => {
     if (!req.session.userId) return res.status(403).json({});
     const user = await User.findById(req.session.userId);
@@ -212,7 +203,6 @@ app.post('/api/notes', async (req, res) => {
     await Note.create({ date, text, type: finalType, author: user.name });
     res.json({ success: true });
 });
-
 app.post('/api/notes/delete', async (req, res) => {
     if (!req.session.userId) return res.status(403).json({});
     const user = await User.findById(req.session.userId);
@@ -227,7 +217,7 @@ app.post('/api/notes/delete', async (req, res) => {
 
 app.get('/api/users', async (req, res) => { const users = await User.find({}, 'name role'); res.json(users); });
 app.get('/api/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); const s = await Shift.find(); res.json(s); });
-app.post('/api/shifts', async (req, res) => { const c=await handlePermission(req,'add_shift',req.body); if(c) return res.json({success:true, pending:c==='pending'}); await Shift.create(req.body); notifyUser(req.body.name, `📅 Зміна: ${req.body.date}`); res.json({success:true}); });
+app.post('/api/shifts', async (req, res) => { const c=await handlePermission(req,'add_shift',req.body); if(c) return res.json({success:true, pending:c==='pending'}); await Shift.create(req.body); notifyUser(req.body.name, `📅 Зміна: ${req.body.date} (${req.body.start === 'Відпустка' ? 'Відпустка' : req.body.start + '-' + req.body.end})`); res.json({success:true}); });
 app.post('/api/delete-shift', async (req, res) => { const s=await Shift.findById(req.body.id); if(s){ const c=await handlePermission(req,'del_shift',{id:s.id,details:s.date}); if(c) return res.json({success:true, pending:c==='pending'}); await Shift.findByIdAndDelete(req.body.id); notifyUser(s.name, `❌ Скасовано: ${s.date}`); } res.json({success:true}); });
 app.post('/api/shifts/bulk', async (req, res) => { if(req.body.shifts?.length) await Shift.insertMany(req.body.shifts); res.json({success:true}); });
 app.post('/api/shifts/clear-day', async (req, res) => { await Shift.deleteMany({date:req.body.date}); res.json({success:true}); });
@@ -302,32 +292,64 @@ if (bot) {
         const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
         const shifts = await Shift.find({ date: now.toISOString().split('T')[0] });
         const curMin = now.getHours()*60 + now.getMinutes();
-        let active = shifts.filter(s => { const [h1,m1]=s.start.split(':').map(Number); const [h2,m2]=s.end.split(':').map(Number); const start=h1*60+m1; const end=h2*60+m2; return curMin>=start && curMin<end; }).map(s=>`👤 <b>${s.name}</b> (до ${s.end})`).join('\n');
-        bot.sendMessage(msg.chat.id, active ? `🟢 <b>Зараз:</b>\n\n${active}` : "zzz... Нікого немає", {parse_mode:'HTML', message_thread_id: msg.message_thread_id});
+        let active = [];
+        shifts.forEach(s => {
+            if(s.start === 'Відпустка') return;
+            const [h1,m1]=s.start.split(':').map(Number); const [h2,m2]=s.end.split(':').map(Number); 
+            const start=h1*60+m1; const end=h2*60+m2; 
+            if(curMin>=start && curMin<end) active.push(`👤 <b>${s.name}</b> (до ${s.end})`);
+        });
+        bot.sendMessage(msg.chat.id, active.length ? `🟢 <b>Зараз:</b>\n\n${active.join('\n')}` : "zzz... Нікого немає", {parse_mode:'HTML', message_thread_id: msg.message_thread_id});
     });
     bot.onText(/\/contacts/, async (msg) => { const c = await Contact.find(); bot.sendMessage(msg.chat.id, `📒 <b>Контакти:</b>\n\n` + c.map(x=>`👤 <b>${x.name}:</b> ${x.phone}`).join('\n'), {parse_mode:'HTML', message_thread_id: msg.message_thread_id}); });
     bot.onText(/\/addcontact (.+)/, async (msg, match) => { const u = await User.findOne({ telegramChatId: msg.from.id }); if(u?.role!=='SM'&&u?.role!=='admin') return; const args=match[1].trim().split(' '); const phone=args.pop(); const name=args.join(' '); await Contact.create({name,phone}); bot.sendMessage(msg.chat.id, `✅ Додано: ${name}`); });
     bot.onText(/\/delcontact (.+)/, async (msg, match) => { const u = await User.findOne({ telegramChatId: msg.from.id }); if(u?.role!=='SM'&&u?.role!=='admin') return; await Contact.findOneAndDelete({name:match[1].trim()}); bot.sendMessage(msg.chat.id, `🗑 Видалено: ${match[1].trim()}`); });
 
+    // --- STATS WITH VACATION SUPPORT ---
     bot.onText(/\/stats/, async (msg) => {
         const u = await User.findOne({ telegramChatId: msg.from.id }); if(u?.role!=='SM'&&u?.role!=='admin') return;
         const now = new Date(); const mStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
         const shifts = await Shift.find({ date: { $regex: `^${mStr}` } });
         if(!shifts.length) return bot.sendMessage(msg.chat.id, "Пусто");
         
-        const report = {}; shifts.forEach(s => { const [h1,m1]=s.start.split(':').map(Number); const [h2,m2]=s.end.split(':').map(Number); const h=(h2+m2/60)-(h1+m1/60); if(!report[s.name]) report[s.name]=0; report[s.name]+=h; });
-        let txt = `📊 <b>Табель:</b>\n\n`; Object.entries(report).sort((a,b)=>b[1]-a[1]).forEach(([n,h],i)=> txt+=`${i<3?['🥇','🥈','🥉'][i]:'👤'} <b>${n}:</b> ${h.toFixed(1)} год.\n`);
+        const report = {}; 
+        shifts.forEach(s => { 
+            if(!report[s.name]) report[s.name] = { hours: 0, shifts: 0, vacations: 0 };
+            
+            if (s.start === 'Відпустка') {
+                report[s.name].vacations += 1;
+            } else {
+                const [h1,m1]=s.start.split(':').map(Number); 
+                const [h2,m2]=s.end.split(':').map(Number); 
+                const h=(h2+m2/60)-(h1+m1/60); 
+                report[s.name].hours += h;
+                report[s.name].shifts += 1;
+            }
+        });
+
+        let txt = `📊 <b>Табель:</b>\n\n`; 
+        Object.entries(report).sort((a,b)=>b[1].hours-a[1].hours).forEach(([n, data], i)=> {
+            txt += `${i<3?['🥇','🥈','🥉'][i]:'👤'} <b>${n}:</b> ${data.hours.toFixed(1)} год.`;
+            if (data.vacations > 0) txt += ` (🌴 ${data.vacations} дн.)`;
+            txt += '\n';
+        });
         await bot.sendMessage(msg.chat.id, txt, {parse_mode:'HTML', message_thread_id: msg.message_thread_id});
 
         const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Табель');
         const dim = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
         const cols = [{header:'Ім\'я', key:'name', width:20}]; for(let i=1; i<=dim; i++) cols.push({header:`${i}`, key:`d${i}`, width:10}); cols.push({header:'Всього', key:'total', width:12});
         ws.columns = cols; ws.getRow(1).font={bold:true};
+        
         Object.keys(report).sort().forEach(n => {
-            const row = {name:n, total:parseFloat(report[n].toFixed(1))};
-            shifts.filter(s=>s.name===n).forEach(s=> row[`d${parseInt(s.date.split('-')[2])}`] = `${s.start}-${s.end}`);
+            const row = {name:n, total:parseFloat(report[n].hours.toFixed(1))};
+            shifts.filter(s=>s.name===n).forEach(s=> {
+                const day = parseInt(s.date.split('-')[2]);
+                if (s.start === 'Відпустка') row[`d${day}`] = 'Відпустка';
+                else row[`d${day}`] = `${s.start}-${s.end}`;
+            });
             ws.addRow(row);
         });
+        
         const buf = await wb.xlsx.writeBuffer();
         bot.sendDocument(msg.chat.id, buf, {caption:`📂 Табель_${mStr}.xlsx`, message_thread_id: msg.message_thread_id}, {filename:`Табель_${mStr}.xlsx`, contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     });
