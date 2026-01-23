@@ -15,6 +15,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- CONFIG ---
+// ID групи та ID тем (Thread ID) для новин та графіку
 const TG_CONFIG = {
     groupId: process.env.TG_GROUP_ID, 
     topics: {
@@ -22,7 +23,7 @@ const TG_CONFIG = {
         news: 36865      
     }
 };
-const GOOGLE_SHEET_URL = ''; // Опціонально
+const GOOGLE_SHEET_URL = ''; // Залиш пустим, якщо не використовуєш
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -33,7 +34,7 @@ app.set('trust proxy', 1);
 let bot = null;
 if (process.env.TELEGRAM_TOKEN) {
     bot = new TelegramBot(process.env.TELEGRAM_TOKEN);
-    const APP_URL = 'https://shifter-app.onrender.com';
+    const APP_URL = 'https://shifter-app.onrender.com'; // Твоя адреса на Render
     bot.setWebHook(`${APP_URL}/bot${process.env.TELEGRAM_TOKEN}`);
     console.log("🤖 Telegram Bot: Webhook set");
 
@@ -124,7 +125,7 @@ async function notifyUser(name, msg) { if(!bot) return; try { const u = await Us
 async function notifyRole(role, msg) { if(!bot) return; try { const us = await User.find({role}); for(const u of us) if(u.telegramChatId) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} }
 async function notifyAll(msg) { if(!bot) return; try { const us = await User.find({telegramChatId:{$ne:null}}); for(const u of us) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} }
 
-// --- SYNC ---
+// --- SYNC (Optional Google Sheets) ---
 async function syncWithGoogleSheets() {
     if (!GOOGLE_SHEET_URL || GOOGLE_SHEET_URL.length < 10) return { success: false, message: "URL not set" };
     try {
@@ -170,6 +171,8 @@ async function sendDailyBriefing() {
 cron.schedule('0 18 * * *', sendDailyBriefing);
 
 // --- ROUTES ---
+
+// Auth
 app.post('/api/login', async (req, res) => { 
     try { const { username, password } = req.body; const user = await User.findOne({ username, password }); 
     if (user) { 
@@ -209,6 +212,15 @@ app.post('/api/user/avatar', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Logs API
+app.get('/api/logs', async (req, res) => {
+    const user = await User.findById(req.session.userId);
+    if(user?.role !== 'admin' && user?.role !== 'SM') return res.json([]);
+    const logs = await AuditLog.find().sort({timestamp: -1}).limit(50);
+    res.json(logs);
+});
+
+// Notes API
 app.get('/api/notes', async (req, res) => {
     if (!req.session.userId) return res.json([]);
     const user = await User.findById(req.session.userId);
@@ -223,6 +235,7 @@ app.post('/api/notes', async (req, res) => {
     let finalType = 'private';
     if (type === 'public' && (user.role === 'SM' || user.role === 'admin')) { finalType = 'public'; }
     await Note.create({ date, text, type: finalType, author: user.name });
+    logAction(user.name, 'add_note', `${type} note for ${date}`);
     res.json({ success: true });
 });
 app.post('/api/notes/delete', async (req, res) => {
@@ -233,6 +246,7 @@ app.post('/api/notes/delete', async (req, res) => {
     if (!note) return res.json({ success: false });
     if (note.author === user.name || ((user.role === 'SM' || user.role === 'admin') && note.type === 'public')) {
         await Note.findByIdAndDelete(id);
+        logAction(user.name, 'delete_note', `Note deleted`);
         res.json({ success: true });
     } else { res.status(403).json({ success: false }); }
 });
@@ -240,6 +254,7 @@ app.post('/api/notes/delete', async (req, res) => {
 app.get('/api/users', async (req, res) => { const users = await User.find({}, 'name role'); res.json(users); });
 app.get('/api/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); const s = await Shift.find(); res.json(s); });
 
+// Shifts Actions
 app.post('/api/shifts', async (req, res) => { 
     const u = await User.findById(req.session.userId);
     const c=await handlePermission(req,'add_shift',req.body); 
@@ -267,21 +282,29 @@ app.post('/api/shifts/bulk', async (req, res) => {
     const u = await User.findById(req.session.userId);
     if(req.body.shifts?.length) {
         await Shift.insertMany(req.body.shifts);
-        logAction(u.name, 'bulk_import', `${req.body.shifts.length} shifts`);
+        logAction(u.name, 'bulk_import', `Imported ${req.body.shifts.length} shifts`);
     }
     res.json({success:true}); 
 });
 
-app.post('/api/shifts/clear-day', async (req, res) => { await Shift.deleteMany({date:req.body.date}); res.json({success:true}); });
+app.post('/api/shifts/clear-day', async (req, res) => { 
+    const u = await User.findById(req.session.userId);
+    await Shift.deleteMany({date:req.body.date}); 
+    logAction(u.name, 'clear_day', `Cleared ${req.body.date}`);
+    res.json({success:true}); 
+});
 
+// Tasks
 app.get('/api/tasks', async (req, res) => { const t = await Task.find(); res.json(t); });
 app.post('/api/tasks', async (req, res) => { const c=await handlePermission(req,'add_task',req.body); if(c) return res.json({success:true, pending:c==='pending'}); await Task.create(req.body); notifyUser(req.body.name, `📌 Задача: ${req.body.title}`); res.json({success:true}); });
 app.post('/api/tasks/delete', async (req, res) => { const c=await handlePermission(req,'del_task',{id:req.body.id}); if(c) return res.json({success:true, pending:c==='pending'}); await Task.findByIdAndDelete(req.body.id); res.json({success:true}); });
 
+// Events
 app.get('/api/events', async (req, res) => { const e = await Event.find(); res.json(e); });
 app.post('/api/events', async (req, res) => { const c=await handlePermission(req,'add_event',req.body); if(c) return res.json({success:true}); await Event.create(req.body); notifyAll(`📢 Подія: ${req.body.title}`); res.json({success:true}); });
 app.post('/api/events/delete', async (req, res) => { await Event.findByIdAndDelete(req.body.id); res.json({success:true}); });
 
+// Requests
 app.get('/api/requests', async (req, res) => { const u=await User.findById(req.session.userId); if(u?.role!=='SM'&&u?.role!=='admin') return res.json([]); const r=await Request.find().sort({createdAt:-1}); res.json(r); });
 app.post('/api/requests/action', async (req, res) => { const {id,action}=req.body; const r=await Request.findById(id); if(!r) return res.json({}); 
     if(action==='approve'){
@@ -304,6 +327,7 @@ app.post('/api/requests/approve-all', async (req, res) => { const rs=await Reque
     } res.json({success:true});
 });
 
+// News
 app.post('/api/news/publish', upload.single('media'), async (req, res) => {
     try {
         if (!req.session.userId) return res.status(403).json({});
