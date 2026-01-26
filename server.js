@@ -148,23 +148,19 @@ async function syncWithGoogleSheets() {
 }
 cron.schedule('0 * * * *', syncWithGoogleSheets);
 
-// --- DAILY BRIEFING (ОНОВЛЕНО) ---
+// --- DAILY BRIEFING ---
 async function sendDailyBriefing() {
     if (!bot || !TG_CONFIG.groupId) return;
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     const dateStr = tomorrow.toISOString().split('T')[0];
     const display = tomorrow.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
     
-    // Отримуємо зміни та задачі
     const shifts = await Shift.find({ date: dateStr }).sort({ start: 1 });
     const tasks = await Task.find({ date: dateStr });
-    
-    // Отримуємо всіх активних користувачів, крім Адміна та RRP
     const allUsers = await User.find({ role: { $nin: ['admin', 'RRP'] } });
     
     let msg = `🌙 <b>План на завтра (${display}):</b>\n\n`;
     
-    // Робочі зміни
     const workingNames = [];
     if (shifts.length) { 
         msg += `👷‍♂️ <b>На зміні:</b>\n`; 
@@ -175,18 +171,12 @@ async function sendDailyBriefing() {
         }); 
     } else { msg += `🤷‍♂️ <b>Змін немає</b>\n`; }
 
-    // Задачі
     if (tasks.length) { msg += `\n📌 <b>Задачі:</b>\n`; tasks.forEach(t => { const time = t.isFullDay ? "Весь день" : `${t.start}-${t.end}`; msg += `🔸 <b>${t.name}</b>: ${t.title} (${time})\n`; }); }
 
-    // Вихідні (ті, кого немає в shifts)
     const offUsers = allUsers.filter(u => !workingNames.includes(u.name));
     if (offUsers.length > 0) {
         msg += `\n😴 <b>Вихідні:</b>\n`;
-        // Форматуємо список через кому або стовпчиком (оберемо через кому для компактності)
-        const names = offUsers.map(u => {
-            const parts = u.name.split(' ');
-            return parts.length > 1 ? `${parts[1]}` : u.name; // Беремо тільки ім'я для стислості
-        }).join(', ');
+        const names = offUsers.map(u => { const parts = u.name.split(' '); return parts.length > 1 ? `${parts[1]}` : u.name; }).join(', ');
         msg += `${names}\n`;
     }
 
@@ -314,6 +304,15 @@ app.post('/api/shifts/clear-day', async (req, res) => {
     res.json({success:true}); 
 });
 
+// --- NEW: CLEAR MONTH ---
+app.post('/api/shifts/clear-month', async (req, res) => { 
+    const u = await User.findById(req.session.userId);
+    // req.body.month = "2026-02"
+    await Shift.deleteMany({date: { $regex: `^${req.body.month}` } }); 
+    logAction(u.name, 'clear_month', `Cleared month ${req.body.month}`);
+    res.json({success:true}); 
+});
+
 app.get('/api/tasks', async (req, res) => { const t = await Task.find(); res.json(t); });
 app.post('/api/tasks', async (req, res) => { const c=await handlePermission(req,'add_task',req.body); if(c) return res.json({success:true, pending:c==='pending'}); await Task.create(req.body); notifyUser(req.body.name, `📌 Задача: ${req.body.title}`); res.json({success:true}); });
 app.post('/api/tasks/delete', async (req, res) => { const c=await handlePermission(req,'del_task',{id:req.body.id}); if(c) return res.json({success:true, pending:c==='pending'}); await Task.findByIdAndDelete(req.body.id); res.json({success:true}); });
@@ -398,7 +397,7 @@ if (bot) {
     bot.onText(/\/addcontact (.+)/, async (msg, match) => { const u = await User.findOne({ telegramChatId: msg.from.id }); if(u?.role!=='SM'&&u?.role!=='admin') return; const args=match[1].trim().split(' '); const phone=args.pop(); const name=args.join(' '); await Contact.create({name,phone}); bot.sendMessage(msg.chat.id, `✅ Додано: ${name}`); });
     bot.onText(/\/delcontact (.+)/, async (msg, match) => { const u = await User.findOne({ telegramChatId: msg.from.id }); if(u?.role!=='SM'&&u?.role!=='admin') return; await Contact.findOneAndDelete({name:match[1].trim()}); bot.sendMessage(msg.chat.id, `🗑 Видалено: ${match[1].trim()}`); });
 
-    // --- STATS WITH VACATION SUPPORT ---
+    // --- STATS ---
     bot.onText(/\/stats/, async (msg) => {
         const u = await User.findOne({ telegramChatId: msg.from.id }); if(u?.role!=='SM'&&u?.role!=='admin') return;
         const now = new Date(); const mStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -408,7 +407,6 @@ if (bot) {
         const report = {}; 
         shifts.forEach(s => { 
             if(!report[s.name]) report[s.name] = { hours: 0, shifts: 0, vacations: 0 };
-            
             if (s.start === 'Відпустка') {
                 report[s.name].vacations += 1;
             } else {
@@ -442,7 +440,6 @@ if (bot) {
             });
             ws.addRow(row);
         });
-        
         const buf = await wb.xlsx.writeBuffer();
         bot.sendDocument(msg.chat.id, buf, {caption:`📂 Табель_${mStr}.xlsx`, message_thread_id: msg.message_thread_id}, {filename:`Табель_${mStr}.xlsx`, contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     });

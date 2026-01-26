@@ -184,7 +184,10 @@
                     <div class="flex items-center justify-between"><span class="text-sm font-medium">🌴 Відпустка</span><input type="checkbox" id="shiftVacation" onchange="toggleShiftTimeInputs()" class="w-6 h-6 accent-teal-500 rounded-lg"></div>
                     <div id="shiftTimeInputs" class="flex gap-3"><input type="time" id="startTime" class="ios-input" value="10:00"><input type="time" id="endTime" class="ios-input" value="20:00"></div>
                     <button onclick="addShift()" class="btn-primary">Додати зміну</button>
-                    <button onclick="clearDay()" class="text-xs text-red-500 w-full mt-2 font-medium">Очистити день</button>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="clearDay()" class="text-xs text-red-500 border border-red-200 dark:border-red-900 w-1/2 py-2 rounded-lg font-medium active:scale-95 transition-transform">Очистити день</button>
+                        <button onclick="clearMonth()" class="text-xs text-white bg-red-500 w-1/2 py-2 rounded-lg font-bold shadow-md shadow-red-500/30 active:scale-95 transition-transform">🗑 Очистити місяць</button>
+                    </div>
                 </div>
                 
                 <div id="adminTabTasks" class="hidden space-y-3"><input type="text" id="taskTitle" placeholder="Назва" class="ios-input"><div class="grid grid-cols-2 gap-3"><input type="date" id="taskDate" class="ios-input"><select id="taskEmployee" class="ios-input bg-transparent"><option disabled selected>Кому?</option></select></div><div class="flex items-center justify-between"><span class="text-sm">Весь день</span><input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()" class="w-5 h-5 accent-purple-500"></div><div id="taskTimeInputs" class="flex gap-3"><input type="time" id="taskStart" class="ios-input" value="12:00"><input type="time" id="taskEnd" class="ios-input" value="14:00"></div><button onclick="addTask()" class="btn-primary bg-purple-500">Призначити</button></div>
@@ -341,37 +344,43 @@
         function closeFilterModal() { document.getElementById('filterModal').classList.add('hidden'); }
         function applyFilter(val) { triggerHaptic(); activeFilter = val; document.getElementById('currentFilterLabel').innerText = val === 'all' ? 'Всі співробітники' : val.split(' ')[1] || val; closeFilterModal(); renderCurrentShifts(); }
 
-        // --- NEW IMPORT LOGIC ---
+        // --- NEW: Clear Month Logic ---
+        async function clearMonth() {
+            const d = document.getElementById('shiftDate').value;
+            if(!d) return alert("Оберіть дату в потрібному місяці");
+            const month = d.substring(0, 7); // "2026-02"
+            if(confirm(`⚠️ ВИДАЛИТИ ВЕСЬ ГРАФІК за ${month}? Це незворотно.`)) {
+                await fetch('/api/shifts/clear-month', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ month })
+                });
+                loadShifts().then(renderCurrentShifts);
+                alert("Місяць очищено");
+            }
+        }
+
         async function bulkImport() { 
             const raw = document.getElementById('importData').value; 
             if(!raw) return alert("Пусто"); 
-            
             const rows = raw.trim().split('\n'); 
             const shifts = []; 
-            
             rows.forEach(row => { 
                 const parts = row.trim().split(/[\t, ]+/); 
                 if (parts.length < 3) return; 
-
                 const date = parts[0];
                 const lastEl = parts[parts.length - 1].toLowerCase();
-                
                 if(lastEl.includes('відпустка') || lastEl.includes('vacation')) {
-                    // [Date] [Name Name Name] [Vacation]
                     const name = parts.slice(1, parts.length - 1).join(' ');
                     shifts.push({ date, name, start: 'Відпустка', end: 'Відпустка' }); 
                 } 
                 else if(parts.length >= 4) { 
-                    // [Date] [Name Name Name] [Start] [End]
                     const start = parts[parts.length - 2];
                     const end = parts[parts.length - 1];
                     const name = parts.slice(1, parts.length - 2).join(' ');
                     shifts.push({ date, name, start, end }); 
                 } 
             }); 
-            
             if(shifts.length === 0) return alert("Не розпізнано"); 
-            
             if(confirm(`Завантажити ${shifts.length} змін?`)) { 
                 const res = await fetch('/api/shifts/bulk', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ shifts }) }); 
                 if(res.ok) { document.getElementById('importData').value = ''; loadShifts().then(renderCurrentShifts); alert("Успішно!"); } else { alert("Помилка"); } 
