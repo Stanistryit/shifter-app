@@ -34,30 +34,54 @@
         body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
         
         /* HEAVY GLASS */
-        .glass-header { background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); border-bottom: 1px solid rgba(0,0,0,0.05); }
-        .dark .glass-header { background: rgba(28, 28, 30, 0.65); border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .glass-header { 
+            background: rgba(255, 255, 255, 0.65); 
+            backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid rgba(0,0,0,0.05); 
+        }
+        .dark .glass-header { 
+            background: rgba(28, 28, 30, 0.65); 
+            border-bottom: 1px solid rgba(255,255,255,0.1); 
+        }
         
-        .glass-panel { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+        .glass-panel { 
+            background: rgba(255, 255, 255, 0.7); 
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); 
+        }
         .dark .glass-panel { background: rgba(28, 28, 30, 0.7); }
 
-        .glass-modal { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+        .glass-modal { 
+            background: rgba(255, 255, 255, 0.85); 
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); 
+        }
         .dark .glass-modal { background: rgba(28, 28, 30, 0.85); }
 
         .ios-card { background: white; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); transition: transform 0.1s; }
         .dark .ios-card { background: #1C1C1E; box-shadow: none; }
         .ios-card:active { transform: scale(0.98); }
 
-        .btn-primary { background: linear-gradient(135deg, #007AFF, #0056b3); color: white; border-radius: 14px; font-weight: 600; padding: 12px; width: 100%; box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3); transition: all 0.2s; }
+        .btn-primary { 
+            background: linear-gradient(135deg, #007AFF, #0056b3); 
+            color: white; border-radius: 14px; font-weight: 600; padding: 12px; width: 100%; 
+            box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3); transition: all 0.2s;
+        }
         .btn-primary:active { transform: scale(0.96); box-shadow: 0 2px 5px rgba(0, 122, 255, 0.2); }
 
-        .stagger-1 { animation-delay: 0.05s; } .stagger-2 { animation-delay: 0.1s; } .stagger-3 { animation-delay: 0.15s; } .stagger-4 { animation-delay: 0.2s; } .stagger-5 { animation-delay: 0.25s; }
+        /* Animation Stagger */
+        .stagger-1 { animation-delay: 0.05s; }
+        .stagger-2 { animation-delay: 0.1s; }
+        .stagger-3 { animation-delay: 0.15s; }
+        .stagger-4 { animation-delay: 0.2s; }
+        .stagger-5 { animation-delay: 0.25s; }
 
+        /* Timeline Gradient Segments */
         .timeline-track { position: relative; height: 28px; background: #F3F4F6; border-radius: 10px; overflow: hidden; width: 100%; margin-top: 6px; }
         .dark .timeline-track { background: #2C2C2E; }
         .timeline-grid-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(10, 1fr); pointer-events: none; }
         .timeline-line { border-right: 1px dashed rgba(0,0,0,0.05); height: 100%; }
         .dark .timeline-line { border-color: rgba(255,255,255,0.05); }
         
+        /* GRADIENTS */
         .shift-segment { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, #3B82F6, #4F46E5); border-radius: 8px; z-index: 10; opacity: 0.9; box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3); }
         .shift-segment.my-shift { background: linear-gradient(90deg, #10B981, #059669); box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4); }
         .shift-segment.vacation-segment { background: linear-gradient(90deg, #2DD4BF, #0D9488); width: 100% !important; left: 0 !important; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: white; letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 2px 6px rgba(45, 212, 191, 0.3); }
@@ -66,8 +90,11 @@
         .task-segment:active { transform: scale(0.95); }
         
         .ios-input { background: #E5E5EA; border: none; border-radius: 12px; padding: 12px 16px; width: 100%; font-size: 16px; outline: none; transition: background 0.2s; }
-        .dark .ios-input { background: #2C2C2E; color: white; } .dark .ios-input:focus { background: #3A3A3C; }
-        .skeleton { background: #E5E5EA; border-radius: 12px; } .dark .skeleton { background: #2C2C2E; }
+        .dark .ios-input { background: #2C2C2E; color: white; }
+        .dark .ios-input:focus { background: #3A3A3C; }
+
+        .skeleton { background: #E5E5EA; border-radius: 12px; }
+        .dark .skeleton { background: #2C2C2E; }
 
         /* CALENDAR */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
@@ -162,14 +189,21 @@
                 
                 <div id="adminTabTasks" class="hidden space-y-3"><input type="text" id="taskTitle" placeholder="Назва" class="ios-input"><div class="grid grid-cols-2 gap-3"><input type="date" id="taskDate" class="ios-input"><select id="taskEmployee" class="ios-input bg-transparent"><option disabled selected>Кому?</option></select></div><div class="flex items-center justify-between"><span class="text-sm">Весь день</span><input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()" class="w-5 h-5 accent-purple-500"></div><div id="taskTimeInputs" class="flex gap-3"><input type="time" id="taskStart" class="ios-input" value="12:00"><input type="time" id="taskEnd" class="ios-input" value="14:00"></div><button onclick="addTask()" class="btn-primary bg-purple-500">Призначити</button></div>
                 <div id="adminTabImport" class="hidden space-y-3"><textarea id="importData" placeholder="2026-01-01 Ім'я 10:00 20:00" class="ios-input h-24 font-mono text-xs"></textarea><button onclick="bulkImport()" class="btn-primary bg-indigo-500">Завантажити</button></div>
-                <div id="adminTabNews" class="hidden space-y-3"><textarea id="newsText" placeholder="Новина..." class="ios-input h-32 text-sm"></textarea><input type="file" id="newsFile" class="ios-input"><button onclick="publishNews()" class="btn-primary bg-pink-500">Опублікувати</button></div>
-                <div id="adminTabRequests" class="hidden space-y-3"><button onclick="approveAllRequests()" class="btn-primary bg-green-500">✅ Підтвердити Всі</button><div id="requestsList" class="space-y-3"></div></div>
                 
-                <div id="adminTabLogs" class="hidden space-y-2">
-                    <button onclick="loadLogs()" class="btn-primary bg-gray-500 text-xs py-2 mb-2">🔄 Оновити логи</button>
-                    <div id="logsList" class="text-xs space-y-2 max-h-60 overflow-y-auto pr-2">
-                        </div>
+                <div id="adminTabNews" class="hidden space-y-3">
+                    <div class="flex gap-2 mb-1 overflow-x-auto pb-1">
+                        <button onclick="formatText('bold')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs font-bold">B</button>
+                        <button onclick="formatText('italic')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs italic">I</button>
+                        <button onclick="formatText('link')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs">🔗</button>
+                        <button onclick="formatText('spoiler')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs">S</button>
+                    </div>
+                    <textarea id="newsText" placeholder="Новина..." class="ios-input h-32 text-sm"></textarea>
+                    <input type="file" id="newsFile" class="ios-input">
+                    <button onclick="publishNews()" class="btn-primary bg-pink-500">Опублікувати</button>
                 </div>
+                
+                <div id="adminTabRequests" class="hidden space-y-3"><button onclick="approveAllRequests()" class="btn-primary bg-green-500">✅ Підтвердити Всі</button><div id="requestsList" class="space-y-3"></div></div>
+                <div id="adminTabLogs" class="hidden space-y-2"><button onclick="loadLogs()" class="btn-primary bg-gray-500 text-xs py-2 mb-2">🔄 Оновити логи</button><div id="logsList" class="text-xs space-y-2 max-h-60 overflow-y-auto pr-2"></div></div>
             </div>
 
             <div id="listViewContainer">
@@ -222,7 +256,6 @@
             await Promise.all([loadEmployeeList(), loadShifts(), loadTasks(), loadNotes()]); renderCurrentShifts();
         }
 
-        // --- RENDER TIMELINE ---
         function renderTimeline(shifts, filterUser) {
             const main = document.getElementById('scheduleView'); main.innerHTML = '';
             const archive = document.getElementById('archiveContainer'); archive.innerHTML = '';
@@ -308,9 +341,43 @@
         function closeFilterModal() { document.getElementById('filterModal').classList.add('hidden'); }
         function applyFilter(val) { triggerHaptic(); activeFilter = val; document.getElementById('currentFilterLabel').innerText = val === 'all' ? 'Всі співробітники' : val.split(' ')[1] || val; closeFilterModal(); renderCurrentShifts(); }
 
-        async function addShift() { const date=document.getElementById('shiftDate').value; const name=document.getElementById('employeeSelect').value; const isVacation = document.getElementById('shiftVacation').checked; let start, end; if (isVacation) { start = 'Відпустка'; end = 'Відпустка'; } else { start=document.getElementById('startTime').value; end=document.getElementById('endTime').value; } if(!date||!name)return alert("Дані?"); const r=await fetch('/api/shifts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,name,start,end})}); const d=await r.json(); if(d.pending)alert("На підтвердженні"); loadShifts().then(renderCurrentShifts); }
-        async function addTask() { const title=document.getElementById('taskTitle').value; const date=document.getElementById('taskDate').value; const name=document.getElementById('taskEmployee').value; const isFullDay=document.getElementById('taskFullDay').checked; const start=document.getElementById('taskStart').value; const end=document.getElementById('taskEnd').value; if(!title||!date||!name)return alert("Дані?"); await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,date,name,isFullDay,start,end})}); loadTasks().then(renderCurrentShifts); }
-        async function bulkImport() { const raw = document.getElementById('importData').value; if(!raw) return alert("Пусто"); const rows = raw.trim().split('\n'); const shifts = []; rows.forEach(row => { const parts = row.split(/[\t, ]+/); if(parts.length === 3 && parts[2].toLowerCase().includes('відпустка')) { shifts.push({ date: parts[0].trim(), name: parts[1].trim(), start: 'Відпустка', end: 'Відпустка' }); } else if(parts.length >= 4) { shifts.push({ date: parts[0].trim(), name: parts[1].trim(), start: parts[2].trim(), end: parts[3].trim() }); } }); if(shifts.length === 0) return alert("Не розпізнано"); if(confirm(`Завантажити ${shifts.length} змін?`)) { const res = await fetch('/api/shifts/bulk', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ shifts }) }); if(res.ok) { document.getElementById('importData').value = ''; loadShifts().then(renderCurrentShifts); alert("Успішно!"); } else { alert("Помилка"); } } }
+        // --- NEW IMPORT LOGIC ---
+        async function bulkImport() { 
+            const raw = document.getElementById('importData').value; 
+            if(!raw) return alert("Пусто"); 
+            
+            const rows = raw.trim().split('\n'); 
+            const shifts = []; 
+            
+            rows.forEach(row => { 
+                const parts = row.trim().split(/[\t, ]+/); 
+                if (parts.length < 3) return; 
+
+                const date = parts[0];
+                const lastEl = parts[parts.length - 1].toLowerCase();
+                
+                if(lastEl.includes('відпустка') || lastEl.includes('vacation')) {
+                    // [Date] [Name Name Name] [Vacation]
+                    const name = parts.slice(1, parts.length - 1).join(' ');
+                    shifts.push({ date, name, start: 'Відпустка', end: 'Відпустка' }); 
+                } 
+                else if(parts.length >= 4) { 
+                    // [Date] [Name Name Name] [Start] [End]
+                    const start = parts[parts.length - 2];
+                    const end = parts[parts.length - 1];
+                    const name = parts.slice(1, parts.length - 2).join(' ');
+                    shifts.push({ date, name, start, end }); 
+                } 
+            }); 
+            
+            if(shifts.length === 0) return alert("Не розпізнано"); 
+            
+            if(confirm(`Завантажити ${shifts.length} змін?`)) { 
+                const res = await fetch('/api/shifts/bulk', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ shifts }) }); 
+                if(res.ok) { document.getElementById('importData').value = ''; loadShifts().then(renderCurrentShifts); alert("Успішно!"); } else { alert("Помилка"); } 
+            } 
+        }
+
         async function publishNews() { const text = document.getElementById('newsText').value; const file = document.getElementById('newsFile').files[0]; if (!text && !file) return alert("Введіть текст або оберіть файл"); const formData = new FormData(); formData.append('text', text); if (file) formData.append('media', file); const btn = document.querySelector('#adminTabNews button:last-child'); btn.innerText = "⏳ Публікую..."; btn.disabled = true; try { const res = await fetch('/api/news/publish', { method: 'POST', body: formData }); if (res.ok) { alert("✅ Опубліковано!"); document.getElementById('newsText').value = ''; document.getElementById('newsFile').value = ''; } else { alert("Помилка"); } } catch (e) { alert("Помилка"); } finally { btn.innerText = "Опублікувати"; btn.disabled = false; } }
         async function delS(d,n){if(confirm("?")) await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d,name:n})});loadShifts().then(renderCurrentShifts);}
         async function deleteTask(id){ if(confirm("Видалити задачу?")) { await fetch('/api/tasks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); loadTasks().then(renderCurrentShifts); } }
@@ -319,6 +386,8 @@
         function downloadAllMyShifts(){ triggerHaptic(); if(!currentUser)return;const today=new Date().toISOString().split('T')[0];const myShifts=globalShifts.filter(s=>s.name===currentUser.name&&s.date>=today);if(myShifts.length===0)return alert('Немає змін!');let ics="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Shifter//UA\n";myShifts.forEach(s=>{if(s.start==='Відпустка')return;const start=s.date.replace(/-/g,'')+'T'+s.start.replace(':','')+'00';const end=s.date.replace(/-/g,'')+'T'+s.end.replace(':','')+'00';ics+=`BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Робота\nEND:VEVENT\n`;});ics+="END:VCALENDAR";const a=document.createElement('a');a.href=window.URL.createObjectURL(new Blob([ics],{type:'text/calendar'}));a.download=`my-shifts.ics`;document.body.appendChild(a);a.click();document.body.removeChild(a);}
         function renderCurrentShifts(){renderTimeline(globalShifts,null);renderCalendar();}
         function changeMonth(d){triggerHaptic(); currentCalendarDate.setMonth(currentCalendarDate.getMonth()+d);renderCalendar();}
+        function formatText(type) { const field = document.getElementById('newsText'); const start = field.selectionStart; const end = field.selectionEnd; const text = field.value; const selectedText = text.substring(start, end); let before = '', after = ''; if (type === 'bold') { before = '<b>'; after = '</b>'; } else if (type === 'italic') { before = '<i>'; after = '</i>'; } else if (type === 'spoiler') { before = '<tg-spoiler>'; after = '</tg-spoiler>'; } else if (type === 'link') { const url = prompt("URL:", "https://"); if (!url) return; before = `<a href="${url}">`; after = '</a>'; } const content = selectedText || (type === 'link' ? 'посилання' : 'текст'); field.value = text.substring(0, start) + before + content + after + text.substring(end); field.focus(); }
+
         function renderCalendar() { 
             const g = document.getElementById('calendarGrid'); 
             g.innerHTML=''; 

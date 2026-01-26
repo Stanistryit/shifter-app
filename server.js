@@ -15,7 +15,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- CONFIG ---
-// ID групи та ID тем (Thread ID) для новин та графіку
 const TG_CONFIG = {
     groupId: process.env.TG_GROUP_ID, 
     topics: {
@@ -23,7 +22,7 @@ const TG_CONFIG = {
         news: 36865      
     }
 };
-const GOOGLE_SHEET_URL = ''; // Залиш пустим, якщо не використовуєш
+const GOOGLE_SHEET_URL = ''; 
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -34,7 +33,7 @@ app.set('trust proxy', 1);
 let bot = null;
 if (process.env.TELEGRAM_TOKEN) {
     bot = new TelegramBot(process.env.TELEGRAM_TOKEN);
-    const APP_URL = 'https://shifter-app.onrender.com'; // Твоя адреса на Render
+    const APP_URL = 'https://shifter-app.onrender.com';
     bot.setWebHook(`${APP_URL}/bot${process.env.TELEGRAM_TOKEN}`);
     console.log("🤖 Telegram Bot: Webhook set");
 
@@ -125,7 +124,7 @@ async function notifyUser(name, msg) { if(!bot) return; try { const u = await Us
 async function notifyRole(role, msg) { if(!bot) return; try { const us = await User.find({role}); for(const u of us) if(u.telegramChatId) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} }
 async function notifyAll(msg) { if(!bot) return; try { const us = await User.find({telegramChatId:{$ne:null}}); for(const u of us) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} }
 
-// --- SYNC (Optional Google Sheets) ---
+// --- SYNC ---
 async function syncWithGoogleSheets() {
     if (!GOOGLE_SHEET_URL || GOOGLE_SHEET_URL.length < 10) return { success: false, message: "URL not set" };
     try {
@@ -149,30 +148,54 @@ async function syncWithGoogleSheets() {
 }
 cron.schedule('0 * * * *', syncWithGoogleSheets);
 
+// --- DAILY BRIEFING (ОНОВЛЕНО) ---
 async function sendDailyBriefing() {
     if (!bot || !TG_CONFIG.groupId) return;
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     const dateStr = tomorrow.toISOString().split('T')[0];
     const display = tomorrow.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
+    
+    // Отримуємо зміни та задачі
     const shifts = await Shift.find({ date: dateStr }).sort({ start: 1 });
     const tasks = await Task.find({ date: dateStr });
+    
+    // Отримуємо всіх активних користувачів, крім Адміна та RRP
+    const allUsers = await User.find({ role: { $nin: ['admin', 'RRP'] } });
+    
     let msg = `🌙 <b>План на завтра (${display}):</b>\n\n`;
+    
+    // Робочі зміни
+    const workingNames = [];
     if (shifts.length) { 
         msg += `👷‍♂️ <b>На зміні:</b>\n`; 
         shifts.forEach(s => {
+            workingNames.push(s.name);
             if(s.start === 'Відпустка') msg += `🌴 <b>${s.name}</b>: Відпустка\n`;
             else msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`;
         }); 
-    } else { msg += `🌴 <b>Завтра змін немає</b>\n`; }
+    } else { msg += `🤷‍♂️ <b>Змін немає</b>\n`; }
+
+    // Задачі
     if (tasks.length) { msg += `\n📌 <b>Задачі:</b>\n`; tasks.forEach(t => { const time = t.isFullDay ? "Весь день" : `${t.start}-${t.end}`; msg += `🔸 <b>${t.name}</b>: ${t.title} (${time})\n`; }); }
+
+    // Вихідні (ті, кого немає в shifts)
+    const offUsers = allUsers.filter(u => !workingNames.includes(u.name));
+    if (offUsers.length > 0) {
+        msg += `\n😴 <b>Вихідні:</b>\n`;
+        // Форматуємо список через кому або стовпчиком (оберемо через кому для компактності)
+        const names = offUsers.map(u => {
+            const parts = u.name.split(' ');
+            return parts.length > 1 ? `${parts[1]}` : u.name; // Беремо тільки ім'я для стислості
+        }).join(', ');
+        msg += `${names}\n`;
+    }
+
     msg += `\nGood luck! 🚀`;
     try { await bot.sendMessage(TG_CONFIG.groupId, msg, { parse_mode: 'HTML', message_thread_id: TG_CONFIG.topics.schedule }); } catch (e) {}
 }
 cron.schedule('0 18 * * *', sendDailyBriefing);
 
 // --- ROUTES ---
-
-// Auth
 app.post('/api/login', async (req, res) => { 
     try { const { username, password } = req.body; const user = await User.findOne({ username, password }); 
     if (user) { 
@@ -212,7 +235,6 @@ app.post('/api/user/avatar', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Logs API
 app.get('/api/logs', async (req, res) => {
     const user = await User.findById(req.session.userId);
     if(user?.role !== 'admin' && user?.role !== 'SM') return res.json([]);
@@ -220,7 +242,6 @@ app.get('/api/logs', async (req, res) => {
     res.json(logs);
 });
 
-// Notes API
 app.get('/api/notes', async (req, res) => {
     if (!req.session.userId) return res.json([]);
     const user = await User.findById(req.session.userId);
@@ -254,7 +275,6 @@ app.post('/api/notes/delete', async (req, res) => {
 app.get('/api/users', async (req, res) => { const users = await User.find({}, 'name role'); res.json(users); });
 app.get('/api/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); const s = await Shift.find(); res.json(s); });
 
-// Shifts Actions
 app.post('/api/shifts', async (req, res) => { 
     const u = await User.findById(req.session.userId);
     const c=await handlePermission(req,'add_shift',req.body); 
@@ -294,17 +314,14 @@ app.post('/api/shifts/clear-day', async (req, res) => {
     res.json({success:true}); 
 });
 
-// Tasks
 app.get('/api/tasks', async (req, res) => { const t = await Task.find(); res.json(t); });
 app.post('/api/tasks', async (req, res) => { const c=await handlePermission(req,'add_task',req.body); if(c) return res.json({success:true, pending:c==='pending'}); await Task.create(req.body); notifyUser(req.body.name, `📌 Задача: ${req.body.title}`); res.json({success:true}); });
 app.post('/api/tasks/delete', async (req, res) => { const c=await handlePermission(req,'del_task',{id:req.body.id}); if(c) return res.json({success:true, pending:c==='pending'}); await Task.findByIdAndDelete(req.body.id); res.json({success:true}); });
 
-// Events
 app.get('/api/events', async (req, res) => { const e = await Event.find(); res.json(e); });
 app.post('/api/events', async (req, res) => { const c=await handlePermission(req,'add_event',req.body); if(c) return res.json({success:true}); await Event.create(req.body); notifyAll(`📢 Подія: ${req.body.title}`); res.json({success:true}); });
 app.post('/api/events/delete', async (req, res) => { await Event.findByIdAndDelete(req.body.id); res.json({success:true}); });
 
-// Requests
 app.get('/api/requests', async (req, res) => { const u=await User.findById(req.session.userId); if(u?.role!=='SM'&&u?.role!=='admin') return res.json([]); const r=await Request.find().sort({createdAt:-1}); res.json(r); });
 app.post('/api/requests/action', async (req, res) => { const {id,action}=req.body; const r=await Request.findById(id); if(!r) return res.json({}); 
     if(action==='approve'){
@@ -327,7 +344,6 @@ app.post('/api/requests/approve-all', async (req, res) => { const rs=await Reque
     } res.json({success:true});
 });
 
-// News
 app.post('/api/news/publish', upload.single('media'), async (req, res) => {
     try {
         if (!req.session.userId) return res.status(403).json({});
