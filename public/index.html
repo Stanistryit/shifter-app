@@ -67,21 +67,14 @@
         }
         .btn-primary:active { transform: scale(0.96); box-shadow: 0 2px 5px rgba(0, 122, 255, 0.2); }
 
-        /* Animation Stagger */
-        .stagger-1 { animation-delay: 0.05s; }
-        .stagger-2 { animation-delay: 0.1s; }
-        .stagger-3 { animation-delay: 0.15s; }
-        .stagger-4 { animation-delay: 0.2s; }
-        .stagger-5 { animation-delay: 0.25s; }
+        .stagger-1 { animation-delay: 0.05s; } .stagger-2 { animation-delay: 0.1s; } .stagger-3 { animation-delay: 0.15s; } .stagger-4 { animation-delay: 0.2s; } .stagger-5 { animation-delay: 0.25s; }
 
-        /* Timeline Gradient Segments */
         .timeline-track { position: relative; height: 28px; background: #F3F4F6; border-radius: 10px; overflow: hidden; width: 100%; margin-top: 6px; }
         .dark .timeline-track { background: #2C2C2E; }
         .timeline-grid-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(10, 1fr); pointer-events: none; }
         .timeline-line { border-right: 1px dashed rgba(0,0,0,0.05); height: 100%; }
         .dark .timeline-line { border-color: rgba(255,255,255,0.05); }
         
-        /* GRADIENTS */
         .shift-segment { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, #3B82F6, #4F46E5); border-radius: 8px; z-index: 10; opacity: 0.9; box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3); }
         .shift-segment.my-shift { background: linear-gradient(90deg, #10B981, #059669); box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4); }
         .shift-segment.vacation-segment { background: linear-gradient(90deg, #2DD4BF, #0D9488); width: 100% !important; left: 0 !important; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: white; letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 2px 6px rgba(45, 212, 191, 0.3); }
@@ -90,11 +83,8 @@
         .task-segment:active { transform: scale(0.95); }
         
         .ios-input { background: #E5E5EA; border: none; border-radius: 12px; padding: 12px 16px; width: 100%; font-size: 16px; outline: none; transition: background 0.2s; }
-        .dark .ios-input { background: #2C2C2E; color: white; }
-        .dark .ios-input:focus { background: #3A3A3C; }
-
-        .skeleton { background: #E5E5EA; border-radius: 12px; }
-        .dark .skeleton { background: #2C2C2E; }
+        .dark .ios-input { background: #2C2C2E; color: white; } .dark .ios-input:focus { background: #3A3A3C; }
+        .skeleton { background: #E5E5EA; border-radius: 12px; } .dark .skeleton { background: #2C2C2E; }
 
         /* CALENDAR */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
@@ -201,8 +191,14 @@
                         <button onclick="formatText('spoiler')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs">S</button>
                     </div>
                     <textarea id="newsText" placeholder="Новина..." class="ios-input h-32 text-sm"></textarea>
-                    <input type="file" id="newsFile" class="ios-input">
-                    <button onclick="publishNews()" class="btn-primary bg-pink-500">Опублікувати</button>
+                    
+                    <label class="flex-1 flex items-center justify-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity mt-2">
+                        <span class="text-xl">📎</span> 
+                        <span id="fileName" class="text-xs truncate">Оберіть файли (можна декілька)</span>
+                        <input type="file" id="newsFile" class="hidden" multiple onchange="updateFileName()">
+                    </label>
+                    
+                    <button onclick="publishNews()" class="btn-primary bg-pink-500 mt-2">Опублікувати</button>
                 </div>
                 
                 <div id="adminTabRequests" class="hidden space-y-3"><button onclick="approveAllRequests()" class="btn-primary bg-green-500">✅ Підтвердити Всі</button><div id="requestsList" class="space-y-3"></div></div>
@@ -344,7 +340,6 @@
         function closeFilterModal() { document.getElementById('filterModal').classList.add('hidden'); }
         function applyFilter(val) { triggerHaptic(); activeFilter = val; document.getElementById('currentFilterLabel').innerText = val === 'all' ? 'Всі співробітники' : val.split(' ')[1] || val; closeFilterModal(); renderCurrentShifts(); }
 
-        // --- NEW: Clear Month Logic ---
         async function clearMonth() {
             const d = document.getElementById('shiftDate').value;
             if(!d) return alert("Оберіть дату в потрібному місяці");
@@ -357,6 +352,38 @@
                 loadShifts().then(renderCurrentShifts);
                 alert("Місяць очищено");
             }
+        }
+
+        async function addShift() { const date=document.getElementById('shiftDate').value; const name=document.getElementById('employeeSelect').value; const isVacation = document.getElementById('shiftVacation').checked; let start, end; if (isVacation) { start = 'Відпустка'; end = 'Відпустка'; } else { start=document.getElementById('startTime').value; end=document.getElementById('endTime').value; } if(!date||!name)return alert("Дані?"); const r=await fetch('/api/shifts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,name,start,end})}); const d=await r.json(); if(d.pending)alert("На підтвердженні"); loadShifts().then(renderCurrentShifts); }
+        async function addTask() { const title=document.getElementById('taskTitle').value; const date=document.getElementById('taskDate').value; const name=document.getElementById('taskEmployee').value; const isFullDay=document.getElementById('taskFullDay').checked; const start=document.getElementById('taskStart').value; const end=document.getElementById('taskEnd').value; if(!title||!date||!name)return alert("Дані?"); await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,date,name,isFullDay,start,end})}); loadTasks().then(renderCurrentShifts); }
+        
+        // --- NEW MULTIFILE PUBLISH ---
+        async function publishNews() { 
+            const text = document.getElementById('newsText').value; 
+            const files = document.getElementById('newsFile').files; // Get all files
+            
+            if (!text && files.length === 0) return alert("Введіть текст або оберіть файли"); 
+            
+            const formData = new FormData(); 
+            formData.append('text', text); 
+            
+            for (let i = 0; i < files.length; i++) {
+                formData.append('media', files[i]);
+            }
+            
+            const btn = document.querySelector('#adminTabNews button:last-child'); 
+            btn.innerText = "⏳ Публікую..."; btn.disabled = true; 
+            
+            try { 
+                const res = await fetch('/api/news/publish', { method: 'POST', body: formData }); 
+                if (res.ok) { 
+                    alert("✅ Опубліковано!"); 
+                    document.getElementById('newsText').value = ''; 
+                    document.getElementById('newsFile').value = ''; 
+                    updateFileName();
+                } else { alert("Помилка"); } 
+            } catch (e) { alert("Помилка"); } 
+            finally { btn.innerText = "Опублікувати"; btn.disabled = false; } 
         }
 
         async function bulkImport() { 
@@ -387,7 +414,6 @@
             } 
         }
 
-        async function publishNews() { const text = document.getElementById('newsText').value; const file = document.getElementById('newsFile').files[0]; if (!text && !file) return alert("Введіть текст або оберіть файл"); const formData = new FormData(); formData.append('text', text); if (file) formData.append('media', file); const btn = document.querySelector('#adminTabNews button:last-child'); btn.innerText = "⏳ Публікую..."; btn.disabled = true; try { const res = await fetch('/api/news/publish', { method: 'POST', body: formData }); if (res.ok) { alert("✅ Опубліковано!"); document.getElementById('newsText').value = ''; document.getElementById('newsFile').value = ''; } else { alert("Помилка"); } } catch (e) { alert("Помилка"); } finally { btn.innerText = "Опублікувати"; btn.disabled = false; } }
         async function delS(d,n){if(confirm("?")) await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d,name:n})});loadShifts().then(renderCurrentShifts);}
         async function deleteTask(id){ if(confirm("Видалити задачу?")) { await fetch('/api/tasks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); loadTasks().then(renderCurrentShifts); } }
         function clearDay(){const d=document.getElementById('shiftDate').value; if(d&&confirm(`Clean ${d}?`))fetch('/api/shifts/clear-day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d})}).then(()=>{loadShifts().then(renderCurrentShifts)});}
@@ -396,6 +422,17 @@
         function renderCurrentShifts(){renderTimeline(globalShifts,null);renderCalendar();}
         function changeMonth(d){triggerHaptic(); currentCalendarDate.setMonth(currentCalendarDate.getMonth()+d);renderCalendar();}
         function formatText(type) { const field = document.getElementById('newsText'); const start = field.selectionStart; const end = field.selectionEnd; const text = field.value; const selectedText = text.substring(start, end); let before = '', after = ''; if (type === 'bold') { before = '<b>'; after = '</b>'; } else if (type === 'italic') { before = '<i>'; after = '</i>'; } else if (type === 'spoiler') { before = '<tg-spoiler>'; after = '</tg-spoiler>'; } else if (type === 'link') { const url = prompt("URL:", "https://"); if (!url) return; before = `<a href="${url}">`; after = '</a>'; } const content = selectedText || (type === 'link' ? 'посилання' : 'текст'); field.value = text.substring(0, start) + before + content + after + text.substring(end); field.focus(); }
+        
+        function updateFileName() { 
+            const input = document.getElementById('newsFile'); 
+            const count = input.files.length;
+            const label = document.getElementById('fileName');
+            if (count > 0) {
+                label.innerText = count === 1 ? input.files[0].name : `Обрано ${count} файлів`;
+            } else {
+                label.innerText = "Оберіть файли (можна декілька)";
+            }
+        }
 
         function renderCalendar() { 
             const g = document.getElementById('calendarGrid'); 
