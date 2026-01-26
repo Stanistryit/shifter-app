@@ -31,14 +31,13 @@ app.set('trust proxy', 1);
 
 // --- TELEGRAM BOT INIT ---
 let bot = null;
-const APP_URL = 'https://shifter-app.onrender.com'; // Виніс в глобальну змінну для використання в меню
+const APP_URL = 'https://shifter-app.onrender.com';
 
 if (process.env.TELEGRAM_TOKEN) {
     bot = new TelegramBot(process.env.TELEGRAM_TOKEN);
     bot.setWebHook(`${APP_URL}/bot${process.env.TELEGRAM_TOKEN}`);
     console.log("🤖 Telegram Bot: Webhook set");
 
-    // Оновлене меню команд (для / меню)
     bot.setMyCommands([
         { command: '/start', description: '🏠 Головне меню' },
         { command: '/now', description: '👀 Хто зараз на зміні' },
@@ -146,7 +145,7 @@ async function syncWithGoogleSheets() {
 }
 cron.schedule('0 * * * *', syncWithGoogleSheets);
 
-// --- DAILY BRIEFING (GROUP + RRP) ---
+// --- DAILY BRIEFING ---
 async function sendDailyBriefing() {
     if (!bot || !TG_CONFIG.groupId) return;
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -158,7 +157,6 @@ async function sendDailyBriefing() {
     const allUsers = await User.find({ role: { $nin: ['admin', 'RRP'] } });
     
     let msg = `🌙 <b>План на завтра (${display}):</b>\n\n`;
-    
     const workingNames = [];
     if (shifts.length) { 
         msg += `👷‍♂️ <b>На зміні:</b>\n`; 
@@ -174,25 +172,16 @@ async function sendDailyBriefing() {
     const offUsers = allUsers.filter(u => !workingNames.includes(u.name));
     if (offUsers.length > 0) {
         msg += `\n😴 <b>Вихідні:</b>\n`;
-        const names = offUsers.map(u => {
-            const parts = u.name.split(' ');
-            return parts.length > 1 ? parts[1] : u.name; 
-        }).join(', ');
+        const names = offUsers.map(u => { const parts = u.name.split(' '); return parts.length > 1 ? parts[1] : u.name; }).join(', ');
         msg += `${names}\n`;
     }
 
     msg += `\nGood luck! 🚀`;
-    
-    // 1. Send to Group
     try { await bot.sendMessage(TG_CONFIG.groupId, msg, { parse_mode: 'HTML', message_thread_id: TG_CONFIG.topics.schedule }); } catch (e) {}
-
-    // 2. Send to RRP (NEW)
     try {
         const rrpUser = await User.findOne({ role: 'RRP' });
-        if (rrpUser && rrpUser.telegramChatId) {
-            await bot.sendMessage(rrpUser.telegramChatId, `🔔 <b>Щоденний звіт (RRP):</b>\n\n${msg}`, { parse_mode: 'HTML' });
-        }
-    } catch (e) { console.error("RRP Send Error:", e); }
+        if (rrpUser && rrpUser.telegramChatId) await bot.sendMessage(rrpUser.telegramChatId, `🔔 <b>Щоденний звіт (RRP):</b>\n\n${msg}`, { parse_mode: 'HTML' });
+    } catch (e) {}
 }
 cron.schedule('0 18 * * *', sendDailyBriefing);
 
@@ -273,7 +262,8 @@ app.post('/api/notes/delete', async (req, res) => {
     } else { res.status(403).json({ success: false }); }
 });
 
-app.get('/api/users', async (req, res) => { const users = await User.find({}, 'name role'); res.json(users); });
+// !!! ОНОВЛЕНО: Повертаємо і аватар !!!
+app.get('/api/users', async (req, res) => { const users = await User.find({}, 'name role avatar'); res.json(users); });
 app.get('/api/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); const s = await Shift.find(); res.json(s); });
 
 app.post('/api/shifts', async (req, res) => { 
@@ -323,7 +313,6 @@ app.post('/api/shifts/clear-month', async (req, res) => {
     res.json({success:true}); 
 });
 
-// --- TASKS (UPDATED NOTIFICATION) ---
 app.get('/api/tasks', async (req, res) => { const t = await Task.find(); res.json(t); });
 app.post('/api/tasks', async (req, res) => { 
     const u = await User.findById(req.session.userId);
@@ -332,7 +321,6 @@ app.post('/api/tasks', async (req, res) => {
     
     await Task.create(req.body); 
     
-    // Нове детальне сповіщення
     const { date, name, title, isFullDay, start, end } = req.body;
     let durationStr = "Весь день";
     if (!isFullDay && start && end) {
@@ -446,7 +434,7 @@ async function initDB() {
 if (bot) {
     app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => { bot.processUpdate(req.body); res.sendStatus(200); });
     
-    // --- UPDATED KEYBOARD ---
+    // --- KEYBOARD ---
     const mainMenu = {
         keyboard: [
             [{ text: "📅 Відкрити Графік", web_app: { url: APP_URL } }],
@@ -458,21 +446,18 @@ if (bot) {
 
     bot.onText(/\/start/, (msg) => bot.sendMessage(msg.chat.id, "👋 Привіт! Вибери дію:", { reply_markup: mainMenu }));
     
-    // --- NEW: MESSAGE HANDLER FOR BUTTONS ---
     bot.on('message', async (msg) => {
-        if (!msg.text || msg.text.startsWith('/')) return; // Ignore commands
+        if (!msg.text || msg.text.startsWith('/')) return; 
         
         const chatId = msg.chat.id;
         const user = await User.findOne({ telegramChatId: chatId });
 
         if (!user) {
-            // If user clicks buttons but not logged in via /login command
             if (['📋 Мої зміни', '🌴 Мої віхідні', '⚙️ Налаштування'].includes(msg.text)) {
                 return bot.sendMessage(chatId, "❌ Спочатку увійди через команду /login [логін] [пароль]");
             }
         }
 
-        // 1. MY SHIFTS
         if (msg.text === '📋 Мої зміни') {
             const today = new Date().toISOString().split('T')[0];
             const shifts = await Shift.find({ name: user.name, date: { $gte: today } }).sort({ date: 1 }).limit(10);
@@ -489,7 +474,6 @@ if (bot) {
             bot.sendMessage(chatId, response, { parse_mode: 'HTML' });
         }
 
-        // 2. MY WEEKENDS (CALCULATED)
         else if (msg.text === '🌴 Мої віхідні') {
             const now = new Date();
             const year = now.getFullYear();
@@ -497,7 +481,6 @@ if (bot) {
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             const todayDay = now.getDate();
 
-            // Get all shifts for this month
             const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
             const shifts = await Shift.find({ name: user.name, date: { $regex: `^${monthStr}` } });
             const workingDates = shifts.map(s => s.date);
@@ -515,9 +498,7 @@ if (bot) {
             bot.sendMessage(chatId, `🌴 <b>Твої вихідні до кінця місяця:</b>\n\n${weekends.join(', ')}`, { parse_mode: 'HTML' });
         }
 
-        // 3. WHO IS WORKING NOW
         else if (msg.text === '👀 Зараз на зміні') {
-            // Reuse logic from /now
             const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
             const shifts = await Shift.find({ date: now.toISOString().split('T')[0] });
             const curMin = now.getHours()*60 + now.getMinutes();
@@ -531,7 +512,6 @@ if (bot) {
             bot.sendMessage(chatId, active.length ? `🟢 <b>Зараз працюють:</b>\n\n${active.join('\n')}` : "zzz... В магазині нікого немає 🌑", {parse_mode:'HTML'});
         }
 
-        // 4. SETTINGS
         else if (msg.text === '⚙️ Налаштування') {
             const opts = {
                 reply_markup: {
@@ -548,8 +528,6 @@ if (bot) {
 
     bot.onText(/\/login (.+) (.+)/, async (msg, match) => { const u = await User.findOne({ username: match[1], password: match[2] }); if(u){ u.telegramChatId=msg.chat.id; await u.save(); bot.sendMessage(msg.chat.id, `✅ Привіт, ${u.name}! Тепер ти можеш користуватися кнопками.`, { reply_markup: mainMenu }); } else bot.sendMessage(msg.chat.id, "❌ Помилка логіна/пароля"); });
     
-    // --- (Старі обробники команд залишаємо як резерв) ---
-    bot.onText(/\/now/, async (msg) => { /* logic duplicated in button handler above, kept for slash command compatibility */ });
     bot.onText(/\/contacts/, async (msg) => { const c = await Contact.find(); bot.sendMessage(msg.chat.id, `📒 <b>Контакти:</b>\n\n` + c.map(x=>`👤 <b>${x.name}:</b> ${x.phone}`).join('\n'), {parse_mode:'HTML'}); });
     bot.onText(/\/addcontact (.+)/, async (msg, match) => { const u = await User.findOne({ telegramChatId: msg.from.id }); if(u?.role!=='SM'&&u?.role!=='admin') return; const args=match[1].trim().split(' '); const phone=args.pop(); const name=args.join(' '); await Contact.create({name,phone}); bot.sendMessage(msg.chat.id, `✅ Додано: ${name}`); });
     bot.onText(/\/delcontact (.+)/, async (msg, match) => { const u = await User.findOne({ telegramChatId: msg.from.id }); if(u?.role!=='SM'&&u?.role!=='admin') return; await Contact.findOneAndDelete({name:match[1].trim()}); bot.sendMessage(msg.chat.id, `🗑 Видалено: ${match[1].trim()}`); });
@@ -561,16 +539,14 @@ if (bot) {
             let name = u ? u.name : (q.from.first_name || 'User');
             const shortName = name.trim().split(' ').length > 1 ? name.trim().split(' ')[1] : name.trim().split(' ')[0];
             
-            // Try Find Reply (Album) or Direct (Single)
             let p = await NewsPost.findOne({messageId:q.message.reply_to_message ? q.message.reply_to_message.message_id : q.message.message_id});
-            if(!p) p = await NewsPost.findOne({messageId: q.message.message_id}); // Fallback
+            if(!p) p = await NewsPost.findOne({messageId: q.message.message_id}); 
 
             if(!p) return bot.answerCallbackQuery(q.id, {text:'❌ Старий пост'});
             
             if(p.readBy.includes(shortName)) return bot.answerCallbackQuery(q.id, {text:'ℹ️ Вже відмітились', show_alert:true});
             p.readBy.push(shortName); await p.save();
             
-            // Edit text only if single file/text (can't edit album caption easily via id of secondary msg)
             if (p.type !== 'file' || !q.message.reply_to_message) {
                  const txt = (p.text ? p.text + "\n\n" : "") + `👀 <b>Ознайомились:</b>\n${p.readBy.join(', ')}`;
                  try {
