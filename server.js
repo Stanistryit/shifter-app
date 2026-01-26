@@ -262,7 +262,6 @@ app.post('/api/notes/delete', async (req, res) => {
     } else { res.status(403).json({ success: false }); }
 });
 
-// !!! ОНОВЛЕНО: Повертаємо і аватар !!!
 app.get('/api/users', async (req, res) => { const users = await User.find({}, 'name role avatar'); res.json(users); });
 app.get('/api/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); const s = await Shift.find(); res.json(s); });
 
@@ -446,6 +445,75 @@ if (bot) {
 
     bot.onText(/\/start/, (msg) => bot.sendMessage(msg.chat.id, "👋 Привіт! Вибери дію:", { reply_markup: mainMenu }));
     
+    // --- STATS FIX ---
+    bot.onText(/\/stats/, async (msg) => {
+        try {
+            const u = await User.findOne({ telegramChatId: msg.from.id }); 
+            if (!u || (u.role !== 'SM' && u.role !== 'admin')) {
+                return bot.sendMessage(msg.chat.id, "⛔️ У вас немає прав на перегляд статистики.");
+            }
+
+            const now = new Date(); 
+            const mStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+            const shifts = await Shift.find({ date: { $regex: `^${mStr}` } });
+            
+            if(!shifts.length) return bot.sendMessage(msg.chat.id, "📁 Даних за цей місяць ще немає.");
+            
+            const report = {}; 
+            shifts.forEach(s => { 
+                if(!report[s.name]) report[s.name] = { hours: 0, shifts: 0, vacations: 0 };
+                if (s.start === 'Відпустка') { report[s.name].vacations += 1; } 
+                else { 
+                    const [h1,m1]=s.start.split(':').map(Number); 
+                    const [h2,m2]=s.end.split(':').map(Number); 
+                    const h=(h2+m2/60)-(h1+m1/60); 
+                    report[s.name].hours += h; 
+                    report[s.name].shifts += 1; 
+                }
+            });
+
+            let txt = `📊 <b>Табель (${mStr}):</b>\n\n`; 
+            Object.entries(report).sort((a,b)=>b[1].hours-a[1].hours).forEach(([n, data], i)=> {
+                txt += `${i<3?['🥇','🥈','🥉'][i]:'👤'} <b>${n}:</b> ${data.hours.toFixed(1)} год.`;
+                if (data.vacations > 0) txt += ` (🌴 ${data.vacations} дн.)`;
+                txt += '\n';
+            });
+            await bot.sendMessage(msg.chat.id, txt, {parse_mode:'HTML', message_thread_id: msg.message_thread_id});
+
+            // Excel Generation
+            const wb = new ExcelJS.Workbook(); 
+            const ws = wb.addWorksheet('Табель');
+            const dim = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+            const cols = [{header:'Ім\'я', key:'name', width:20}]; 
+            for(let i=1; i<=dim; i++) cols.push({header:`${i}`, key:`d${i}`, width:10}); 
+            cols.push({header:'Всього', key:'total', width:12});
+            ws.columns = cols; ws.getRow(1).font={bold:true};
+            
+            Object.keys(report).sort().forEach(n => {
+                const row = {name:n, total:parseFloat(report[n].hours.toFixed(1))};
+                shifts.filter(s=>s.name===n).forEach(s=> {
+                    const day = parseInt(s.date.split('-')[2]);
+                    if (s.start === 'Відпустка') row[`d${day}`] = 'В';
+                    else row[`d${day}`] = `${s.start}-${s.end}`;
+                });
+                ws.addRow(row);
+            });
+            
+            const buf = await wb.xlsx.writeBuffer();
+            bot.sendDocument(msg.chat.id, buf, {
+                caption: `📂 Табель_${mStr}.xlsx`, 
+                message_thread_id: msg.message_thread_id
+            }, {
+                filename: `Табель_${mStr}.xlsx`, 
+                contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+
+        } catch (e) {
+            console.error("Stats Error:", e);
+            bot.sendMessage(msg.chat.id, "❌ Сталася помилка при формуванні звіту.");
+        }
+    });
+
     bot.on('message', async (msg) => {
         if (!msg.text || msg.text.startsWith('/')) return; 
         
