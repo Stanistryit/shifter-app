@@ -62,16 +62,14 @@ async function showApp(user) {
     if (['admin', 'SM', 'SSE', 'RRP'].includes(user.role)) { 
         if(user.role !== 'RRP') document.getElementById('toggleEditWrapper').classList.remove('hidden'); 
         if (['SM', 'admin'].includes(user.role)) { 
-            // UPDATED ID for Requests Button
             document.getElementById('btnTabRequests').classList.remove('hidden'); 
-            document.getElementById('btnTabRequests').classList.add('flex'); // Ensure flex display
+            document.getElementById('btnTabRequests').classList.add('flex');
             loadRequests(); 
         } 
         if (user.role === 'SM' || user.role === 'admin') { 
             document.getElementById('noteTypeToggle').classList.remove('hidden'); 
             document.getElementById('noteTypeToggle').classList.add('flex'); 
         }
-        // Initialize default tab styling
         showAdminTab('shifts');
     }
     await Promise.all([loadEmployeeList(), loadShifts(), loadTasks(), loadNotes()]); renderCurrentShifts();
@@ -91,7 +89,6 @@ function renderTimeline(shifts, filterUser) {
     let pastDaysCount = 0;
     let usersToShow = (activeFilter === 'all') ? globalUsers : globalUsers.filter(u => u.name === activeFilter);
 
-    // Calc monthly hours
     const currentMonthPrefix = today.substring(0, 7);
     const userHours = {};
     usersToShow.forEach(u => {
@@ -128,7 +125,8 @@ function renderTimeline(shifts, filterUser) {
 
             if (shift) {
                 const isMe = shift.name === currentUser.name;
-                const delShift = (['admin','SM','SSE'].includes(currentUser.role) && currentUser.role !== 'RRP') ? `<button onclick="delS('${shift.date}','${shift.name}')" class="ml-auto text-gray-300 hover:text-red-500 p-1">✕</button>` : '';
+                // FIXED: Now passing shift._id instead of date/name
+                const delShift = (['admin','SM','SSE'].includes(currentUser.role) && currentUser.role !== 'RRP') ? `<button onclick="delS('${shift._id}')" class="ml-auto text-gray-300 hover:text-red-500 p-1">✕</button>` : '';
 
                 if (shift.start === 'Відпустка') {
                     html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-teal-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-teal-500 font-mono">Відпустка</span> ${delShift}</div><div class="timeline-track"><div class="shift-segment vacation-segment">ВІДПУСТКА 🌴</div></div></div>`;
@@ -215,28 +213,16 @@ function toggleShiftTimeInputs(){ const c=document.getElementById('shiftVacation
 function showAdminTab(t){ 
     triggerHaptic(); 
     const tabs = ['shifts','tasks','requests','import','news','logs'];
-    
-    // Hide all contents and reset button styles
     tabs.forEach(x => {
         const content = document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1));
         if(content) content.classList.add('hidden');
-        
         const btn = document.getElementById('btnTab'+x.charAt(0).toUpperCase()+x.slice(1));
-        if(btn) {
-             btn.className = "flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500 opacity-70 hover:opacity-100";
-        }
+        if(btn) btn.className = "flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500 opacity-70 hover:opacity-100";
     });
-
-    // Show selected content
     const activeContent = document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1));
     if(activeContent) activeContent.classList.remove('hidden');
-    
-    // Highlight active button
     const activeBtn = document.getElementById('btnTab'+t.charAt(0).toUpperCase()+t.slice(1));
-    if(activeBtn) {
-        activeBtn.className = "flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-white dark:bg-[#3A3A3C] shadow-md text-blue-500 ring-2 ring-blue-500 scale-105";
-    }
-
+    if(activeBtn) activeBtn.className = "flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-white dark:bg-[#3A3A3C] shadow-md text-blue-500 ring-2 ring-blue-500 scale-105";
     if(t==='requests') loadRequests(); 
     if(t==='logs') loadLogs(); 
 }
@@ -269,10 +255,15 @@ async function addShift() {
     
     const r=await fetch('/api/shifts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,name,start,end})}); 
     const d=await r.json(); 
-    if(d.pending) showToast("Запит відправлено (Pending)", 'success');
-    else showToast("Зміну додано");
     
-    loadShifts().then(renderCurrentShifts); 
+    // UPDATED: Handle duplicate/error
+    if(d.success) {
+        if(d.pending) showToast("Запит відправлено (Pending)", 'success');
+        else showToast("Зміну додано");
+        loadShifts().then(renderCurrentShifts); 
+    } else {
+        showToast(d.message || "Помилка", 'error');
+    }
 }
 
 async function addTask() { 
@@ -323,8 +314,36 @@ async function bulkImport() {
     } 
 }
 
-async function delS(d,n){ if(confirm("Видалити?")) { await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d,name:n})}); showToast("Видалено"); await loadShifts(); renderCurrentShifts(); } }
-async function deleteTask(id){ if(confirm("Видалити задачу?")) { await fetch('/api/tasks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); showToast("Задачу видалено"); await loadTasks(); renderCurrentShifts(); } }
+// UPDATED: Deleting using ID
+async function delS(id){ 
+    if(confirm("Видалити?")) { 
+        const r = await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); // send ID
+        const d = await r.json();
+        if(d.success) {
+            showToast("Видалено"); 
+            await loadShifts(); 
+            renderCurrentShifts(); 
+        } else {
+            showToast("Помилка видалення", 'error');
+        }
+    } 
+}
+
+// UPDATED: Explicit task deletion handling
+async function deleteTask(id){ 
+    if(confirm("Видалити задачу?")) { 
+        const r = await fetch('/api/tasks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); 
+        const d = await r.json();
+        if(d.success) {
+            showToast("Задачу видалено"); 
+            await loadTasks(); 
+            renderCurrentShifts(); 
+        } else {
+            showToast("Помилка видалення задачі", 'error');
+        }
+    } 
+}
+
 async function handleRequest(id, action) { await fetch('/api/requests/action', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action})}); showToast(action==='approve'?"Схвалено":"Відхилено"); loadRequests(); }
 async function approveAllRequests() { if(confirm("Схвалити все?")) { await fetch('/api/requests/approve-all', {method:'POST'}); showToast("Всі схвалено"); loadRequests(); } }
 

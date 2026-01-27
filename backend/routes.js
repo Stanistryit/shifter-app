@@ -52,17 +52,34 @@ router.post('/user/change-password', async (req, res) => {
     }
 });
 
-// ... Решта маршрутів (без змін) ...
-// КОПІЮЙТЕ СЮДИ РЕШТУ ФАЙЛУ ROUTES.JS
-// (login-telegram, logout, me, users, shifts, tasks, etc... - все як було в твоєму файлі)
-
 router.post('/login-telegram', async (req, res) => { const { telegramId } = req.body; const user = await User.findOne({ telegramChatId: telegramId }); if (user) { req.session.userId = user._id; logAction(user.name, 'login', 'Tg Login'); req.session.save(() => res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar } })); } else res.json({ success: false }); });
 router.post('/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
 router.get('/me', async (req, res) => { if (!req.session.userId) return res.json({ loggedIn: false }); const user = await User.findById(req.session.userId); res.json({ loggedIn: !!user, user: user ? { name: user.name, role: user.role, avatar: user.avatar } : null }); });
 router.get('/users', async (req, res) => { const users = await User.find({}, 'name role avatar'); res.json(users); });
 router.post('/user/avatar', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); await User.findByIdAndUpdate(req.session.userId, { avatar: req.body.avatar }); res.json({ success: true }); });
 router.get('/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); const s = await Shift.find(); res.json(s); });
-router.post('/shifts', async (req, res) => { const perm = await handlePermission(req, req.session.userId); if(perm === 'unauthorized' || perm === 'forbidden') return res.status(403).json({}); const { user, status } = perm; if (status === 'pending') { const reqDoc = await Request.create({ type: 'add_shift', data: req.body, createdBy: user.name }); sendRequestToSM(reqDoc); return res.json({ success: true, pending: true }); } await Shift.create(req.body); logAction(user.name, 'add_shift', `${req.body.date} ${req.body.name}`); notifyUser(req.body.name, `📅 Зміна: ${req.body.date} (${req.body.start === 'Відпустка' ? 'Відпустка' : req.body.start + '-' + req.body.end})`); res.json({ success: true }); });
+
+// UPDATED: Prevent duplicates
+router.post('/shifts', async (req, res) => { 
+    const perm = await handlePermission(req, req.session.userId); 
+    if(perm === 'unauthorized' || perm === 'forbidden') return res.status(403).json({}); 
+    const { user, status } = perm; 
+
+    // CHECK FOR DUPLICATE
+    const existing = await Shift.findOne({ date: req.body.date, name: req.body.name });
+    if (existing) return res.json({ success: false, message: "Зміна вже існує!" });
+
+    if (status === 'pending') { 
+        const reqDoc = await Request.create({ type: 'add_shift', data: req.body, createdBy: user.name }); 
+        sendRequestToSM(reqDoc); 
+        return res.json({ success: true, pending: true }); 
+    } 
+    await Shift.create(req.body); 
+    logAction(user.name, 'add_shift', `${req.body.date} ${req.body.name}`); 
+    notifyUser(req.body.name, `📅 Зміна: ${req.body.date} (${req.body.start === 'Відпустка' ? 'Відпустка' : req.body.start + '-' + req.body.end})`); 
+    res.json({ success: true }); 
+});
+
 router.post('/delete-shift', async (req, res) => { const s = await Shift.findById(req.body.id); if(!s) return res.json({}); const perm = await handlePermission(req, req.session.userId); if(perm.status === 'pending') { const reqDoc = await Request.create({ type: 'del_shift', data: { id: s.id, date: s.date }, createdBy: perm.user.name }); sendRequestToSM(reqDoc); return res.json({ success: true, pending: true }); } await Shift.findByIdAndDelete(req.body.id); logAction(perm.user.name, 'delete_shift', `${s.date} ${s.name}`); notifyUser(s.name, `❌ Скасовано: ${s.date}`); res.json({ success: true }); });
 router.post('/shifts/bulk', async (req, res) => { const u = await User.findById(req.session.userId); if (req.body.shifts?.length) { await Shift.insertMany(req.body.shifts); logAction(u.name, 'bulk_import', `${req.body.shifts.length} shifts`); } res.json({ success: true }); });
 router.post('/shifts/clear-day', async (req, res) => { const u = await User.findById(req.session.userId); await Shift.deleteMany({date:req.body.date}); logAction(u.name, 'clear_day', req.body.date); res.json({success:true}); });
