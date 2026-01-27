@@ -134,7 +134,7 @@ function renderTimeline(shifts, filterUser) {
                     let left = ((startDecimal - START_HOUR) / TOTAL_HOURS) * 100; let width = ((endDecimal - startDecimal) / TOTAL_HOURS) * 100; if(left < 0) { width += left; left = 0; } if(left + width > 100) width = 100 - left;
                     
                     let tasksHtml = '';
-                    let badges = ''; // FIX: Added variable definition here
+                    let badges = ''; 
                     
                     userTasks.forEach(task => { 
                         if(task.isFullDay) {
@@ -313,5 +313,43 @@ function renderNotesList() { const list = document.getElementById('notesList'); 
 function toggleNoteType() { triggerHaptic(); if (currentNoteType === 'private') { currentNoteType = 'public'; document.getElementById('noteTypeIcon').innerText = '📢'; document.getElementById('noteTypeLabel').innerText = 'Всім'; } else { currentNoteType = 'private'; document.getElementById('noteTypeIcon').innerText = '🔒'; document.getElementById('noteTypeLabel').innerText = 'Особиста'; } }
 async function saveNote() { const text = document.getElementById('newNoteText').value; if(!text) return; await fetch('/api/notes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ date: selectedNoteDate, text, type: currentNoteType }) }); document.getElementById('newNoteText').value = ''; await loadNotes(); renderNotesList(); renderCurrentShifts(); showToast("Нотатку додано"); }
 async function deleteNote(id) { if(!confirm('Видалити?')) return; await fetch('/api/notes/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id }) }); await loadNotes(); renderNotesList(); renderCurrentShifts(); showToast("Видалено"); }
+
+// --- PASSWORD CHANGE (NEW) ---
+function openChangePasswordModal() {
+    closeAvatarModal();
+    document.getElementById('changePasswordModal').classList.remove('hidden');
+}
+
+function closeChangePasswordModal() {
+    document.getElementById('changePasswordModal').classList.add('hidden');
+    document.getElementById('oldPassword').value = '';
+    document.getElementById('newPassword').value = '';
+}
+
+async function submitChangePassword() {
+    const oldP = document.getElementById('oldPassword').value;
+    const newP = document.getElementById('newPassword').value;
+    
+    if(!oldP || !newP) return showToast("Заповніть всі поля", 'error');
+    if(newP.length < 3) return showToast("Пароль закороткий", 'error');
+
+    try {
+        const res = await fetch('/api/user/change-password', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ oldPassword: oldP, newPassword: newP })
+        });
+        const data = await res.json();
+        
+        if(data.success) {
+            showToast("Пароль змінено! ✅");
+            closeChangePasswordModal();
+        } else {
+            showToast(data.message || "Помилка", 'error');
+        }
+    } catch(e) {
+        showToast("Помилка мережі", 'error');
+    }
+}
 
 checkAuth();
