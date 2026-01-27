@@ -1,6 +1,5 @@
 const TelegramBot = require('node-telegram-bot-api');
-const { User, Shift, Contact, NewsPost, Task } = require('./models');
-const ExcelJS = require('exceljs');
+const { User, Shift, Request, NewsPost, Task, AuditLog } = require('./models');
 
 let bot = null;
 
@@ -11,13 +10,14 @@ const initBot = (token, appUrl, tgConfig) => {
     bot.setWebHook(`${appUrl}/bot${token}`);
     console.log("🤖 Telegram Bot: Webhook set");
 
-    bot.setMyCommands([
+    const commands = [
         { command: '/start', description: '🏠 Головне меню' },
         { command: '/now', description: '👀 Хто зараз на зміні' },
         { command: '/shifts', description: '📋 Мої зміни' },
         { command: '/login', description: '🔐 Авторизація' },
         { command: '/settings', description: '⚙️ Налаштування' }
-    ]);
+    ];
+    bot.setMyCommands(commands);
 
     const mainMenu = {
         keyboard: [
@@ -28,7 +28,18 @@ const initBot = (token, appUrl, tgConfig) => {
         resize_keyboard: true
     };
 
-    bot.onText(/\/start/, (msg) => bot.sendMessage(msg.chat.id, "👋 Привіт! Вибери дію:", { reply_markup: mainMenu }));
+    // --- WELCOME MESSAGE ---
+    bot.onText(/\/start/, (msg) => {
+        const txt = `👋 <b>Привіт! Це бот Shifter.</b>\n\n` +
+                    `Тут ти можеш:\n` +
+                    `📅 Дивитись графік роботи\n` +
+                    `👀 Бачити, хто зараз працює\n` +
+                    `🔔 Отримувати нагадування про зміни\n\n` +
+                    `🔐 <b>Доступ:</b>\n` +
+                    `Щоб користуватися кнопками, треба авторизуватися командою:\n` +
+                    `<code>/login логін пароль</code>`;
+        bot.sendMessage(msg.chat.id, txt, { reply_markup: mainMenu, parse_mode: 'HTML' });
+    });
     
     // Auth
     bot.onText(/\/login (.+) (.+)/, async (msg, match) => { 
@@ -39,55 +50,15 @@ const initBot = (token, appUrl, tgConfig) => {
         } else bot.sendMessage(msg.chat.id, "❌ Помилка логіна/пароля"); 
     });
 
-    // Stats
-    bot.onText(/\/stats/, async (msg) => {
-        try {
-            const u = await User.findOne({ telegramChatId: msg.from.id }); 
-            if (!u || (u.role !== 'SM' && u.role !== 'admin')) return bot.sendMessage(msg.chat.id, "⛔️ Немає прав.");
-
-            const now = new Date(); const mStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-            const shifts = await Shift.find({ date: { $regex: `^${mStr}` } });
-            if(!shifts.length) return bot.sendMessage(msg.chat.id, "📁 Даних немає.");
-            
-            const report = {}; 
-            shifts.forEach(s => { 
-                if(!report[s.name]) report[s.name] = { hours: 0, shifts: 0, vacations: 0 };
-                if (s.start === 'Відпустка') { report[s.name].vacations += 1; } 
-                else { const [h1,m1]=s.start.split(':').map(Number); const [h2,m2]=s.end.split(':').map(Number); const h=(h2+m2/60)-(h1+m1/60); report[s.name].hours += h; report[s.name].shifts += 1; }
-            });
-
-            let txt = `📊 <b>Табель (${mStr}):</b>\n\n`; 
-            Object.entries(report).sort((a,b)=>b[1].hours-a[1].hours).forEach(([n, data], i)=> {
-                txt += `${i<3?['🥇','🥈','🥉'][i]:'👤'} <b>${n}:</b> ${data.hours.toFixed(1)} год.`;
-                if (data.vacations > 0) txt += ` (🌴 ${data.vacations} дн.)`;
-                txt += '\n';
-            });
-            await bot.sendMessage(msg.chat.id, txt, {parse_mode:'HTML', message_thread_id: msg.message_thread_id});
-
-            const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Табель');
-            const dim = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-            const cols = [{header:'Ім\'я', key:'name', width:20}]; for(let i=1; i<=dim; i++) cols.push({header:`${i}`, key:`d${i}`, width:10}); cols.push({header:'Всього', key:'total', width:12});
-            ws.columns = cols; ws.getRow(1).font={bold:true};
-            Object.keys(report).sort().forEach(n => {
-                const row = {name:n, total:parseFloat(report[n].hours.toFixed(1))};
-                shifts.filter(s=>s.name===n).forEach(s=> {
-                    const day = parseInt(s.date.split('-')[2]);
-                    if (s.start === 'Відпустка') row[`d${day}`] = 'В'; else row[`d${day}`] = `${s.start}-${s.end}`;
-                });
-                ws.addRow(row);
-            });
-            const buf = await wb.xlsx.writeBuffer();
-            bot.sendDocument(msg.chat.id, buf, { caption: `📂 Табель_${mStr}.xlsx`, message_thread_id: msg.message_thread_id }, { filename: `Табель_${mStr}.xlsx`, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        } catch (e) { console.error(e); bot.sendMessage(msg.chat.id, "❌ Помилка."); }
-    });
-
     // Buttons Handler
     bot.on('message', async (msg) => {
         if (!msg.text || msg.text.startsWith('/')) return;
         const chatId = msg.chat.id;
         const user = await User.findOne({ telegramChatId: chatId });
+
         if (!user) {
-            if (['📋 Мої зміни', '🌴 Мої віхідні', '⚙️ Налаштування'].includes(msg.text)) return bot.sendMessage(chatId, "❌ Спочатку увійди через /login");
+            if (['📋 Мої зміни', '🌴 Мої віхідні', '⚙️ Налаштування', '👀 Зараз на зміні'].includes(msg.text)) 
+                return bot.sendMessage(chatId, "❌ Спочатку увійди через /login");
         }
 
         if (msg.text === '📋 Мої зміни') {
@@ -105,31 +76,60 @@ const initBot = (token, appUrl, tgConfig) => {
             let weekends=[]; const daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
             for(let d=now.getDate(); d<=daysInMonth; d++){ const cD = `${mStr}-${String(d).padStart(2,'0')}`; if(!wDates.includes(cD)) weekends.push(new Date(cD).toLocaleDateString('uk-UA',{day:'numeric',month:'numeric',weekday:'short'})); }
             if(!weekends.length) return bot.sendMessage(chatId, "😐 Без вихідних...");
-            bot.sendMessage(chatId, `🌴 <b>Вихідні:</b>\n\n${weekends.join(', ')}`, {parse_mode:'HTML'});
+            bot.sendMessage(chatId, `🌴 <b>Вихідні до кінця місяця:</b>\n\n${weekends.join(', ')}`, {parse_mode:'HTML'});
         }
         else if (msg.text === '👀 Зараз на зміні') {
+            // Updated with Links
             const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
             const shifts = await Shift.find({ date: now.toISOString().split('T')[0] });
             const curMin = now.getHours()*60 + now.getMinutes();
             let active = [];
-            shifts.forEach(s => {
-                if(s.start === 'Відпустка') return;
+            
+            for (const s of shifts) {
+                if(s.start === 'Відпустка') continue;
                 const [h1,m1]=s.start.split(':').map(Number); const [h2,m2]=s.end.split(':').map(Number); const st=h1*60+m1; const en=h2*60+m2; 
-                if(curMin>=st && curMin<en) active.push(`👤 <b>${s.name}</b> (${s.end})`);
-            });
-            bot.sendMessage(chatId, active.length ? `🟢 <b>Працюють:</b>\n\n${active.join('\n')}` : "🌑 Нікого", {parse_mode:'HTML'});
+                if(curMin>=st && curMin<en) {
+                    const u = await User.findOne({ name: s.name });
+                    const nameDisplay = u?.telegramChatId ? `<a href="tg://user?id=${u.telegramChatId}">${s.name}</a>` : `<b>${s.name}</b>`;
+                    active.push(`👤 ${nameDisplay} (${s.end})`);
+                }
+            }
+            bot.sendMessage(chatId, active.length ? `🟢 <b>Зараз працюють:</b>\n\n${active.join('\n')}` : "🌑 Нікого немає", {parse_mode:'HTML'});
         }
         else if (msg.text === '⚙️ Налаштування') {
-            bot.sendMessage(chatId, `⚙️ <b>Сповіщення:</b> ${user.reminderTime}`, {parse_mode:'HTML', reply_markup:{inline_keyboard:[[{text:'🌙 20:00',callback_data:'set_remind_20'}],[{text:'☀️ 08:00',callback_data:'set_remind_08'}],[{text:'🔕 Вимкнути',callback_data:'set_remind_none'}]]}});
+            // Updated Settings
+            const opts = {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{text:'⏰ За 1 годину', callback_data:'set_remind_1h'}, {text:'⏰ За 12 годин', callback_data:'set_remind_12h'}],
+                        [{text:'🏁 На початку зміни', callback_data:'set_remind_start'}],
+                        [{text:'🌙 Щодня о 20:00 (стандарт)', callback_data:'set_remind_20'}],
+                        [{text:'🔕 Вимкнути', callback_data:'set_remind_none'}]
+                    ]
+                }
+            };
+            let current = user.reminderTime;
+            if(current === '1h') current = 'За 1 годину';
+            if(current === '12h') current = 'За 12 годин';
+            if(current === 'start') current = 'На початку';
+            if(current === 'none') current = 'Вимкнено';
+            
+            bot.sendMessage(chatId, `⚙️ <b>Налаштування сповіщень</b>\n\nПоточний режим: <b>${current}</b>\n\nКоли нагадувати про зміну?`, opts);
         }
     });
 
+    // CALLBACK QUERIES
     bot.on('callback_query', async (q) => {
         const uid = q.from.id;
-        if (q.data === 'read_news') {
+        const data = q.data;
+
+        // 1. News Read
+        if (data === 'read_news') {
             const u = await User.findOne({telegramChatId:uid});
             let name = u ? u.name : q.from.first_name;
             const shortName = name.trim().split(' ')[1] || name.trim().split(' ')[0];
+            
             let p = await NewsPost.findOne({messageId:q.message.reply_to_message ? q.message.reply_to_message.message_id : q.message.message_id});
             if(!p) p = await NewsPost.findOne({messageId: q.message.message_id});
             if(!p) return bot.answerCallbackQuery(q.id, {text:'Старий пост'});
@@ -141,19 +141,94 @@ const initBot = (token, appUrl, tgConfig) => {
             }
             bot.answerCallbackQuery(q.id, {text:`Дякую, ${shortName}! ✅`});
         }
-        if (q.data.startsWith('set_remind_')) {
+        
+        // 2. Settings
+        if (data.startsWith('set_remind_')) {
+            const val = data.replace('set_remind_','');
+            let dbVal = val;
+            if (val === '20') dbVal = '20:00';
+            if (val === '08') dbVal = '08:00';
+            
             const u = await User.findOne({telegramChatId:uid});
-            if(u){ u.reminderTime = q.data.replace('set_remind_','').replace('none','none'); if(u.reminderTime!=='none') u.reminderTime+=':00'; await u.save(); bot.answerCallbackQuery(q.id); bot.sendMessage(q.message.chat.id, `✅ Збережено: ${u.reminderTime}`); }
+            if(u){ 
+                u.reminderTime = dbVal; await u.save(); 
+                bot.answerCallbackQuery(q.id, {text: 'Збережено ✅'});
+                bot.sendMessage(q.message.chat.id, `✅ Режим сповіщень змінено.`);
+            }
+        }
+
+        // 3. APPROVE / REJECT REQUESTS (Interactive)
+        if (data.startsWith('approve_req_') || data.startsWith('reject_req_')) {
+            const action = data.startsWith('approve') ? 'approve' : 'reject';
+            const reqId = data.split('_').pop();
+            const admin = await User.findOne({telegramChatId:uid});
+            
+            if (!admin || (admin.role !== 'SM' && admin.role !== 'admin')) {
+                return bot.answerCallbackQuery(q.id, {text: '⛔️ Тільки для SM', show_alert: true});
+            }
+
+            const request = await Request.findById(reqId);
+            if (!request) {
+                bot.editMessageText(`⚠️ Запит вже оброблено або видалено.`, {chat_id: q.message.chat.id, message_id: q.message.message_id});
+                return bot.answerCallbackQuery(q.id);
+            }
+
+            if (action === 'approve') {
+                if(request.type === 'add_shift') await Shift.create(request.data);
+                if(request.type === 'del_shift') await Shift.findByIdAndDelete(request.data.id);
+                if(request.type === 'add_task') await Task.create(request.data);
+                
+                notifyUser(request.createdBy, `✅ Ваш запит (${request.type}) схвалено!`);
+                
+                // Audit Log
+                await AuditLog.create({ performer: admin.name, action: 'approve_request', details: `${request.type} by ${request.createdBy}` });
+                
+                bot.editMessageText(`✅ <b>Схвалено</b> (SM: ${admin.name})\n\n${q.message.text}`, {chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML'});
+            } else {
+                notifyUser(request.createdBy, `❌ Ваш запит (${request.type}) відхилено.`);
+                bot.editMessageText(`❌ <b>Відхилено</b> (SM: ${admin.name})\n\n${q.message.text}`, {chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML'});
+            }
+
+            await Request.findByIdAndDelete(reqId);
+            bot.answerCallbackQuery(q.id, {text: 'Готово'});
         }
     });
 
     return bot;
 };
 
-// Functions exposed to Server
+// --- EXPORTS ---
 const notifyUser = async (name, msg) => { if(!bot) return; try { const u = await User.findOne({name}); if(u?.telegramChatId) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} };
 const notifyRole = async (role, msg) => { if(!bot) return; try { const us = await User.find({role}); for(const u of us) if(u.telegramChatId) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} };
 const notifyAll = async (msg) => { if(!bot) return; try { const us = await User.find({telegramChatId:{$ne:null}}); for(const u of us) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} };
+
+// NEW: Send Interactive Request
+const sendRequestToSM = async (requestDoc) => {
+    if(!bot) return;
+    const sms = await User.find({ role: { $in: ['SM', 'admin'] } });
+    
+    let details = "";
+    if (requestDoc.type === 'add_shift') details = `📅 Зміна: ${requestDoc.data.date}\n⏰ ${requestDoc.data.start}-${requestDoc.data.end}`;
+    if (requestDoc.type === 'del_shift') details = `❌ Видалення зміни: ${requestDoc.data.date}`;
+    if (requestDoc.type === 'add_task') details = `📌 Задача: ${requestDoc.data.title}`;
+
+    const txt = `🔔 <b>Новий запит</b>\n👤 <b>Від:</b> ${requestDoc.createdBy}\nℹ️ <b>Тип:</b> ${requestDoc.type}\n\n${details}`;
+    
+    const opts = {
+        parse_mode: 'HTML',
+        reply_markup: {
+            inline_keyboard: [[
+                { text: "✅ Дозволити", callback_data: `approve_req_${requestDoc._id}` },
+                { text: "❌ Відхилити", callback_data: `reject_req_${requestDoc._id}` }
+            ]]
+        }
+    };
+
+    for(const sm of sms) {
+        if(sm.telegramChatId) bot.sendMessage(sm.telegramChatId, txt, opts);
+    }
+};
+
 const getBot = () => bot;
 
-module.exports = { initBot, notifyUser, notifyRole, notifyAll, getBot };
+module.exports = { initBot, notifyUser, notifyRole, notifyAll, sendRequestToSM, getBot };
