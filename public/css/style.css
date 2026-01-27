@@ -79,7 +79,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .dark .ios-input { background: #2C2C2E; color: white; } .dark .ios-input:focus { background: #3A3A3C; }
 .skeleton { background: #E5E5EA; border-radius: 12px; } .dark .skeleton { background: #2C2C2E; }
 
-/* TOGGLE SWITCH (FIXED) */
+/* TOGGLE SWITCH */
 .toggle-checkbox { display: none; }
 .toggle-label {
     display: block; width: 50px; height: 30px; 
@@ -111,3 +111,31 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .dark .calendar-day.my-work-day .work-badge { background: rgba(16, 185, 129, 0.3); color: #6EE7B7; }
 .calendar-day.vacation-day .work-badge { background: rgba(20, 184, 166, 0.2); color: #0F766E; }
 .dark .calendar-day.vacation-day .work-badge { background: rgba(20, 184, 166, 0.3); color: #5EEAD4; }
+
+/* --- NEW STYLES (TOASTS & ANIMATIONS) --- */
+
+/* TOAST NOTIFICATIONS */
+.toast {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 12px 20px;
+    border-radius: 50px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px; font-weight: 600;
+    transform: translateY(-50px) scale(0.9); opacity: 0;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: auto;
+}
+.dark .toast { background: rgba(44, 44, 46, 0.95); color: white; border: 1px solid rgba(255,255,255,0.1); }
+.toast.show { transform: translateY(0) scale(1); opacity: 1; }
+.toast.success { color: #16A34A; } .dark .toast.success { color: #4ADE80; }
+.toast.error { color: #DC2626; } .dark .toast.error { color: #F87171; }
+
+/* CHECKMARK ANIMATION */
+@keyframes checkmark {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+.task-done-anim { animation: checkmark 0.3s ease-in-out; }
