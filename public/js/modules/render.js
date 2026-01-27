@@ -11,7 +11,11 @@ export function renderTimeline() {
     archive.innerHTML = '';
 
     const dates = [...new Set([...state.shifts.map(s => s.date), ...state.notes.map(n => n.date)])].sort();
-    const today = new Date().toISOString().split('T')[0];
+    
+    // FIX: Використовуємо місцевий час, а не UTC, щоб "сьогодні" не перемикалося завчасно
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
     if (!dates.includes(today)) dates.push(today);
     dates.sort();
 
@@ -43,12 +47,12 @@ export function renderTimeline() {
         const block = document.createElement('div');
         block.className = `ios-card p-4 ${animClass}`;
         
-        // --- FIX DARK THEME SHADOW HERE ---
+        // --- FIX DARK THEME SHADOW ---
         if(isToday) {
             block.classList.add(
                 'ring-2', 'ring-blue-500', 
-                'shadow-lg', 'shadow-blue-500/20', // Світла тінь
-                'dark:shadow-blue-500/50' // Темна тінь (світіння)
+                'shadow-lg', 'shadow-blue-500/20', 
+                'dark:shadow-blue-500' // Більш яскрава тінь (світіння) для темної теми
             );
         }
 
