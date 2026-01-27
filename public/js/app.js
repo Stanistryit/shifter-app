@@ -324,13 +324,16 @@ function closeChangePasswordModal() {
     document.getElementById('changePasswordModal').classList.add('hidden');
     document.getElementById('oldPassword').value = '';
     document.getElementById('newPassword').value = '';
+    document.getElementById('confirmPassword').value = ''; // Clear confirmation field
 }
 
 async function submitChangePassword() {
     const oldP = document.getElementById('oldPassword').value;
     const newP = document.getElementById('newPassword').value;
+    const confirmP = document.getElementById('confirmPassword').value; // Get confirmation value
     
-    if(!oldP || !newP) return showToast("Заповніть всі поля", 'error');
+    if(!oldP || !newP || !confirmP) return showToast("Заповніть всі поля", 'error');
+    if(newP !== confirmP) return showToast("Нові паролі не співпадають", 'error'); // Check match
     if(newP.length < 3) return showToast("Пароль закороткий", 'error');
 
     try {
