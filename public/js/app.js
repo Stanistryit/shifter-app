@@ -73,7 +73,6 @@ async function showApp(user) {
     await Promise.all([loadEmployeeList(), loadShifts(), loadTasks(), loadNotes()]); renderCurrentShifts();
 }
 
-// --- HELPER FUNCTION (WAS MISSING) ---
 function renderCurrentShifts() { 
     renderTimeline(globalShifts, null); 
     renderCalendar(); 
@@ -135,9 +134,11 @@ function renderTimeline(shifts, filterUser) {
                     let left = ((startDecimal - START_HOUR) / TOTAL_HOURS) * 100; let width = ((endDecimal - startDecimal) / TOTAL_HOURS) * 100; if(left < 0) { width += left; left = 0; } if(left + width > 100) width = 100 - left;
                     
                     let tasksHtml = '';
+                    let badges = ''; // FIX: Added variable definition here
+                    
                     userTasks.forEach(task => { 
                         if(task.isFullDay) {
-                            html += `<div class="text-[10px] text-purple-600 font-bold border border-purple-200 bg-purple-50 px-1 rounded inline-block mb-1">★ ${task.title}</div>`; 
+                            badges += `<span class="ml-2 text-[10px] text-purple-600 font-bold border border-purple-200 bg-purple-50 px-1 rounded">★ ${task.title}</span>`; 
                         } else { 
                             const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number); 
                             const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60; 
