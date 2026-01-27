@@ -62,13 +62,17 @@ async function showApp(user) {
     if (['admin', 'SM', 'SSE', 'RRP'].includes(user.role)) { 
         if(user.role !== 'RRP') document.getElementById('toggleEditWrapper').classList.remove('hidden'); 
         if (['SM', 'admin'].includes(user.role)) { 
-            document.getElementById('tabRequestsBtn').classList.remove('hidden'); 
+            // UPDATED ID for Requests Button
+            document.getElementById('btnTabRequests').classList.remove('hidden'); 
+            document.getElementById('btnTabRequests').classList.add('flex'); // Ensure flex display
             loadRequests(); 
         } 
         if (user.role === 'SM' || user.role === 'admin') { 
             document.getElementById('noteTypeToggle').classList.remove('hidden'); 
             document.getElementById('noteTypeToggle').classList.add('flex'); 
-        } 
+        }
+        // Initialize default tab styling
+        showAdminTab('shifts');
     }
     await Promise.all([loadEmployeeList(), loadShifts(), loadTasks(), loadNotes()]); renderCurrentShifts();
 }
@@ -206,7 +210,36 @@ function setMode(m){ triggerHaptic(); document.getElementById('listViewContainer
 function toggleEditMode(){ triggerHaptic(); document.getElementById('adminPanel').classList.toggle('hidden'); }
 function toggleTaskTimeInputs(){ const c=document.getElementById('taskFullDay').checked;document.getElementById('taskTimeInputs').className=c?'hidden':'flex gap-3'; }
 function toggleShiftTimeInputs(){ const c=document.getElementById('shiftVacation').checked;document.getElementById('shiftTimeInputs').className=c?'hidden':'flex gap-3'; }
-function showAdminTab(t){ triggerHaptic(); ['shifts','tasks','requests','import','news','logs'].forEach(x=>document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.add('hidden'));document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.remove('hidden');if(t==='requests')loadRequests(); if(t==='logs')loadLogs(); }
+
+// UPDATED: New Grid Tab Logic
+function showAdminTab(t){ 
+    triggerHaptic(); 
+    const tabs = ['shifts','tasks','requests','import','news','logs'];
+    
+    // Hide all contents and reset button styles
+    tabs.forEach(x => {
+        const content = document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1));
+        if(content) content.classList.add('hidden');
+        
+        const btn = document.getElementById('btnTab'+x.charAt(0).toUpperCase()+x.slice(1));
+        if(btn) {
+             btn.className = "flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500 opacity-70 hover:opacity-100";
+        }
+    });
+
+    // Show selected content
+    const activeContent = document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(activeContent) activeContent.classList.remove('hidden');
+    
+    // Highlight active button
+    const activeBtn = document.getElementById('btnTab'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(activeBtn) {
+        activeBtn.className = "flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-white dark:bg-[#3A3A3C] shadow-md text-blue-500 ring-2 ring-blue-500 scale-105";
+    }
+
+    if(t==='requests') loadRequests(); 
+    if(t==='logs') loadLogs(); 
+}
 
 function openFilterModal() { triggerHaptic(); document.getElementById('filterModal').classList.remove('hidden'); renderFilterList(); }
 function renderFilterList() { let html = `<button onclick="applyFilter('all')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${activeFilter==='all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">Всі співробітники</span>${activeFilter==='all' ? '<span>✓</span>' : ''}</button>`; globalUsers.forEach(u => { const isSelected = activeFilter === u.name; html += `<button onclick="applyFilter('${u.name}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}"><span class="font-medium">${u.name}</span>${isSelected ? '<span>✓</span>' : ''}</button>`; }); document.getElementById('filterList').innerHTML = html; }

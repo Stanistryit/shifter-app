@@ -90,16 +90,35 @@
 
             <div id="adminPanel" class="hidden ios-card p-5 border border-orange-100 dark:border-orange-900/30 animate-slide-up">
                 <h2 class="text-xl font-bold mb-4">Панель управління</h2>
-                <div class="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
-                    <button onclick="showAdminTab('shifts')" class="bg-[#F2F2F7] dark:bg-[#2C2C2E] px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Графік</button>
-                    <button onclick="showAdminTab('tasks')" class="bg-[#F2F2F7] dark:bg-[#2C2C2E] px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Задачі</button>
-                    <button onclick="showAdminTab('import')" class="bg-indigo-100 text-indigo-600 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Імпорт</button>
-                    <button onclick="showAdminTab('news')" class="bg-pink-100 text-pink-600 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Новини</button>
-                    <button onclick="showAdminTab('requests')" class="hidden bg-red-100 text-red-600 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap" id="tabRequestsBtn">Запити</button>
-                    <button onclick="showAdminTab('logs')" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Логи</button>
+                
+                <div class="grid grid-cols-3 gap-3 mb-6">
+                    <button id="btnTabShifts" onclick="showAdminTab('shifts')" class="flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500">
+                        <span class="text-2xl mb-1">📅</span>
+                        <span class="text-[10px] font-bold">Графік</span>
+                    </button>
+                    <button id="btnTabTasks" onclick="showAdminTab('tasks')" class="flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500">
+                        <span class="text-2xl mb-1">📌</span>
+                        <span class="text-[10px] font-bold">Задачі</span>
+                    </button>
+                    <button id="btnTabImport" onclick="showAdminTab('import')" class="flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500">
+                        <span class="text-2xl mb-1">📥</span>
+                        <span class="text-[10px] font-bold">Імпорт</span>
+                    </button>
+                    <button id="btnTabNews" onclick="showAdminTab('news')" class="flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500">
+                        <span class="text-2xl mb-1">📢</span>
+                        <span class="text-[10px] font-bold">Новини</span>
+                    </button>
+                    <button id="btnTabRequests" onclick="showAdminTab('requests')" class="hidden flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500">
+                        <span class="text-2xl mb-1">📬</span>
+                        <span class="text-[10px] font-bold">Запити</span>
+                    </button>
+                    <button id="btnTabLogs" onclick="showAdminTab('logs')" class="flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500">
+                        <span class="text-2xl mb-1">📜</span>
+                        <span class="text-[10px] font-bold">Логи</span>
+                    </button>
                 </div>
                 
-                <div id="adminTabShifts" class="space-y-3">
+                <div id="adminTabShifts" class="hidden space-y-3">
                     <div class="grid grid-cols-2 gap-3"><input type="date" id="shiftDate" class="ios-input"><select id="employeeSelect" class="ios-input bg-transparent"><option disabled selected>Хто?</option></select></div>
                     <div class="flex items-center justify-between"><span class="text-sm font-medium">🌴 Відпустка</span><input type="checkbox" id="shiftVacation" onchange="toggleShiftTimeInputs()" class="w-6 h-6 accent-teal-500 rounded-lg"></div>
                     <div id="shiftTimeInputs" class="flex gap-3"><input type="time" id="startTime" class="ios-input" value="10:00"><input type="time" id="endTime" class="ios-input" value="20:00"></div>
