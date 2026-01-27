@@ -1,5 +1,6 @@
 const { AuditLog, User, Shift, Task, Contact } = require('./models');
 const axios = require('axios');
+const bcrypt = require('bcryptjs'); // New import
 
 async function logAction(performer, action, details) {
     try { await AuditLog.create({ performer, action, details }); } catch(e){ console.error("Log error", e); }
@@ -10,15 +11,12 @@ async function handlePermission(req, userId, type, data, notifyRoleCallback) {
     if (!user) return 'unauthorized';
     if (user.role === 'RRP') return 'forbidden';
     if (user.role === 'SSE') {
-        // Ми не можемо імпортувати Request тут напряму, щоб уникнути циклічності, 
-        // тому повертаємо статус, а логіку створення Request залишимо в роутах
         return { status: 'pending', user };
     }
     if (user.role === 'SM' || user.role === 'admin') return { status: 'allowed', user };
     return 'forbidden';
 }
 
-// Google Sheets Sync Logic
 async function syncWithGoogleSheets(googleSheetUrl) {
     if (!googleSheetUrl || googleSheetUrl.length < 10) return { success: false, message: "URL not set" };
     try {
@@ -41,10 +39,41 @@ async function syncWithGoogleSheets(googleSheetUrl) {
     } catch (e) { return { success: false, message: e.message }; }
 }
 
+// SECURITY MIGRATION: Convert plain text passwords to hashes
+async function migratePasswords() {
+    try {
+        const users = await User.find({});
+        let count = 0;
+        for (const user of users) {
+            // Check if not hashed (bcrypt hashes start with $2a$ or similar)
+            if (!user.password.startsWith('$2a$')) {
+                user.password = await bcrypt.hash(user.password, 10);
+                await user.save();
+                count++;
+            }
+        }
+        if (count > 0) console.log(`🔒 Security: Migrated ${count} passwords to hashes.`);
+    } catch (e) {
+        console.error("Migration error:", e);
+    }
+}
+
 async function initDB() { 
-    if ((await User.countDocuments()) === 0) await User.create([{ username: "admin", password: "123", role: "admin", name: "Адмін" }]); 
-    if(!(await User.findOne({role:'RRP'}))) await User.create({username:"rrp",password:"rrp",role:"RRP",name:"Регіональний Менеджер"});
+    // Create admin if not exists (hashed)
+    if ((await User.countDocuments()) === 0) {
+        const hash = await bcrypt.hash("123", 10);
+        await User.create([{ username: "admin", password: hash, role: "admin", name: "Адмін" }]); 
+    }
+    // Create RRP if not exists (hashed)
+    if(!(await User.findOne({role:'RRP'}))) {
+        const hash = await bcrypt.hash("rrp", 10);
+        await User.create({username:"rrp", password: hash, role:"RRP", name:"Регіональний Менеджер"});
+    }
+    
     if((await Contact.countDocuments())===0) await Contact.create([{name: "RRP Наташа", phone: "+380954101682"}, {name: "AM Руслан", phone: "+380674652158"}]);
+    
+    // Run migration
+    await migratePasswords();
 }
 
 module.exports = { logAction, handlePermission, syncWithGoogleSheets, initDB };

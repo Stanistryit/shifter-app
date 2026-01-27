@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs'); // New import
 
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
@@ -9,6 +10,16 @@ const UserSchema = new mongoose.Schema({
     reminderTime: { type: String, default: '20:00' },
     avatar: { type: String, default: null }
 });
+
+// BEST PRACTICE: Метод перевірки пароля прямо в моделі
+UserSchema.methods.comparePassword = async function(candidatePassword) {
+    // Якщо пароль в базі ще не захешований (старий текстовий), підтримуємо його
+    if (!this.password.startsWith('$2a$')) {
+        return this.password === candidatePassword;
+    }
+    // Інакше звіряємо хеші
+    return await bcrypt.compare(candidatePassword, this.password);
+};
 
 const ShiftSchema = new mongoose.Schema({ date: String, name: String, start: String, end: String });
 const TaskSchema = new mongoose.Schema({ date: String, name: String, title: String, isFullDay: Boolean, start: String, end: String });

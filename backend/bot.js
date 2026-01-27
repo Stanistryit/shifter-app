@@ -1,5 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 const { User, Shift, Request, NewsPost, Task, AuditLog } = require('./models');
+const bcrypt = require('bcryptjs'); // ДОДАНО
 
 let bot = null;
 
@@ -41,16 +42,26 @@ const initBot = (token, appUrl, tgConfig) => {
         bot.sendMessage(msg.chat.id, txt, { reply_markup: mainMenu, parse_mode: 'HTML' });
     });
     
-    // Auth
+    // --- AUTH (UPDATED FOR BCRYPT) ---
     bot.onText(/\/login (.+) (.+)/, async (msg, match) => { 
-        const u = await User.findOne({ username: match[1], password: match[2] }); 
-        if(u){ 
-            u.telegramChatId=msg.chat.id; await u.save(); 
-            bot.sendMessage(msg.chat.id, `✅ Привіт, ${u.name}! Тепер ти можеш користуватися кнопками.`, { reply_markup: mainMenu }); 
-        } else bot.sendMessage(msg.chat.id, "❌ Помилка логіна/пароля"); 
+        try {
+            const u = await User.findOne({ username: match[1] }); 
+            
+            // Використовуємо метод comparePassword з моделі
+            if (u && (await u.comparePassword(match[2]))) { 
+                u.telegramChatId = msg.chat.id; 
+                await u.save(); 
+                bot.sendMessage(msg.chat.id, `✅ Привіт, ${u.name}! Тепер ти можеш користуватися кнопками.`, { reply_markup: mainMenu }); 
+            } else {
+                bot.sendMessage(msg.chat.id, "❌ Невірний логін або пароль"); 
+            }
+        } catch (e) {
+            console.error(e);
+            bot.sendMessage(msg.chat.id, "❌ Помилка сервера");
+        }
     });
 
-    // Buttons Handler
+    // --- BUTTONS HANDLER ---
     bot.on('message', async (msg) => {
         if (!msg.text || msg.text.startsWith('/')) return;
         const chatId = msg.chat.id;
@@ -79,7 +90,7 @@ const initBot = (token, appUrl, tgConfig) => {
             bot.sendMessage(chatId, `🌴 <b>Вихідні до кінця місяця:</b>\n\n${weekends.join(', ')}`, {parse_mode:'HTML'});
         }
         else if (msg.text === '👀 Зараз на зміні') {
-            // Updated with Links
+            // UPDATED: Added Clickable Links
             const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
             const shifts = await Shift.find({ date: now.toISOString().split('T')[0] });
             const curMin = now.getHours()*60 + now.getMinutes();
@@ -90,6 +101,7 @@ const initBot = (token, appUrl, tgConfig) => {
                 const [h1,m1]=s.start.split(':').map(Number); const [h2,m2]=s.end.split(':').map(Number); const st=h1*60+m1; const en=h2*60+m2; 
                 if(curMin>=st && curMin<en) {
                     const u = await User.findOne({ name: s.name });
+                    // Якщо у юзера є TG ID, робимо посилання
                     const nameDisplay = u?.telegramChatId ? `<a href="tg://user?id=${u.telegramChatId}">${s.name}</a>` : `<b>${s.name}</b>`;
                     active.push(`👤 ${nameDisplay} (${s.end})`);
                 }
@@ -97,14 +109,13 @@ const initBot = (token, appUrl, tgConfig) => {
             bot.sendMessage(chatId, active.length ? `🟢 <b>Зараз працюють:</b>\n\n${active.join('\n')}` : "🌑 Нікого немає", {parse_mode:'HTML'});
         }
         else if (msg.text === '⚙️ Налаштування') {
-            // Updated Settings
             const opts = {
                 parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: [
                         [{text:'⏰ За 1 годину', callback_data:'set_remind_1h'}, {text:'⏰ За 12 годин', callback_data:'set_remind_12h'}],
                         [{text:'🏁 На початку зміни', callback_data:'set_remind_start'}],
-                        [{text:'🌙 Щодня о 20:00 (стандарт)', callback_data:'set_remind_20'}],
+                        [{text:'🌙 Щодня о 20:00', callback_data:'set_remind_20'}],
                         [{text:'🔕 Вимкнути', callback_data:'set_remind_none'}]
                     ]
                 }
@@ -119,7 +130,7 @@ const initBot = (token, appUrl, tgConfig) => {
         }
     });
 
-    // CALLBACK QUERIES
+    // --- CALLBACK QUERIES ---
     bot.on('callback_query', async (q) => {
         const uid = q.from.id;
         const data = q.data;
@@ -157,7 +168,7 @@ const initBot = (token, appUrl, tgConfig) => {
             }
         }
 
-        // 3. APPROVE / REJECT REQUESTS (Interactive)
+        // 3. APPROVE / REJECT REQUESTS
         if (data.startsWith('approve_req_') || data.startsWith('reject_req_')) {
             const action = data.startsWith('approve') ? 'approve' : 'reject';
             const reqId = data.split('_').pop();
