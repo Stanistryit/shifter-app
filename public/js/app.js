@@ -11,7 +11,7 @@ function initTheme() { if ((tg?.colorScheme === 'dark') || localStorage.theme ==
 function toggleTheme() { triggerHaptic(); const html = document.documentElement; if (html.classList.contains('dark')) { html.classList.remove('dark'); localStorage.theme = 'light'; document.getElementById('themeIcon').innerText = '🌙'; if(tg?.setHeaderColor){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } else { html.classList.add('dark'); localStorage.theme = 'dark'; document.getElementById('themeIcon').innerText = '☀️'; if(tg?.setHeaderColor){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} } }
 initTheme();
 
-// --- TOASTS (NEW) ---
+// --- TOASTS ---
 function showToast(msg, type = 'success') {
     let container = document.getElementById('toastContainer');
     if (!container) {
@@ -20,27 +20,15 @@ function showToast(msg, type = 'success') {
         container.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] space-y-2 w-full max-w-xs pointer-events-none';
         document.body.appendChild(container);
     }
-
     const toast = document.createElement('div');
     const icon = type === 'success' ? '✅' : '⚠️';
-    // Використовуємо класи з style.css (.toast, .toast.success, .toast.error)
     toast.className = `toast ${type}`; 
     toast.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
-    
     container.appendChild(toast);
-    
-    // Анімація появи
     requestAnimationFrame(() => toast.classList.add('show'));
-    
-    // Haptic відгук
     if(type === 'success' && tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
     if(type === 'error' && tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-
-    // Видалення
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 400);
-    }, 3000);
+    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 3000);
 }
 
 // --- AUTH ---
@@ -85,6 +73,12 @@ async function showApp(user) {
     await Promise.all([loadEmployeeList(), loadShifts(), loadTasks(), loadNotes()]); renderCurrentShifts();
 }
 
+// --- HELPER FUNCTION (WAS MISSING) ---
+function renderCurrentShifts() { 
+    renderTimeline(globalShifts, null); 
+    renderCalendar(); 
+}
+
 // --- RENDERING ---
 function renderTimeline(shifts, filterUser) {
     const main = document.getElementById('scheduleView'); main.innerHTML = '';
@@ -126,7 +120,6 @@ function renderTimeline(shifts, filterUser) {
             const parts = user.name.split(' '); const shortName = parts.length > 1 ? parts[1] : parts[0];
             const hoursBadges = ` <span class="text-[9px] text-gray-400 font-normal">(${userHours[user.name]} год.)</span>`;
             
-            // Avatar Rendering
             let avatarHtml = `<div class="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] overflow-hidden mr-2 border border-gray-300 dark:border-gray-600">👤</div>`;
             if(user.avatar) avatarHtml = `<div class="w-5 h-5 rounded-full overflow-hidden mr-2 border border-gray-300 dark:border-gray-600"><img src="${user.avatar}" class="w-full h-full object-cover"></div>`;
 
@@ -219,7 +212,7 @@ function renderFilterList() { let html = `<button onclick="applyFilter('all')" c
 function closeFilterModal() { document.getElementById('filterModal').classList.add('hidden'); }
 function applyFilter(val) { triggerHaptic(); activeFilter = val; document.getElementById('currentFilterLabel').innerText = val === 'all' ? 'Всі співробітники' : val.split(' ')[1] || val; closeFilterModal(); renderCurrentShifts(); }
 
-// --- ACTIONS (Toast Updated) ---
+// --- ACTIONS ---
 async function clearMonth() {
     const d = document.getElementById('shiftDate').value;
     if(!d) return showToast("Оберіть дату", 'error');
