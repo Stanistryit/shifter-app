@@ -1,3 +1,5 @@
+process.env.NTBA_FIX_350 = 1;
+
 const TelegramBot = require('node-telegram-bot-api');
 const { User, Shift, Request, NewsPost, Task, AuditLog } = require('./models');
 const bcrypt = require('bcryptjs'); 

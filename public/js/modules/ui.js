@@ -55,7 +55,6 @@ export function triggerHaptic() {
     if(tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
-// Функція для перемикання вкладок адмінки
 export function showAdminTab(t) {
     triggerHaptic();
     const tabs = ['shifts','tasks','requests','import','news','logs'];
@@ -71,4 +70,40 @@ export function showAdminTab(t) {
     
     const activeBtn = document.getElementById('btnTab'+t.charAt(0).toUpperCase()+t.slice(1));
     if(activeBtn) activeBtn.className = "flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-white dark:bg-[#3A3A3C] shadow-md text-blue-500 ring-2 ring-blue-500 scale-105";
+}
+
+// --- НОВІ ФУНКЦІЇ ДЛЯ НОВИН ---
+
+export function formatText(type) {
+    const field = document.getElementById('newsText');
+    if (!field) return;
+    
+    const start = field.selectionStart;
+    const end = field.selectionEnd;
+    const text = field.value;
+    const selectedText = text.substring(start, end);
+    let before = '', after = '';
+    
+    if (type === 'bold') { before = '<b>'; after = '</b>'; }
+    else if (type === 'italic') { before = '<i>'; after = '</i>'; }
+    else if (type === 'link') {
+        const url = prompt("URL:", "https://");
+        if (!url) return;
+        before = `<a href="${url}">`; after = '</a>';
+    }
+    
+    const content = selectedText || (type === 'link' ? 'посилання' : 'текст');
+    field.value = text.substring(0, start) + before + content + after + text.substring(end);
+    field.focus();
+}
+
+export function updateFileName() {
+    const input = document.getElementById('newsFile');
+    const count = input.files.length;
+    const label = document.getElementById('fileName');
+    if (count > 0) {
+        label.innerText = count === 1 ? input.files[0].name : `Обрано ${count} файлів`;
+    } else {
+        label.innerText = "Оберіть файли (можна декілька)";
+    }
 }

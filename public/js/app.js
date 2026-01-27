@@ -1,6 +1,7 @@
 import { state } from './modules/state.js';
 import { fetchJson, postJson } from './modules/api.js';
-import { initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab } from './modules/ui.js';
+// ДОДАНО: formatText, updateFileName
+import { initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab, formatText, updateFileName } from './modules/ui.js';
 import { renderTimeline, renderCalendar } from './modules/render.js';
 
 const tg = window.Telegram.WebApp;
@@ -20,6 +21,10 @@ window.toggleShiftTimeInputs = toggleShiftTimeInputs;
 window.toggleTaskTimeInputs = toggleTaskTimeInputs;
 window.changeMonth = changeMonth;
 window.toggleArchive = toggleArchive;
+
+// ДОДАНО: Функції новин
+window.formatText = formatText;
+window.updateFileName = updateFileName;
 
 // Actions
 window.login = login;
@@ -294,9 +299,7 @@ async function loadLogs() {
     });
 }
 
-// --- NEWS, FILTER & AVATAR & NOTES & PASSWORDS (Keep as is, just wrapped) ---
-// (Я скоротив код нижче для зручності читання, але він ідентичний твому старому, 
-//  тільки використовує showToast, state та API функції з модулів)
+// --- NEWS, FILTER & AVATAR & NOTES & PASSWORDS ---
 
 async function publishNews() {
     const text = document.getElementById('newsText').value;
@@ -308,7 +311,8 @@ async function publishNews() {
     btn.innerText = "⏳ Публікую..."; btn.disabled = true;
     try {
         const res = await fetch('/api/news/publish', { method: 'POST', body: formData });
-        if (res.ok) { showToast("✅ Опубліковано!"); document.getElementById('newsText').value = ''; document.getElementById('newsFile').value = ''; } 
+        // Тут ми викликаємо updateFileName, тому важливо, щоб вона була в window або імпортована
+        if (res.ok) { showToast("✅ Опубліковано!"); document.getElementById('newsText').value = ''; document.getElementById('newsFile').value = ''; updateFileName(); } 
         else showToast("Помилка публікації", 'error');
     } catch (e) { showToast("Помилка мережі", 'error'); } 
     finally { btn.innerText = "Опублікувати"; btn.disabled = false; }
