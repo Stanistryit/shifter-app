@@ -1,15 +1,25 @@
 const TelegramBot = require('node-telegram-bot-api');
 const { User, Shift, Request, NewsPost, Task, AuditLog } = require('./models');
-const bcrypt = require('bcryptjs'); // ДОДАНО
+const bcrypt = require('bcryptjs'); 
 
 let bot = null;
 
 const initBot = (token, appUrl, tgConfig) => {
     if (!token) return null;
     
-    bot = new TelegramBot(token);
-    bot.setWebHook(`${appUrl}/bot${token}`);
-    console.log("🤖 Telegram Bot: Webhook set");
+    // FIX 1: Явно вимикаємо polling, щоб не було конфліктів з Webhook
+    // Це часто є причиною дивних помилок при старті
+    bot = new TelegramBot(token, { polling: false });
+
+    // FIX 2: Обробляємо помилку встановлення вебхука, щоб не крашити сервер
+    bot.setWebHook(`${appUrl}/bot${token}`)
+        .then(() => console.log("🤖 Telegram Bot: Webhook set successfully"))
+        .catch(err => console.error("⚠️ Telegram Bot: Webhook connection failed (might be temporary):", err.message));
+
+    // FIX 3: Додаємо "глушилки" для помилок, щоб вони не зупиняли процес Node.js
+    bot.on('polling_error', (error) => console.log(`[Polling Error] ${error.code}: ${error.message}`));
+    bot.on('webhook_error', (error) => console.log(`[Webhook Error] ${error.code}: ${error.message}`));
+    bot.on('error', (error) => console.log(`[General Bot Error] ${error.message}`));
 
     const commands = [
         { command: '/start', description: '🏠 Головне меню' },
@@ -18,7 +28,8 @@ const initBot = (token, appUrl, tgConfig) => {
         { command: '/login', description: '🔐 Авторизація' },
         { command: '/settings', description: '⚙️ Налаштування' }
     ];
-    bot.setMyCommands(commands);
+    
+    bot.setMyCommands(commands).catch(e => console.log("Command set error (ignorable)"));
 
     const mainMenu = {
         keyboard: [
@@ -42,12 +53,10 @@ const initBot = (token, appUrl, tgConfig) => {
         bot.sendMessage(msg.chat.id, txt, { reply_markup: mainMenu, parse_mode: 'HTML' });
     });
     
-    // --- AUTH (UPDATED FOR BCRYPT) ---
+    // --- AUTH ---
     bot.onText(/\/login (.+) (.+)/, async (msg, match) => { 
         try {
             const u = await User.findOne({ username: match[1] }); 
-            
-            // Використовуємо метод comparePassword з моделі
             if (u && (await u.comparePassword(match[2]))) { 
                 u.telegramChatId = msg.chat.id; 
                 await u.save(); 
@@ -90,7 +99,6 @@ const initBot = (token, appUrl, tgConfig) => {
             bot.sendMessage(chatId, `🌴 <b>Вихідні до кінця місяця:</b>\n\n${weekends.join(', ')}`, {parse_mode:'HTML'});
         }
         else if (msg.text === '👀 Зараз на зміні') {
-            // UPDATED: Added Clickable Links
             const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
             const shifts = await Shift.find({ date: now.toISOString().split('T')[0] });
             const curMin = now.getHours()*60 + now.getMinutes();
@@ -101,7 +109,6 @@ const initBot = (token, appUrl, tgConfig) => {
                 const [h1,m1]=s.start.split(':').map(Number); const [h2,m2]=s.end.split(':').map(Number); const st=h1*60+m1; const en=h2*60+m2; 
                 if(curMin>=st && curMin<en) {
                     const u = await User.findOne({ name: s.name });
-                    // Якщо у юзера є TG ID, робимо посилання
                     const nameDisplay = u?.telegramChatId ? `<a href="tg://user?id=${u.telegramChatId}">${s.name}</a>` : `<b>${s.name}</b>`;
                     active.push(`👤 ${nameDisplay} (${s.end})`);
                 }
@@ -190,10 +197,7 @@ const initBot = (token, appUrl, tgConfig) => {
                 if(request.type === 'add_task') await Task.create(request.data);
                 
                 notifyUser(request.createdBy, `✅ Ваш запит (${request.type}) схвалено!`);
-                
-                // Audit Log
                 await AuditLog.create({ performer: admin.name, action: 'approve_request', details: `${request.type} by ${request.createdBy}` });
-                
                 bot.editMessageText(`✅ <b>Схвалено</b> (SM: ${admin.name})\n\n${q.message.text}`, {chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML'});
             } else {
                 notifyUser(request.createdBy, `❌ Ваш запит (${request.type}) відхилено.`);
@@ -213,7 +217,7 @@ const notifyUser = async (name, msg) => { if(!bot) return; try { const u = await
 const notifyRole = async (role, msg) => { if(!bot) return; try { const us = await User.find({role}); for(const u of us) if(u.telegramChatId) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} };
 const notifyAll = async (msg) => { if(!bot) return; try { const us = await User.find({telegramChatId:{$ne:null}}); for(const u of us) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} };
 
-// NEW: Send Interactive Request
+// Send Interactive Request
 const sendRequestToSM = async (requestDoc) => {
     if(!bot) return;
     const sms = await User.find({ role: { $in: ['SM', 'admin'] } });
