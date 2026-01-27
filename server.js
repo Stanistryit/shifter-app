@@ -7,7 +7,8 @@ const MongoStore = require('connect-mongo');
 const path = require('path');
 const cron = require('node-cron');
 
-const { initBot, notifyUser } = require('./backend/bot'); // Import notifyUser
+// 1. Додали getBot в імпорт
+const { initBot, notifyUser, getBot } = require('./backend/bot'); 
 const { initDB, syncWithGoogleSheets } = require('./backend/utils');
 const { Shift, Task, User } = require('./backend/models');
 const routes = require('./backend/routes');
@@ -34,15 +35,26 @@ app.use(session({
     cookie: { maxAge: 1000 * 60 * 60 * 24 * 7, httpOnly: true, secure: true, sameSite: 'none' }
 }));
 
-// Routes
+// Routes API
 app.use('/api', routes);
 
-// Database & Bot
+// 2. ВАЖЛИВО: Маршрут для Webhook Телеграма
+// Цей код приймає дані від Телеграма і передає їх в бота
+app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => {
+    const bot = getBot();
+    if (bot) {
+        bot.processUpdate(req.body);
+    }
+    res.sendStatus(200);
+});
+
+// Database & Bot Init
 mongoose.connect(process.env.MONGO_URI)
     .then(() => { 
         console.log("✅ MongoDB OK"); 
         initDB(); 
-        const bot = initBot(process.env.TELEGRAM_TOKEN, 'https://shifter-app.onrender.com', TG_CONFIG);
+        // Ініціалізація бота
+        initBot(process.env.TELEGRAM_TOKEN, 'https://shifter-app.onrender.com', TG_CONFIG);
     })
     .catch(console.error);
 
@@ -68,7 +80,7 @@ cron.schedule('0 18 * * *', async () => {
     if (offUsers.length > 0) { msg += `\n😴 <b>Вихідні:</b>\n`; const names = offUsers.map(u => { const parts = u.name.split(' '); return parts.length > 1 ? parts[1] : u.name; }).join(', '); msg += `${names}\n`; }
     msg += `\nGood luck! 🚀`;
 
-    const bot = require('./backend/bot').getBot();
+    const bot = getBot(); // Використовуємо getBot() замість require
     if(bot) {
         try { await bot.sendMessage(TG_CONFIG.groupId, msg, { parse_mode: 'HTML', message_thread_id: TG_CONFIG.topics.schedule }); } catch (e) {}
         try { const rrp = await User.findOne({ role: 'RRP' }); if (rrp?.telegramChatId) await bot.sendMessage(rrp.telegramChatId, `🔔 <b>Звіт (RRP):</b>\n\n${msg}`, { parse_mode: 'HTML' }); } catch (e) {}
@@ -77,18 +89,17 @@ cron.schedule('0 18 * * *', async () => {
 
 // HOURLY REMINDERS
 cron.schedule('0 * * * *', async () => {
-    // Current time in UA (approx) - Render is UTC, so we add 2 or 3 hours
-    // Using simple Date logic assuming server is UTC
     const now = new Date();
-    const currentHourUTC = now.getUTCHours();
-    // UA is UTC+2 (winter) or UTC+3 (summer). Let's assume generic approach or shift time
-    // Better: parse shift string "10:00" and compare with current time.
+    // Use UA time for checks
+    const uaDate = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
+    const currentUAHour = uaDate.getHours();
+    const currentUADay = uaDate.toISOString().split('T')[0];
     
-    // We get ALL shifts for today and tomorrow to cover all cases
-    const today = new Date().toISOString().split('T')[0];
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    // We get ALL shifts for today and tomorrow
+    const tomorrowDate = new Date(Date.now() + 86400000);
+    const tomorrowStr = tomorrowDate.toISOString().split('T')[0]; // Simple UTC check for query
     
-    const shifts = await Shift.find({ date: { $in: [today, tomorrow] } });
+    const shifts = await Shift.find({ date: { $in: [currentUADay, tomorrowStr] } });
     
     for (const s of shifts) {
         if(s.start === 'Відпустка') continue;
@@ -96,36 +107,22 @@ cron.schedule('0 * * * *', async () => {
         const user = await User.findOne({name: s.name});
         if(!user || !user.reminderTime || user.reminderTime === 'none') continue;
 
-        // Parse Shift Start
-        // s.date is YYYY-MM-DD, s.start is HH:MM (UA time)
-        // Create Date object for Shift Start (Assuming UA time)
-        // Since server is UTC, we need to be careful. 
-        // Simplest way: Convert everything to Hour Integers relative to UA time.
-        
-        const uaDate = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
-        const currentUAHour = uaDate.getHours();
-        const currentUADay = uaDate.toISOString().split('T')[0];
-
         const [sH, sM] = s.start.split(':').map(Number);
-        
-        // Logic for different settings
         let shouldNotify = false;
         
         // 1. Fixed Time (e.g. 20:00) - Only for tomorrow shifts
         if (user.reminderTime.includes(':')) {
             const [rH, rM] = user.reminderTime.split(':').map(Number);
-            // Notify today at rH for tomorrow's shift
-            if (s.date === tomorrow && currentUADay === today && currentUAHour === rH) shouldNotify = true;
+            if (s.date > currentUADay && currentUAHour === rH) shouldNotify = true;
         }
-        // 2. Relative (1h, 12h, start) - Check only if shift is TODAY (mostly)
+        // 2. Relative (1h, 12h, start)
         else if (s.date === currentUADay) {
             if (user.reminderTime === 'start' && currentUAHour === sH) shouldNotify = true;
             if (user.reminderTime === '1h' && currentUAHour === (sH - 1)) shouldNotify = true;
         }
-        else if (s.date === tomorrow) {
-             // 12h before can be previous day
-             // If shift is 10:00 tomorrow, 12h before is 22:00 today.
-             if (user.reminderTime === '12h' && currentUADay === today && currentUAHour === (sH + 24 - 12)) shouldNotify = true;
+        else if (s.date > currentUADay) {
+             // 12h before logic (simplified)
+             if (user.reminderTime === '12h' && currentUAHour === (sH + 12)) shouldNotify = true; 
         }
 
         if (shouldNotify) {
