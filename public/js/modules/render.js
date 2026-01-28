@@ -4,6 +4,7 @@ import { triggerHaptic } from './ui.js';
 const START_HOUR = 10;
 const TOTAL_HOURS = 10;
 
+// ... (renderTimeline залишаємо без змін) ...
 export function renderTimeline() {
     const main = document.getElementById('scheduleView');
     main.innerHTML = '';
@@ -12,7 +13,6 @@ export function renderTimeline() {
 
     const dates = [...new Set([...state.shifts.map(s => s.date), ...state.notes.map(n => n.date)])].sort();
     
-    // FIX: Використовуємо місцевий час, а не UTC, щоб "сьогодні" не перемикалося завчасно
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
@@ -47,18 +47,16 @@ export function renderTimeline() {
         const block = document.createElement('div');
         block.className = `ios-card p-4 ${animClass}`;
         
-        // --- FIX DARK THEME SHADOW ---
         if(isToday) {
             block.classList.add(
                 'ring-2', 'ring-blue-500', 
                 'shadow-lg', 'shadow-blue-500/20', 
-                'dark:shadow-blue-500' // Більш яскрава тінь (світіння) для темної теми
+                'dark:shadow-blue-500'
             );
         }
 
         let html = `<div class="mb-3 border-b border-gray-100 dark:border-gray-800 pb-2 flex justify-between items-center cursor-pointer active:opacity-60" onclick="openNotesModal('${dateStr}')"><h3 class="font-bold text-lg capitalize ${isToday?'text-blue-500':'text-black dark:text-white'}">${dName}</h3><div class="text-blue-500 text-xs font-bold px-2 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-lg">📝 Нотатки</div></div>`;
         
-        // Нотатки
         const dayNotes = state.notes.filter(n => n.date === dateStr);
         if (dayNotes.length > 0) {
             html += `<div class="mb-3 space-y-1.5">`;
@@ -120,7 +118,6 @@ export function renderTimeline() {
                     html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
                 }
             } else if (userTasks.length > 0) {
-                 // Тільки задача
                  let tasksHtml = ''; userTasks.forEach(task => { if(!task.isFullDay) { const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number); const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60; let tLeft = ((tStartD - START_HOUR) / TOTAL_HOURS) * 100; let tWidth = ((tEndD - tStartD) / TOTAL_HOURS) * 100; const canEdit = ['admin','SM','SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP'; const delAction = canEdit ? `onclick="deleteTask('${task._id}'); event.stopPropagation();"` : ''; tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${delAction}>${task.title}</div>`; } });
                  html += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;
             } else {
@@ -150,7 +147,6 @@ export function renderCalendar() {
     const t = document.getElementById('calendarTitle');
     const y = state.currentDate.getFullYear();
     const m = state.currentDate.getMonth();
-    
     t.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
     
     const fd = new Date(y, m, 1).getDay() || 7;
@@ -173,4 +169,89 @@ export function renderCalendar() {
         if (ds === today) dayClass += ' today';
         g.innerHTML += `<div class="calendar-day ${dayClass}" onclick="triggerHaptic(); openNotesModal('${ds}')">${content}</div>`;
     }
+}
+
+// НОВА ФУНКЦІЯ: ТАБЛИЦЯ (GRID)
+export function renderTable() {
+    const container = document.getElementById('gridViewContainer');
+    // Очищаємо контейнер (крім контролів місяця)
+    const tableDiv = document.getElementById('gridViewTable');
+    tableDiv.innerHTML = '';
+    
+    const tTitle = document.getElementById('gridTitle');
+    const y = state.currentDate.getFullYear();
+    const m = state.currentDate.getMonth();
+    tTitle.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
+
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    
+    // Перевірка "Сьогодні"
+    const now = new Date();
+    const isCurrentMonth = now.getFullYear() === y && now.getMonth() === m;
+    const todayDate = now.getDate();
+
+    let html = '<table class="w-full text-xs border-collapse">';
+    
+    // HEADER (Дати)
+    html += '<thead><tr class="h-10 border-b border-gray-100 dark:border-gray-800">';
+    // Лівий кут (фіксований)
+    html += '<th class="sticky left-0 z-20 bg-gray-50 dark:bg-[#2C2C2E] px-2 text-left font-bold min-w-[100px] border-r border-gray-200 dark:border-gray-700 shadow-sm">Співробітник</th>';
+    
+    for(let d=1; d<=daysInMonth; d++) {
+        const isToday = isCurrentMonth && d === todayDate;
+        const dateObj = new Date(y, m, d);
+        const dayName = dateObj.toLocaleDateString('uk-UA', {weekday: 'short'});
+        const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+        
+        // Стилі для заголовка дня
+        let bgClass = isWeekend ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : 'bg-white dark:bg-[#1C1C1E] text-gray-500 dark:text-gray-400';
+        if (isToday) bgClass = 'bg-blue-500 text-white shadow-md shadow-blue-500/30 rounded-t-lg transform scale-105 z-10'; // Виділення сьогодні
+        
+        html += `<th class="px-1 text-center min-w-[40px] font-normal ${bgClass} border-r border-gray-100 dark:border-gray-800 relative group cursor-default">
+            <div class="font-bold text-[13px]">${d}</div>
+            <div class="text-[9px] opacity-80 uppercase">${dayName}</div>
+        </th>`;
+    }
+    html += '</tr></thead>';
+
+    // BODY (Співробітники)
+    html += '<tbody>';
+    
+    // Фільтр юзерів (якщо треба, або показуємо всіх)
+    let usersToShow = (state.filter === 'all') ? state.users : state.users.filter(u => u.name === state.filter);
+
+    usersToShow.forEach(user => {
+        const parts = user.name.split(' ');
+        const shortName = parts.length > 1 ? parts[1] : parts[0];
+        
+        html += '<tr class="h-10 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors">';
+        
+        // Ім'я (фіксоване)
+        html += `<td class="sticky left-0 z-10 bg-white dark:bg-[#1C1C1E] px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[100px] shadow-sm">${shortName}</td>`;
+        
+        for(let d=1; d<=daysInMonth; d++) {
+            const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const isToday = isCurrentMonth && d === todayDate;
+            const shift = state.shifts.find(s => s.date === ds && s.name === user.name);
+            
+            // Фон клітинки
+            let cellClass = '';
+            if (isToday) cellClass += ' bg-blue-50/50 dark:bg-blue-900/10 border-x-2 border-blue-200 dark:border-blue-800'; // Світла смуга на весь стовпчик "сьогодні"
+
+            let content = '';
+            if (shift) {
+                if (shift.start === 'Відпустка') {
+                    content = '<span class="text-lg">🌴</span>';
+                } else {
+                    content = `<div class="text-[10px] font-mono leading-tight bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5">${shift.start}<br>${shift.end}</div>`;
+                }
+            }
+
+            html += `<td class="text-center p-0.5 border-r border-gray-100 dark:border-gray-800 ${cellClass}">${content}</td>`;
+        }
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+    tableDiv.innerHTML = html;
 }

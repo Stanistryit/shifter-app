@@ -1,8 +1,8 @@
 import { state } from './modules/state.js';
 import { fetchJson, postJson } from './modules/api.js';
-// ДОДАНО: formatText, updateFileName
 import { initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab, formatText, updateFileName } from './modules/ui.js';
-import { renderTimeline, renderCalendar } from './modules/render.js';
+// Імпортуємо нову функцію renderTable
+import { renderTimeline, renderCalendar, renderTable } from './modules/render.js';
 
 const tg = window.Telegram.WebApp;
 if(tg) { tg.ready(); if(tg.platform && tg.platform!=='unknown') try{tg.expand()}catch(e){} }
@@ -22,7 +22,7 @@ window.toggleTaskTimeInputs = toggleTaskTimeInputs;
 window.changeMonth = changeMonth;
 window.toggleArchive = toggleArchive;
 
-// ДОДАНО: Функції новин
+// Новини
 window.formatText = formatText;
 window.updateFileName = updateFileName;
 
@@ -60,6 +60,18 @@ window.toggleNoteType = toggleNoteType;
 window.saveNote = saveNote;
 window.deleteNote = deleteNote;
 
+// Скрол вгору
+window.scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+
+// Логіка появи кнопки "Вгору"
+window.addEventListener('scroll', () => {
+    const btn = document.getElementById('backToTopBtn');
+    if (btn) {
+        if (window.scrollY > 300) btn.classList.remove('hidden', 'opacity-0');
+        else btn.classList.add('opacity-0');
+    }
+});
+
 // --- AUTH LOGIC ---
 async function checkAuth() {
     try {
@@ -73,7 +85,6 @@ async function checkAuth() {
         return;
     }
     
-    // Telegram Login
     const data = await postJson('/api/login-telegram', { telegramId: tg.initDataUnsafe.user.id });
     if (data.success) showApp(data.user);
     else {
@@ -143,7 +154,6 @@ async function loadData() {
     state.tasks = tasks;
     state.notes = notes;
     
-    // Fill Selects
     const s1 = document.getElementById('employeeSelect');
     const s2 = document.getElementById('taskEmployee');
     s1.innerHTML='<option disabled selected>Хто?</option>';
@@ -157,32 +167,66 @@ async function loadData() {
 function renderCurrentShifts() {
     renderTimeline();
     renderCalendar();
+    renderTable(); // Додаємо рендер таблиці
 }
 
-// --- CORE UI FUNCTIONS ---
+// --- UI FUNCTIONS ---
+
 function setMode(m) {
     triggerHaptic();
-    document.getElementById('listViewContainer').className = m === 'list' ? '' : 'hidden';
-    document.getElementById('calendarViewContainer').className = m === 'list' ? 'hidden' : 'ios-card p-4 animate-slide-up';
+    
+    const listDiv = document.getElementById('listViewContainer');
+    const calDiv = document.getElementById('calendarViewContainer');
+    const gridDiv = document.getElementById('gridViewContainer');
+    
+    // Ховаємо все
+    listDiv.classList.add('hidden');
+    calDiv.classList.add('hidden');
+    gridDiv.classList.add('hidden');
+    
     const btnList = document.getElementById('btnModeList');
     const btnCal = document.getElementById('btnModeCalendar');
+    const btnGrid = document.getElementById('btnModeGrid');
+    
+    // Скидаємо стилі кнопок (сірий текст)
+    const inactiveClass = "flex-1 py-2 text-xs font-medium text-gray-500 transition-all whitespace-nowrap px-2";
+    const activeClass = "flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all whitespace-nowrap px-2";
+    
+    btnList.className = inactiveClass;
+    btnCal.className = inactiveClass;
+    btnGrid.className = inactiveClass;
+    
     if (m === 'list') {
-        btnList.className = "flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all";
-        btnCal.className = "flex-1 py-2 text-xs font-medium text-gray-500 transition-all";
-    } else {
-        btnList.className = "flex-1 py-2 text-xs font-medium text-gray-500 transition-all";
-        btnCal.className = "flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all";
+        listDiv.classList.remove('hidden');
+        btnList.className = activeClass;
+    } else if (m === 'calendar') {
+        calDiv.classList.remove('hidden');
+        calDiv.classList.add('animate-slide-up');
+        btnCal.className = activeClass;
+        renderCalendar();
+    } else if (m === 'grid') { // Новий режим
+        gridDiv.classList.remove('hidden');
+        gridDiv.classList.add('animate-slide-up');
+        btnGrid.className = activeClass;
+        renderTable();
     }
-    if (m === 'calendar') renderCalendar();
 }
 
 function toggleEditMode() { triggerHaptic(); document.getElementById('adminPanel').classList.toggle('hidden'); }
 function toggleTaskTimeInputs() { const c = document.getElementById('taskFullDay').checked; document.getElementById('taskTimeInputs').className = c ? 'hidden' : 'flex gap-3'; }
 function toggleShiftTimeInputs() { const c = document.getElementById('shiftVacation').checked; document.getElementById('shiftTimeInputs').className = c ? 'hidden' : 'flex gap-3'; }
-function changeMonth(d) { triggerHaptic(); state.currentDate.setMonth(state.currentDate.getMonth() + d); renderCalendar(); }
+
+function changeMonth(d) { 
+    triggerHaptic(); 
+    state.currentDate.setMonth(state.currentDate.getMonth() + d); 
+    renderCalendar(); 
+    renderTable(); 
+}
+
 function toggleArchive() { triggerHaptic(); document.getElementById('archiveContainer').classList.toggle('hidden'); }
 
-// --- ADMIN ACTIONS ---
+// --- ADMIN ACTIONS (ВІДНОВЛЕНО) ---
+
 async function addShift() {
     const date = document.getElementById('shiftDate').value;
     const name = document.getElementById('employeeSelect').value;
@@ -197,7 +241,7 @@ async function addShift() {
     if(d.success) {
         if(d.pending) showToast("Запит відправлено (Pending)", 'success');
         else showToast("Зміну додано");
-        state.shifts = await fetchJson('/api/shifts'); // reload
+        state.shifts = await fetchJson('/api/shifts');
         renderCurrentShifts();
     } else {
         showToast(d.message || "Помилка", 'error');
@@ -276,7 +320,6 @@ async function handleRequest(id, action) {
     await postJson('/api/requests/action', { id, action });
     showToast(action==='approve'?"Схвалено":"Відхилено");
     loadRequests();
-    // reload data in case something changed
     loadData().then(renderCurrentShifts);
 }
 
@@ -311,7 +354,6 @@ async function publishNews() {
     btn.innerText = "⏳ Публікую..."; btn.disabled = true;
     try {
         const res = await fetch('/api/news/publish', { method: 'POST', body: formData });
-        // Тут ми викликаємо updateFileName, тому важливо, щоб вона була в window або імпортована
         if (res.ok) { showToast("✅ Опубліковано!"); document.getElementById('newsText').value = ''; document.getElementById('newsFile').value = ''; updateFileName(); } 
         else showToast("Помилка публікації", 'error');
     } catch (e) { showToast("Помилка мережі", 'error'); } 
