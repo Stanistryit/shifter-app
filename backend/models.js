@@ -35,7 +35,7 @@ const taskSchema = new mongoose.Schema({
     end: { type: String, default: '' }
 });
 
-// 4. Схема Новин (ОСЬ ТУТ БУЛА ПРОБЛЕМА - додаємо readBy)
+// 4. Схема Новин
 const newsPostSchema = new mongoose.Schema({
     messageId: { type: Number, required: true },
     chatId: { type: Number, required: true },
@@ -69,6 +69,18 @@ const auditLogSchema = new mongoose.Schema({
     details: { type: String, default: '' }
 });
 
+// 8. Схема Контактів (ДОДАНО, щоб виправити помилку)
+const contactSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    phone: { type: String, required: true }
+});
+
+// 9. Схема Подій (ДОДАНО, про всяк випадок)
+const eventSchema = new mongoose.Schema({
+    title: { type: String, required: true },
+    date: { type: String, required: true }
+});
+
 const User = mongoose.model('User', userSchema);
 const Shift = mongoose.model('Shift', shiftSchema);
 const Task = mongoose.model('Task', taskSchema);
@@ -76,5 +88,8 @@ const NewsPost = mongoose.model('NewsPost', newsPostSchema);
 const Request = mongoose.model('Request', requestSchema);
 const Note = mongoose.model('Note', noteSchema);
 const AuditLog = mongoose.model('AuditLog', auditLogSchema);
+const Contact = mongoose.model('Contact', contactSchema);
+const Event = mongoose.model('Event', eventSchema);
 
-module.exports = { User, Shift, Task, NewsPost, Request, Note, AuditLog };
+// Експортуємо всі моделі
+module.exports = { User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event };
