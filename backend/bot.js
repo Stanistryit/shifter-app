@@ -10,15 +10,14 @@ const initBot = (token, appUrl, tgConfig) => {
     if (!token) return null;
     
     // FIX 1: Явно вимикаємо polling, щоб не було конфліктів з Webhook
-    // Це часто є причиною дивних помилок при старті
     bot = new TelegramBot(token, { polling: false });
 
-    // FIX 2: Обробляємо помилку встановлення вебхука, щоб не крашити сервер
+    // FIX 2: Обробляємо помилку встановлення вебхука
     bot.setWebHook(`${appUrl}/bot${token}`)
         .then(() => console.log("🤖 Telegram Bot: Webhook set successfully"))
         .catch(err => console.error("⚠️ Telegram Bot: Webhook connection failed (might be temporary):", err.message));
 
-    // FIX 3: Додаємо "глушилки" для помилок, щоб вони не зупиняли процес Node.js
+    // FIX 3: Глушилки для помилок
     bot.on('polling_error', (error) => console.log(`[Polling Error] ${error.code}: ${error.message}`));
     bot.on('webhook_error', (error) => console.log(`[Webhook Error] ${error.code}: ${error.message}`));
     bot.on('error', (error) => console.log(`[General Bot Error] ${error.message}`));
@@ -144,21 +143,62 @@ const initBot = (token, appUrl, tgConfig) => {
         const uid = q.from.id;
         const data = q.data;
 
-        // 1. News Read
+        // 1. News Read (ВИПРАВЛЕНО)
         if (data === 'read_news') {
             const u = await User.findOne({telegramChatId:uid});
             let name = u ? u.name : q.from.first_name;
             const shortName = name.trim().split(' ')[1] || name.trim().split(' ')[0];
             
+            // Шукаємо пост. Якщо це реплай (альбом), шукаємо по ID медіа, на яке відповіли.
             let p = await NewsPost.findOne({messageId:q.message.reply_to_message ? q.message.reply_to_message.message_id : q.message.message_id});
             if(!p) p = await NewsPost.findOne({messageId: q.message.message_id});
             if(!p) return bot.answerCallbackQuery(q.id, {text:'Старий пост'});
+            
             if(p.readBy.includes(shortName)) return bot.answerCallbackQuery(q.id, {text:'Вже є', show_alert:true});
-            p.readBy.push(shortName); await p.save();
-            if (p.type !== 'file' || !q.message.reply_to_message) {
-                 const txt = (p.text ? p.text + "\n\n" : "") + `👀 <b>Ознайомились:</b>\n${p.readBy.join(', ')}`;
-                 try { if(p.type==='text') bot.editMessageText(txt, {chat_id:q.message.chat.id, message_id:q.message.message_id, parse_mode:'HTML', reply_markup:q.message.reply_markup}); else bot.editMessageCaption(txt, {chat_id:q.message.chat.id, message_id:q.message.message_id, parse_mode:'HTML', reply_markup:q.message.reply_markup}); } catch(e){}
+            
+            p.readBy.push(shortName); 
+            await p.save();
+            
+            const readList = `\n\n👀 <b>Ознайомились:</b>\n${p.readBy.join(', ')}`;
+
+            try {
+                // ВАРІАНТ 1: Це повідомлення-підтвердження (для альбому)
+                if (q.message.reply_to_message && p.type === 'file') {
+                    const newText = "👇 Підтвердити:" + readList;
+                    await bot.editMessageText(newText, {
+                        chat_id: q.message.chat.id, 
+                        message_id: q.message.message_id, 
+                        parse_mode: 'HTML', 
+                        reply_markup: q.message.reply_markup
+                    });
+                }
+                // ВАРІАНТ 2: Це звичайний пост (текст або одне фото)
+                else {
+                    const baseText = p.text || "";
+                    const newContent = baseText + readList;
+
+                    if (q.message.caption !== undefined) {
+                        // Фото/файл з підписом
+                        await bot.editMessageCaption(newContent, {
+                            chat_id: q.message.chat.id, 
+                            message_id: q.message.message_id, 
+                            parse_mode: 'HTML', 
+                            reply_markup: q.message.reply_markup
+                        });
+                    } else {
+                        // Просто текст
+                        await bot.editMessageText(newContent, {
+                            chat_id: q.message.chat.id, 
+                            message_id: q.message.message_id, 
+                            parse_mode: 'HTML', 
+                            reply_markup: q.message.reply_markup
+                        });
+                    }
+                }
+            } catch(e) {
+                // Ігноруємо помилки (наприклад, якщо повідомлення не змінилось)
             }
+            
             bot.answerCallbackQuery(q.id, {text:`Дякую, ${shortName}! ✅`});
         }
         
