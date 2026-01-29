@@ -39,7 +39,6 @@ app.use(session({
 app.use('/api', routes);
 
 // 2. ВАЖЛИВО: Маршрут для Webhook Телеграма
-// Цей код приймає дані від Телеграма і передає їх в бота
 app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => {
     const bot = getBot();
     if (bot) {
@@ -53,7 +52,6 @@ mongoose.connect(process.env.MONGO_URI)
     .then(() => { 
         console.log("✅ MongoDB OK"); 
         initDB(); 
-        // Ініціалізація бота
         initBot(process.env.TELEGRAM_TOKEN, 'https://shifter-app.onrender.com', TG_CONFIG);
     })
     .catch(console.error);
@@ -80,14 +78,14 @@ cron.schedule('0 18 * * *', async () => {
     if (offUsers.length > 0) { msg += `\n😴 <b>Вихідні:</b>\n`; const names = offUsers.map(u => { const parts = u.name.split(' '); return parts.length > 1 ? parts[1] : u.name; }).join(', '); msg += `${names}\n`; }
     msg += `\nGood luck! 🚀`;
 
-    const bot = getBot(); // Використовуємо getBot() замість require
+    const bot = getBot(); 
     if(bot) {
         try { await bot.sendMessage(TG_CONFIG.groupId, msg, { parse_mode: 'HTML', message_thread_id: TG_CONFIG.topics.schedule }); } catch (e) {}
         try { const rrp = await User.findOne({ role: 'RRP' }); if (rrp?.telegramChatId) await bot.sendMessage(rrp.telegramChatId, `🔔 <b>Звіт (RRP):</b>\n\n${msg}`, { parse_mode: 'HTML' }); } catch (e) {}
     }
 });
 
-// HOURLY REMINDERS
+// HOURLY REMINDERS (Shift + Task)
 cron.schedule('0 * * * *', async () => {
     const now = new Date();
     // Use UA time for checks
@@ -97,8 +95,9 @@ cron.schedule('0 * * * *', async () => {
     
     // We get ALL shifts for today and tomorrow
     const tomorrowDate = new Date(Date.now() + 86400000);
-    const tomorrowStr = tomorrowDate.toISOString().split('T')[0]; // Simple UTC check for query
+    const tomorrowStr = tomorrowDate.toISOString().split('T')[0]; 
     
+    // --- 1. SHIFT REMINDERS ---
     const shifts = await Shift.find({ date: { $in: [currentUADay, tomorrowStr] } });
     
     for (const s of shifts) {
@@ -121,12 +120,35 @@ cron.schedule('0 * * * *', async () => {
             if (user.reminderTime === '1h' && currentUAHour === (sH - 1)) shouldNotify = true;
         }
         else if (s.date > currentUADay) {
-             // 12h before logic (simplified)
              if (user.reminderTime === '12h' && currentUAHour === (sH + 12)) shouldNotify = true; 
         }
 
         if (shouldNotify) {
             notifyUser(s.name, `🔔 <b>Нагадування!</b>\n\nВ тебе зміна: <b>${s.date}</b>\n⏰ Час: <b>${s.start} - ${s.end}</b>`);
+        }
+    }
+
+    // --- 2. TASK REMINDERS (За 1 годину) ---
+    // Визначаємо "наступну годину" для перевірки
+    let checkTaskHour = currentUAHour + 1;
+    let checkTaskDate = currentUADay;
+    
+    // Перехід через північ (якщо зараз 23:00, перевіряємо задачі на 00:00 завтра)
+    if (checkTaskHour === 24) {
+        checkTaskHour = 0;
+        checkTaskDate = tomorrowStr;
+    }
+
+    const tasks = await Task.find({ date: checkTaskDate });
+
+    for (const t of tasks) {
+        if (t.isFullDay || !t.start) continue;
+
+        const [tH, tM] = t.start.split(':').map(Number);
+        
+        // Якщо задача стартує в наступній годині
+        if (tH === checkTaskHour) {
+            notifyUser(t.name, `📌 <b>Нагадування про задачу!</b>\n\n📝 ${t.title}\n⏰ Початок: ${t.start}`);
         }
     }
 });

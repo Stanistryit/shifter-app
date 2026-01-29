@@ -157,7 +157,10 @@ async function loadData() {
     const s1 = document.getElementById('employeeSelect');
     const s2 = document.getElementById('taskEmployee');
     s1.innerHTML='<option disabled selected>Хто?</option>';
-    s2.innerHTML='<option disabled selected>Кому?</option>';
+    
+    // ЗМІНЕНО: Додано опцію "Всім"
+    s2.innerHTML='<option disabled selected>Кому?</option><option value="all">📢 Всім</option>';
+    
     state.users.forEach(x => {
         s1.innerHTML+=`<option value="${x.name}">${x.name}</option>`;
         s2.innerHTML+=`<option value="${x.name}">${x.name}</option>`;
@@ -167,7 +170,7 @@ async function loadData() {
 function renderCurrentShifts() {
     renderTimeline();
     renderCalendar();
-    renderTable(); // Додаємо рендер таблиці
+    renderTable(); 
 }
 
 // --- UI FUNCTIONS ---

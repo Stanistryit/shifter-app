@@ -1,10 +1,10 @@
 import { state } from './state.js';
 import { triggerHaptic } from './ui.js';
 
-const START_HOUR = 10;
-const TOTAL_HOURS = 10;
+// ЗМІНЕНО: Розширили час з 08:00 до 22:00 (14 годин), щоб вмістити ранішні задачі
+const START_HOUR = 8;
+const TOTAL_HOURS = 14;
 
-// ... (renderTimeline залишаємо без змін) ...
 export function renderTimeline() {
     const main = document.getElementById('scheduleView');
     main.innerHTML = '';
@@ -13,6 +13,7 @@ export function renderTimeline() {
 
     const dates = [...new Set([...state.shifts.map(s => s.date), ...state.notes.map(n => n.date)])].sort();
     
+    // FIX: Використовуємо місцевий час
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
@@ -21,10 +22,8 @@ export function renderTimeline() {
 
     let pastDaysCount = 0;
     
-    // Фільтрація юзерів
     let usersToShow = (state.filter === 'all') ? state.users : state.users.filter(u => u.name === state.filter);
 
-    // Підрахунок годин
     const currentMonthPrefix = today.substring(0, 7);
     const userHours = {};
     usersToShow.forEach(u => {
@@ -115,11 +114,12 @@ export function renderTimeline() {
                         }
                     });
 
-                    html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
+                    html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(TOTAL_HOURS).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
                 }
             } else if (userTasks.length > 0) {
+                 // Тільки задача
                  let tasksHtml = ''; userTasks.forEach(task => { if(!task.isFullDay) { const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number); const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60; let tLeft = ((tStartD - START_HOUR) / TOTAL_HOURS) * 100; let tWidth = ((tEndD - tStartD) / TOTAL_HOURS) * 100; const canEdit = ['admin','SM','SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP'; const delAction = canEdit ? `onclick="deleteTask('${task._id}'); event.stopPropagation();"` : ''; tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${delAction}>${task.title}</div>`; } });
-                 html += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;
+                 html += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(TOTAL_HOURS).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;
             } else {
                 html += `<div class="opacity-40"><div class="flex items-center justify-between text-xs mb-1 text-gray-400"><div>${avatarHtml} <span>${shortName}</span> ${hoursBadges}</div> <span>Вихідний</span></div><div class="h-[1px] bg-gray-200 dark:bg-gray-800 rounded w-full mt-3 mb-4"></div></div>`;
             }
@@ -147,6 +147,7 @@ export function renderCalendar() {
     const t = document.getElementById('calendarTitle');
     const y = state.currentDate.getFullYear();
     const m = state.currentDate.getMonth();
+    
     t.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
     
     const fd = new Date(y, m, 1).getDay() || 7;
@@ -171,10 +172,9 @@ export function renderCalendar() {
     }
 }
 
-// НОВА ФУНКЦІЯ: ТАБЛИЦЯ (GRID)
+// ОНОВЛЕНА ТАБЛИЦЯ (GRID)
 export function renderTable() {
     const container = document.getElementById('gridViewContainer');
-    // Очищаємо контейнер (крім контролів місяця)
     const tableDiv = document.getElementById('gridViewTable');
     tableDiv.innerHTML = '';
     
@@ -185,16 +185,15 @@ export function renderTable() {
 
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     
-    // Перевірка "Сьогодні"
     const now = new Date();
     const isCurrentMonth = now.getFullYear() === y && now.getMonth() === m;
     const todayDate = now.getDate();
+    // Для визначення минулих днів
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
     let html = '<table class="w-full text-xs border-collapse">';
     
-    // HEADER (Дати)
     html += '<thead><tr class="h-10 border-b border-gray-100 dark:border-gray-800">';
-    // Лівий кут (фіксований)
     html += '<th class="sticky left-0 z-20 bg-gray-50 dark:bg-[#2C2C2E] px-2 text-left font-bold min-w-[100px] border-r border-gray-200 dark:border-gray-700 shadow-sm">Співробітник</th>';
     
     for(let d=1; d<=daysInMonth; d++) {
@@ -203,21 +202,28 @@ export function renderTable() {
         const dayName = dateObj.toLocaleDateString('uk-UA', {weekday: 'short'});
         const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
         
-        // Стилі для заголовка дня
-        let bgClass = isWeekend ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : 'bg-white dark:bg-[#1C1C1E] text-gray-500 dark:text-gray-400';
-        if (isToday) bgClass = 'bg-blue-500 text-white shadow-md shadow-blue-500/30 rounded-t-lg transform scale-105 z-10'; // Виділення сьогодні
+        // Перевіряємо, чи день минулий
+        const dStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const isPast = dStr < todayStr;
         
-        html += `<th class="px-1 text-center min-w-[40px] font-normal ${bgClass} border-r border-gray-100 dark:border-gray-800 relative group cursor-default">
+        // Стилі заголовка
+        let bgClass = 'bg-white dark:bg-[#1C1C1E] text-gray-500 dark:text-gray-400';
+        if (isPast) bgClass = 'bg-gray-100 text-gray-400 dark:bg-[#1a1a1a] dark:text-gray-600'; // Минулі дні сірі
+        if (isWeekend && !isPast) bgClass = 'bg-red-50 dark:bg-red-900/20 text-red-500';
+        
+        // ID для автоскролу
+        const thId = isToday ? 'id="todayColumn"' : '';
+        if (isToday) bgClass = 'bg-blue-500 text-white shadow-md shadow-blue-500/30 rounded-t-lg transform scale-105 z-30'; 
+        
+        html += `<th ${thId} class="px-1 text-center min-w-[40px] font-normal ${bgClass} border-r border-gray-100 dark:border-gray-800 relative group cursor-default">
             <div class="font-bold text-[13px]">${d}</div>
             <div class="text-[9px] opacity-80 uppercase">${dayName}</div>
         </th>`;
     }
     html += '</tr></thead>';
 
-    // BODY (Співробітники)
     html += '<tbody>';
     
-    // Фільтр юзерів (якщо треба, або показуємо всіх)
     let usersToShow = (state.filter === 'all') ? state.users : state.users.filter(u => u.name === state.filter);
 
     usersToShow.forEach(user => {
@@ -225,25 +231,25 @@ export function renderTable() {
         const shortName = parts.length > 1 ? parts[1] : parts[0];
         
         html += '<tr class="h-10 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors">';
-        
-        // Ім'я (фіксоване)
         html += `<td class="sticky left-0 z-10 bg-white dark:bg-[#1C1C1E] px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[100px] shadow-sm">${shortName}</td>`;
         
         for(let d=1; d<=daysInMonth; d++) {
             const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const isToday = isCurrentMonth && d === todayDate;
             const shift = state.shifts.find(s => s.date === ds && s.name === user.name);
-            
+            const isPast = ds < todayStr;
+
             // Фон клітинки
             let cellClass = '';
-            if (isToday) cellClass += ' bg-blue-50/50 dark:bg-blue-900/10 border-x-2 border-blue-200 dark:border-blue-800'; // Світла смуга на весь стовпчик "сьогодні"
+            if (isPast) cellClass = 'bg-gray-50/50 dark:bg-[#202020] text-gray-400'; // Минулі клітинки сірі
+            if (isToday) cellClass = 'bg-blue-50/50 dark:bg-blue-900/10 border-x-2 border-blue-200 dark:border-blue-800 relative z-0'; 
 
             let content = '';
             if (shift) {
                 if (shift.start === 'Відпустка') {
                     content = '<span class="text-lg">🌴</span>';
                 } else {
-                    content = `<div class="text-[10px] font-mono leading-tight bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5">${shift.start}<br>${shift.end}</div>`;
+                    content = `<div class="text-[10px] font-mono leading-tight bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 ${isPast ? 'opacity-50' : ''}">${shift.start}<br>${shift.end}</div>`;
                 }
             }
 
@@ -254,4 +260,10 @@ export function renderTable() {
     
     html += '</tbody></table>';
     tableDiv.innerHTML = html;
+
+    // АВТОСКРОЛ ДО СЬОГОДНІ
+    setTimeout(() => {
+        const el = document.getElementById('todayColumn');
+        if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, 100);
 }
