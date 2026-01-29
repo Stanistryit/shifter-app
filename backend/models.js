@@ -30,6 +30,7 @@ const taskSchema = new mongoose.Schema({
     title: { type: String, required: true },
     date: { type: String, required: true },
     name: { type: String, required: true },
+    description: { type: String, default: '' }, // <-- НОВЕ ПОЛЕ
     isFullDay: { type: Boolean, default: false },
     start: { type: String, default: '' },
     end: { type: String, default: '' }
@@ -69,13 +70,13 @@ const auditLogSchema = new mongoose.Schema({
     details: { type: String, default: '' }
 });
 
-// 8. Схема Контактів (ДОДАНО, щоб виправити помилку)
+// 8. Схема Контактів
 const contactSchema = new mongoose.Schema({
     name: { type: String, required: true },
     phone: { type: String, required: true }
 });
 
-// 9. Схема Подій (ДОДАНО, про всяк випадок)
+// 9. Схема Подій
 const eventSchema = new mongoose.Schema({
     title: { type: String, required: true },
     date: { type: String, required: true }
@@ -91,5 +92,4 @@ const AuditLog = mongoose.model('AuditLog', auditLogSchema);
 const Contact = mongoose.model('Contact', contactSchema);
 const Event = mongoose.model('Event', eventSchema);
 
-// Експортуємо всі моделі
 module.exports = { User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event };

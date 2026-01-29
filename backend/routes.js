@@ -98,7 +98,7 @@ router.post('/shifts/bulk', async (req, res) => { const u = await User.findById(
 router.post('/shifts/clear-day', async (req, res) => { const u = await User.findById(req.session.userId); await Shift.deleteMany({date:req.body.date}); logAction(u.name, 'clear_day', req.body.date); res.json({success:true}); });
 router.post('/shifts/clear-month', async (req, res) => { const u = await User.findById(req.session.userId); if(u.role!=='SM'&&u.role!=='admin') return res.status(403).json({}); await Shift.deleteMany({date: { $regex: `^${req.body.month}` } }); logAction(u.name, 'clear_month', req.body.month); res.json({success:true}); });
 
-// TASKS: Read & Create (ОНОВЛЕНО ДЛЯ "ВСІХ")
+// TASKS: Read & Create (ОНОВЛЕНО)
 router.get('/tasks', async (req, res) => { const t = await Task.find(); res.json(t); });
 
 router.post('/tasks', async (req, res) => { 
@@ -109,15 +109,19 @@ router.post('/tasks', async (req, res) => {
         return res.json({success:true, pending:true}); 
     }
 
-    // Допоміжна функція для повідомлень
-    const sendTaskNotification = (name, title, date, start, end, isFullDay) => {
+    // Оновлена функція сповіщення з описом
+    const sendTaskNotification = (name, title, date, start, end, isFullDay, description) => {
         let dur = "Весь день"; 
         if (!isFullDay && start && end) { 
             const [h1, m1] = start.split(':').map(Number); 
             const [h2, m2] = end.split(':').map(Number); 
             dur = `${((h2 + m2/60) - (h1 + m1/60)).toFixed(1)} год.`; 
         } 
-        notifyUser(name, `📌 <b>Задача:</b> ${title}\n📅 ${date}\n⏳ ${dur}`);
+        
+        let msg = `📌 <b>Задача:</b> ${title}\n📅 ${date}\n⏳ ${dur}`;
+        if(description) msg += `\n\nℹ️ <b>Опис:</b> ${description}`;
+
+        notifyUser(name, msg);
     };
 
     // 1. Логіка для "Всіх"
@@ -130,14 +134,14 @@ router.post('/tasks', async (req, res) => {
         
         if (tasksToCreate.length > 0) {
             await Task.insertMany(tasksToCreate);
-            users.forEach(u => sendTaskNotification(u.name, req.body.title, req.body.date, req.body.start, req.body.end, req.body.isFullDay));
+            users.forEach(u => sendTaskNotification(u.name, req.body.title, req.body.date, req.body.start, req.body.end, req.body.isFullDay, req.body.description));
             logAction(perm.user.name, 'add_task_all', req.body.title);
         }
     } 
     // 2. Логіка для однієї людини
     else {
         await Task.create(req.body); 
-        sendTaskNotification(req.body.name, req.body.title, req.body.date, req.body.start, req.body.end, req.body.isFullDay);
+        sendTaskNotification(req.body.name, req.body.title, req.body.date, req.body.start, req.body.end, req.body.isFullDay, req.body.description);
         logAction(perm.user.name, 'add_task', req.body.title); 
     }
 
@@ -172,7 +176,7 @@ router.post('/notes/delete', async (req, res) => { const u=await User.findById(r
 
 router.get('/requests', async (req, res) => { const u=await User.findById(req.session.userId); if(u?.role!=='SM'&&u?.role!=='admin') return res.json([]); const r=await Request.find().sort({createdAt:-1}); res.json(r); });
 
-// REQUESTS ACTION (ОНОВЛЕНО ДЛЯ "ВСІХ")
+// REQUESTS ACTION
 router.post('/requests/action', async (req, res) => { 
     const {id, action} = req.body; 
     const r = await Request.findById(id); 
@@ -184,7 +188,6 @@ router.post('/requests/action', async (req, res) => {
         if(r.type === 'del_task') await Task.findByIdAndDelete(r.data.id);
         
         if(r.type === 'add_task') {
-            // Обробка масової задачі
             if (r.data.name === 'all') {
                 const users = await User.find({ role: { $nin: ['admin', 'RRP'] } });
                 const tasksToCreate = users.map(u => ({ ...r.data, name: u.name }));
@@ -205,7 +208,6 @@ router.post('/requests/action', async (req, res) => {
     res.json({success:true}); 
 });
 
-// APPROVE ALL (ВИПРАВЛЕНО, тепер обробляє всі типи)
 router.post('/requests/approve-all', async (req, res) => { 
     const rs = await Request.find(); 
     for(const r of rs) { 

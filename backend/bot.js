@@ -190,7 +190,12 @@ const sendRequestToSM = async (requestDoc) => {
     let details = "";
     if (requestDoc.type === 'add_shift') details = `📅 Зміна: ${requestDoc.data.date}\n⏰ ${requestDoc.data.start}-${requestDoc.data.end}`;
     if (requestDoc.type === 'del_shift') details = `❌ Видалення зміни: ${requestDoc.data.date}`;
-    if (requestDoc.type === 'add_task') details = `📌 Задача: ${requestDoc.data.title}`;
+    // ОНОВЛЕНО: Додаємо опис у запит
+    if (requestDoc.type === 'add_task') {
+        details = `📌 Задача: ${requestDoc.data.title}`;
+        if (requestDoc.data.description) details += `\nℹ️ ${requestDoc.data.description}`;
+    }
+    
     const txt = `🔔 <b>Новий запит</b>\n👤 <b>Від:</b> ${requestDoc.createdBy}\nℹ️ <b>Тип:</b> ${requestDoc.type}\n\n${details}`;
     const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[ { text: "✅ Дозволити", callback_data: `approve_req_${requestDoc._id}` }, { text: "❌ Відхилити", callback_data: `reject_req_${requestDoc._id}` } ]] } };
     for(const sm of sms) { if(sm.telegramChatId) bot.sendMessage(sm.telegramChatId, txt, opts); }
