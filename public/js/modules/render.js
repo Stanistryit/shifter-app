@@ -1,6 +1,13 @@
 import { state } from './state.js';
 import { triggerHaptic } from './ui.js';
 
+// --- ГОЛОВНА ФУНКЦІЯ РЕНДЕРУ ---
+export function renderAll() {
+    renderTimeline();
+    renderCalendar();
+    renderTable();
+}
+
 export function renderTimeline() {
     const main = document.getElementById('scheduleView');
     main.innerHTML = '';
@@ -75,7 +82,7 @@ export function renderTimeline() {
             block.classList.add('ring-2', 'ring-blue-500', 'shadow-lg', 'shadow-blue-500/20', 'dark:shadow-blue-500');
         }
 
-        let html = `<div class="mb-3 border-b border-gray-100 dark:border-gray-800 pb-2 flex justify-between items-center cursor-pointer active:opacity-60" onclick="openNotesModal('${dateStr}')"><h3 class="font-bold text-lg capitalize ${isToday?'text-blue-500':'text-black dark:text-white'}">${dName}</h3><div class="text-blue-500 text-xs font-bold px-2 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-lg">📝 Нотатки</div></div>`;
+        let html = `<div class="mb-3 border-b border-gray-100 dark:border-gray-800 pb-2 flex justify-between items-center cursor-pointer active:opacity-60" onclick="window.openNotesModal('${dateStr}')"><h3 class="font-bold text-lg capitalize ${isToday?'text-blue-500':'text-black dark:text-white'}">${dName}</h3><div class="text-blue-500 text-xs font-bold px-2 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-lg">📝 Нотатки</div></div>`;
         
         const dayNotes = state.notes.filter(n => n.date === dateStr);
         if (dayNotes.length > 0) {
@@ -104,11 +111,7 @@ export function renderTimeline() {
                 const isMe = shift.name === state.currentUser.name;
                 const canEdit = ['admin','SM','SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP';
                 
-                // ВИДАЛЕНО: Кнопка delShift (✕). Тепер використовуємо Context Menu.
-                const delShift = ''; 
-
-                // ДОДАНО: Context Menu (Long Press)
-                // Для мобільних це зазвичай працює як довгий тап, якщо є oncontextmenu
+                // Context Menu Attr
                 const ctxAttr = canEdit ? `oncontextmenu="window.contextMenuProxy(event, 'shift', '${shift._id}');"` : '';
 
                 if (shift.start === 'Відпустка') {
@@ -131,7 +134,6 @@ export function renderTimeline() {
                     
                     userTasks.forEach(task => {
                         if(task.isFullDay) {
-                            // Full day tasks - click to open modal
                             const clickAttr = `onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();"`;
                             badges += `<span ${clickAttr} class="ml-2 text-[10px] text-purple-600 font-bold border border-purple-200 bg-purple-50 px-1 rounded cursor-pointer active:scale-95">★ ${task.title}</span>`;
                         } else {
@@ -146,13 +148,12 @@ export function renderTimeline() {
                             if(tLeft < 0) { tWidth += tLeft; tLeft = 0; }
                             if(tLeft + tWidth > 100) tWidth = 100 - tLeft;
 
-                            // TASK CLICK: Open Modal instead of Delete
                             const clickAction = `onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();"`;
                             tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${clickAction}>${task.title}</div>`;
                         }
                     });
 
-                    html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" ${ctxAttr} style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
+                    html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" ${ctxAttr} style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
                 }
             } else if (userTasks.length > 0) {
                  let tasksHtml = ''; 
@@ -220,7 +221,7 @@ export function renderCalendar() {
         }
         if(tasks.length > 0) { content += `<div class="absolute top-1 right-1 w-1.5 h-1.5 bg-purple-500 rounded-full"></div>`; }
         if (ds === today) dayClass += ' today';
-        g.innerHTML += `<div class="calendar-day ${dayClass}" onclick="triggerHaptic(); openNotesModal('${ds}')">${content}</div>`;
+        g.innerHTML += `<div class="calendar-day ${dayClass}" onclick="triggerHaptic(); window.openNotesModal('${ds}')">${content}</div>`;
     }
 }
 
