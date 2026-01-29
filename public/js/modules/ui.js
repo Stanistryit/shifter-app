@@ -117,6 +117,23 @@ export function openTaskDetailsModal(task) {
     document.getElementById('taskModalTime').innerText = task.isFullDay ? 'Весь день' : `${task.start} - ${task.end}`;
     document.getElementById('taskModalUser').innerText = task.name;
     
+    // НОВЕ: Обробка опису та посилань
+    const descWrapper = document.getElementById('taskModalDescriptionWrapper');
+    const descText = document.getElementById('taskModalDescription');
+
+    if (task.description && task.description.trim() !== "") {
+        // Робимо посилання клікабельними
+        const linkedText = task.description.replace(
+            /(https?:\/\/[^\s]+)/g, 
+            '<a href="$1" target="_blank" class="text-blue-500 underline break-all">$1</a>'
+        );
+        descText.innerHTML = linkedText;
+        descWrapper.classList.remove('hidden');
+    } else {
+        descWrapper.classList.add('hidden');
+        descText.innerHTML = '';
+    }
+
     // Прив'язуємо кнопку видалення
     const btn = document.getElementById('btnDeleteTask');
     btn.onclick = () => {

@@ -149,7 +149,9 @@ export function renderTimeline() {
                             if(tLeft + tWidth > 100) tWidth = 100 - tLeft;
 
                             const clickAction = `onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();"`;
-                            tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${clickAction}>${task.title}</div>`;
+                            
+                            // ЗМІНА: Виводимо 📌 замість title і центруємо
+                            tasksHtml += `<div class="task-segment flex items-center justify-center text-[10px]" style="left:${tLeft}%; width:${tWidth}%;" ${clickAction}>📌</div>`;
                         }
                     });
 
@@ -170,7 +172,9 @@ export function renderTimeline() {
                         if(tLeft + tWidth > 100) tWidth = 100 - tLeft;
 
                         const clickAction = `onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();"`;
-                        tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${clickAction}>${task.title}</div>`; 
+                        
+                        // ЗМІНА: Виводимо 📌 замість title і центруємо
+                        tasksHtml += `<div class="task-segment flex items-center justify-center text-[10px]" style="left:${tLeft}%; width:${tWidth}%;" ${clickAction}>📌</div>`; 
                      } 
                  });
                  html += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;

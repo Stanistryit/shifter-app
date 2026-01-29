@@ -82,14 +82,22 @@ export async function addTask() {
     const title = document.getElementById('taskTitle').value;
     const date = document.getElementById('taskDate').value;
     const name = document.getElementById('taskEmployee').value;
+    const description = document.getElementById('taskDescription').value; // НОВЕ: Опис
     const isFullDay = document.getElementById('taskFullDay').checked;
     const start = document.getElementById('taskStart').value;
     const end = document.getElementById('taskEnd').value;
 
     if (!title || !date || !name) return showToast("Заповніть дані", 'error');
     
-    await postJson('/api/tasks', { title, date, name, isFullDay, start, end });
+    // Передаємо description на сервер
+    await postJson('/api/tasks', { title, date, name, description, isFullDay, start, end });
+    
     showToast("Задачу призначено");
+    
+    // Очищуємо поля для зручності
+    document.getElementById('taskTitle').value = '';
+    document.getElementById('taskDescription').value = '';
+
     state.tasks = await fetchJson('/api/tasks');
     renderAll();
 }
