@@ -1,7 +1,10 @@
 import { state } from './modules/state.js';
 import { fetchJson, postJson } from './modules/api.js';
-import { initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab, formatText, updateFileName } from './modules/ui.js';
-// Імпортуємо нову функцію renderTable
+// ДОДАНО: імпорт нових функцій UI та activeContext
+import { 
+    initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab, formatText, updateFileName,
+    openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext 
+} from './modules/ui.js';
 import { renderTimeline, renderCalendar, renderTable } from './modules/render.js';
 
 const tg = window.Telegram.WebApp;
@@ -10,6 +13,7 @@ if(tg) { tg.ready(); if(tg.platform && tg.platform!=='unknown') try{tg.expand()}
 // --- Ініціалізація ---
 initTheme();
 checkAuth();
+initContextMenuListeners(); // Запуск слухачів меню
 
 // --- Робимо функції доступними для HTML (onclick) ---
 window.toggleTheme = toggleTheme;
@@ -60,6 +64,18 @@ window.toggleNoteType = toggleNoteType;
 window.saveNote = saveNote;
 window.deleteNote = deleteNote;
 
+// Task Modal (НОВЕ)
+window.openTaskProxy = (id) => {
+    const task = state.tasks.find(t => t._id === id);
+    if(task) openTaskDetailsModal(task);
+};
+window.closeTaskDetailsModal = closeTaskDetailsModal;
+
+// Context Menu (НОВЕ)
+window.contextMenuProxy = (e, type, id) => {
+    showContextMenu(e, type, id);
+};
+
 // Скрол вгору
 window.scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -71,6 +87,65 @@ window.addEventListener('scroll', () => {
         else btn.classList.add('opacity-0');
     }
 });
+
+// --- ЛОГІКА КОНТЕКСТНОГО МЕНЮ ---
+function initContextMenuListeners() {
+    // Edit
+    document.getElementById('ctxEdit').onclick = () => {
+        const menu = document.getElementById('contextMenu');
+        menu.classList.add('hidden');
+        
+        if (activeContext.type === 'shift') {
+            const s = state.shifts.find(x => x._id === activeContext.id);
+            if (s) {
+                // Заповнюємо форму даними
+                document.getElementById('shiftDate').value = s.date;
+                document.getElementById('employeeSelect').value = s.name;
+                
+                if (s.start === 'Відпустка') {
+                    document.getElementById('shiftVacation').checked = true;
+                } else {
+                    document.getElementById('shiftVacation').checked = false;
+                    document.getElementById('startTime').value = s.start;
+                    document.getElementById('endTime').value = s.end;
+                }
+                toggleShiftTimeInputs();
+                
+                // Відкриваємо панель
+                document.getElementById('adminPanel').classList.remove('hidden');
+                showAdminTab('shifts');
+                showToast('Дані заповнено. Відредагуйте та натисніть "Додати"', 'info');
+                
+                // Скролимо до панелі
+                document.getElementById('adminPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    };
+
+    // Copy
+    document.getElementById('ctxCopy').onclick = () => {
+        const menu = document.getElementById('contextMenu');
+        menu.classList.add('hidden');
+        
+        if (activeContext.type === 'shift') {
+            const s = state.shifts.find(x => x._id === activeContext.id);
+            if (s) {
+                const txt = `${s.date} | ${s.name} | ${s.start} - ${s.end}`;
+                navigator.clipboard.writeText(txt).then(() => showToast('Скопійовано 📋'));
+            }
+        }
+    };
+
+    // Delete
+    document.getElementById('ctxDelete').onclick = () => {
+        const menu = document.getElementById('contextMenu');
+        menu.classList.add('hidden');
+        
+        if (activeContext.type === 'shift') {
+            delS(activeContext.id); // Використовуємо існуючу функцію видалення
+        }
+    };
+}
 
 // --- AUTH LOGIC ---
 async function checkAuth() {
@@ -157,8 +232,6 @@ async function loadData() {
     const s1 = document.getElementById('employeeSelect');
     const s2 = document.getElementById('taskEmployee');
     s1.innerHTML='<option disabled selected>Хто?</option>';
-    
-    // ЗМІНЕНО: Додано опцію "Всім"
     s2.innerHTML='<option disabled selected>Кому?</option><option value="all">📢 Всім</option>';
     
     state.users.forEach(x => {

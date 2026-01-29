@@ -1,8 +1,6 @@
 import { state } from './state.js';
 import { triggerHaptic } from './ui.js';
 
-// Константи видалили, тепер вони динамічні всередині функцій
-
 export function renderTimeline() {
     const main = document.getElementById('scheduleView');
     main.innerHTML = '';
@@ -21,7 +19,7 @@ export function renderTimeline() {
     let pastDaysCount = 0;
     let usersToShow = (state.filter === 'all') ? state.users : state.users.filter(u => u.name === state.filter);
 
-    // Підрахунок годин (загальний, не залежить від відображення)
+    // Підрахунок годин
     const currentMonthPrefix = today.substring(0, 7);
     const userHours = {};
     usersToShow.forEach(u => {
@@ -35,28 +33,23 @@ export function renderTimeline() {
     });
 
     dates.forEach((dateStr, index) => {
-        // --- ДИНАМІЧНИЙ РОЗРАХУНОК ЧАСУ ДЛЯ КОНКРЕТНОГО ДНЯ ---
-        let dayStart = 10; // Стандартний початок
-        let dayEnd = 20;   // Стандартний кінець
+        // --- ДИНАМІЧНИЙ ЧАС ---
+        let dayStart = 10; 
+        let dayEnd = 20;   
 
-        // 1. Перевіряємо задачі на цей день
-        const dayTasks = state.tasks.filter(t => t.date === dateStr);
-        dayTasks.forEach(t => {
+        state.tasks.filter(t => t.date === dateStr).forEach(t => {
             if (!t.isFullDay && t.start) {
                 const h = parseInt(t.start.split(':')[0]);
-                if (h < dayStart) dayStart = h; // Розширюємо вліво (наприклад до 8)
-                
+                if (h < dayStart) dayStart = h;
                 if (t.end) {
                     const parts = t.end.split(':');
                     const hEnd = parseInt(parts[0]) + (parseInt(parts[1]) > 0 ? 1 : 0);
-                    if (hEnd > dayEnd) dayEnd = hEnd; // Розширюємо вправо
+                    if (hEnd > dayEnd) dayEnd = hEnd;
                 }
             }
         });
 
-        // 2. Перевіряємо зміни (раптом хтось працює з 8 ранку)
-        const dayShifts = state.shifts.filter(s => s.date === dateStr && s.start !== 'Відпустка');
-        dayShifts.forEach(s => {
+        state.shifts.filter(s => s.date === dateStr && s.start !== 'Відпустка').forEach(s => {
             const h = parseInt(s.start.split(':')[0]);
             if (h < dayStart) dayStart = h;
             const parts = s.end.split(':');
@@ -64,12 +57,10 @@ export function renderTimeline() {
             if (hEnd > dayEnd) dayEnd = hEnd;
         });
 
-        // Обмежуємо розумними рамками (щоб не було 00:00 - 24:00 через помилки)
         if (dayStart < 6) dayStart = 6; 
         if (dayEnd > 23) dayEnd = 23;
-
         const totalHours = dayEnd - dayStart;
-        // -----------------------------------------------------
+        // -----------------------
 
         const isPast = dateStr < today;
         const isToday = dateStr === today;
@@ -112,17 +103,22 @@ export function renderTimeline() {
             if (shift) {
                 const isMe = shift.name === state.currentUser.name;
                 const canEdit = ['admin','SM','SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP';
-                const delShift = canEdit ? `<button onclick="delS('${shift._id}')" class="ml-auto text-gray-300 hover:text-red-500 p-1">✕</button>` : '';
+                
+                // ВИДАЛЕНО: Кнопка delShift (✕). Тепер використовуємо Context Menu.
+                const delShift = ''; 
+
+                // ДОДАНО: Context Menu (Long Press)
+                // Для мобільних це зазвичай працює як довгий тап, якщо є oncontextmenu
+                const ctxAttr = canEdit ? `oncontextmenu="window.contextMenuProxy(event, 'shift', '${shift._id}');"` : '';
 
                 if (shift.start === 'Відпустка') {
-                    html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-teal-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-teal-500 font-mono">Відпустка</span> ${delShift}</div><div class="timeline-track"><div class="shift-segment vacation-segment">ВІДПУСТКА 🌴</div></div></div>`;
+                    html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-teal-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-teal-500 font-mono">Відпустка</span></div><div class="timeline-track" ${ctxAttr}><div class="shift-segment vacation-segment">ВІДПУСТКА 🌴</div></div></div>`;
                 } else {
                     const [sH, sM] = shift.start.split(':').map(Number);
                     const [eH, eM] = shift.end.split(':').map(Number);
                     const startDecimal = sH + sM/60;
                     const endDecimal = eH + eM/60;
                     
-                    // Використовуємо dayStart та totalHours
                     let left = ((startDecimal - dayStart) / totalHours) * 100;
                     let width = ((endDecimal - startDecimal) / totalHours) * 100;
                     
@@ -135,7 +131,9 @@ export function renderTimeline() {
                     
                     userTasks.forEach(task => {
                         if(task.isFullDay) {
-                            badges += `<span class="ml-2 text-[10px] text-purple-600 font-bold border border-purple-200 bg-purple-50 px-1 rounded">★ ${task.title}</span>`;
+                            // Full day tasks - click to open modal
+                            const clickAttr = `onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();"`;
+                            badges += `<span ${clickAttr} class="ml-2 text-[10px] text-purple-600 font-bold border border-purple-200 bg-purple-50 px-1 rounded cursor-pointer active:scale-95">★ ${task.title}</span>`;
                         } else {
                             const [tS_h, tS_m] = task.start.split(':').map(Number);
                             const [tE_h, tE_m] = task.end.split(':').map(Number);
@@ -148,13 +146,13 @@ export function renderTimeline() {
                             if(tLeft < 0) { tWidth += tLeft; tLeft = 0; }
                             if(tLeft + tWidth > 100) tWidth = 100 - tLeft;
 
-                            const delAction = canEdit ? `onclick="deleteTask('${task._id}'); event.stopPropagation();"` : '';
-                            tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${delAction}>${task.title}</div>`;
+                            // TASK CLICK: Open Modal instead of Delete
+                            const clickAction = `onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();"`;
+                            tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${clickAction}>${task.title}</div>`;
                         }
                     });
 
-                    // Генеруємо сітку на основі totalHours
-                    html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
+                    html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" ${ctxAttr} style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
                 }
             } else if (userTasks.length > 0) {
                  let tasksHtml = ''; 
@@ -170,9 +168,8 @@ export function renderTimeline() {
                         if(tLeft < 0) { tWidth += tLeft; tLeft = 0; }
                         if(tLeft + tWidth > 100) tWidth = 100 - tLeft;
 
-                        const canEdit = ['admin','SM','SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP'; 
-                        const delAction = canEdit ? `onclick="deleteTask('${task._id}'); event.stopPropagation();"` : ''; 
-                        tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${delAction}>${task.title}</div>`; 
+                        const clickAction = `onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();"`;
+                        tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${clickAction}>${task.title}</div>`; 
                      } 
                  });
                  html += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;

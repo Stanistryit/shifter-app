@@ -145,6 +145,46 @@
         <div id="changePasswordModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeChangePasswordModal()"></div><div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up text-center"><h3 class="font-bold text-xl mb-4">🔐 Зміна пароля</h3><input type="password" id="oldPassword" placeholder="Старий пароль" class="ios-input mb-3"><input type="password" id="newPassword" placeholder="Новий пароль" class="ios-input mb-3"><input type="password" id="confirmPassword" placeholder="Повторіть новий пароль" class="ios-input mb-4"><button onclick="submitChangePassword()" class="btn-primary bg-indigo-500 shadow-indigo-500/30 mb-2">Змінити</button><button onclick="closeChangePasswordModal()" class="w-full py-3 text-red-500 font-medium">Скасувати</button></div></div>
         <div id="notesModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeNotesModal()"></div><div class="glass-modal rounded-2xl w-full max-w-sm p-5 relative z-10 animate-slide-up"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg" id="notesModalTitle">Нотатки</h3><button onclick="closeNotesModal()" class="text-gray-400 text-2xl">×</button></div><div id="notesList" class="space-y-2 mb-4 max-h-48 overflow-y-auto"></div><div class="border-t border-gray-100 dark:border-gray-800 pt-4"><textarea id="newNoteText" placeholder="Напишіть щось..." class="ios-input h-20 text-sm mb-3"></textarea><div class="flex gap-2"><div id="noteTypeToggle" class="hidden items-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] px-3 rounded-lg cursor-pointer active:scale-95 transition-transform" onclick="toggleNoteType()"><span id="noteTypeIcon">🔒</span> <span class="text-xs font-bold" id="noteTypeLabel">Особиста</span></div><button onclick="saveNote()" class="btn-primary flex-1">Додати</button></div></div></div></div>
 
+        <div id="taskDetailsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeTaskDetailsModal()"></div>
+            <div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="font-bold text-xl leading-tight pr-4" id="taskModalTitle">Task Title</h3>
+                    <button onclick="closeTaskDetailsModal()" class="text-gray-400 text-2xl leading-none">&times;</button>
+                </div>
+                <div class="space-y-3 mb-6">
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                        <span class="text-lg">📅</span>
+                        <span id="taskModalDate" class="font-medium">Date</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                        <span class="text-lg">⏰</span>
+                        <span id="taskModalTime" class="font-medium">Time</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                        <span class="text-lg">👤</span>
+                        <span id="taskModalUser" class="font-medium">User</span>
+                    </div>
+                </div>
+                <button id="btnDeleteTask" class="w-full py-3 text-red-500 font-bold bg-red-50 dark:bg-red-900/20 rounded-xl active:scale-95 transition-transform">🗑 Видалити задачу</button>
+            </div>
+        </div>
+
+        <div id="contextMenu" class="hidden fixed z-[100] w-48 bg-white dark:bg-[#1C1C1E] rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden transform transition-all origin-top-left">
+            <div class="p-1 space-y-0.5">
+                <button id="ctxEdit" class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#2C2C2E] rounded-lg flex items-center gap-2">
+                    <span>✏️</span> Редагувати
+                </button>
+                <button id="ctxCopy" class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#2C2C2E] rounded-lg flex items-center gap-2">
+                    <span>📋</span> Копіювати
+                </button>
+                <div class="h-px bg-gray-200 dark:bg-gray-700 my-1"></div>
+                <button id="ctxDelete" class="w-full text-left px-3 py-2 text-sm text-red-500 font-medium hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex items-center gap-2">
+                    <span>🗑</span> Видалити
+                </button>
+            </div>
+        </div>
+
     </div>
 
     <div class="hidden ring-2 ring-blue-500 shadow-lg shadow-blue-500/20 dark:shadow-blue-500/50 dark:shadow-blue-500 sticky left-0 z-10 z-20 min-w-[100px] min-w-[40px] border-r border-b opacity-80 bg-blue-50/50 dark:bg-blue-900/10 border-x-2 border-blue-200 dark:border-blue-800"></div>
