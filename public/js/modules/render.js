@@ -1,9 +1,7 @@
 import { state } from './state.js';
 import { triggerHaptic } from './ui.js';
 
-// ЗМІНЕНО: Розширили час з 08:00 до 22:00 (14 годин), щоб вмістити ранішні задачі
-const START_HOUR = 8;
-const TOTAL_HOURS = 14;
+// Константи видалили, тепер вони динамічні всередині функцій
 
 export function renderTimeline() {
     const main = document.getElementById('scheduleView');
@@ -13,7 +11,7 @@ export function renderTimeline() {
 
     const dates = [...new Set([...state.shifts.map(s => s.date), ...state.notes.map(n => n.date)])].sort();
     
-    // FIX: Використовуємо місцевий час
+    // Місцевий час
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
@@ -21,9 +19,9 @@ export function renderTimeline() {
     dates.sort();
 
     let pastDaysCount = 0;
-    
     let usersToShow = (state.filter === 'all') ? state.users : state.users.filter(u => u.name === state.filter);
 
+    // Підрахунок годин (загальний, не залежить від відображення)
     const currentMonthPrefix = today.substring(0, 7);
     const userHours = {};
     usersToShow.forEach(u => {
@@ -37,6 +35,42 @@ export function renderTimeline() {
     });
 
     dates.forEach((dateStr, index) => {
+        // --- ДИНАМІЧНИЙ РОЗРАХУНОК ЧАСУ ДЛЯ КОНКРЕТНОГО ДНЯ ---
+        let dayStart = 10; // Стандартний початок
+        let dayEnd = 20;   // Стандартний кінець
+
+        // 1. Перевіряємо задачі на цей день
+        const dayTasks = state.tasks.filter(t => t.date === dateStr);
+        dayTasks.forEach(t => {
+            if (!t.isFullDay && t.start) {
+                const h = parseInt(t.start.split(':')[0]);
+                if (h < dayStart) dayStart = h; // Розширюємо вліво (наприклад до 8)
+                
+                if (t.end) {
+                    const parts = t.end.split(':');
+                    const hEnd = parseInt(parts[0]) + (parseInt(parts[1]) > 0 ? 1 : 0);
+                    if (hEnd > dayEnd) dayEnd = hEnd; // Розширюємо вправо
+                }
+            }
+        });
+
+        // 2. Перевіряємо зміни (раптом хтось працює з 8 ранку)
+        const dayShifts = state.shifts.filter(s => s.date === dateStr && s.start !== 'Відпустка');
+        dayShifts.forEach(s => {
+            const h = parseInt(s.start.split(':')[0]);
+            if (h < dayStart) dayStart = h;
+            const parts = s.end.split(':');
+            const hEnd = parseInt(parts[0]) + (parseInt(parts[1]) > 0 ? 1 : 0);
+            if (hEnd > dayEnd) dayEnd = hEnd;
+        });
+
+        // Обмежуємо розумними рамками (щоб не було 00:00 - 24:00 через помилки)
+        if (dayStart < 6) dayStart = 6; 
+        if (dayEnd > 23) dayEnd = 23;
+
+        const totalHours = dayEnd - dayStart;
+        // -----------------------------------------------------
+
         const isPast = dateStr < today;
         const isToday = dateStr === today;
         const dObj = new Date(dateStr);
@@ -47,11 +81,7 @@ export function renderTimeline() {
         block.className = `ios-card p-4 ${animClass}`;
         
         if(isToday) {
-            block.classList.add(
-                'ring-2', 'ring-blue-500', 
-                'shadow-lg', 'shadow-blue-500/20', 
-                'dark:shadow-blue-500'
-            );
+            block.classList.add('ring-2', 'ring-blue-500', 'shadow-lg', 'shadow-blue-500/20', 'dark:shadow-blue-500');
         }
 
         let html = `<div class="mb-3 border-b border-gray-100 dark:border-gray-800 pb-2 flex justify-between items-center cursor-pointer active:opacity-60" onclick="openNotesModal('${dateStr}')"><h3 class="font-bold text-lg capitalize ${isToday?'text-blue-500':'text-black dark:text-white'}">${dName}</h3><div class="text-blue-500 text-xs font-bold px-2 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-lg">📝 Нотатки</div></div>`;
@@ -91,10 +121,14 @@ export function renderTimeline() {
                     const [eH, eM] = shift.end.split(':').map(Number);
                     const startDecimal = sH + sM/60;
                     const endDecimal = eH + eM/60;
-                    let left = ((startDecimal - START_HOUR) / TOTAL_HOURS) * 100;
-                    let width = ((endDecimal - startDecimal) / TOTAL_HOURS) * 100;
+                    
+                    // Використовуємо dayStart та totalHours
+                    let left = ((startDecimal - dayStart) / totalHours) * 100;
+                    let width = ((endDecimal - startDecimal) / totalHours) * 100;
+                    
                     if(left < 0) { width += left; left = 0; }
                     if(left + width > 100) width = 100 - left;
+                    if(width < 0) width = 0;
 
                     let tasksHtml = '';
                     let badges = '';
@@ -107,19 +141,41 @@ export function renderTimeline() {
                             const [tE_h, tE_m] = task.end.split(':').map(Number);
                             const tStartD = tS_h + tS_m/60;
                             const tEndD = tE_h + tE_m/60;
-                            let tLeft = ((tStartD - START_HOUR) / TOTAL_HOURS) * 100;
-                            let tWidth = ((tEndD - tStartD) / TOTAL_HOURS) * 100;
+                            
+                            let tLeft = ((tStartD - dayStart) / totalHours) * 100;
+                            let tWidth = ((tEndD - tStartD) / totalHours) * 100;
+                            
+                            if(tLeft < 0) { tWidth += tLeft; tLeft = 0; }
+                            if(tLeft + tWidth > 100) tWidth = 100 - tLeft;
+
                             const delAction = canEdit ? `onclick="deleteTask('${task._id}'); event.stopPropagation();"` : '';
                             tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${delAction}>${task.title}</div>`;
                         }
                     });
 
-                    html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(TOTAL_HOURS).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
+                    // Генеруємо сітку на основі totalHours
+                    html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
                 }
             } else if (userTasks.length > 0) {
-                 // Тільки задача
-                 let tasksHtml = ''; userTasks.forEach(task => { if(!task.isFullDay) { const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number); const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60; let tLeft = ((tStartD - START_HOUR) / TOTAL_HOURS) * 100; let tWidth = ((tEndD - tStartD) / TOTAL_HOURS) * 100; const canEdit = ['admin','SM','SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP'; const delAction = canEdit ? `onclick="deleteTask('${task._id}'); event.stopPropagation();"` : ''; tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${delAction}>${task.title}</div>`; } });
-                 html += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(TOTAL_HOURS).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;
+                 let tasksHtml = ''; 
+                 userTasks.forEach(task => { 
+                     if(!task.isFullDay) { 
+                        const [tS_h, tS_m] = task.start.split(':').map(Number); 
+                        const [tE_h, tE_m] = task.end.split(':').map(Number); 
+                        const tStartD = tS_h + tS_m/60; 
+                        const tEndD = tE_h + tE_m/60; 
+                        let tLeft = ((tStartD - dayStart) / totalHours) * 100; 
+                        let tWidth = ((tEndD - tStartD) / totalHours) * 100; 
+                        
+                        if(tLeft < 0) { tWidth += tLeft; tLeft = 0; }
+                        if(tLeft + tWidth > 100) tWidth = 100 - tLeft;
+
+                        const canEdit = ['admin','SM','SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP'; 
+                        const delAction = canEdit ? `onclick="deleteTask('${task._id}'); event.stopPropagation();"` : ''; 
+                        tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${delAction}>${task.title}</div>`; 
+                     } 
+                 });
+                 html += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;
             } else {
                 html += `<div class="opacity-40"><div class="flex items-center justify-between text-xs mb-1 text-gray-400"><div>${avatarHtml} <span>${shortName}</span> ${hoursBadges}</div> <span>Вихідний</span></div><div class="h-[1px] bg-gray-200 dark:bg-gray-800 rounded w-full mt-3 mb-4"></div></div>`;
             }
@@ -147,7 +203,6 @@ export function renderCalendar() {
     const t = document.getElementById('calendarTitle');
     const y = state.currentDate.getFullYear();
     const m = state.currentDate.getMonth();
-    
     t.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
     
     const fd = new Date(y, m, 1).getDay() || 7;
@@ -172,7 +227,6 @@ export function renderCalendar() {
     }
 }
 
-// ОНОВЛЕНА ТАБЛИЦЯ (GRID)
 export function renderTable() {
     const container = document.getElementById('gridViewContainer');
     const tableDiv = document.getElementById('gridViewTable');
@@ -188,7 +242,6 @@ export function renderTable() {
     const now = new Date();
     const isCurrentMonth = now.getFullYear() === y && now.getMonth() === m;
     const todayDate = now.getDate();
-    // Для визначення минулих днів
     const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
     let html = '<table class="w-full text-xs border-collapse">';
@@ -202,18 +255,15 @@ export function renderTable() {
         const dayName = dateObj.toLocaleDateString('uk-UA', {weekday: 'short'});
         const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
         
-        // Перевіряємо, чи день минулий
         const dStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         const isPast = dStr < todayStr;
         
-        // Стилі заголовка
         let bgClass = 'bg-white dark:bg-[#1C1C1E] text-gray-500 dark:text-gray-400';
-        if (isPast) bgClass = 'bg-gray-100 text-gray-400 dark:bg-[#1a1a1a] dark:text-gray-600'; // Минулі дні сірі
-        if (isWeekend && !isPast) bgClass = 'bg-red-50 dark:bg-red-900/20 text-red-500';
+        if (isPast) bgClass = 'bg-gray-100 text-gray-300 dark:bg-[#151515] dark:text-gray-600';
+        else if (isWeekend) bgClass = 'bg-red-50 dark:bg-red-900/20 text-red-500';
         
-        // ID для автоскролу
         const thId = isToday ? 'id="todayColumn"' : '';
-        if (isToday) bgClass = 'bg-blue-500 text-white shadow-md shadow-blue-500/30 rounded-t-lg transform scale-105 z-30'; 
+        if (isToday) bgClass = 'bg-blue-500 text-white shadow-md shadow-blue-500/30 rounded-t-lg transform scale-105 z-30 ring-2 ring-blue-500'; 
         
         html += `<th ${thId} class="px-1 text-center min-w-[40px] font-normal ${bgClass} border-r border-gray-100 dark:border-gray-800 relative group cursor-default">
             <div class="font-bold text-[13px]">${d}</div>
@@ -239,17 +289,17 @@ export function renderTable() {
             const shift = state.shifts.find(s => s.date === ds && s.name === user.name);
             const isPast = ds < todayStr;
 
-            // Фон клітинки
             let cellClass = '';
-            if (isPast) cellClass = 'bg-gray-50/50 dark:bg-[#202020] text-gray-400'; // Минулі клітинки сірі
-            if (isToday) cellClass = 'bg-blue-50/50 dark:bg-blue-900/10 border-x-2 border-blue-200 dark:border-blue-800 relative z-0'; 
+            if (isPast) cellClass = 'bg-gray-50/50 dark:bg-[#121212] text-gray-300';
+            if (isToday) cellClass = 'bg-blue-50/50 dark:bg-blue-900/20 border-x-2 border-blue-200 dark:border-blue-800 relative z-0'; 
 
             let content = '';
             if (shift) {
                 if (shift.start === 'Відпустка') {
                     content = '<span class="text-lg">🌴</span>';
                 } else {
-                    content = `<div class="text-[10px] font-mono leading-tight bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 ${isPast ? 'opacity-50' : ''}">${shift.start}<br>${shift.end}</div>`;
+                    const opacity = isPast ? 'opacity-50' : '';
+                    content = `<div class="text-[10px] font-mono leading-tight bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 ${opacity}">${shift.start}<br>${shift.end}</div>`;
                 }
             }
 
@@ -261,7 +311,6 @@ export function renderTable() {
     html += '</tbody></table>';
     tableDiv.innerHTML = html;
 
-    // АВТОСКРОЛ ДО СЬОГОДНІ
     setTimeout(() => {
         const el = document.getElementById('todayColumn');
         if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
