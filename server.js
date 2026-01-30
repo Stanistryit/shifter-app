@@ -71,11 +71,61 @@ cron.schedule('0 18 * * *', async () => {
     const allUsers = await User.find({ role: { $nin: ['admin', 'RRP'] } });
     
     let msg = `🌙 <b>План на завтра (${display}):</b>\n\n`;
-    const workingNames = [];
-    if (shifts.length) { msg += `👷‍♂️ <b>На зміні:</b>\n`; shifts.forEach(s => { workingNames.push(s.name); if(s.start === 'Відпустка') msg += `🌴 <b>${s.name}</b>: Відпустка\n`; else msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`; }); } else { msg += `🤷‍♂️ <b>Змін немає</b>\n`; }
-    if (tasks.length) { msg += `\n📌 <b>Задачі:</b>\n`; tasks.forEach(t => { const time = t.isFullDay ? "Весь день" : `${t.start}-${t.end}`; msg += `🔸 <b>${t.name}</b>: ${t.title} (${time})\n`; }); }
-    const offUsers = allUsers.filter(u => !workingNames.includes(u.name));
-    if (offUsers.length > 0) { msg += `\n😴 <b>Вихідні:</b>\n`; const names = offUsers.map(u => { const parts = u.name.split(' '); return parts.length > 1 ? parts[1] : u.name; }).join(', '); msg += `${names}\n`; }
+    
+    // Розділяємо зміни на робочі та відпустки
+    const workingShifts = [];
+    const vacationShifts = [];
+    const scheduledNames = []; // Список всіх, хто є в графіку (робота + відпустка)
+
+    shifts.forEach(s => {
+        scheduledNames.push(s.name);
+        if (s.start === 'Відпустка') {
+            vacationShifts.push(s);
+        } else {
+            workingShifts.push(s);
+        }
+    });
+
+    // 1. Блок "На зміні"
+    if (workingShifts.length > 0) {
+        msg += `👷‍♂️ <b>На зміні:</b>\n`;
+        workingShifts.forEach(s => {
+            msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`;
+        });
+    } else {
+        // Пишемо "Змін немає" тільки якщо і відпусток немає, або можна залишити як є
+        if (vacationShifts.length === 0) msg += `🤷‍♂️ <b>Змін немає</b>\n`;
+    }
+
+    // 2. Блок "Відпустка" (ОКРЕМО)
+    if (vacationShifts.length > 0) {
+        msg += `\n🌴 <b>Відпустка:</b>\n`;
+        vacationShifts.forEach(s => {
+            msg += `🔸 <b>${s.name}</b>\n`;
+        });
+    }
+
+    // 3. Блок "Задачі"
+    if (tasks.length) { 
+        msg += `\n📌 <b>Задачі:</b>\n`; 
+        tasks.forEach(t => { 
+            const time = t.isFullDay ? "Весь день" : `${t.start}-${t.end}`; 
+            msg += `▫️ <b>${t.name}</b>: ${t.title} (${time})\n`; 
+        }); 
+    }
+
+    // 4. Блок "Вихідні"
+    const offUsers = allUsers.filter(u => !scheduledNames.includes(u.name));
+    if (offUsers.length > 0) { 
+        msg += `\n😴 <b>Вихідні:</b>\n`; 
+        const names = offUsers.map(u => { 
+            const parts = u.name.split(' '); 
+            const shortName = parts.length > 1 ? parts[1] : parts[0];
+            return `🏠 ${shortName}`; 
+        }).join('\n'); 
+        msg += `${names}\n`; 
+    }
+
     msg += `\nGood luck! 🚀`;
 
     const bot = getBot(); 

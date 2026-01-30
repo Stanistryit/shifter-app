@@ -57,31 +57,31 @@ router.get('/users', async (req, res) => { const users = await User.find({}, 'na
 router.post('/user/avatar', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); await User.findByIdAndUpdate(req.session.userId, { avatar: req.body.avatar }); res.json({ success: true }); });
 router.get('/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); const s = await Shift.find(); res.json(s); });
 
-// SHIFTS: Create (ОНОВЛЕНО: Перезапис)
+// SHIFTS: Create (ОНОВЛЕНО: Перезапис + Красиве повідомлення)
 router.post('/shifts', async (req, res) => { 
     const perm = await handlePermission(req, req.session.userId); 
     if(perm === 'unauthorized' || perm === 'forbidden') return res.status(403).json({}); 
     const { user, status } = perm; 
-
-    // Прибрали перевірку на existing. Тепер ми просто перезаписуємо або створюємо запит.
     
     if (status === 'pending') { 
-        // Створюємо запит (навіть якщо зміна вже є — це буде запит на перезапис)
         const reqDoc = await Request.create({ type: 'add_shift', data: req.body, createdBy: user.name }); 
         sendRequestToSM(reqDoc); 
         return res.json({ success: true, pending: true }); 
     } 
 
-    // Якщо статус approved (Admin/SM) — видаляємо стару і пишемо нову
     await Shift.deleteOne({ date: req.body.date, name: req.body.name });
     await Shift.create(req.body); 
     
     logAction(user.name, 'add_shift', `${req.body.date} ${req.body.name}`); 
-    notifyUser(req.body.name, `📅 Зміна: ${req.body.date} (${req.body.start === 'Відпустка' ? 'Відпустка' : req.body.start + '-' + req.body.end})`); 
+    
+    // Формуємо красиве повідомлення
+    const typeInfo = req.body.start === 'Відпустка' ? '🌴 <b>Відпустка</b>' : `⏰ Час: <b>${req.body.start} - ${req.body.end}</b>`;
+    notifyUser(req.body.name, `📅 <b>Графік оновлено!</b>\n\n📆 Дата: <b>${req.body.date}</b>\n${typeInfo}`); 
+    
     res.json({ success: true }); 
 });
 
-// SHIFTS: Delete
+// SHIFTS: Delete (ОНОВЛЕНО: Детальне повідомлення)
 router.post('/delete-shift', async (req, res) => { 
     const s = await Shift.findById(req.body.id); 
     if(!s) return res.json({}); 
@@ -94,7 +94,10 @@ router.post('/delete-shift', async (req, res) => {
     } 
     await Shift.findByIdAndDelete(req.body.id); 
     logAction(perm.user.name, 'delete_shift', `${s.date} ${s.name}`); 
-    notifyUser(s.name, `❌ Скасовано: ${s.date}`); 
+    
+    // Детальне повідомлення про видалення
+    notifyUser(s.name, `❌ <b>Зміну скасовано</b>\n\n📅 Дата: <b>${s.date}</b>\n⏰ Було: ${s.start} - ${s.end}`); 
+    
     res.json({ success: true }); 
 });
 
@@ -113,14 +116,20 @@ router.post('/tasks', async (req, res) => {
         return res.json({success:true, pending:true}); 
     }
 
+    // ОНОВЛЕНО: Додано час початку і кінця у повідомлення
     const sendTaskNotification = (name, title, date, start, end, isFullDay, description) => {
         let dur = "Весь день"; 
+        let timeInfo = "Весь день";
+        
         if (!isFullDay && start && end) { 
             const [h1, m1] = start.split(':').map(Number); 
             const [h2, m2] = end.split(':').map(Number); 
             dur = `${((h2 + m2/60) - (h1 + m1/60)).toFixed(1)} год.`; 
+            timeInfo = `${start} - ${end}`;
         } 
-        let msg = `📌 <b>Задача:</b> ${title}\n📅 ${date}\n⏳ ${dur}`;
+        
+        let msg = `📌 <b>Нова задача!</b>\n\n📝 <b>${title}</b>\n📅 Дата: ${date}\n⏰ Час: ${timeInfo} (${dur})`;
+        
         if(description) msg += `\n\nℹ️ <b>Опис:</b> ${description}`;
         notifyUser(name, msg);
     };
@@ -160,7 +169,6 @@ router.post('/notes', async (req, res) => { const u=await User.findById(req.sess
 router.post('/notes/delete', async (req, res) => { const u=await User.findById(req.session.userId); const n=await Note.findById(req.body.id); if(n && (n.author===u.name || (u.role==='SM' && n.type==='public'))) { await Note.findByIdAndDelete(req.body.id); res.json({success:true}); } else res.status(403).json({}); });
 router.get('/requests', async (req, res) => { const u=await User.findById(req.session.userId); if(u?.role!=='SM'&&u?.role!=='admin') return res.json([]); const r=await Request.find().sort({createdAt:-1}); res.json(r); });
 
-// REQUESTS ACTION (ОНОВЛЕНО: Перезапис при схваленні)
 router.post('/requests/action', async (req, res) => { 
     const {id, action} = req.body; 
     const r = await Request.findById(id); 
@@ -168,8 +176,8 @@ router.post('/requests/action', async (req, res) => {
 
     if(action === 'approve'){ 
         if(r.type === 'add_shift') {
-            await Shift.deleteOne({ date: r.data.date, name: r.data.name }); // Видаляємо стару
-            await Shift.create(r.data); // Пишемо нову
+            await Shift.deleteOne({ date: r.data.date, name: r.data.name }); 
+            await Shift.create(r.data); 
         }
         if(r.type === 'del_shift') await Shift.findByIdAndDelete(r.data.id);
         if(r.type === 'del_task') await Task.findByIdAndDelete(r.data.id);
