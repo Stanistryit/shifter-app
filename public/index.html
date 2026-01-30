@@ -39,7 +39,6 @@
             <div class="h-32 w-full skeleton animate-pulse"></div>
         </div>
     </div>
-
     <div id="toastContainer" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] space-y-2 w-full max-w-xs pointer-events-none"></div>
 
     <div id="loginScreen" class="hidden flex-grow flex items-center justify-center p-6">
@@ -72,11 +71,13 @@
             </div>
         </nav>
 
-        <div class="container mx-auto p-4 max-w-lg space-y-4">
+        <div class="container mx-auto p-4 max-w-[95%] lg:max-w-4xl space-y-4">
+            
             <div class="flex justify-between items-center ios-card p-1.5 glass-panel">
-                <div class="flex bg-[#E5E5EA] dark:bg-[#2C2C2E] rounded-[12px] p-1 w-full">
-                    <button onclick="setMode('list')" id="btnModeList" class="flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all">Список</button>
-                    <button onclick="setMode('calendar')" id="btnModeCalendar" class="flex-1 py-2 text-xs font-medium text-gray-500 transition-all">Календар</button>
+                <div class="flex bg-[#E5E5EA] dark:bg-[#2C2C2E] rounded-[12px] p-1 w-full overflow-x-auto">
+                    <button onclick="setMode('list')" id="btnModeList" class="flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all whitespace-nowrap px-2">Список</button>
+                    <button onclick="setMode('calendar')" id="btnModeCalendar" class="flex-1 py-2 text-xs font-medium text-gray-500 transition-all whitespace-nowrap px-2">Календар</button>
+                    <button onclick="setMode('grid')" id="btnModeGrid" class="flex-1 py-2 text-xs font-medium text-gray-500 transition-all whitespace-nowrap px-2">Таблиця</button>
                 </div>
                 <div class="flex items-center gap-4 ml-4 pr-2">
                     <button onclick="toggleTheme()" class="text-gray-400 text-xl active:scale-90 transition-transform"><span id="themeIcon">🌙</span></button>
@@ -90,46 +91,35 @@
 
             <div id="adminPanel" class="hidden ios-card p-5 border border-orange-100 dark:border-orange-900/30 animate-slide-up">
                 <h2 class="text-xl font-bold mb-4">Панель управління</h2>
-                <div class="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
-                    <button onclick="showAdminTab('shifts')" class="bg-[#F2F2F7] dark:bg-[#2C2C2E] px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Графік</button>
-                    <button onclick="showAdminTab('tasks')" class="bg-[#F2F2F7] dark:bg-[#2C2C2E] px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Задачі</button>
-                    <button onclick="showAdminTab('import')" class="bg-indigo-100 text-indigo-600 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Імпорт</button>
-                    <button onclick="showAdminTab('news')" class="bg-pink-100 text-pink-600 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Новини</button>
-                    <button onclick="showAdminTab('requests')" class="hidden bg-red-100 text-red-600 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap" id="tabRequestsBtn">Запити</button>
-                    <button onclick="showAdminTab('logs')" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">Логи</button>
+                <div class="grid grid-cols-3 gap-3 mb-6">
+                    <button id="btnTabShifts" onclick="showAdminTab('shifts')" class="flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500"><span class="text-2xl mb-1">📅</span><span class="text-[10px] font-bold">Графік</span></button>
+                    <button id="btnTabTasks" onclick="showAdminTab('tasks')" class="flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500"><span class="text-2xl mb-1">📌</span><span class="text-[10px] font-bold">Задачі</span></button>
+                    <button id="btnTabImport" onclick="showAdminTab('import')" class="flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500"><span class="text-2xl mb-1">📥</span><span class="text-[10px] font-bold">Імпорт</span></button>
+                    <button id="btnTabNews" onclick="showAdminTab('news')" class="flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500"><span class="text-2xl mb-1">📢</span><span class="text-[10px] font-bold">Новини</span></button>
+                    <button id="btnTabRequests" onclick="showAdminTab('requests')" class="hidden flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500"><span class="text-2xl mb-1">📬</span><span class="text-[10px] font-bold">Запити</span></button>
+                    <button id="btnTabLogs" onclick="showAdminTab('logs')" class="flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500"><span class="text-2xl mb-1">📜</span><span class="text-[10px] font-bold">Логи</span></button>
                 </div>
                 
-                <div id="adminTabShifts" class="space-y-3">
+                <div id="adminTabShifts" class="hidden space-y-3">
                     <div class="grid grid-cols-2 gap-3"><input type="date" id="shiftDate" class="ios-input"><select id="employeeSelect" class="ios-input bg-transparent"><option disabled selected>Хто?</option></select></div>
                     <div class="flex items-center justify-between"><span class="text-sm font-medium">🌴 Відпустка</span><input type="checkbox" id="shiftVacation" onchange="toggleShiftTimeInputs()" class="w-6 h-6 accent-teal-500 rounded-lg"></div>
                     <div id="shiftTimeInputs" class="flex gap-3"><input type="time" id="startTime" class="ios-input" value="10:00"><input type="time" id="endTime" class="ios-input" value="20:00"></div>
                     <button onclick="addShift()" class="btn-primary">Додати зміну</button>
-                    <div class="flex gap-2 mt-2">
-                        <button onclick="clearDay()" class="text-xs text-red-500 border border-red-200 dark:border-red-900 w-1/2 py-2 rounded-lg font-medium active:scale-95 transition-transform">Очистити день</button>
-                        <button onclick="clearMonth()" class="text-xs text-white bg-red-500 w-1/2 py-2 rounded-lg font-bold shadow-md shadow-red-500/30 active:scale-95 transition-transform">🗑 Очистити місяць</button>
-                    </div>
+                    <div class="flex gap-2 mt-2"><button onclick="clearDay()" class="text-xs text-red-500 border border-red-200 dark:border-red-900 w-1/2 py-2 rounded-lg font-medium active:scale-95 transition-transform">Очистити день</button><button onclick="clearMonth()" class="text-xs text-white bg-red-500 w-1/2 py-2 rounded-lg font-bold shadow-md shadow-red-500/30 active:scale-95 transition-transform">🗑 Очистити місяць</button></div>
                 </div>
-                
-                <div id="adminTabTasks" class="hidden space-y-3"><input type="text" id="taskTitle" placeholder="Назва" class="ios-input"><div class="grid grid-cols-2 gap-3"><input type="date" id="taskDate" class="ios-input"><select id="taskEmployee" class="ios-input bg-transparent"><option disabled selected>Кому?</option></select></div><div class="flex items-center justify-between"><span class="text-sm">Весь день</span><input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()" class="w-5 h-5 accent-purple-500"></div><div id="taskTimeInputs" class="flex gap-3"><input type="time" id="taskStart" class="ios-input" value="12:00"><input type="time" id="taskEnd" class="ios-input" value="14:00"></div><button onclick="addTask()" class="btn-primary bg-purple-500">Призначити</button></div>
+                <div id="adminTabTasks" class="hidden space-y-3">
+                    <input type="text" id="taskTitle" placeholder="Назва (коротко)" class="ios-input">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="date" id="taskDate" class="ios-input">
+                        <select id="taskEmployee" class="ios-input bg-transparent"><option disabled selected>Кому?</option></select>
+                    </div>
+                    <textarea id="taskDescription" placeholder="Опис (посилання, деталі...)" class="ios-input h-20 text-sm"></textarea>
+                    <div class="flex items-center justify-between"><span class="text-sm">Весь день</span><input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()" class="w-5 h-5 accent-purple-500"></div>
+                    <div id="taskTimeInputs" class="flex gap-3"><input type="time" id="taskStart" class="ios-input" value="12:00"><input type="time" id="taskEnd" class="ios-input" value="14:00"></div>
+                    <button onclick="addTask()" class="btn-primary bg-purple-500">Призначити</button>
+                </div>
                 <div id="adminTabImport" class="hidden space-y-3"><textarea id="importData" placeholder="2026-01-01 Ім'я 10:00 20:00" class="ios-input h-24 font-mono text-xs"></textarea><button onclick="bulkImport()" class="btn-primary bg-indigo-500">Завантажити</button></div>
-                
-                <div id="adminTabNews" class="hidden space-y-3">
-                    <div class="flex gap-2 mb-1 overflow-x-auto pb-1">
-                        <button onclick="formatText('bold')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs font-bold">B</button>
-                        <button onclick="formatText('italic')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs italic">I</button>
-                        <button onclick="formatText('link')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs">🔗</button>
-                    </div>
-                    <textarea id="newsText" placeholder="Новина..." class="ios-input h-32 text-sm"></textarea>
-                    
-                    <label class="flex-1 flex items-center justify-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity mt-2">
-                        <span class="text-xl">📎</span> 
-                        <span id="fileName" class="text-xs truncate">Оберіть файли (можна декілька)</span>
-                        <input type="file" id="newsFile" class="hidden" multiple onchange="updateFileName()">
-                    </label>
-                    
-                    <button onclick="publishNews()" class="btn-primary bg-pink-500 mt-2">Опублікувати</button>
-                </div>
-                
+                <div id="adminTabNews" class="hidden space-y-3"><div class="flex gap-2 mb-1 overflow-x-auto pb-1"><button onclick="formatText('bold')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs font-bold">B</button><button onclick="formatText('italic')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs italic">I</button><button onclick="formatText('link')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs">🔗</button></div><textarea id="newsText" placeholder="Новина..." class="ios-input h-32 text-sm"></textarea><label class="flex-1 flex items-center justify-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity mt-2"><span class="text-xl">📎</span> <span id="fileName" class="text-xs truncate">Оберіть файли (можна декілька)</span><input type="file" id="newsFile" class="hidden" multiple onchange="updateFileName()"></label><button onclick="publishNews()" class="btn-primary bg-pink-500 mt-2">Опублікувати</button></div>
                 <div id="adminTabRequests" class="hidden space-y-3"><button onclick="approveAllRequests()" class="btn-primary bg-green-500">✅ Підтвердити Всі</button><div id="requestsList" class="space-y-3"></div></div>
                 <div id="adminTabLogs" class="hidden space-y-2"><button onclick="loadLogs()" class="btn-primary bg-gray-500 text-xs py-2 mb-2">🔄 Оновити логи</button><div id="logsList" class="text-xs space-y-2 max-h-60 overflow-y-auto pr-2"></div></div>
             </div>
@@ -145,16 +135,74 @@
                 <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-gray-400 uppercase mb-2 font-bold"><div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div class="text-red-400">Нд</div></div>
                 <div id="calendarGrid" class="calendar-grid"></div>
             </div>
+
+            <div id="gridViewContainer" class="hidden ios-card p-4 animate-slide-up overflow-hidden">
+                 <div class="flex justify-between items-center mb-4">
+                    <button onclick="changeMonth(-1)" class="text-blue-500 text-2xl font-bold p-2">‹</button>
+                    <h2 id="gridTitle" class="font-bold text-xl capitalize"></h2>
+                    <button onclick="changeMonth(1)" class="text-blue-500 text-2xl font-bold p-2">›</button>
+                </div>
+                <div class="overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide" id="gridViewTable">
+                    </div>
+            </div>
+
         </div>
 
+        <button id="backToTopBtn" onclick="scrollToTop()" class="fixed bottom-6 right-6 w-12 h-12 bg-blue-500 text-white rounded-full shadow-lg shadow-blue-500/40 flex items-center justify-center text-2xl z-50 transition-opacity duration-300 opacity-0 hidden hover:scale-110 active:scale-95">↑</button>
+
         <div id="filterModal" class="hidden fixed inset-0 z-50"><div class="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity" onclick="closeFilterModal()"></div><div class="absolute bottom-0 left-0 right-0 glass-modal rounded-t-[24px] max-h-[70vh] overflow-y-auto p-4 animate-slide-up shadow-2xl"><div class="flex justify-between items-center mb-4 px-2"><h3 class="font-bold text-lg">Фільтр</h3><button onclick="closeFilterModal()" class="w-8 h-8 bg-gray-100 dark:bg-[#2C2C2E] rounded-full text-gray-500 text-sm font-bold">✕</button></div><div id="filterList" class="space-y-2"></div></div></div>
-        
-        <div id="avatarModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeAvatarModal()"></div><div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 text-center animate-slide-up"><h3 class="font-bold text-xl mb-4">Ваше фото</h3><div class="avatar-preview-container mb-6 shadow-xl"><img id="avatarPreview" class="avatar-preview-img hidden"><div id="avatarPlaceholder" class="w-full h-full flex items-center justify-center text-4xl text-gray-400">📷</div></div><label class="btn-primary block mb-3 cursor-pointer shadow-lg shadow-blue-500/30">Обрати нове фото<input type="file" id="avatarInput" accept="image/*" class="hidden" onchange="handleAvatarSelect(this)"></label><div id="avatarActions" class="hidden space-y-2"><button onclick="uploadAvatar()" class="btn-primary bg-green-500 shadow-green-500/30">Зберегти</button><button onclick="closeAvatarModal()" class="w-full py-3 text-red-500 font-medium">Скасувати</button></div></div></div>
-        
+        <div id="avatarModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeAvatarModal()"></div><div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 text-center animate-slide-up"><h3 class="font-bold text-xl mb-4">Ваше фото</h3><div class="avatar-preview-container mb-6 shadow-xl"><img id="avatarPreview" class="avatar-preview-img hidden"><div id="avatarPlaceholder" class="w-full h-full flex items-center justify-center text-4xl text-gray-400">📷</div></div><label class="btn-primary block mb-3 cursor-pointer shadow-lg shadow-blue-500/30">Обрати нове фото<input type="file" id="avatarInput" accept="image/*" class="hidden" onchange="handleAvatarSelect(this)"></label><div id="avatarActions" class="hidden space-y-2"><button onclick="uploadAvatar()" class="btn-primary bg-green-500 shadow-green-500/30">Зберегти</button><button onclick="closeAvatarModal()" class="w-full py-3 text-red-500 font-medium">Скасувати</button></div><div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800"><button onclick="openChangePasswordModal()" class="w-full py-2 text-blue-500 font-medium text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">🔐 Змінити пароль</button></div></div></div>
+        <div id="changePasswordModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeChangePasswordModal()"></div><div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up text-center"><h3 class="font-bold text-xl mb-4">🔐 Зміна пароля</h3><input type="password" id="oldPassword" placeholder="Старий пароль" class="ios-input mb-3"><input type="password" id="newPassword" placeholder="Новий пароль" class="ios-input mb-3"><input type="password" id="confirmPassword" placeholder="Повторіть новий пароль" class="ios-input mb-4"><button onclick="submitChangePassword()" class="btn-primary bg-indigo-500 shadow-indigo-500/30 mb-2">Змінити</button><button onclick="closeChangePasswordModal()" class="w-full py-3 text-red-500 font-medium">Скасувати</button></div></div>
         <div id="notesModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeNotesModal()"></div><div class="glass-modal rounded-2xl w-full max-w-sm p-5 relative z-10 animate-slide-up"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg" id="notesModalTitle">Нотатки</h3><button onclick="closeNotesModal()" class="text-gray-400 text-2xl">×</button></div><div id="notesList" class="space-y-2 mb-4 max-h-48 overflow-y-auto"></div><div class="border-t border-gray-100 dark:border-gray-800 pt-4"><textarea id="newNoteText" placeholder="Напишіть щось..." class="ios-input h-20 text-sm mb-3"></textarea><div class="flex gap-2"><div id="noteTypeToggle" class="hidden items-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] px-3 rounded-lg cursor-pointer active:scale-95 transition-transform" onclick="toggleNoteType()"><span id="noteTypeIcon">🔒</span> <span class="text-xs font-bold" id="noteTypeLabel">Особиста</span></div><button onclick="saveNote()" class="btn-primary flex-1">Додати</button></div></div></div></div>
+
+        <div id="taskDetailsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeTaskDetailsModal()"></div>
+            <div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="font-bold text-xl leading-tight pr-4" id="taskModalTitle">Task Title</h3>
+                    <button onclick="closeTaskDetailsModal()" class="text-gray-400 text-2xl leading-none">&times;</button>
+                </div>
+                <div class="space-y-3 mb-6">
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                        <span class="text-lg">📅</span>
+                        <span id="taskModalDate" class="font-medium">Date</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                        <span class="text-lg">⏰</span>
+                        <span id="taskModalTime" class="font-medium">Time</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                        <span class="text-lg">👤</span>
+                        <span id="taskModalUser" class="font-medium">User</span>
+                    </div>
+                    <div id="taskModalDescriptionWrapper" class="hidden mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                        <div class="text-xs font-bold text-gray-400 mb-1 uppercase">Опис</div>
+                        <div id="taskModalDescription" class="text-sm text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap leading-relaxed"></div>
+                    </div>
+                </div>
+                <button id="btnDeleteTask" class="w-full py-3 text-red-500 font-bold bg-red-50 dark:bg-red-900/20 rounded-xl active:scale-95 transition-transform">🗑 Видалити задачу</button>
+            </div>
+        </div>
+
+        <div id="contextMenu" class="hidden fixed z-[100] w-48 bg-white dark:bg-[#1C1C1E] rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden transform transition-all origin-top-left">
+            <div class="p-1 space-y-0.5">
+                <button id="ctxEdit" class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#2C2C2E] rounded-lg flex items-center gap-2">
+                    <span>✏️</span> Редагувати
+                </button>
+                <button id="ctxCopy" class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#2C2C2E] rounded-lg flex items-center gap-2">
+                    <span>📋</span> Копіювати
+                </button>
+                <div class="h-px bg-gray-200 dark:bg-gray-700 my-1"></div>
+                <button id="ctxDelete" class="w-full text-left px-3 py-2 text-sm text-red-500 font-medium hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex items-center gap-2">
+                    <span>🗑</span> Видалити
+                </button>
+            </div>
+        </div>
 
     </div>
 
-    <script src="js/app.js"></script>
+    <div class="hidden ring-2 ring-blue-500 shadow-lg shadow-blue-500/20 dark:shadow-blue-500/50 dark:shadow-blue-500 sticky left-0 z-10 z-20 min-w-[100px] min-w-[40px] border-r border-b opacity-80 bg-blue-50/50 dark:bg-blue-900/10 border-x-2 border-blue-200 dark:border-blue-800"></div>
+
+    <script type="module" src="js/app.js"></script>
 </body>
 </html>

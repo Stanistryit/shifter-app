@@ -1,16 +1,31 @@
+import { state } from './modules/state.js';
+import { 
+    initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab, formatText, updateFileName,
+    openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext 
+} from './modules/ui.js';
+import { renderTimeline, renderCalendar, renderTable, renderAll } from './modules/render.js';
+import { checkAuth, login, logout } from './modules/auth.js';
+import { 
+    addShift, delS, clearDay, clearMonth, toggleShiftTimeInputs, 
+    addTask, deleteTask, toggleTaskTimeInputs, bulkImport, publishNews 
+} from './modules/admin.js';
+import { loadRequests, handleRequest, approveAllRequests } from './modules/requests.js';
+import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
+import { 
+    openFilterModal, closeFilterModal, applyFilter, 
+    openAvatarModal, closeAvatarModal, handleAvatarSelect, uploadAvatar, 
+    openChangePasswordModal, closeChangePasswordModal, submitChangePassword, loadLogs 
+} from './modules/settings.js';
+
 const tg = window.Telegram.WebApp;
 if(tg) { tg.ready(); if(tg.platform && tg.platform!=='unknown') try{tg.expand()}catch(e){} }
-function triggerHaptic() { if(tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light'); }
 
-let currentUser = null; let globalShifts = []; let globalUsers = []; let globalTasks = []; let globalNotes = [];
-let activeFilter = 'all'; const START_HOUR = 10; const TOTAL_HOURS = 10; let currentCalendarDate = new Date();
-let selectedNoteDate = null; let currentNoteType = 'private';
-
-// --- THEME ---
-function initTheme() { if ((tg?.colorScheme === 'dark') || localStorage.theme === 'dark') { document.documentElement.classList.add('dark'); document.getElementById('themeIcon').innerText = '☀️'; if(tg?.setHeaderColor){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} } else { document.documentElement.classList.remove('dark'); document.getElementById('themeIcon').innerText = '🌙'; if(tg?.setHeaderColor){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } }
-function toggleTheme() { triggerHaptic(); const html = document.documentElement; if (html.classList.contains('dark')) { html.classList.remove('dark'); localStorage.theme = 'light'; document.getElementById('themeIcon').innerText = '🌙'; if(tg?.setHeaderColor){tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7');} } else { html.classList.add('dark'); localStorage.theme = 'dark'; document.getElementById('themeIcon').innerText = '☀️'; if(tg?.setHeaderColor){tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000');} } }
+// --- INIT ---
 initTheme();
+checkAuth();
+initContextMenuListeners();
 
+<<<<<<< HEAD
 // --- TOASTS ---
 function showToast(msg, type = 'success') {
     let container = document.getElementById('toastContainer');
@@ -30,49 +45,137 @@ function showToast(msg, type = 'success') {
     if(type === 'error' && tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
     setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 3000);
 }
+=======
+// --- EXPOSE TO HTML (WINDOW) ---
 
-// --- AUTH ---
-async function checkAuth() { 
-    try { const res = await fetch('/api/me'); const data = await res.json(); if (data.loggedIn) { showApp(data.user); return; } } catch (e) {}
-    if (!tg.initDataUnsafe?.user?.id) { document.getElementById('skeletonLoader').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); return; }
-    try { const res = await fetch('/api/login-telegram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegramId: tg.initDataUnsafe.user.id }) }); const data = await res.json(); if (data.success) showApp(data.user); else { document.getElementById('skeletonLoader').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); } } catch (e) { document.getElementById('skeletonLoader').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); }
-}
+// UI & Theme
+window.toggleTheme = toggleTheme;
+window.triggerHaptic = triggerHaptic;
+window.showAdminTab = showAdminTab;
+window.toggleEditMode = toggleEditMode;
+window.toggleArchive = toggleArchive;
+window.setMode = setMode;
+window.changeMonth = changeMonth;
+window.scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-async function login() { 
+// News
+window.formatText = formatText;
+window.updateFileName = updateFileName;
+>>>>>>> 6c2a0924cb627dcbcda641229860c4afc2804259
+
+// Auth
+window.login = login;
+window.logout = logout;
+
+// Admin Actions (Shifts)
+window.addShift = addShift;
+window.delS = delS;
+window.clearDay = clearDay;
+window.clearMonth = clearMonth;
+window.toggleShiftTimeInputs = toggleShiftTimeInputs;
+
+// Admin Actions (Tasks)
+window.addTask = addTask;
+window.deleteTask = deleteTask;
+window.toggleTaskTimeInputs = toggleTaskTimeInputs;
+
+// Admin Actions (Other)
+window.bulkImport = bulkImport;
+window.publishNews = publishNews;
+window.loadLogs = loadLogs;
+
+// Requests
+window.approveAllRequests = approveAllRequests;
+window.handleRequest = handleRequest;
+
+// Settings & Modals
+window.openFilterModal = openFilterModal;
+window.closeFilterModal = closeFilterModal;
+window.applyFilter = applyFilter;
+window.openAvatarModal = openAvatarModal;
+window.closeAvatarModal = closeAvatarModal;
+window.handleAvatarSelect = handleAvatarSelect;
+window.uploadAvatar = uploadAvatar;
+window.openChangePasswordModal = openChangePasswordModal;
+window.closeChangePasswordModal = closeChangePasswordModal;
+window.submitChangePassword = submitChangePassword;
+
+// Notes
+window.openNotesModal = openNotesModal;
+window.closeNotesModal = closeNotesModal;
+window.toggleNoteType = toggleNoteType;
+window.saveNote = saveNote;
+window.deleteNote = deleteNote;
+
+// Task Modal Proxy
+window.openTaskProxy = (id) => {
+    const task = state.tasks.find(t => t._id === id);
+    if(task) openTaskDetailsModal(task);
+};
+window.closeTaskDetailsModal = closeTaskDetailsModal;
+
+// Context Menu Proxy
+window.contextMenuProxy = (e, type, id) => {
+    showContextMenu(e, type, id);
+};
+
+// --- GLOBAL UI LOGIC ---
+
+function toggleEditMode() { 
     triggerHaptic(); 
-    const u = document.getElementById('loginUser').value; 
-    const p = document.getElementById('loginPass').value; 
-    try { 
-        const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username:u, password:p }) }); 
-        const data = await res.json(); 
-        if (data.success) showApp(data.user); 
-        else showToast(data.message || "Помилка входу", 'error'); 
-    } catch (e) { showToast("Помилка з'єднання", 'error'); } 
+    document.getElementById('adminPanel').classList.toggle('hidden'); 
 }
 
-async function logout() { triggerHaptic(); await fetch('/api/logout', { method: 'POST' }); window.location.reload(); }
+function toggleArchive() { 
+    triggerHaptic(); 
+    document.getElementById('archiveContainer').classList.toggle('hidden'); 
+}
 
-async function showApp(user) {
-    currentUser = user;
-    document.getElementById('loginScreen').classList.add('hidden'); document.getElementById('skeletonLoader').classList.add('hidden');
-    const app = document.getElementById('appScreen'); app.classList.remove('hidden'); setTimeout(() => app.classList.remove('opacity-0'), 50);
-    const parts = user.name.split(' '); document.getElementById('userNameDisplay').innerText = `Привіт, ${parts.length > 1 ? parts[1] : parts[0]}`; 
-    if(user.avatar) { document.getElementById('userAvatarImg').src = user.avatar; document.getElementById('userAvatarImg').classList.remove('hidden'); document.getElementById('userAvatarPlaceholder').classList.add('hidden'); }
+function changeMonth(d) { 
+    triggerHaptic(); 
+    state.currentDate.setMonth(state.currentDate.getMonth() + d); 
+    renderAll(); 
+}
+
+function setMode(m) {
+    triggerHaptic();
     
-    if (['admin', 'SM', 'SSE', 'RRP'].includes(user.role)) { 
-        if(user.role !== 'RRP') document.getElementById('toggleEditWrapper').classList.remove('hidden'); 
-        if (['SM', 'admin'].includes(user.role)) { 
-            document.getElementById('tabRequestsBtn').classList.remove('hidden'); 
-            loadRequests(); 
-        } 
-        if (user.role === 'SM' || user.role === 'admin') { 
-            document.getElementById('noteTypeToggle').classList.remove('hidden'); 
-            document.getElementById('noteTypeToggle').classList.add('flex'); 
-        } 
+    const listDiv = document.getElementById('listViewContainer');
+    const calDiv = document.getElementById('calendarViewContainer');
+    const gridDiv = document.getElementById('gridViewContainer');
+    
+    listDiv.classList.add('hidden');
+    calDiv.classList.add('hidden');
+    gridDiv.classList.add('hidden');
+    
+    const btnList = document.getElementById('btnModeList');
+    const btnCal = document.getElementById('btnModeCalendar');
+    const btnGrid = document.getElementById('btnModeGrid');
+    
+    const inactiveClass = "flex-1 py-2 text-xs font-medium text-gray-500 transition-all whitespace-nowrap px-2";
+    const activeClass = "flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all whitespace-nowrap px-2";
+    
+    btnList.className = inactiveClass;
+    btnCal.className = inactiveClass;
+    btnGrid.className = inactiveClass;
+    
+    if (m === 'list') {
+        listDiv.classList.remove('hidden');
+        btnList.className = activeClass;
+    } else if (m === 'calendar') {
+        calDiv.classList.remove('hidden');
+        calDiv.classList.add('animate-slide-up');
+        btnCal.className = activeClass;
+        renderCalendar();
+    } else if (m === 'grid') {
+        gridDiv.classList.remove('hidden');
+        gridDiv.classList.add('animate-slide-up');
+        btnGrid.className = activeClass;
+        renderTable();
     }
-    await Promise.all([loadEmployeeList(), loadShifts(), loadTasks(), loadNotes()]); renderCurrentShifts();
 }
 
+<<<<<<< HEAD
 // --- HELPER FUNCTION (WAS MISSING) ---
 function renderCurrentShifts() { 
     renderTimeline(globalShifts, null); 
@@ -87,39 +190,27 @@ function renderTimeline(shifts, filterUser) {
     const today = new Date().toISOString().split('T')[0]; if (!dates.includes(today)) dates.push(today); dates.sort();
     let pastDaysCount = 0;
     let usersToShow = (activeFilter === 'all') ? globalUsers : globalUsers.filter(u => u.name === activeFilter);
+=======
+// Scroll to Top Listener
+window.addEventListener('scroll', () => {
+    const btn = document.getElementById('backToTopBtn');
+    if (btn) {
+        if (window.scrollY > 300) btn.classList.remove('hidden', 'opacity-0');
+        else btn.classList.add('opacity-0');
+    }
+});
+>>>>>>> 6c2a0924cb627dcbcda641229860c4afc2804259
 
-    // Calc monthly hours
-    const currentMonthPrefix = today.substring(0, 7);
-    const userHours = {};
-    usersToShow.forEach(u => {
-        let h = 0;
-        shifts.filter(s => s.name === u.name && s.date.startsWith(currentMonthPrefix) && s.start !== 'Відпустка').forEach(s => {
-            const [h1, m1] = s.start.split(':').map(Number);
-            const [h2, m2] = s.end.split(':').map(Number);
-            h += (h2 + m2/60) - (h1 + m1/60);
-        });
-        userHours[u.name] = h.toFixed(0);
-    });
-
-    dates.forEach((dateStr, index) => {
-        const isPast = dateStr < today; const isToday = dateStr === today;
-        const dObj = new Date(dateStr); const dName = dObj.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
-        const animClass = isPast ? '' : `animate-slide-up stagger-${(index % 5) + 1}`;
-        const block = document.createElement('div');
-        block.className = `ios-card p-4 ${animClass}`;
-        if(isToday) block.classList.add('ring-2', 'ring-blue-500', 'shadow-lg', 'shadow-blue-500/20');
-
-        let html = `<div class="mb-3 border-b border-gray-100 dark:border-gray-800 pb-2 flex justify-between items-center cursor-pointer active:opacity-60" onclick="triggerHaptic(); openNotesModal('${dateStr}')"><h3 class="font-bold text-lg capitalize ${isToday?'text-blue-500':'text-black dark:text-white'}">${dName}</h3><div class="text-blue-500 text-xs font-bold px-2 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-lg">📝 Нотатки</div></div>`;
-        const dayNotes = globalNotes.filter(n => n.date === dateStr);
-        if (dayNotes.length > 0) { html += `<div class="mb-3 space-y-1.5">`; dayNotes.forEach(n => { const style = n.type === 'public' ? 'bg-blue-50 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200 border-l-2 border-blue-500' : 'bg-yellow-50 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border-l-2 border-yellow-500'; const icon = n.type === 'public' ? '📢' : '🔒'; html += `<div class="text-[11px] p-2 rounded-r-md ${style} flex items-start gap-1"><span>${icon}</span> <span><b>${n.author}:</b> ${n.text}</span></div>`; }); html += `</div>`; }
-        html += `<div class="space-y-4">`;
-
-        usersToShow.forEach(user => {
-            const shift = shifts.find(s => s.date === dateStr && s.name === user.name);
-            const userTasks = globalTasks.filter(t => t.date === dateStr && t.name === user.name);
-            const parts = user.name.split(' '); const shortName = parts.length > 1 ? parts[1] : parts[0];
-            const hoursBadges = ` <span class="text-[9px] text-gray-400 font-normal">(${userHours[user.name]} год.)</span>`;
+// --- CONTEXT MENU LISTENERS ---
+function initContextMenuListeners() {
+    // Edit Shift
+    const btnEdit = document.getElementById('ctxEdit');
+    if (btnEdit) {
+        btnEdit.onclick = () => {
+            const menu = document.getElementById('contextMenu');
+            menu.classList.add('hidden');
             
+<<<<<<< HEAD
             let avatarHtml = `<div class="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] overflow-hidden mr-2 border border-gray-300 dark:border-gray-600">👤</div>`;
             if(user.avatar) avatarHtml = `<div class="w-5 h-5 rounded-full overflow-hidden mr-2 border border-gray-300 dark:border-gray-600"><img src="${user.avatar}" class="w-full h-full object-cover"></div>`;
 
@@ -133,23 +224,31 @@ function renderTimeline(shifts, filterUser) {
                     const [sH, sM] = shift.start.split(':').map(Number); const [eH, eM] = shift.end.split(':').map(Number); 
                     const startDecimal = sH + sM/60; const endDecimal = eH + eM/60;   
                     let left = ((startDecimal - START_HOUR) / TOTAL_HOURS) * 100; let width = ((endDecimal - startDecimal) / TOTAL_HOURS) * 100; if(left < 0) { width += left; left = 0; } if(left + width > 100) width = 100 - left;
+=======
+            if (activeContext.type === 'shift') {
+                const s = state.shifts.find(x => x._id === activeContext.id);
+                if (s) {
+                    document.getElementById('shiftDate').value = s.date;
+                    document.getElementById('employeeSelect').value = s.name;
+>>>>>>> 6c2a0924cb627dcbcda641229860c4afc2804259
                     
-                    let tasksHtml = '';
-                    userTasks.forEach(task => { 
-                        if(task.isFullDay) {
-                            html += `<div class="text-[10px] text-purple-600 font-bold border border-purple-200 bg-purple-50 px-1 rounded inline-block mb-1">★ ${task.title}</div>`; 
-                        } else { 
-                            const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number); 
-                            const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60; 
-                            let tLeft = ((tStartD - START_HOUR) / TOTAL_HOURS) * 100; let tWidth = ((tEndD - tStartD) / TOTAL_HOURS) * 100; 
-                            const canDelTask = (['admin','SM','SSE'].includes(currentUser.role) && currentUser.role !== 'RRP');
-                            const delAction = canDelTask ? `onclick="deleteTask('${task._id}'); event.stopPropagation();"` : '';
-                            tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${delAction}>${task.title}</div>`; 
-                        } 
-                    });
+                    if (s.start === 'Відпустка') {
+                        document.getElementById('shiftVacation').checked = true;
+                    } else {
+                        document.getElementById('shiftVacation').checked = false;
+                        document.getElementById('startTime').value = s.start;
+                        document.getElementById('endTime').value = s.end;
+                    }
+                    toggleShiftTimeInputs();
                     
-                    html += `<div><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges} ${delShift}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
+                    document.getElementById('adminPanel').classList.remove('hidden');
+                    showAdminTab('shifts');
+                    showToast('Дані заповнено. Відредагуйте та натисніть "Додати"', 'info');
+                    
+                    // Плавний скрол до форми
+                    document.getElementById('adminPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
+<<<<<<< HEAD
             } else if (userTasks.length > 0) { 
                 let tasksHtml = ''; userTasks.forEach(task => { if(!task.isFullDay) { const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number); const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60; let tLeft = ((tStartD - START_HOUR) / TOTAL_HOURS) * 100; let tWidth = ((tEndD - tStartD) / TOTAL_HOURS) * 100; const canDelTask = (['admin','SM','SSE'].includes(currentUser.role) && currentUser.role !== 'RRP'); const delAction = canDelTask ? `onclick="deleteTask('${task._id}'); event.stopPropagation();"` : ''; tasksHtml += `<div class="task-segment" style="left:${tLeft}%; width:${tWidth}%;" ${delAction}>${task.title}</div>`; } });
                 html += `<div class="opacity-80"><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(10).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`; 
@@ -224,93 +323,35 @@ async function clearMonth() {
         });
         await loadShifts(); renderCurrentShifts();
         showToast("Місяць очищено");
+=======
+            }
+        };
+>>>>>>> 6c2a0924cb627dcbcda641229860c4afc2804259
+    }
+
+    // Copy Info
+    const btnCopy = document.getElementById('ctxCopy');
+    if (btnCopy) {
+        btnCopy.onclick = () => {
+            document.getElementById('contextMenu').classList.add('hidden');
+            if (activeContext.type === 'shift') {
+                const s = state.shifts.find(x => x._id === activeContext.id);
+                if (s) {
+                    const txt = `${s.date} | ${s.name} | ${s.start} - ${s.end}`;
+                    navigator.clipboard.writeText(txt).then(() => showToast('Скопійовано 📋'));
+                }
+            }
+        };
+    }
+
+    // Delete Shift
+    const btnDelete = document.getElementById('ctxDelete');
+    if (btnDelete) {
+        btnDelete.onclick = () => {
+            document.getElementById('contextMenu').classList.add('hidden');
+            if (activeContext.type === 'shift') {
+                delS(activeContext.id);
+            }
+        };
     }
 }
-
-async function addShift() { 
-    const date=document.getElementById('shiftDate').value; const name=document.getElementById('employeeSelect').value; 
-    const isVacation = document.getElementById('shiftVacation').checked; 
-    let start, end; if (isVacation) { start = 'Відпустка'; end = 'Відпустка'; } else { start=document.getElementById('startTime').value; end=document.getElementById('endTime').value; } 
-    if(!date||!name)return showToast("Заповніть всі дані", 'error'); 
-    
-    const r=await fetch('/api/shifts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,name,start,end})}); 
-    const d=await r.json(); 
-    if(d.pending) showToast("Запит відправлено (Pending)", 'success');
-    else showToast("Зміну додано");
-    
-    loadShifts().then(renderCurrentShifts); 
-}
-
-async function addTask() { 
-    const title=document.getElementById('taskTitle').value; const date=document.getElementById('taskDate').value; const name=document.getElementById('taskEmployee').value; const isFullDay=document.getElementById('taskFullDay').checked; const start=document.getElementById('taskStart').value; const end=document.getElementById('taskEnd').value; 
-    if(!title||!date||!name)return showToast("Заповніть дані", 'error'); 
-    await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,date,name,isFullDay,start,end})}); 
-    showToast("Задачу призначено");
-    loadTasks().then(renderCurrentShifts); 
-}
-
-async function publishNews() { 
-    const text = document.getElementById('newsText').value; 
-    const files = document.getElementById('newsFile').files; 
-    if (!text && files.length === 0) return showToast("Введіть текст або файл", 'error'); 
-    
-    const formData = new FormData(); formData.append('text', text); 
-    for (let i = 0; i < files.length; i++) { formData.append('media', files[i]); }
-    
-    const btn = document.querySelector('#adminTabNews button:last-child'); 
-    btn.innerText = "⏳ Публікую..."; btn.disabled = true; 
-    
-    try { 
-        const res = await fetch('/api/news/publish', { method: 'POST', body: formData }); 
-        if (res.ok) { 
-            showToast("✅ Опубліковано!"); 
-            document.getElementById('newsText').value = ''; 
-            document.getElementById('newsFile').value = ''; 
-            updateFileName(); 
-        } else { showToast("Помилка публікації", 'error'); } 
-    } catch (e) { showToast("Помилка мережі", 'error'); } 
-    finally { btn.innerText = "Опублікувати"; btn.disabled = false; } 
-}
-
-async function bulkImport() { 
-    const raw = document.getElementById('importData').value; 
-    if(!raw) return showToast("Пусте поле", 'error'); 
-    const rows = raw.trim().split('\n'); const shifts = []; 
-    rows.forEach(row => { 
-        const parts = row.trim().split(/[\t, ]+/); if (parts.length < 3) return; 
-        const date = parts[0]; const lastEl = parts[parts.length - 1].toLowerCase();
-        if(lastEl.includes('відпустка') || lastEl.includes('vacation')) { const name = parts.slice(1, parts.length - 1).join(' '); shifts.push({ date, name, start: 'Відпустка', end: 'Відпустка' }); } 
-        else if(parts.length >= 4) { const start = parts[parts.length - 2]; const end = parts[parts.length - 1]; const name = parts.slice(1, parts.length - 2).join(' '); shifts.push({ date, name, start, end }); } 
-    }); 
-    if(!shifts.length) return showToast("Не розпізнано", 'error'); 
-    if(confirm(`Завантажити ${shifts.length} змін?`)) { 
-        const res = await fetch('/api/shifts/bulk', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ shifts }) }); 
-        if(res.ok) { document.getElementById('importData').value = ''; await loadShifts(); renderCurrentShifts(); showToast("Імпорт успішний"); } else { showToast("Помилка імпорту", 'error'); } 
-    } 
-}
-
-async function delS(d,n){ if(confirm("Видалити?")) { await fetch('/api/delete-shift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d,name:n})}); showToast("Видалено"); await loadShifts(); renderCurrentShifts(); } }
-async function deleteTask(id){ if(confirm("Видалити задачу?")) { await fetch('/api/tasks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); showToast("Задачу видалено"); await loadTasks(); renderCurrentShifts(); } }
-async function handleRequest(id, action) { await fetch('/api/requests/action', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action})}); showToast(action==='approve'?"Схвалено":"Відхилено"); loadRequests(); }
-async function approveAllRequests() { if(confirm("Схвалити все?")) { await fetch('/api/requests/approve-all', {method:'POST'}); showToast("Всі схвалено"); loadRequests(); } }
-
-function clearDay(){const d=document.getElementById('shiftDate').value; if(d&&confirm(`Clean ${d}?`)){ fetch('/api/shifts/clear-day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d})}).then(()=>{ showToast("День очищено"); loadShifts().then(renderCurrentShifts) }); }}
-function toggleArchive(){ triggerHaptic(); document.getElementById('archiveContainer').classList.toggle('hidden'); }
-function changeMonth(d){triggerHaptic(); currentCalendarDate.setMonth(currentCalendarDate.getMonth()+d);renderCalendar();}
-function formatText(type) { const field = document.getElementById('newsText'); const start = field.selectionStart; const end = field.selectionEnd; const text = field.value; const selectedText = text.substring(start, end); let before = '', after = ''; if (type === 'bold') { before = '<b>'; after = '</b>'; } else if (type === 'italic') { before = '<i>'; after = '</i>'; } else if (type === 'link') { const url = prompt("URL:", "https://"); if (!url) return; before = `<a href="${url}">`; after = '</a>'; } const content = selectedText || (type === 'link' ? 'посилання' : 'текст'); field.value = text.substring(0, start) + before + content + after + text.substring(end); field.focus(); }
-function updateFileName() { const input = document.getElementById('newsFile'); const count = input.files.length; const label = document.getElementById('fileName'); if (count > 0) { label.innerText = count === 1 ? input.files[0].name : `Обрано ${count} файлів`; } else { label.innerText = "Оберіть файли (можна декілька)"; } }
-
-// Notes / Modals
-function openAvatarModal() { triggerHaptic(); document.getElementById('avatarModal').classList.remove('hidden'); }
-function closeAvatarModal() { document.getElementById('avatarModal').classList.add('hidden'); }
-function handleAvatarSelect(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = function(e) { const img = document.getElementById('avatarPreview'); img.src = e.target.result; img.classList.remove('hidden'); document.getElementById('avatarPlaceholder').classList.add('hidden'); document.getElementById('avatarActions').classList.remove('hidden'); }; reader.readAsDataURL(input.files[0]); } }
-function uploadAvatar() { const imgElement = document.getElementById('avatarPreview'); const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); const size = 200; canvas.width = size; canvas.height = size; const img = new Image(); img.onload = function() { const minSide = Math.min(img.width, img.height); const sx = (img.width - minSide) / 2; const sy = (img.height - minSide) / 2; ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size); const dataUrl = canvas.toDataURL('image/jpeg', 0.7); fetch('/api/user/avatar', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ avatar: dataUrl }) }).then(res => res.json()).then(data => { if(data.success) { document.getElementById('userAvatarImg').src = dataUrl; document.getElementById('userAvatarImg').classList.remove('hidden'); document.getElementById('userAvatarPlaceholder').classList.add('hidden'); closeAvatarModal(); showToast("Аватар оновлено"); } else { showToast("Помилка", 'error'); } }); }; img.src = imgElement.src; }
-
-function openNotesModal(dateStr) { triggerHaptic(); selectedNoteDate = dateStr; document.getElementById('notesModalTitle').innerText = `Нотатки (${dateStr})`; document.getElementById('notesModal').classList.remove('hidden'); renderNotesList(); }
-function closeNotesModal() { document.getElementById('notesModal').classList.add('hidden'); }
-function renderNotesList() { const list = document.getElementById('notesList'); list.innerHTML = ''; const dayNotes = globalNotes.filter(n => n.date === selectedNoteDate); if (dayNotes.length === 0) list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Немає нотаток</p>'; dayNotes.forEach(n => { const isPublic = n.type === 'public'; const style = isPublic ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' : 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200'; const icon = isPublic ? '📢' : '🔒'; const canDelete = (n.author === currentUser.name) || ((currentUser.role === 'SM' || currentUser.role === 'admin') && isPublic); const deleteBtn = canDelete ? `<button onclick="deleteNote('${n._id}')" class="text-red-500 ml-2 font-bold px-2">×</button>` : ''; list.innerHTML += `<div class="note-item ${style} p-2 rounded-lg flex justify-between items-center mb-1"><div class="flex-1 text-xs"><span class="mr-1">${icon}</span> <span class="font-bold mr-1">${n.author}:</span> ${n.text}</div>${deleteBtn}</div>`; }); }
-function toggleNoteType() { triggerHaptic(); if (currentNoteType === 'private') { currentNoteType = 'public'; document.getElementById('noteTypeIcon').innerText = '📢'; document.getElementById('noteTypeLabel').innerText = 'Всім'; } else { currentNoteType = 'private'; document.getElementById('noteTypeIcon').innerText = '🔒'; document.getElementById('noteTypeLabel').innerText = 'Особиста'; } }
-async function saveNote() { const text = document.getElementById('newNoteText').value; if(!text) return; await fetch('/api/notes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ date: selectedNoteDate, text, type: currentNoteType }) }); document.getElementById('newNoteText').value = ''; await loadNotes(); renderNotesList(); renderCurrentShifts(); showToast("Нотатку додано"); }
-async function deleteNote(id) { if(!confirm('Видалити?')) return; await fetch('/api/notes/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id }) }); await loadNotes(); renderNotesList(); renderCurrentShifts(); showToast("Видалено"); }
-
-checkAuth();
