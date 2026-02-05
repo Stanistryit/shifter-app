@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { User, Shift, Task, Event, Request, NewsPost, Note, AuditLog } = require('./models');
+// ДОДАНО: KPI в імпорті
+const { User, Shift, Task, Event, Request, NewsPost, Note, AuditLog, KPI } = require('./models');
 const { logAction, handlePermission } = require('./utils');
 const { notifyUser, notifyRole, notifyAll, sendRequestToSM, getBot } = require('./bot');
 const multer = require('multer');
@@ -57,7 +58,7 @@ router.get('/users', async (req, res) => { const users = await User.find({}, 'na
 router.post('/user/avatar', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); await User.findByIdAndUpdate(req.session.userId, { avatar: req.body.avatar }); res.json({ success: true }); });
 router.get('/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); const s = await Shift.find(); res.json(s); });
 
-// SHIFTS: Create (ОНОВЛЕНО: Перезапис + Красиве повідомлення)
+// SHIFTS: Create
 router.post('/shifts', async (req, res) => { 
     const perm = await handlePermission(req, req.session.userId); 
     if(perm === 'unauthorized' || perm === 'forbidden') return res.status(403).json({}); 
@@ -73,15 +74,12 @@ router.post('/shifts', async (req, res) => {
     await Shift.create(req.body); 
     
     logAction(user.name, 'add_shift', `${req.body.date} ${req.body.name}`); 
-    
-    // Формуємо красиве повідомлення
     const typeInfo = req.body.start === 'Відпустка' ? '🌴 <b>Відпустка</b>' : `⏰ Час: <b>${req.body.start} - ${req.body.end}</b>`;
     notifyUser(req.body.name, `📅 <b>Графік оновлено!</b>\n\n📆 Дата: <b>${req.body.date}</b>\n${typeInfo}`); 
-    
     res.json({ success: true }); 
 });
 
-// SHIFTS: Delete (ОНОВЛЕНО: Детальне повідомлення)
+// SHIFTS: Delete
 router.post('/delete-shift', async (req, res) => { 
     const s = await Shift.findById(req.body.id); 
     if(!s) return res.json({}); 
@@ -94,10 +92,7 @@ router.post('/delete-shift', async (req, res) => {
     } 
     await Shift.findByIdAndDelete(req.body.id); 
     logAction(perm.user.name, 'delete_shift', `${s.date} ${s.name}`); 
-    
-    // Детальне повідомлення про видалення
     notifyUser(s.name, `❌ <b>Зміну скасовано</b>\n\n📅 Дата: <b>${s.date}</b>\n⏰ Було: ${s.start} - ${s.end}`); 
-    
     res.json({ success: true }); 
 });
 
@@ -116,20 +111,16 @@ router.post('/tasks', async (req, res) => {
         return res.json({success:true, pending:true}); 
     }
 
-    // ОНОВЛЕНО: Додано час початку і кінця у повідомлення
     const sendTaskNotification = (name, title, date, start, end, isFullDay, description) => {
         let dur = "Весь день"; 
         let timeInfo = "Весь день";
-        
         if (!isFullDay && start && end) { 
             const [h1, m1] = start.split(':').map(Number); 
             const [h2, m2] = end.split(':').map(Number); 
             dur = `${((h2 + m2/60) - (h1 + m1/60)).toFixed(1)} год.`; 
             timeInfo = `${start} - ${end}`;
         } 
-        
         let msg = `📌 <b>Нова задача!</b>\n\n📝 <b>${title}</b>\n📅 Дата: ${date}\n⏰ Час: ${timeInfo} (${dur})`;
-        
         if(description) msg += `\n\nℹ️ <b>Опис:</b> ${description}`;
         notifyUser(name, msg);
     };
@@ -169,35 +160,115 @@ router.post('/notes', async (req, res) => { const u=await User.findById(req.sess
 router.post('/notes/delete', async (req, res) => { const u=await User.findById(req.session.userId); const n=await Note.findById(req.body.id); if(n && (n.author===u.name || (u.role==='SM' && n.type==='public'))) { await Note.findByIdAndDelete(req.body.id); res.json({success:true}); } else res.status(403).json({}); });
 router.get('/requests', async (req, res) => { const u=await User.findById(req.session.userId); if(u?.role!=='SM'&&u?.role!=='admin') return res.json([]); const r=await Request.find().sort({createdAt:-1}); res.json(r); });
 
+// --- KPI ROUTES (НОВЕ) ---
+
+// 1. GET KPI for a month
+router.get('/kpi', async (req, res) => {
+    if (!req.session.userId) return res.status(403).json({});
+    const { month } = req.query; // YYYY-MM
+    if (!month) return res.json([]);
+    const data = await KPI.find({ month });
+    res.json(data);
+});
+
+// 2. IMPORT KPI (Parsing Logic)
+router.post('/kpi/import', async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ message: "Тільки SM" });
+
+    const { text, month } = req.body;
+    if (!text || !month) return res.json({ success: false, message: "Немає даних" });
+
+    const lines = text.trim().split('\n');
+    const users = await User.find();
+    let importedCount = 0;
+
+    for (const line of lines) {
+        // Пропускаємо порожні або заголовки (якщо там немає цифр)
+        if (!line.match(/\d/)) continue;
+
+        // Визначаємо роздільник (таб або пробіли)
+        const parts = line.includes('\t') ? line.split('\t') : line.trim().split(/\s{2,}/);
+        if (parts.length < 5) continue;
+
+        const fullName = parts[0].trim(); // ПІБ або "Тотал..."
+        let kpiName = null;
+
+        // 1. Шукаємо TOTAL
+        if (fullName.toLowerCase().includes('тотал') || fullName.toLowerCase().includes('total')) {
+            kpiName = 'TOTAL';
+        } 
+        // 2. Шукаємо Співробітника
+        else {
+            // Шукаємо, чи є ім'я з бази в цьому рядку
+            const foundUser = users.find(dbUser => {
+                const parts = dbUser.name.split(' '); // ["Name", "Surname"]
+                // Перевіряємо чи є ім'я або прізвище в рядку
+                return fullName.includes(dbUser.name) || 
+                       (parts.length > 1 && fullName.includes(parts[0]) && fullName.includes(parts[1]));
+            });
+            if (foundUser) kpiName = foundUser.name;
+        }
+
+        if (kpiName) {
+            // Парсимо цифри (індекси з таблиці t-sales)
+            // 2: Orders(User), 5: Target, 6: Devices(User), 9: UPT, 12: NPS, 13: NBA
+            // Оскільки масив parts може мати "порожні" елементи, краще брати по порядку
+            
+            // Якщо розділено табами, структура чітка:
+            // 0:Name, 1:OrdTT, 2:OrdUser, 3:DevTT, 4:DevTotal, 5:Target, 6:DevUser, 7:%, 8:UPTCount, 9:UPT, 10:UPTTarget, 11:%, 12:NPS, 13:NBA
+            
+            const parseNum = (val) => parseFloat(val?.replace(',', '.') || 0);
+
+            const stats = {
+                orders: parseNum(parts[2]),
+                devices: parseNum(parts[6]),
+                devicesTarget: parseNum(parts[5]),
+                upt: parseNum(parts[9]),
+                nps: parseNum(parts[12]),
+                nba: parseNum(parts[13])
+            };
+
+            // Upsert (Оновити або Створити)
+            await KPI.findOneAndUpdate(
+                { month, name: kpiName },
+                { 
+                    month, 
+                    name: kpiName, 
+                    stats, 
+                    updatedAt: new Date() 
+                },
+                { upsert: true, new: true }
+            );
+            importedCount++;
+        }
+    }
+
+    logAction(u.name, 'import_kpi', `${month}: ${importedCount} records`);
+    res.json({ success: true, count: importedCount });
+});
+
+// --- EXISTING REQUEST LOGIC ---
+
 router.post('/requests/action', async (req, res) => { 
     const {id, action} = req.body; 
     const r = await Request.findById(id); 
     if(!r) return res.json({success:false});
 
     if(action === 'approve'){ 
-        if(r.type === 'add_shift') {
-            await Shift.deleteOne({ date: r.data.date, name: r.data.name }); 
-            await Shift.create(r.data); 
-        }
+        if(r.type === 'add_shift') { await Shift.deleteOne({ date: r.data.date, name: r.data.name }); await Shift.create(r.data); }
         if(r.type === 'del_shift') await Shift.findByIdAndDelete(r.data.id);
         if(r.type === 'del_task') await Task.findByIdAndDelete(r.data.id);
-        
         if(r.type === 'add_task') {
             if (r.data.name === 'all') {
                 const users = await User.find({ role: { $nin: ['admin', 'RRP'] } });
                 const tasksToCreate = users.map(u => ({ ...r.data, name: u.name }));
                 await Task.insertMany(tasksToCreate);
                 users.forEach(u => notifyUser(u.name, `✅ Задача схвалена: ${r.data.title}`));
-            } else {
-                await Task.create(r.data); 
-                notifyUser(r.data.name, `✅ Задача схвалена: ${r.data.title}`);
-            }
+            } else { await Task.create(r.data); notifyUser(r.data.name, `✅ Задача схвалена: ${r.data.title}`); }
         }
         notifyUser(r.createdBy, `✅ Ваш запит (${r.type}) схвалено`); 
-    } else {
-        notifyUser(r.createdBy, `❌ Ваш запит (${r.type}) відхилено`); 
-    }
-    
+    } else { notifyUser(r.createdBy, `❌ Ваш запит (${r.type}) відхилено`); }
     await Request.findByIdAndDelete(id); 
     res.json({success:true}); 
 });
@@ -205,10 +276,7 @@ router.post('/requests/action', async (req, res) => {
 router.post('/requests/approve-all', async (req, res) => { 
     const rs = await Request.find(); 
     for(const r of rs) { 
-        if(r.type === 'add_shift') {
-            await Shift.deleteOne({ date: r.data.date, name: r.data.name });
-            await Shift.create(r.data);
-        }
+        if(r.type === 'add_shift') { await Shift.deleteOne({ date: r.data.date, name: r.data.name }); await Shift.create(r.data); }
         if(r.type === 'del_shift') await Shift.findByIdAndDelete(r.data.id);
         if(r.type === 'del_task') await Task.findByIdAndDelete(r.data.id);
         if(r.type === 'add_task') {
@@ -216,9 +284,7 @@ router.post('/requests/approve-all', async (req, res) => {
                 const users = await User.find({ role: { $nin: ['admin', 'RRP'] } });
                 const tasksToCreate = users.map(u => ({ ...r.data, name: u.name }));
                 await Task.insertMany(tasksToCreate);
-            } else {
-                await Task.create(r.data);
-            }
+            } else { await Task.create(r.data); }
         }
         await Request.findByIdAndDelete(r._id); 
     } 

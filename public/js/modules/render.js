@@ -6,6 +6,7 @@ export function renderAll() {
     renderTimeline();
     renderCalendar();
     renderTable();
+    // renderKpi викликається окремо через app.js при зміні режиму
 }
 
 export function renderTimeline() {
@@ -109,11 +110,7 @@ export function renderTimeline() {
 
             if (shift) {
                 const isMe = shift.name === state.currentUser.name;
-                
-                // --- ЗМІНА: Додали SSE у список дозволених ролей для редагування ---
                 const canEdit = ['admin','SM','SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP';
-                
-                // Context Menu Attr
                 const ctxAttr = canEdit ? `oncontextmenu="window.contextMenuProxy(event, 'shift', '${shift._id}');"` : '';
 
                 if (shift.start === 'Відпустка') {
@@ -151,8 +148,6 @@ export function renderTimeline() {
                             if(tLeft + tWidth > 100) tWidth = 100 - tLeft;
 
                             const clickAction = `onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();"`;
-                            
-                            // 📌 Емодзі для задач
                             tasksHtml += `<div class="task-segment flex items-center justify-center text-[10px]" style="left:${tLeft}%; width:${tWidth}%;" ${clickAction}>📌</div>`;
                         }
                     });
@@ -169,10 +164,8 @@ export function renderTimeline() {
                         const tEndD = tE_h + tE_m/60; 
                         let tLeft = ((tStartD - dayStart) / totalHours) * 100; 
                         let tWidth = ((tEndD - tStartD) / totalHours) * 100; 
-                        
                         if(tLeft < 0) { tWidth += tLeft; tLeft = 0; }
                         if(tLeft + tWidth > 100) tWidth = 100 - tLeft;
-
                         const clickAction = `onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();"`;
                         tasksHtml += `<div class="task-segment flex items-center justify-center text-[10px]" style="left:${tLeft}%; width:${tWidth}%;" ${clickAction}>📌</div>`; 
                      } 
@@ -317,4 +310,136 @@ export function renderTable() {
         const el = document.getElementById('todayColumn');
         if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     }, 100);
+}
+
+// --- KPI RENDER ---
+export function renderKpi() {
+    const listDiv = document.getElementById('kpiList');
+    const totalDiv = document.getElementById('kpiTotalCard');
+    const title = document.getElementById('kpiTitle');
+    const updateDate = document.getElementById('kpiUpdateDate');
+    
+    if (!listDiv || !totalDiv) return;
+    
+    listDiv.innerHTML = '';
+    totalDiv.innerHTML = '';
+    
+    // Дата
+    const y = state.currentDate.getFullYear();
+    const m = state.currentDate.getMonth();
+    title.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
+    
+    // Формат місяця для фільтру (YYYY-MM)
+    const monthStr = `${y}-${String(m + 1).padStart(2, '0')}`;
+    
+    // Фільтруємо дані за місяць
+    const currentData = (state.kpi || []).filter(k => k.month === monthStr);
+    
+    if (currentData.length === 0) {
+        listDiv.innerHTML = '<div class="text-center text-gray-400 py-10">Немає даних за цей місяць</div>';
+        updateDate.innerText = '';
+        return;
+    }
+
+    // Показуємо дату оновлення (беремо найсвіжішу)
+    const lastUpdate = currentData.reduce((latest, item) => {
+        const itemDate = new Date(item.updatedAt);
+        return itemDate > latest ? itemDate : latest;
+    }, new Date(0));
+    updateDate.innerText = `Оновлено: ${lastUpdate.toLocaleString('uk-UA')}`;
+
+    // Відокремлюємо Total і Співробітників
+    const totalData = currentData.find(k => k.name === 'TOTAL');
+    let usersData = currentData.filter(k => k.name !== 'TOTAL');
+
+    // Сортуємо: спочатку поточний юзер, потім решта по % виконання
+    usersData.sort((a, b) => {
+        if (a.name === state.currentUser.name) return -1;
+        if (b.name === state.currentUser.name) return 1;
+        
+        const aPerc = a.stats.devicesTarget ? (a.stats.devices / a.stats.devicesTarget) : 0;
+        const bPerc = b.stats.devicesTarget ? (b.stats.devices / b.stats.devicesTarget) : 0;
+        return bPerc - aPerc;
+    });
+
+    // Helper: Progress Bar
+    const renderProgress = (val, max, colorClass, label) => {
+        const perc = max > 0 ? Math.min(100, (val / max) * 100) : 0;
+        return `
+            <div class="mb-2">
+                <div class="flex justify-between text-[10px] mb-0.5">
+                    <span class="text-gray-500">${label}</span>
+                    <span class="font-bold">${val} / ${max}</span>
+                </div>
+                <div class="w-full bg-gray-100 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full ${colorClass}" style="width: ${perc}%"></div>
+                </div>
+            </div>
+        `;
+    };
+
+    // Helper: Stat Box
+    const renderStat = (label, val, unit='') => `
+        <div class="bg-gray-50 dark:bg-[#2C2C2E] p-2 rounded-lg text-center">
+            <div class="text-[9px] text-gray-400 uppercase font-bold">${label}</div>
+            <div class="text-sm font-bold text-gray-800 dark:text-gray-200">${val}${unit}</div>
+        </div>
+    `;
+
+    // RENDER TOTAL
+    if (totalData) {
+        const s = totalData.stats;
+        totalDiv.innerHTML = `
+            <div class="ios-card p-4 border-l-4 border-blue-500 shadow-md">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-bold text-lg">🏢 Тотал Магазину</h3>
+                    <span class="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-bold">TOTAL</span>
+                </div>
+                <div class="grid grid-cols-4 gap-2 mb-3">
+                    ${renderStat('Замовлень', s.orders)}
+                    ${renderStat('Девайси', s.devices)}
+                    ${renderStat('UPT', s.upt)}
+                    ${renderStat('NPS', s.nps)}
+                </div>
+                ${renderProgress(s.devices, s.devicesTarget, 'bg-blue-500', 'План по девайсах')}
+            </div>
+        `;
+    }
+
+    // RENDER USERS
+    usersData.forEach((u, index) => {
+        const s = u.stats;
+        const isMe = u.name === state.currentUser.name;
+        const highlightClass = isMe ? 'ring-2 ring-blue-500 shadow-lg' : '';
+        const rank = index + 1;
+        
+        let medal = '';
+        if(rank === 1) medal = '🥇';
+        if(rank === 2) medal = '🥈';
+        if(rank === 3) medal = '🥉';
+
+        listDiv.innerHTML += `
+            <div class="ios-card p-3 ${highlightClass} relative">
+                <div class="absolute top-3 right-3 text-xs opacity-50 font-mono">#${rank} ${medal}</div>
+                
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
+                        ${u.name.substring(0,2)}
+                    </div>
+                    <div>
+                        <div class="font-bold text-sm ${isMe ? 'text-blue-600' : ''}">${u.name}</div>
+                        <div class="text-[10px] text-gray-400">KPI Девайсів: ${s.devicesTarget ? Math.round(s.devices/s.devicesTarget*100) : 0}%</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    ${renderStat('UPT', s.upt)}
+                    ${renderStat('NPS', s.nps)}
+                    ${renderStat('NBA', s.nba)}
+                </div>
+
+                ${renderProgress(s.devices, s.devicesTarget, 'bg-green-500', 'Девайси')}
+            </div>
+        `;
+    });
 }

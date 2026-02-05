@@ -30,7 +30,7 @@ const taskSchema = new mongoose.Schema({
     title: { type: String, required: true },
     date: { type: String, required: true },
     name: { type: String, required: true },
-    description: { type: String, default: '' }, // <-- НОВЕ ПОЛЕ
+    description: { type: String, default: '' },
     isFullDay: { type: Boolean, default: false },
     start: { type: String, default: '' },
     end: { type: String, default: '' }
@@ -82,6 +82,21 @@ const eventSchema = new mongoose.Schema({
     date: { type: String, required: true }
 });
 
+// 10. Схема KPI (НОВЕ)
+const kpiSchema = new mongoose.Schema({
+    month: { type: String, required: true }, // "YYYY-MM"
+    name: { type: String, required: true },  // "Ivanov" або "TOTAL"
+    updatedAt: { type: Date, default: Date.now },
+    stats: {
+        orders: { type: Number, default: 0 },        // Замовлень (User)
+        devices: { type: Number, default: 0 },       // Девайсів (User)
+        devicesTarget: { type: Number, default: 0 }, // Ціль девайсів
+        upt: { type: Number, default: 0 },           // UPT факт
+        nps: { type: Number, default: 0 },           // NPS
+        nba: { type: Number, default: 0 }            // NBA
+    }
+});
+
 const User = mongoose.model('User', userSchema);
 const Shift = mongoose.model('Shift', shiftSchema);
 const Task = mongoose.model('Task', taskSchema);
@@ -91,5 +106,6 @@ const Note = mongoose.model('Note', noteSchema);
 const AuditLog = mongoose.model('AuditLog', auditLogSchema);
 const Contact = mongoose.model('Contact', contactSchema);
 const Event = mongoose.model('Event', eventSchema);
+const KPI = mongoose.model('KPI', kpiSchema);
 
-module.exports = { User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event };
+module.exports = { User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event, KPI };
