@@ -312,7 +312,7 @@ export function renderTable() {
     }, 100);
 }
 
-// --- KPI RENDER ---
+// --- KPI RENDER (ОНОВЛЕНО) ---
 export function renderKpi() {
     const listDiv = document.getElementById('kpiList');
     const totalDiv = document.getElementById('kpiTotalCard');
@@ -324,35 +324,30 @@ export function renderKpi() {
     listDiv.innerHTML = '';
     totalDiv.innerHTML = '';
     
+    // Отримуємо дані зі структури { kpi, settings, hours }
+    const { kpi, settings, hours } = state.kpiData || { kpi: [], settings: null, hours: {} };
+    const normHours = settings?.normHours || 0;
+
     // Дата
     const y = state.currentDate.getFullYear();
     const m = state.currentDate.getMonth();
     title.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
     
-    // Формат місяця для фільтру (YYYY-MM)
-    const monthStr = `${y}-${String(m + 1).padStart(2, '0')}`;
-    
-    // Фільтруємо дані за місяць
-    const currentData = (state.kpi || []).filter(k => k.month === monthStr);
-    
-    if (currentData.length === 0) {
+    if (!kpi || kpi.length === 0) {
         listDiv.innerHTML = '<div class="text-center text-gray-400 py-10">Немає даних за цей місяць</div>';
         updateDate.innerText = '';
         return;
     }
 
-    // Показуємо дату оновлення (беремо найсвіжішу)
-    const lastUpdate = currentData.reduce((latest, item) => {
+    const lastUpdate = kpi.reduce((latest, item) => {
         const itemDate = new Date(item.updatedAt);
         return itemDate > latest ? itemDate : latest;
     }, new Date(0));
     updateDate.innerText = `Оновлено: ${lastUpdate.toLocaleString('uk-UA')}`;
 
-    // Відокремлюємо Total і Співробітників
-    const totalData = currentData.find(k => k.name === 'TOTAL');
-    let usersData = currentData.filter(k => k.name !== 'TOTAL');
+    const totalData = kpi.find(k => k.name === 'TOTAL');
+    let usersData = kpi.filter(k => k.name !== 'TOTAL');
 
-    // Сортуємо: спочатку поточний юзер, потім решта по % виконання
     usersData.sort((a, b) => {
         if (a.name === state.currentUser.name) return -1;
         if (b.name === state.currentUser.name) return 1;
@@ -378,7 +373,6 @@ export function renderKpi() {
         `;
     };
 
-    // Helper: Stat Box
     const renderStat = (label, val, unit='') => `
         <div class="bg-gray-50 dark:bg-[#2C2C2E] p-2 rounded-lg text-center">
             <div class="text-[9px] text-gray-400 uppercase font-bold">${label}</div>
@@ -413,6 +407,9 @@ export function renderKpi() {
         const highlightClass = isMe ? 'ring-2 ring-blue-500 shadow-lg' : '';
         const rank = index + 1;
         
+        // Отримуємо години цього юзера
+        const userWorkedHours = hours[u.name] || 0;
+        
         let medal = '';
         if(rank === 1) medal = '🥇';
         if(rank === 2) medal = '🥈';
@@ -439,6 +436,7 @@ export function renderKpi() {
                 </div>
 
                 ${renderProgress(s.devices, s.devicesTarget, 'bg-green-500', 'Девайси')}
+                ${renderProgress(userWorkedHours, normHours, 'bg-yellow-500', 'Години')}
             </div>
         `;
     });

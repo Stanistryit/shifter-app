@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-// ДОДАНО: KPI в імпорті
-const { User, Shift, Task, Event, Request, NewsPost, Note, AuditLog, KPI } = require('./models');
+// ДОДАНО: MonthSettings в імпорті
+const { User, Shift, Task, Event, Request, NewsPost, Note, AuditLog, KPI, MonthSettings } = require('./models');
 const { logAction, handlePermission } = require('./utils');
 const { notifyUser, notifyRole, notifyAll, sendRequestToSM, getBot } = require('./bot');
 const multer = require('multer');
@@ -160,18 +160,63 @@ router.post('/notes', async (req, res) => { const u=await User.findById(req.sess
 router.post('/notes/delete', async (req, res) => { const u=await User.findById(req.session.userId); const n=await Note.findById(req.body.id); if(n && (n.author===u.name || (u.role==='SM' && n.type==='public'))) { await Note.findByIdAndDelete(req.body.id); res.json({success:true}); } else res.status(403).json({}); });
 router.get('/requests', async (req, res) => { const u=await User.findById(req.session.userId); if(u?.role!=='SM'&&u?.role!=='admin') return res.json([]); const r=await Request.find().sort({createdAt:-1}); res.json(r); });
 
-// --- KPI ROUTES (НОВЕ) ---
+// --- KPI ROUTES (ОНОВЛЕНО) ---
 
-// 1. GET KPI for a month
+// 1. GET KPI & Settings & Hours
 router.get('/kpi', async (req, res) => {
     if (!req.session.userId) return res.status(403).json({});
     const { month } = req.query; // YYYY-MM
-    if (!month) return res.json([]);
-    const data = await KPI.find({ month });
-    res.json(data);
+    if (!month) return res.json({ kpi: [], settings: null, hours: {} });
+
+    // Отримуємо KPI
+    const kpiData = await KPI.find({ month });
+    
+    // Отримуємо Налаштування
+    const settings = await MonthSettings.findOne({ month });
+
+    // Рахуємо Години на основі графіку
+    const shifts = await Shift.find({ date: { $regex: `^${month}` } });
+    const hoursMap = {};
+    
+    shifts.forEach(s => {
+        if (s.start === 'Відпустка') return;
+        const [h1, m1] = s.start.split(':').map(Number);
+        const [h2, m2] = s.end.split(':').map(Number);
+        const dur = (h2 + m2/60) - (h1 + m1/60);
+        if (dur > 0) {
+            hoursMap[s.name] = (hoursMap[s.name] || 0) + dur;
+        }
+    });
+
+    // Форматуємо години (округлення до 1 знаку)
+    for (const name in hoursMap) {
+        hoursMap[name] = parseFloat(hoursMap[name].toFixed(1));
+    }
+
+    res.json({
+        kpi: kpiData,
+        settings: settings || { normHours: 0 },
+        hours: hoursMap
+    });
 });
 
-// 2. IMPORT KPI (Parsing Logic)
+// 2. SAVE KPI Settings (Norm Hours)
+router.post('/kpi/settings', async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ message: "Тільки SM" });
+    
+    const { month, normHours } = req.body;
+    await MonthSettings.findOneAndUpdate(
+        { month }, 
+        { month, normHours: Number(normHours) }, 
+        { upsert: true }
+    );
+    
+    logAction(u.name, 'update_kpi_settings', `${month}: ${normHours}h`);
+    res.json({ success: true });
+});
+
+// 3. IMPORT KPI
 router.post('/kpi/import', async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ message: "Тільки SM" });
@@ -184,42 +229,25 @@ router.post('/kpi/import', async (req, res) => {
     let importedCount = 0;
 
     for (const line of lines) {
-        // Пропускаємо порожні або заголовки (якщо там немає цифр)
         if (!line.match(/\d/)) continue;
-
-        // Визначаємо роздільник (таб або пробіли)
         const parts = line.includes('\t') ? line.split('\t') : line.trim().split(/\s{2,}/);
         if (parts.length < 5) continue;
 
-        const fullName = parts[0].trim(); // ПІБ або "Тотал..."
+        const fullName = parts[0].trim();
         let kpiName = null;
 
-        // 1. Шукаємо TOTAL
         if (fullName.toLowerCase().includes('тотал') || fullName.toLowerCase().includes('total')) {
             kpiName = 'TOTAL';
-        } 
-        // 2. Шукаємо Співробітника
-        else {
-            // Шукаємо, чи є ім'я з бази в цьому рядку
+        } else {
             const foundUser = users.find(dbUser => {
-                const parts = dbUser.name.split(' '); // ["Name", "Surname"]
-                // Перевіряємо чи є ім'я або прізвище в рядку
-                return fullName.includes(dbUser.name) || 
-                       (parts.length > 1 && fullName.includes(parts[0]) && fullName.includes(parts[1]));
+                const parts = dbUser.name.split(' ');
+                return fullName.includes(dbUser.name) || (parts.length > 1 && fullName.includes(parts[0]) && fullName.includes(parts[1]));
             });
             if (foundUser) kpiName = foundUser.name;
         }
 
         if (kpiName) {
-            // Парсимо цифри (індекси з таблиці t-sales)
-            // 2: Orders(User), 5: Target, 6: Devices(User), 9: UPT, 12: NPS, 13: NBA
-            // Оскільки масив parts може мати "порожні" елементи, краще брати по порядку
-            
-            // Якщо розділено табами, структура чітка:
-            // 0:Name, 1:OrdTT, 2:OrdUser, 3:DevTT, 4:DevTotal, 5:Target, 6:DevUser, 7:%, 8:UPTCount, 9:UPT, 10:UPTTarget, 11:%, 12:NPS, 13:NBA
-            
             const parseNum = (val) => parseFloat(val?.replace(',', '.') || 0);
-
             const stats = {
                 orders: parseNum(parts[2]),
                 devices: parseNum(parts[6]),
@@ -229,15 +257,9 @@ router.post('/kpi/import', async (req, res) => {
                 nba: parseNum(parts[13])
             };
 
-            // Upsert (Оновити або Створити)
             await KPI.findOneAndUpdate(
                 { month, name: kpiName },
-                { 
-                    month, 
-                    name: kpiName, 
-                    stats, 
-                    updatedAt: new Date() 
-                },
+                { month, name: kpiName, stats, updatedAt: new Date() },
                 { upsert: true, new: true }
             );
             importedCount++;

@@ -82,7 +82,7 @@ const eventSchema = new mongoose.Schema({
     date: { type: String, required: true }
 });
 
-// 10. Схема KPI (НОВЕ)
+// 10. Схема KPI
 const kpiSchema = new mongoose.Schema({
     month: { type: String, required: true }, // "YYYY-MM"
     name: { type: String, required: true },  // "Ivanov" або "TOTAL"
@@ -97,6 +97,12 @@ const kpiSchema = new mongoose.Schema({
     }
 });
 
+// 11. Схема Налаштувань Місяця (НОВЕ)
+const monthSettingsSchema = new mongoose.Schema({
+    month: { type: String, required: true, unique: true }, // "YYYY-MM"
+    normHours: { type: Number, required: true }
+});
+
 const User = mongoose.model('User', userSchema);
 const Shift = mongoose.model('Shift', shiftSchema);
 const Task = mongoose.model('Task', taskSchema);
@@ -107,5 +113,6 @@ const AuditLog = mongoose.model('AuditLog', auditLogSchema);
 const Contact = mongoose.model('Contact', contactSchema);
 const Event = mongoose.model('Event', eventSchema);
 const KPI = mongoose.model('KPI', kpiSchema);
+const MonthSettings = mongoose.model('MonthSettings', monthSettingsSchema);
 
-module.exports = { User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event, KPI };
+module.exports = { User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event, KPI, MonthSettings };

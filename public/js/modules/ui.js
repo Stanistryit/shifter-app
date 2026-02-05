@@ -57,7 +57,9 @@ export function triggerHaptic() {
 
 export function showAdminTab(t) {
     triggerHaptic();
-    const tabs = ['shifts','tasks','requests','import','news','logs'];
+    // ДОДАНО: 'kpi' у список вкладок
+    const tabs = ['shifts','tasks','requests','import','news','logs', 'kpi'];
+    
     tabs.forEach(x => {
         const content = document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1));
         if(content) content.classList.add('hidden');
@@ -117,12 +119,10 @@ export function openTaskDetailsModal(task) {
     document.getElementById('taskModalTime').innerText = task.isFullDay ? 'Весь день' : `${task.start} - ${task.end}`;
     document.getElementById('taskModalUser').innerText = task.name;
     
-    // НОВЕ: Обробка опису та посилань
     const descWrapper = document.getElementById('taskModalDescriptionWrapper');
     const descText = document.getElementById('taskModalDescription');
 
     if (task.description && task.description.trim() !== "") {
-        // Робимо посилання клікабельними
         const linkedText = task.description.replace(
             /(https?:\/\/[^\s]+)/g, 
             '<a href="$1" target="_blank" class="text-blue-500 underline break-all">$1</a>'
@@ -134,7 +134,6 @@ export function openTaskDetailsModal(task) {
         descText.innerHTML = '';
     }
 
-    // Прив'язуємо кнопку видалення
     const btn = document.getElementById('btnDeleteTask');
     btn.onclick = () => {
         closeTaskDetailsModal();
@@ -149,23 +148,21 @@ export function closeTaskDetailsModal() {
 }
 
 // --- КОНТЕКСТНЕ МЕНЮ (Long Press) ---
-// Зберігаємо ID та Тип об'єкта, на якому викликали меню
 export let activeContext = { id: null, type: null, data: null };
 
 export function showContextMenu(e, type, id, data = null) {
-    e.preventDefault(); // Блокуємо стандартне меню браузера
+    e.preventDefault(); 
     triggerHaptic();
     
     activeContext = { id, type, data };
     
     const menu = document.getElementById('contextMenu');
-    const menuWidth = 192; // 12rem
-    const menuHeight = 120; // приблизно
+    const menuWidth = 192; 
+    const menuHeight = 120; 
     
     let x = e.clientX;
     let y = e.clientY;
     
-    // Перевірка меж екрану (щоб меню не вилізло за край)
     if (x + menuWidth > window.innerWidth) x -= menuWidth;
     if (y + menuHeight > window.innerHeight) y -= menuHeight;
     
@@ -173,11 +170,9 @@ export function showContextMenu(e, type, id, data = null) {
     menu.style.top = `${y}px`;
     menu.classList.remove('hidden');
     
-    // Закриття меню при кліку будь-де
     const closeMenu = () => {
         menu.classList.add('hidden');
         document.removeEventListener('click', closeMenu);
     };
-    // Невелика затримка, щоб меню не закрилось одразу ж від цього ж кліку
     setTimeout(() => document.addEventListener('click', closeMenu), 50);
 }

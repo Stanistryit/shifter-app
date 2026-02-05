@@ -1,7 +1,7 @@
 import { state } from './modules/state.js';
 import { fetchJson, postJson } from './modules/api.js';
 import { 
-    initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab, formatText, updateFileName,
+    initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab as uiShowAdminTab, formatText, updateFileName,
     openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext 
 } from './modules/ui.js';
 // ДОДАНО: renderKpi
@@ -32,7 +32,20 @@ initContextMenuListeners();
 // UI & Theme
 window.toggleTheme = toggleTheme;
 window.triggerHaptic = triggerHaptic;
-window.showAdminTab = showAdminTab;
+
+// WRAPPER: Підставляємо місяць при відкритті вкладки KPI
+window.showAdminTab = (t) => {
+    uiShowAdminTab(t);
+    if (t === 'kpi') {
+        const now = new Date();
+        const mStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const inp1 = document.getElementById('kpiMonthImport');
+        const inp2 = document.getElementById('kpiMonthSettings');
+        if(inp1 && !inp1.value) inp1.value = mStr;
+        if(inp2 && !inp2.value) inp2.value = mStr;
+    }
+};
+
 window.toggleEditMode = toggleEditMode;
 window.toggleArchive = toggleArchive;
 window.setMode = setMode;
@@ -63,8 +76,10 @@ window.toggleTaskTimeInputs = toggleTaskTimeInputs;
 window.bulkImport = bulkImport;
 window.publishNews = publishNews;
 window.loadLogs = loadLogs;
-// ДОДАНО: Експорт функції імпорту
+
+// KPI Actions
 window.importKpi = importKpi;
+window.saveKpiSettings = saveKpiSettings; // НОВЕ
 
 // Requests
 window.approveAllRequests = approveAllRequests;
@@ -135,7 +150,7 @@ function setMode(m) {
     const listDiv = document.getElementById('listViewContainer');
     const calDiv = document.getElementById('calendarViewContainer');
     const gridDiv = document.getElementById('gridViewContainer');
-    const kpiDiv = document.getElementById('kpiViewContainer'); // НОВЕ
+    const kpiDiv = document.getElementById('kpiViewContainer'); 
     
     listDiv.classList.add('hidden');
     calDiv.classList.add('hidden');
@@ -145,7 +160,7 @@ function setMode(m) {
     const btnList = document.getElementById('btnModeList');
     const btnCal = document.getElementById('btnModeCalendar');
     const btnGrid = document.getElementById('btnModeGrid');
-    const btnKpi = document.getElementById('btnModeKpi'); // НОВЕ
+    const btnKpi = document.getElementById('btnModeKpi');
     
     const inactiveClass = "flex-1 py-2 text-xs font-medium text-gray-500 transition-all whitespace-nowrap px-2";
     const activeClass = "flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all whitespace-nowrap px-2";
@@ -168,7 +183,7 @@ function setMode(m) {
         gridDiv.classList.add('animate-slide-up');
         btnGrid.className = activeClass;
         renderTable();
-    } else if (m === 'kpi') { // НОВИЙ РЕЖИМ
+    } else if (m === 'kpi') {
         kpiDiv.classList.remove('hidden');
         kpiDiv.classList.add('animate-slide-up');
         btnKpi.className = activeClass;
@@ -176,34 +191,61 @@ function setMode(m) {
     }
 }
 
-// НОВЕ: Логіка імпорту KPI
+// ОНОВЛЕНО: Імпорт KPI з вибором місяця
 async function importKpi() {
     const text = document.getElementById('kpiImportData').value;
-    if(!text) return showToast('Вставте текст таблиці', 'error');
+    const month = document.getElementById('kpiMonthImport').value;
 
-    // Формуємо місяць YYYY-MM з поточної дати календаря
-    const y = state.currentDate.getFullYear();
-    const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
-    const month = `${y}-${m}`;
+    if(!text) return showToast('Вставте текст таблиці', 'error');
+    if(!month) return showToast('Оберіть місяць', 'error');
 
     const res = await postJson('/api/kpi/import', { text, month });
     if(res.success) {
         showToast(`Імпортовано: ${res.count} записів`);
         document.getElementById('kpiImportData').value = '';
-        // Оновлюємо відображення, якщо ми на вкладці KPI
-        await loadKpiData();
-        renderKpi();
+        
+        // Оновлюємо, якщо ми дивимось на цей же місяць
+        const y = state.currentDate.getFullYear();
+        const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
+        if (`${y}-${m}` === month) {
+            await loadKpiData();
+            renderKpi();
+        }
     } else {
         showToast('Помилка імпорту', 'error');
     }
 }
 
-// НОВЕ: Завантаження даних KPI
+// НОВЕ: Збереження норми годин
+async function saveKpiSettings() {
+    const month = document.getElementById('kpiMonthSettings').value;
+    const normHours = document.getElementById('kpiNormHours').value;
+
+    if(!month || !normHours) return showToast('Заповніть всі поля', 'error');
+
+    const res = await postJson('/api/kpi/settings', { month, normHours });
+    if(res.success) {
+        showToast('Норму збережено ✅');
+        
+        // Оновлюємо, якщо ми дивимось на цей же місяць
+        const y = state.currentDate.getFullYear();
+        const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
+        if (`${y}-${m}` === month) {
+            await loadKpiData();
+            renderKpi();
+        }
+    } else {
+        showToast('Помилка збереження', 'error');
+    }
+}
+
+// Завантаження даних KPI
 async function loadKpiData() {
     const y = state.currentDate.getFullYear();
     const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
     const month = `${y}-${m}`;
-    state.kpi = await fetchJson(`/api/kpi?month=${month}`);
+    // Тепер це повертає { kpi: [], settings: {}, hours: {} }
+    state.kpiData = await fetchJson(`/api/kpi?month=${month}`);
 }
 
 // Scroll to Top Listener
@@ -240,10 +282,10 @@ function initContextMenuListeners() {
                     toggleShiftTimeInputs();
                     
                     document.getElementById('adminPanel').classList.remove('hidden');
-                    showAdminTab('shifts');
+                    // Використовуємо обгортку window.showAdminTab
+                    window.showAdminTab('shifts');
                     showToast('Дані заповнено. Відредагуйте та натисніть "Додати"', 'info');
                     
-                    // Плавний скрол до форми
                     document.getElementById('adminPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             }
