@@ -216,7 +216,7 @@ router.post('/kpi/settings', async (req, res) => {
     res.json({ success: true });
 });
 
-// 3. IMPORT KPI
+// 3. IMPORT KPI (ОНОВЛЕНО)
 router.post('/kpi/import', async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ message: "Тільки SM" });
@@ -248,11 +248,18 @@ router.post('/kpi/import', async (req, res) => {
 
         if (kpiName) {
             const parseNum = (val) => parseFloat(val?.replace(',', '.') || 0);
+            
+            // ОНОВЛЕНО: Нові індекси згідно з таблицею
+            // 0: Name, 2: Orders, 5: DevTarget, 6: DevUser, 7: Dev%, 9: UPT, 10: UPTTarget, 11: UPT%, 12: NPS, 13: NBA
+            
             const stats = {
                 orders: parseNum(parts[2]),
                 devices: parseNum(parts[6]),
                 devicesTarget: parseNum(parts[5]),
+                devicePercent: parseNum(parts[7]), // NEW
                 upt: parseNum(parts[9]),
+                uptTarget: parseNum(parts[10]), // NEW
+                uptPercent: parseNum(parts[11]), // NEW
                 nps: parseNum(parts[12]),
                 nba: parseNum(parts[13])
             };

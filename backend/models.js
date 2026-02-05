@@ -82,7 +82,7 @@ const eventSchema = new mongoose.Schema({
     date: { type: String, required: true }
 });
 
-// 10. Схема KPI
+// 10. Схема KPI (ОНОВЛЕНО)
 const kpiSchema = new mongoose.Schema({
     month: { type: String, required: true }, // "YYYY-MM"
     name: { type: String, required: true },  // "Ivanov" або "TOTAL"
@@ -91,13 +91,16 @@ const kpiSchema = new mongoose.Schema({
         orders: { type: Number, default: 0 },        // Замовлень (User)
         devices: { type: Number, default: 0 },       // Девайсів (User)
         devicesTarget: { type: Number, default: 0 }, // Ціль девайсів
+        devicePercent: { type: Number, default: 0 }, // % Device KPI
         upt: { type: Number, default: 0 },           // UPT факт
+        uptTarget: { type: Number, default: 0 },     // UPT ціль
+        uptPercent: { type: Number, default: 0 },    // % UPT KPI
         nps: { type: Number, default: 0 },           // NPS
         nba: { type: Number, default: 0 }            // NBA
     }
 });
 
-// 11. Схема Налаштувань Місяця (НОВЕ)
+// 11. Схема Налаштувань Місяця
 const monthSettingsSchema = new mongoose.Schema({
     month: { type: String, required: true, unique: true }, // "YYYY-MM"
     normHours: { type: Number, required: true }

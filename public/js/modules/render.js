@@ -324,11 +324,9 @@ export function renderKpi() {
     listDiv.innerHTML = '';
     totalDiv.innerHTML = '';
     
-    // Отримуємо дані зі структури { kpi, settings, hours }
     const { kpi, settings, hours } = state.kpiData || { kpi: [], settings: null, hours: {} };
     const normHours = settings?.normHours || 0;
 
-    // Дата
     const y = state.currentDate.getFullYear();
     const m = state.currentDate.getMonth();
     title.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
@@ -352,19 +350,20 @@ export function renderKpi() {
         if (a.name === state.currentUser.name) return -1;
         if (b.name === state.currentUser.name) return 1;
         
+        // Сортуємо по % девайсів
         const aPerc = a.stats.devicesTarget ? (a.stats.devices / a.stats.devicesTarget) : 0;
         const bPerc = b.stats.devicesTarget ? (b.stats.devices / b.stats.devicesTarget) : 0;
         return bPerc - aPerc;
     });
 
-    // Helper: Progress Bar
-    const renderProgress = (val, max, colorClass, label) => {
+    // Helper: Прогрес бар з можливістю додати текст праворуч (наприклад +10 год)
+    const renderProgress = (val, max, colorClass, label, customDiffHtml = '') => {
         const perc = max > 0 ? Math.min(100, (val / max) * 100) : 0;
         return `
             <div class="mb-2">
                 <div class="flex justify-between text-[10px] mb-0.5">
                     <span class="text-gray-500">${label}</span>
-                    <span class="font-bold">${val} / ${max}</span>
+                    <span class="font-bold">${val} / ${max}${customDiffHtml}</span>
                 </div>
                 <div class="w-full bg-gray-100 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
                     <div class="h-full rounded-full ${colorClass}" style="width: ${perc}%"></div>
@@ -373,10 +372,13 @@ export function renderKpi() {
         `;
     };
 
-    const renderStat = (label, val, unit='') => `
-        <div class="bg-gray-50 dark:bg-[#2C2C2E] p-2 rounded-lg text-center">
-            <div class="text-[9px] text-gray-400 uppercase font-bold">${label}</div>
-            <div class="text-sm font-bold text-gray-800 dark:text-gray-200">${val}${unit}</div>
+    // Helper: Статистична плитка (оновлено для Target і %)
+    const renderStatWithTarget = (label, val, target, perc) => `
+        <div class="bg-gray-50 dark:bg-[#2C2C2E] p-2 rounded-lg text-center flex flex-col justify-between min-h-[50px]">
+            <div class="text-[9px] text-gray-400 uppercase font-bold mb-1">${label}</div>
+            <div class="text-sm font-bold text-gray-800 dark:text-gray-200 leading-none">${val}</div>
+            ${target ? `<div class="text-[9px] text-gray-400 mt-1">/ ${target}</div>` : ''}
+            ${perc ? `<div class="text-[9px] ${perc >= 100 ? 'text-green-500' : 'text-orange-500'} font-bold mt-0.5">${perc}%</div>` : ''}
         </div>
     `;
 
@@ -390,10 +392,10 @@ export function renderKpi() {
                     <span class="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-bold">TOTAL</span>
                 </div>
                 <div class="grid grid-cols-4 gap-2 mb-3">
-                    ${renderStat('Замовлень', s.orders)}
-                    ${renderStat('Девайси', s.devices)}
-                    ${renderStat('UPT', s.upt)}
-                    ${renderStat('NPS', s.nps)}
+                    ${renderStatWithTarget('Замовлень', s.orders)}
+                    ${renderStatWithTarget('Девайси', s.devices)}
+                    ${renderStatWithTarget('UPT', s.upt, s.uptTarget, s.uptPercent)}
+                    ${renderStatWithTarget('NPS', s.nps)}
                 </div>
                 ${renderProgress(s.devices, s.devicesTarget, 'bg-blue-500', 'План по девайсах')}
             </div>
@@ -407,22 +409,38 @@ export function renderKpi() {
         const highlightClass = isMe ? 'ring-2 ring-blue-500 shadow-lg' : '';
         const rank = index + 1;
         
-        // Отримуємо години цього юзера
+        // Години з овертаймом
         const userWorkedHours = hours[u.name] || 0;
-        
+        let diffHtml = '';
+        if (normHours > 0 && userWorkedHours > normHours) {
+            const diff = parseFloat((userWorkedHours - normHours).toFixed(1));
+            diffHtml = ` <span class="text-green-600 font-bold ml-1">+${diff} год.</span>`;
+        }
+
+        // Аватарка
+        const userObj = state.users.find(usr => usr.name === u.name);
+        let avatarHtml = `<div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 uppercase">${u.name.substring(0,2)}</div>`;
+        if (userObj && userObj.avatar) {
+            avatarHtml = `<div class="w-8 h-8 rounded-full overflow-hidden border border-gray-200"><img src="${userObj.avatar}" class="w-full h-full object-cover"></div>`;
+        }
+
         let medal = '';
         if(rank === 1) medal = '🥇';
         if(rank === 2) medal = '🥈';
         if(rank === 3) medal = '🥉';
 
+        // Бейдж для Device % (Contribution)
+        const deviceShareBadge = s.devicePercent 
+            ? `<div class="absolute top-3 right-10 bg-indigo-50 text-indigo-600 text-[10px] px-2 py-0.5 rounded-full font-bold border border-indigo-100">🏆 Share: ${s.devicePercent}%</div>` 
+            : '';
+
         listDiv.innerHTML += `
             <div class="ios-card p-3 ${highlightClass} relative">
-                <div class="absolute top-3 right-3 text-xs opacity-50 font-mono">#${rank} ${medal}</div>
+                <div class="absolute top-3 right-3 text-xs opacity-50 font-mono font-bold">#${rank} ${medal}</div>
+                ${deviceShareBadge}
                 
                 <div class="flex items-center gap-3 mb-3">
-                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
-                        ${u.name.substring(0,2)}
-                    </div>
+                    ${avatarHtml}
                     <div>
                         <div class="font-bold text-sm ${isMe ? 'text-blue-600' : ''}">${u.name}</div>
                         <div class="text-[10px] text-gray-400">KPI Девайсів: ${s.devicesTarget ? Math.round(s.devices/s.devicesTarget*100) : 0}%</div>
@@ -430,13 +448,13 @@ export function renderKpi() {
                 </div>
 
                 <div class="grid grid-cols-3 gap-2 mb-3">
-                    ${renderStat('UPT', s.upt)}
-                    ${renderStat('NPS', s.nps)}
-                    ${renderStat('NBA', s.nba)}
+                    ${renderStatWithTarget('UPT', s.upt, s.uptTarget, s.uptPercent)}
+                    ${renderStatWithTarget('NPS', s.nps)}
+                    ${renderStatWithTarget('NBA', s.nba)}
                 </div>
 
                 ${renderProgress(s.devices, s.devicesTarget, 'bg-green-500', 'Девайси')}
-                ${renderProgress(userWorkedHours, normHours, 'bg-yellow-500', 'Години')}
+                ${renderProgress(userWorkedHours, normHours, 'bg-yellow-500', 'Години', diffHtml)}
             </div>
         `;
     });
