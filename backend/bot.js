@@ -1,10 +1,34 @@
 process.env.NTBA_FIX_350 = 1;
 
 const TelegramBot = require('node-telegram-bot-api');
-const { User, Shift, Request, NewsPost, Task, AuditLog } = require('./models');
+// ДОДАНО: PendingNotification
+const { User, Shift, Request, NewsPost, Task, AuditLog, PendingNotification } = require('./models');
 const bcrypt = require('bcryptjs'); 
 
 let bot = null;
+
+// --- Quiet Hours Logic ---
+const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
+    if (!bot) return;
+    const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
+    const hours = now.getHours();
+
+    // Тиха година: з 22:00 до 07:59
+    const isQuietHour = hours >= 22 || hours < 8;
+
+    if (isQuietHour) {
+        // Зберігаємо в базу
+        await PendingNotification.create({ chatId, text });
+        console.log(`zzz Повідомлення відкладено для ${chatId} (Тиха година)`);
+    } else {
+        // Відправляємо одразу
+        try {
+            await bot.sendMessage(chatId, text, options);
+        } catch (e) {
+            console.error(`Error sending message to ${chatId}:`, e.message);
+        }
+    }
+};
 
 const initBot = (token, appUrl, tgConfig) => {
     if (!token) return null;
@@ -14,6 +38,30 @@ const initBot = (token, appUrl, tgConfig) => {
     bot.setWebHook(`${appUrl}/bot${token}`)
         .then(() => console.log("🤖 Telegram Bot: Webhook set successfully"))
         .catch(err => console.error("⚠️ Telegram Bot: Webhook connection failed:", err.message));
+
+    // --- CRON JOB: Check Quiet Hours Queue (Every minute) ---
+    setInterval(async () => {
+        const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
+        const hours = now.getHours();
+        
+        // Відправляємо тільки якщо вже не "тиха година" (наприклад, настало 08:00)
+        if (hours >= 8 && hours < 22) {
+            const pending = await PendingNotification.find().sort({ createdAt: 1 });
+            if (pending.length > 0) {
+                console.log(`🌅 Доброго ранку! Відправка ${pending.length} відкладених повідомлень...`);
+                for (const p of pending) {
+                    try {
+                        await bot.sendMessage(p.chatId, p.text, {parse_mode: 'HTML'});
+                        await PendingNotification.findByIdAndDelete(p._id);
+                        // Невелика затримка, щоб не спамити API телеграма
+                        await new Promise(r => setTimeout(r, 100)); 
+                    } catch (e) {
+                        console.error(`Error sending pending msg: ${e.message}`);
+                    }
+                }
+            }
+        }
+    }, 60 * 1000); // Перевірка кожну хвилину
 
     bot.on('polling_error', (error) => console.log(`[Polling Error] ${error.code}: ${error.message}`));
     bot.on('webhook_error', (error) => console.log(`[Webhook Error] ${error.code}: ${error.message}`));
@@ -125,7 +173,7 @@ const initBot = (token, appUrl, tgConfig) => {
             if(p.readBy.includes(shortName)) return bot.answerCallbackQuery(q.id, {text:'Вже є', show_alert:true});
             
             p.readBy.push(shortName); 
-            await p.save(); // Тепер це спрацює, бо поле є в схемі!
+            await p.save(); 
             
             const readList = `\n\n👀 <b>Ознайомились:</b>\n${p.readBy.join(', ')}`;
 
@@ -142,9 +190,7 @@ const initBot = (token, appUrl, tgConfig) => {
                         await bot.editMessageText(newContent, { chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML', reply_markup: q.message.reply_markup });
                     }
                 }
-            } catch(e) {
-                console.error("❌ Edit Message Error:", e.message); // Логуємо помилку редагування
-            }
+            } catch(e) { console.error("❌ Edit Message Error:", e.message); }
             bot.answerCallbackQuery(q.id, {text:`Дякую, ${shortName}! ✅`});
         }
         
@@ -181,16 +227,37 @@ const initBot = (token, appUrl, tgConfig) => {
     return bot;
 };
 
-const notifyUser = async (name, msg) => { if(!bot) return; try { const u = await User.findOne({name}); if(u?.telegramChatId) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} };
-const notifyRole = async (role, msg) => { if(!bot) return; try { const us = await User.find({role}); for(const u of us) if(u.telegramChatId) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} };
-const notifyAll = async (msg) => { if(!bot) return; try { const us = await User.find({telegramChatId:{$ne:null}}); for(const u of us) bot.sendMessage(u.telegramChatId, msg, {parse_mode:'HTML'}); } catch(e){} };
+// ВИКОРИСТОВУЄМО ТЕПЕР sendMessageWithQuietHours
+const notifyUser = async (name, msg) => { 
+    if(!bot) return; 
+    try { 
+        const u = await User.findOne({name}); 
+        if(u?.telegramChatId) await sendMessageWithQuietHours(u.telegramChatId, msg, {parse_mode:'HTML'}); 
+    } catch(e){} 
+};
+
+const notifyRole = async (role, msg) => { 
+    if(!bot) return; 
+    try { 
+        const us = await User.find({role}); 
+        for(const u of us) if(u.telegramChatId) await sendMessageWithQuietHours(u.telegramChatId, msg, {parse_mode:'HTML'}); 
+    } catch(e){} 
+};
+
+const notifyAll = async (msg) => { 
+    if(!bot) return; 
+    try { 
+        const us = await User.find({telegramChatId:{$ne:null}}); 
+        for(const u of us) await sendMessageWithQuietHours(u.telegramChatId, msg, {parse_mode:'HTML'}); 
+    } catch(e){} 
+};
+
 const sendRequestToSM = async (requestDoc) => {
     if(!bot) return;
     const sms = await User.find({ role: { $in: ['SM', 'admin'] } });
     let details = "";
     if (requestDoc.type === 'add_shift') details = `📅 Зміна: ${requestDoc.data.date}\n⏰ ${requestDoc.data.start}-${requestDoc.data.end}`;
     if (requestDoc.type === 'del_shift') details = `❌ Видалення зміни: ${requestDoc.data.date}`;
-    // ОНОВЛЕНО: Додаємо опис у запит
     if (requestDoc.type === 'add_task') {
         details = `📌 Задача: ${requestDoc.data.title}`;
         if (requestDoc.data.description) details += `\nℹ️ ${requestDoc.data.description}`;
@@ -198,7 +265,13 @@ const sendRequestToSM = async (requestDoc) => {
     
     const txt = `🔔 <b>Новий запит</b>\n👤 <b>Від:</b> ${requestDoc.createdBy}\nℹ️ <b>Тип:</b> ${requestDoc.type}\n\n${details}`;
     const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[ { text: "✅ Дозволити", callback_data: `approve_req_${requestDoc._id}` }, { text: "❌ Відхилити", callback_data: `reject_req_${requestDoc._id}` } ]] } };
-    for(const sm of sms) { if(sm.telegramChatId) bot.sendMessage(sm.telegramChatId, txt, opts); }
+    
+    // Запити SM отримують ОДРАЗУ, щоб оперативно реагувати (ігноруємо тиху годину для них, або можна теж включити)
+    // Я залишу пряму відправку, бо це термінове. Або можна змінити на sendMessageWithQuietHours
+    for(const sm of sms) { 
+        if(sm.telegramChatId) await sendMessageWithQuietHours(sm.telegramChatId, txt, opts); // Нехай теж поважає сон
+    }
 };
+
 const getBot = () => bot;
 module.exports = { initBot, notifyUser, notifyRole, notifyAll, sendRequestToSM, getBot };

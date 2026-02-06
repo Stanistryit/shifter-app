@@ -106,6 +106,13 @@ const monthSettingsSchema = new mongoose.Schema({
     normHours: { type: Number, required: true }
 });
 
+// 12. Схема Відкладених Сповіщень (НОВЕ)
+const pendingNotificationSchema = new mongoose.Schema({
+    chatId: { type: Number, required: true },
+    text: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+});
+
 const User = mongoose.model('User', userSchema);
 const Shift = mongoose.model('Shift', shiftSchema);
 const Task = mongoose.model('Task', taskSchema);
@@ -117,5 +124,6 @@ const Contact = mongoose.model('Contact', contactSchema);
 const Event = mongoose.model('Event', eventSchema);
 const KPI = mongoose.model('KPI', kpiSchema);
 const MonthSettings = mongoose.model('MonthSettings', monthSettingsSchema);
+const PendingNotification = mongoose.model('PendingNotification', pendingNotificationSchema);
 
-module.exports = { User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event, KPI, MonthSettings };
+module.exports = { User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event, KPI, MonthSettings, PendingNotification };

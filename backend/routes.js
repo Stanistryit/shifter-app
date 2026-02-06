@@ -74,8 +74,14 @@ router.post('/shifts', async (req, res) => {
     await Shift.create(req.body); 
     
     logAction(user.name, 'add_shift', `${req.body.date} ${req.body.name}`); 
-    const typeInfo = req.body.start === 'Відпустка' ? '🌴 <b>Відпустка</b>' : `⏰ Час: <b>${req.body.start} - ${req.body.end}</b>`;
-    notifyUser(req.body.name, `📅 <b>Графік оновлено!</b>\n\n📆 Дата: <b>${req.body.date}</b>\n${typeInfo}`); 
+    
+    // ПЕРЕВІРКА НА МИНУЛЕ
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (req.body.date >= todayStr) {
+        const typeInfo = req.body.start === 'Відпустка' ? '🌴 <b>Відпустка</b>' : `⏰ Час: <b>${req.body.start} - ${req.body.end}</b>`;
+        notifyUser(req.body.name, `📅 <b>Графік оновлено!</b>\n\n📆 Дата: <b>${req.body.date}</b>\n${typeInfo}`); 
+    }
+    
     res.json({ success: true }); 
 });
 
@@ -92,7 +98,13 @@ router.post('/delete-shift', async (req, res) => {
     } 
     await Shift.findByIdAndDelete(req.body.id); 
     logAction(perm.user.name, 'delete_shift', `${s.date} ${s.name}`); 
-    notifyUser(s.name, `❌ <b>Зміну скасовано</b>\n\n📅 Дата: <b>${s.date}</b>\n⏰ Було: ${s.start} - ${s.end}`); 
+    
+    // ТУТ ТЕЖ МОЖНА ДОДАТИ ПЕРЕВІРКУ, ЯКЩО ТРЕБА
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (s.date >= todayStr) {
+        notifyUser(s.name, `❌ <b>Зміну скасовано</b>\n\n📅 Дата: <b>${s.date}</b>\n⏰ Було: ${s.start} - ${s.end}`); 
+    }
+    
     res.json({ success: true }); 
 });
 
@@ -274,6 +286,12 @@ router.post('/kpi/import', async (req, res) => {
     }
 
     logAction(u.name, 'import_kpi', `${month}: ${importedCount} records`);
+    
+    // СПОВІЩЕННЯ ВСІХ ПРО ОНОВЛЕННЯ KPI
+    if (importedCount > 0) {
+        notifyAll(`📊 <b>KPI оновлено!</b>\n\nОпубліковано дані за: <b>${month}</b> 🏆`);
+    }
+
     res.json({ success: true, count: importedCount });
 });
 

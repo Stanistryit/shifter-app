@@ -157,6 +157,18 @@ function setMode(m) {
     gridDiv.classList.add('hidden');
     kpiDiv.classList.add('hidden');
     
+    // УПРАВЛІННЯ КНОПКОЮ ФІЛЬТРУ
+    const filterBtn = document.querySelector('button[onclick="openFilterModal()"]');
+    if (filterBtn) {
+        if (m === 'list') {
+            filterBtn.classList.remove('hidden');
+            filterBtn.classList.add('flex'); // Відновлюємо flex, якщо він був
+        } else {
+            filterBtn.classList.add('hidden');
+            filterBtn.classList.remove('flex');
+        }
+    }
+    
     const btnList = document.getElementById('btnModeList');
     const btnCal = document.getElementById('btnModeCalendar');
     const btnGrid = document.getElementById('btnModeGrid');

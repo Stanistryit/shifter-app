@@ -15,30 +15,49 @@ export function renderTimeline() {
     const archive = document.getElementById('archiveContainer');
     archive.innerHTML = '';
 
-    const dates = [...new Set([...state.shifts.map(s => s.date), ...state.notes.map(n => n.date)])].sort();
+    // 1. Визначаємо поточний місяць перегляду
+    const viewY = state.currentDate.getFullYear();
+    const viewM = state.currentDate.getMonth();
+    const viewMonthStr = `${viewY}-${String(viewM + 1).padStart(2, '0')}`; // YYYY-MM
+
+    // 2. Збираємо всі унікальні дати
+    let allDates = [...new Set([...state.shifts.map(s => s.date), ...state.notes.map(n => n.date)])];
     
-    // Місцевий час
+    // Додаємо "Сьогодні", якщо воно в цьому місяці
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (today.startsWith(viewMonthStr) && !allDates.includes(today)) {
+        allDates.push(today);
+    }
     
-    if (!dates.includes(today)) dates.push(today);
-    dates.sort();
+    // 3. Фільтруємо дати тільки для обраного місяця
+    const dates = allDates.filter(d => d.startsWith(viewMonthStr)).sort();
 
     let pastDaysCount = 0;
     let usersToShow = (state.filter === 'all') ? state.users : state.users.filter(u => u.name === state.filter);
 
-    // Підрахунок годин
-    const currentMonthPrefix = today.substring(0, 7);
+    // Підрахунок годин для обраного місяця
     const userHours = {};
     usersToShow.forEach(u => {
         let h = 0;
-        state.shifts.filter(s => s.name === u.name && s.date.startsWith(currentMonthPrefix) && s.start !== 'Відпустка').forEach(s => {
+        state.shifts.filter(s => s.name === u.name && s.date.startsWith(viewMonthStr) && s.start !== 'Відпустка').forEach(s => {
             const [h1, m1] = s.start.split(':').map(Number);
             const [h2, m2] = s.end.split(':').map(Number);
             h += (h2 + m2/60) - (h1 + m1/60);
         });
         userHours[u.name] = h.toFixed(0);
     });
+
+    // 4. Додаємо кнопку навігації "Попередній місяць" в Архів
+    const prevBtnDiv = document.createElement('div');
+    prevBtnDiv.className = "mb-4";
+    prevBtnDiv.innerHTML = `<button onclick="changeMonth(-1)" class="w-full py-3 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 text-blue-500 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-transform">⬅️ Попередній місяць (${new Date(viewY, viewM - 1).toLocaleDateString('uk-UA', {month:'long'})})</button>`;
+    archive.appendChild(prevBtnDiv);
+
+    // 5. Рендеримо дні
+    if (dates.length === 0) {
+        main.innerHTML = `<div class="text-center text-gray-400 py-10 text-sm">Немає записів на цей місяць</div>`;
+    }
 
     dates.forEach((dateStr, index) => {
         // --- ДИНАМІЧНИЙ ЧАС ---
@@ -74,6 +93,7 @@ export function renderTimeline() {
         const isToday = dateStr === today;
         const dObj = new Date(dateStr);
         const dName = dObj.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
+        // Анімація тільки для майбутніх днів
         const animClass = isPast ? '' : `animate-slide-up stagger-${(index % 5) + 1}`;
         
         const block = document.createElement('div');
@@ -187,9 +207,21 @@ export function renderTimeline() {
         if(isToday) setTimeout(()=>block.scrollIntoView({behavior:'smooth',block:'center'}),600);
     });
 
+    // 6. Кнопка "Наступний місяць" внизу основного списку
+    const nextBtnDiv = document.createElement('div');
+    nextBtnDiv.className = "mt-4 pb-12";
+    nextBtnDiv.innerHTML = `<button onclick="changeMonth(1)" class="w-full py-3 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 text-blue-500 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-transform">Наступний місяць (${new Date(viewY, viewM + 1).toLocaleDateString('uk-UA', {month:'long'})}) ➡️</button>`;
+    main.appendChild(nextBtnDiv);
+
+    // Відображення кількості минулих днів
     const arcBtn = document.getElementById('archiveToggleBtn');
     const arcCnt = document.getElementById('archiveCount');
-    if(pastDaysCount > 0) { arcBtn.classList.remove('hidden'); arcCnt.innerText = pastDaysCount; } else { arcBtn.classList.add('hidden'); }
+    if(pastDaysCount > 0) { 
+        arcBtn.classList.remove('hidden'); 
+        arcCnt.innerText = pastDaysCount; 
+    } else { 
+        arcBtn.classList.add('hidden'); 
+    }
 }
 
 export function renderCalendar() {
@@ -350,13 +382,11 @@ export function renderKpi() {
         if (a.name === state.currentUser.name) return -1;
         if (b.name === state.currentUser.name) return 1;
         
-        // Сортуємо по % девайсів
         const aPerc = a.stats.devicesTarget ? (a.stats.devices / a.stats.devicesTarget) : 0;
         const bPerc = b.stats.devicesTarget ? (b.stats.devices / b.stats.devicesTarget) : 0;
         return bPerc - aPerc;
     });
 
-    // Helper: Прогрес бар з можливістю додати текст праворуч (наприклад +10 год)
     const renderProgress = (val, max, colorClass, label, customDiffHtml = '') => {
         const perc = max > 0 ? Math.min(100, (val / max) * 100) : 0;
         return `
@@ -372,7 +402,6 @@ export function renderKpi() {
         `;
     };
 
-    // Helper: Статистична плитка (оновлено для Target і %)
     const renderStatWithTarget = (label, val, target, perc) => `
         <div class="bg-gray-50 dark:bg-[#2C2C2E] p-2 rounded-lg text-center flex flex-col justify-between min-h-[50px]">
             <div class="text-[9px] text-gray-400 uppercase font-bold mb-1">${label}</div>
@@ -382,7 +411,6 @@ export function renderKpi() {
         </div>
     `;
 
-    // RENDER TOTAL
     if (totalData) {
         const s = totalData.stats;
         totalDiv.innerHTML = `
@@ -402,14 +430,12 @@ export function renderKpi() {
         `;
     }
 
-    // RENDER USERS
     usersData.forEach((u, index) => {
         const s = u.stats;
         const isMe = u.name === state.currentUser.name;
         const highlightClass = isMe ? 'ring-2 ring-blue-500 shadow-lg' : '';
         const rank = index + 1;
         
-        // Години з овертаймом
         const userWorkedHours = hours[u.name] || 0;
         let diffHtml = '';
         if (normHours > 0 && userWorkedHours > normHours) {
@@ -417,7 +443,6 @@ export function renderKpi() {
             diffHtml = ` <span class="text-green-600 font-bold ml-1">+${diff} год.</span>`;
         }
 
-        // Аватарка
         const userObj = state.users.find(usr => usr.name === u.name);
         let avatarHtml = `<div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 uppercase">${u.name.substring(0,2)}</div>`;
         if (userObj && userObj.avatar) {
@@ -429,7 +454,6 @@ export function renderKpi() {
         if(rank === 2) medal = '🥈';
         if(rank === 3) medal = '🥉';
 
-        // Бейдж для Device % (Contribution)
         const deviceShareBadge = s.devicePercent 
             ? `<div class="absolute top-3 right-10 bg-indigo-50 text-indigo-600 text-[10px] px-2 py-0.5 rounded-full font-bold border border-indigo-100">🏆 Share: ${s.devicePercent}%</div>` 
             : '';
