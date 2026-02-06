@@ -228,7 +228,7 @@ router.post('/kpi/settings', async (req, res) => {
     res.json({ success: true });
 });
 
-// 3. IMPORT KPI (ОНОВЛЕНО)
+// 3. IMPORT KPI (ПЕРЕПИСАНО ПІД НОВУ ТАБЛИЦЮ)
 router.post('/kpi/import', async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ message: "Тільки SM" });
@@ -243,7 +243,7 @@ router.post('/kpi/import', async (req, res) => {
     for (const line of lines) {
         if (!line.match(/\d/)) continue;
         const parts = line.includes('\t') ? line.split('\t') : line.trim().split(/\s{2,}/);
-        if (parts.length < 5) continue;
+        if (parts.length < 13) continue; // Перевірка, що стовпчиків достатньо
 
         const fullName = parts[0].trim();
         let kpiName = null;
@@ -261,19 +261,32 @@ router.post('/kpi/import', async (req, res) => {
         if (kpiName) {
             const parseNum = (val) => parseFloat(val?.replace(',', '.') || 0);
             
-            // ОНОВЛЕНО: Нові індекси згідно з таблицею
-            // 0: Name, 2: Orders, 5: DevTarget, 6: DevUser, 7: Dev%, 9: UPT, 10: UPTTarget, 11: UPT%, 12: NPS, 13: NBA
+            // НОВІ ІНДЕКСИ (згідно з таблицею):
+            // 5: Цілі Девайси
+            // 6: Факт Девайси (User)
+            // 7: % Device KPI
+            // 9: UPT Факт
+            // 10: UPT Ціль
+            // 11: % UPT KPI
+            // 12: NPS
+            // 13: NBA
             
             const stats = {
-                orders: parseNum(parts[2]),
+                orders: 0, // Ігноруємо замовлення
                 devices: parseNum(parts[6]),
                 devicesTarget: parseNum(parts[5]),
-                devicePercent: parseNum(parts[7]), // NEW
+                devicePercent: parseNum(parts[7]),
+                
                 upt: parseNum(parts[9]),
-                uptTarget: parseNum(parts[10]), // NEW
-                uptPercent: parseNum(parts[11]), // NEW
+                uptTarget: parseNum(parts[10]),
+                uptPercent: parseNum(parts[11]),
+                
                 nps: parseNum(parts[12]),
-                nba: parseNum(parts[13])
+                npsTarget: 0, // У таблиці немає окремого стовпця плану
+                npsPercent: 0, 
+                
+                nba: parseNum(parts[13]),
+                nbaPercent: 0 // У таблиці немає окремого стовпця відсотків
             };
 
             await KPI.findOneAndUpdate(
@@ -287,7 +300,6 @@ router.post('/kpi/import', async (req, res) => {
 
     logAction(u.name, 'import_kpi', `${month}: ${importedCount} records`);
     
-    // СПОВІЩЕННЯ ВСІХ ПРО ОНОВЛЕННЯ KPI
     if (importedCount > 0) {
         notifyAll(`📊 <b>KPI оновлено!</b>\n\nОпубліковано дані за: <b>${month}</b> 🏆`);
     }

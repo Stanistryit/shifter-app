@@ -381,16 +381,16 @@ export function renderKpi() {
     usersData.sort((a, b) => {
         if (a.name === state.currentUser.name) return -1;
         if (b.name === state.currentUser.name) return 1;
-        
-        const aPerc = a.stats.devicesTarget ? (a.stats.devices / a.stats.devicesTarget) : 0;
-        const bPerc = b.stats.devicesTarget ? (b.stats.devices / b.stats.devicesTarget) : 0;
+        // Сортуємо по % Device KPI
+        const aPerc = a.stats.devicePercent || 0; 
+        const bPerc = b.stats.devicePercent || 0;
         return bPerc - aPerc;
     });
 
-    const renderProgress = (val, max, colorClass, label, customDiffHtml = '') => {
+    const renderProgressBar = (val, max, colorClass, label, customDiffHtml = '') => {
         const perc = max > 0 ? Math.min(100, (val / max) * 100) : 0;
         return `
-            <div class="mb-2">
+            <div class="mt-3">
                 <div class="flex justify-between text-[10px] mb-0.5">
                     <span class="text-gray-500">${label}</span>
                     <span class="font-bold">${val} / ${max}${customDiffHtml}</span>
@@ -402,15 +402,34 @@ export function renderKpi() {
         `;
     };
 
-    const renderStatWithTarget = (label, val, target, perc) => `
-        <div class="bg-gray-50 dark:bg-[#2C2C2E] p-2 rounded-lg text-center flex flex-col justify-between min-h-[50px]">
-            <div class="text-[9px] text-gray-400 uppercase font-bold mb-1">${label}</div>
-            <div class="text-sm font-bold text-gray-800 dark:text-gray-200 leading-none">${val}</div>
-            ${target ? `<div class="text-[9px] text-gray-400 mt-1">/ ${target}</div>` : ''}
-            ${perc ? `<div class="text-[9px] ${perc >= 100 ? 'text-green-500' : 'text-orange-500'} font-bold mt-0.5">${perc}%</div>` : ''}
-        </div>
-    `;
+    // Helper: Статистичний Блок (План/Факт або просто %)
+    const renderStatBox = (label, fact, target, percent, isPercentOnly = false) => {
+        let valueHtml = '';
+        let subHtml = '';
+        
+        if (isPercentOnly) {
+            valueHtml = `<div class="text-lg font-bold text-blue-500">${fact}%</div>`;
+        } else {
+            valueHtml = `<div class="text-sm font-bold text-gray-800 dark:text-gray-200">${fact}</div>`;
+            if (target) {
+                subHtml += `<div class="text-[10px] text-gray-400">План: ${target}</div>`;
+            }
+            if (percent !== undefined && percent !== null) {
+                const color = percent >= 100 ? 'text-green-500' : 'text-orange-500';
+                subHtml += `<div class="text-[10px] ${color} font-bold">${percent}%</div>`;
+            }
+        }
 
+        return `
+            <div class="bg-gray-50 dark:bg-[#2C2C2E] p-2 rounded-lg text-center flex flex-col justify-center min-h-[60px]">
+                <div class="text-[9px] text-gray-400 uppercase font-bold mb-1">${label}</div>
+                ${valueHtml}
+                ${subHtml}
+            </div>
+        `;
+    };
+
+    // RENDER TOTAL
     if (totalData) {
         const s = totalData.stats;
         totalDiv.innerHTML = `
@@ -419,17 +438,19 @@ export function renderKpi() {
                     <h3 class="font-bold text-lg">🏢 Тотал Магазину</h3>
                     <span class="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-bold">TOTAL</span>
                 </div>
-                <div class="grid grid-cols-4 gap-2 mb-3">
-                    ${renderStatWithTarget('Замовлень', s.orders)}
-                    ${renderStatWithTarget('Девайси', s.devices)}
-                    ${renderStatWithTarget('UPT', s.upt, s.uptTarget, s.uptPercent)}
-                    ${renderStatWithTarget('NPS', s.nps)}
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                    ${renderStatBox('Девайси', s.devices, s.devicesTarget, s.devicePercent)}
+                    ${renderStatBox('UPT', s.upt, s.uptTarget, s.uptPercent)}
                 </div>
-                ${renderProgress(s.devices, s.devicesTarget, 'bg-blue-500', 'План по девайсах')}
+                <div class="grid grid-cols-2 gap-2">
+                    ${renderStatBox('NPS', s.nps, s.npsTarget || null, s.npsPercent || null)}
+                    ${renderStatBox('NBA', s.nba, null, null, true)}
+                </div>
             </div>
         `;
     }
 
+    // RENDER USERS
     usersData.forEach((u, index) => {
         const s = u.stats;
         const isMe = u.name === state.currentUser.name;
@@ -454,31 +475,25 @@ export function renderKpi() {
         if(rank === 2) medal = '🥈';
         if(rank === 3) medal = '🥉';
 
-        const deviceShareBadge = s.devicePercent 
-            ? `<div class="absolute top-3 right-10 bg-indigo-50 text-indigo-600 text-[10px] px-2 py-0.5 rounded-full font-bold border border-indigo-100">🏆 Share: ${s.devicePercent}%</div>` 
-            : '';
-
         listDiv.innerHTML += `
             <div class="ios-card p-3 ${highlightClass} relative">
                 <div class="absolute top-3 right-3 text-xs opacity-50 font-mono font-bold">#${rank} ${medal}</div>
-                ${deviceShareBadge}
                 
                 <div class="flex items-center gap-3 mb-3">
                     ${avatarHtml}
                     <div>
                         <div class="font-bold text-sm ${isMe ? 'text-blue-600' : ''}">${u.name}</div>
-                        <div class="text-[10px] text-gray-400">KPI Девайсів: ${s.devicesTarget ? Math.round(s.devices/s.devicesTarget*100) : 0}%</div>
+                        <div class="text-[10px] text-gray-400">KPI Девайсів: ${s.devicePercent}%</div>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-2 mb-3">
-                    ${renderStatWithTarget('UPT', s.upt, s.uptTarget, s.uptPercent)}
-                    ${renderStatWithTarget('NPS', s.nps)}
-                    ${renderStatWithTarget('NBA', s.nba)}
+                <div class="grid grid-cols-3 gap-2 mb-2">
+                    ${renderStatBox('Девайси', s.devices, s.devicesTarget, s.devicePercent)}
+                    ${renderStatBox('UPT', s.upt, s.uptTarget, s.uptPercent)}
+                    ${renderStatBox('NBA', s.nba, null, null, true)}
                 </div>
 
-                ${renderProgress(s.devices, s.devicesTarget, 'bg-green-500', 'Девайси')}
-                ${renderProgress(userWorkedHours, normHours, 'bg-yellow-500', 'Години', diffHtml)}
+                ${renderProgressBar(userWorkedHours, normHours, 'bg-yellow-500', 'Години', diffHtml)}
             </div>
         `;
     });
