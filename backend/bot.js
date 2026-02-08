@@ -163,7 +163,6 @@ const initBot = (token, appUrl) => {
             }
             
             store.telegram.chatId = chatId;
-            // Якщо команда в гілці, можемо зберегти її як дефолтну, але краще використовувати спеціальні команди
             await store.save();
             bot.sendMessage(chatId, `✅ <b>Основний чат прив'язано!</b>\nМагазин: <b>${store.name}</b>\n\nТепер налаштуйте гілки командами:\n/link_news ${code} (в гілці новин)\n/link_evening ${code} (в гілці звітів)`, {parse_mode: 'HTML'});
 
@@ -332,6 +331,39 @@ const initBot = (token, appUrl) => {
             if (val === '20') dbVal = '20:00'; if (val === '08') dbVal = '08:00';
             const u = await User.findOne({telegramChatId:uid});
             if(u){ u.reminderTime = dbVal; await u.save(); bot.answerCallbackQuery(q.id, {text: 'Збережено ✅'}); bot.sendMessage(q.message.chat.id, `✅ Режим сповіщень змінено.`); }
+        }
+
+        // 🔥 ОБРОБКА АПРУВУ НОВОГО ЮЗЕРА (НОВЕ)
+        if (data.startsWith('approve_user_') || data.startsWith('reject_user_')) {
+            const action = data.startsWith('approve') ? 'approve' : 'reject';
+            const targetId = data.split('_').pop();
+            const admin = await User.findOne({telegramChatId:uid});
+            
+            if (!admin || (admin.role !== 'SM' && admin.role !== 'admin')) {
+                return bot.answerCallbackQuery(q.id, {text: '⛔️ Тільки для SM', show_alert: true});
+            }
+
+            const targetUser = await User.findById(targetId);
+            if (!targetUser) {
+                bot.editMessageText(`⚠️ Заявка вже не актуальна.`, {chat_id: q.message.chat.id, message_id: q.message.message_id}); 
+                return bot.answerCallbackQuery(q.id);
+            }
+
+            if (action === 'approve') {
+                targetUser.status = 'active';
+                targetUser.role = 'SE'; // Дефолтна роль для новачка
+                if (targetUser.position === 'None') targetUser.position = 'SE';
+                if (targetUser.grade === 0) targetUser.grade = 1; 
+                await targetUser.save();
+                
+                await AuditLog.create({ performer: admin.name, action: 'approve_user', details: `Approved ${targetUser.name}` });
+                
+                bot.editMessageText(q.message.text + `\n\n✅ <b>Прийнято</b> (SM: ${admin.name})`, {chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML'});
+            } else {
+                await User.findByIdAndDelete(targetId);
+                bot.editMessageText(q.message.text + `\n\n❌ <b>Відхилено</b> (SM: ${admin.name})`, {chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML'});
+            }
+            bot.answerCallbackQuery(q.id, {text: 'Готово'});
         }
 
         if (data.startsWith('approve_req_') || data.startsWith('reject_req_')) {

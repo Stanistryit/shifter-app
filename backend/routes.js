@@ -11,7 +11,7 @@ const axios = require('axios');
 
 // --- Auth & User ---
 
-// 1. Отримання списку магазинів (ВИПРАВЛЕНО: прибрали /api, бо воно додається в server.js)
+// 1. Отримання списку магазинів
 router.get('/stores', async (req, res) => {
     try {
         console.log('📥 Отримано запит на список магазинів...');
@@ -24,32 +24,28 @@ router.get('/stores', async (req, res) => {
     }
 });
 
-// 2. Реєстрація нового користувача
+// 2. Реєстрація нового користувача з кнопками Апруву
 router.post('/register', async (req, res) => {
     try {
         const { fullName, username, password, phone, email, storeCode } = req.body;
         console.log(`👤 Реєстрація: ${username} в магазин ${storeCode}`);
 
-        // Перевірка на унікальність логіна
         const existingUser = await User.findOne({ username });
         if (existingUser) {
             return res.json({ success: false, message: "Цей логін вже зайнятий" });
         }
 
-        // Знаходимо магазин
         const store = await Store.findOne({ code: storeCode });
         if (!store) {
             return res.json({ success: false, message: "Магазин не знайдено" });
         }
 
-        // Хешування пароля
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
-
-        // Коротке ім'я
         const shortName = fullName.split(' ')[0] || username; 
 
-        await User.create({
+        // 🔥 Зберігаємо користувача в змінну, щоб взяти ID
+        const newUser = await User.create({
             username,
             password: hashedPassword,
             fullName,
@@ -63,7 +59,7 @@ router.post('/register', async (req, res) => {
             grade: 0
         });
 
-        // Сповіщення SM
+        // Сповіщення SM з кнопками
         const bot = getBot();
         if (bot) {
             const managers = await User.find({ storeId: store._id, role: { $in: ['SM', 'admin'] } });
@@ -71,8 +67,18 @@ router.post('/register', async (req, res) => {
                 if (sm.telegramChatId) {
                     try {
                         await bot.sendMessage(sm.telegramChatId, 
-                            `🔔 <b>Нова заявка на вступ!</b>\n\n👤 <b>${fullName}</b>\n📞 ${phone}\n🏪 Магазин: ${store.name}\n\nЗайдіть в "Команду", щоб підтвердити.`, 
-                            { parse_mode: 'HTML' }
+                            `🔔 <b>Нова заявка на вступ!</b>\n\n👤 <b>${fullName}</b>\n📞 ${phone}\n🏪 Магазин: ${store.name}\n\nОберіть дію:`, 
+                            { 
+                                parse_mode: 'HTML',
+                                reply_markup: {
+                                    inline_keyboard: [
+                                        [
+                                            { text: "✅ Прийняти", callback_data: `approve_user_${newUser._id}` },
+                                            { text: "❌ Відхилити", callback_data: `reject_user_${newUser._id}` }
+                                        ]
+                                    ]
+                                }
+                            }
                         );
                     } catch (e) { console.error(e); }
                 }
@@ -97,6 +103,8 @@ router.post('/login', async (req, res) => {
             if (user.status === 'blocked') {
                 return res.json({ success: false, message: "Акаунт заблоковано" });
             }
+            // Можна розкоментувати, якщо хочете заборонити вхід до апруву
+            // if (user.status === 'pending') return res.json({ success: false, message: "Очікуйте підтвердження SM" });
             
             req.session.userId = user._id; 
             logAction(user.name, 'login', 'Web Login'); 
@@ -176,6 +184,10 @@ router.get('/users', async (req, res) => {
     const currentUser = await User.findById(req.session.userId);
     let query = {};
     if (currentUser.role === 'SM') { query.storeId = currentUser.storeId; }
+    
+    // Якщо хочете показувати в таблиці тільки активних, розкоментуйте цей рядок:
+    // query.status = 'active'; 
+    
     const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId'); 
     res.json(users); 
 });
