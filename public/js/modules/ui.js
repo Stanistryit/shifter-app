@@ -13,7 +13,7 @@ export function initTheme() {
 }
 
 export function toggleTheme() {
-    triggerHaptic();
+    if(window.triggerHaptic) window.triggerHaptic();
     const html = document.documentElement;
     if (html.classList.contains('dark')) {
         html.classList.remove('dark');
@@ -43,7 +43,7 @@ export function showToast(msg, type = 'success') {
     container.appendChild(toast);
     
     requestAnimationFrame(() => toast.classList.add('show'));
-    if(type !== 'info') triggerHaptic();
+    if(type !== 'info' && window.triggerHaptic) window.triggerHaptic();
 
     setTimeout(() => {
         toast.classList.remove('show');
@@ -56,22 +56,50 @@ export function triggerHaptic() {
 }
 
 export function showAdminTab(t) {
-    triggerHaptic();
-    // ДОДАНО: 'kpi' у список вкладок
-    const tabs = ['shifts','tasks','requests','import','news','logs', 'kpi'];
+    if(window.triggerHaptic) window.triggerHaptic();
     
+    // 🔥 ДОДАНО: 'global' у список вкладок
+    const tabs = ['shifts','tasks','requests','import','news','logs', 'kpi', 'global'];
+    
+    // Ховаємо всі
     tabs.forEach(x => {
-        const content = document.getElementById('adminTab'+x.charAt(0).toUpperCase()+x.slice(1));
+        // ID контенту (adminTabShifts, adminTabGlobal...)
+        const contentId = 'adminTab' + x.charAt(0).toUpperCase() + x.slice(1);
+        const content = document.getElementById(contentId);
         if(content) content.classList.add('hidden');
-        const btn = document.getElementById('btnTab'+x.charAt(0).toUpperCase()+x.slice(1));
-        if(btn) btn.className = "flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500 opacity-70 hover:opacity-100";
+        
+        // ID кнопки (btnTabShifts, btnTabGlobal...)
+        const btnId = 'btnTab' + x.charAt(0).toUpperCase() + x.slice(1);
+        const btn = document.getElementById(btnId);
+        // Скидаємо стиль кнопки (неактивна)
+        if(btn) {
+            btn.className = "flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500 opacity-70 hover:opacity-100";
+            // Якщо кнопка була прихована (hidden), ми не чіпаємо цей клас.
+            // Але якщо вона видима (flex), то клас flex має залишитись.
+            // Тому краще керувати hidden/flex окремо, а тут тільки кольорами.
+            // Щоб спростити, просто додамо базові класи, а hidden керується в auth.js
+        }
     });
 
-    const activeContent = document.getElementById('adminTab'+t.charAt(0).toUpperCase()+t.slice(1));
+    // Показуємо активну
+    const activeContentId = 'adminTab' + t.charAt(0).toUpperCase() + t.slice(1);
+    const activeContent = document.getElementById(activeContentId);
     if(activeContent) activeContent.classList.remove('hidden');
     
-    const activeBtn = document.getElementById('btnTab'+t.charAt(0).toUpperCase()+t.slice(1));
-    if(activeBtn) activeBtn.className = "flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-white dark:bg-[#3A3A3C] shadow-md text-blue-500 ring-2 ring-blue-500 scale-105";
+    // Підсвічуємо активну кнопку
+    const activeBtnId = 'btnTab' + t.charAt(0).toUpperCase() + t.slice(1);
+    const activeBtn = document.getElementById(activeBtnId);
+    if(activeBtn) {
+        // Видаляємо старі класи кольору і додаємо активні
+        // Важливо: зберігаємо 'hidden' або 'flex' якщо вони там були, 
+        // але в нашому випадку ми просто переписуємо className, 
+        // тому треба переконатися, що кнопка має display:flex (через клас flex або в CSS).
+        // В index.html кнопки мають `hidden flex-col...` або `flex flex-col...`
+        // Тому краще маніпулювати classList.
+        
+        activeBtn.classList.remove('bg-gray-100', 'dark:bg-[#2C2C2E]', 'text-gray-500', 'opacity-70');
+        activeBtn.classList.add('bg-white', 'dark:bg-[#3A3A3C]', 'shadow-md', 'text-blue-500', 'ring-2', 'ring-blue-500', 'scale-105');
+    }
 }
 
 // --- НОВІ ФУНКЦІЇ ДЛЯ НОВИН ---
@@ -113,7 +141,7 @@ export function updateFileName() {
 // --- ЗАДАЧІ (MODAL) ---
 
 export function openTaskDetailsModal(task) {
-    triggerHaptic();
+    if(window.triggerHaptic) window.triggerHaptic();
     document.getElementById('taskModalTitle').innerText = task.title;
     document.getElementById('taskModalDate').innerText = task.date;
     document.getElementById('taskModalTime').innerText = task.isFullDay ? 'Весь день' : `${task.start} - ${task.end}`;
@@ -152,7 +180,7 @@ export let activeContext = { id: null, type: null, data: null };
 
 export function showContextMenu(e, type, id, data = null) {
     e.preventDefault(); 
-    triggerHaptic();
+    if(window.triggerHaptic) window.triggerHaptic();
     
     activeContext = { id, type, data };
     

@@ -75,11 +75,22 @@ async function showApp(user) {
         }
         
         if (['SM', 'admin'].includes(user.role)) {
-            document.getElementById('btnTabRequests').classList.remove('hidden');
-            document.getElementById('btnTabRequests').classList.add('flex');
-            
-            // Завантажуємо запити (якщо модуль requests.js вже підключений)
+            const btnRequests = document.getElementById('btnTabRequests');
+            if(btnRequests) {
+                btnRequests.classList.remove('hidden');
+                btnRequests.classList.add('flex');
+            }
+            // Завантажуємо запити
             if (window.loadRequests) window.loadRequests();
+        }
+
+        // 🔥 НОВЕ: Кнопка Глобал тільки для Admin
+        if (user.role === 'admin') {
+            const btnGlobal = document.getElementById('btnTabGlobal');
+            if (btnGlobal) {
+                btnGlobal.classList.remove('hidden');
+                btnGlobal.classList.add('flex');
+            }
         }
         
         if (user.role === 'SM' || user.role === 'admin') {
@@ -97,7 +108,6 @@ async function showApp(user) {
     renderAll();
 }
 
-// Експортуємо loadData, щоб інші модулі могли оновлювати дані (наприклад, після імпорту)
 export async function loadData() {
     const [users, shifts, tasks, notes] = await Promise.all([
         fetchJson('/api/users'),
@@ -106,17 +116,14 @@ export async function loadData() {
         fetchJson('/api/notes')
     ]);
 
-    // Фільтруємо системних юзерів
     state.users = users.filter(u => u.role !== 'admin' && u.role !== 'RRP');
     state.shifts = shifts;
     state.tasks = tasks;
     state.notes = notes;
     
-    // Оновлюємо випадаючі списки в адмінці
     const s1 = document.getElementById('employeeSelect');
     const s2 = document.getElementById('taskEmployee');
     
-    // Зберігаємо поточний вибір, якщо він був
     const s1Val = s1.value;
     const s2Val = s2.value;
 
@@ -128,7 +135,6 @@ export async function loadData() {
         s2.innerHTML += `<option value="${x.name}">${x.name}</option>`;
     });
 
-    // Відновлюємо вибір (якщо це можливо)
     if (s1Val && s1Val !== 'Хто?') s1.value = s1Val;
     if (s2Val && s2Val !== 'Кому?') s2.value = s2Val;
 }

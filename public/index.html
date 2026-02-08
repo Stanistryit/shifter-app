@@ -137,6 +137,8 @@
                     
                     <button id="btnTabRequests" onclick="showAdminTab('requests')" class="hidden flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500"><span class="text-2xl mb-1">📬</span><span class="text-[10px] font-bold">Запити</span></button>
                     <button id="btnTabLogs" onclick="showAdminTab('logs')" class="flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500"><span class="text-2xl mb-1">📜</span><span class="text-[10px] font-bold">Логи</span></button>
+                    
+                    <button id="btnTabGlobal" onclick="showAdminTab('global')" class="hidden flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500"><span class="text-2xl mb-1">🌍</span><span class="text-[10px] font-bold">Глобал</span></button>
                 </div>
                 
                 <div id="adminTabShifts" class="hidden space-y-3">
@@ -189,6 +191,28 @@
                 
                 <div id="adminTabRequests" class="hidden space-y-3"><button onclick="approveAllRequests()" class="btn-primary bg-green-500">✅ Підтвердити Всі</button><div id="requestsList" class="space-y-3"></div></div>
                 <div id="adminTabLogs" class="hidden space-y-2"><button onclick="loadLogs()" class="btn-primary bg-gray-500 text-xs py-2 mb-2">🔄 Оновити логи</button><div id="logsList" class="text-xs space-y-2 max-h-60 overflow-y-auto pr-2"></div></div>
+
+                <div id="adminTabGlobal" class="hidden space-y-4">
+                    <div class="bg-white dark:bg-[#2C2C2E] p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                        <h3 class="text-xs font-bold mb-2 uppercase text-gray-500">Додати магазин</h3>
+                        <div class="space-y-2">
+                            <input type="text" id="newStoreName" placeholder="Назва (напр. IQOS Space Lviv)" class="ios-input">
+                            <input type="text" id="newStoreCode" placeholder="Код (напр. iqos_lviv)" class="ios-input">
+                            <select id="newStoreType" class="ios-input bg-transparent">
+                                <option value="top">ТОП</option>
+                                <option value="kiev">Київ</option>
+                                <option value="expansion">Експансія</option>
+                            </select>
+                            <button onclick="createStore()" class="btn-primary bg-blue-600">Створити</button>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-[#2C2C2E] p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                        <h3 class="text-xs font-bold mb-2 uppercase text-gray-500">Список магазинів</h3>
+                        <button onclick="loadStores()" class="btn-primary bg-gray-500 text-xs py-1 mb-2">🔄 Оновити</button>
+                        <div id="storesList" class="space-y-2 max-h-60 overflow-y-auto text-sm"></div>
+                    </div>
+                </div>
+
             </div>
 
             <div id="listViewContainer">

@@ -8,7 +8,8 @@ import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } fro
 import { checkAuth, login, logout } from './modules/auth.js';
 import { 
     addShift, delS, clearDay, clearMonth, toggleShiftTimeInputs, 
-    addTask, deleteTask, toggleTaskTimeInputs, bulkImport, publishNews 
+    addTask, deleteTask, toggleTaskTimeInputs, bulkImport, publishNews,
+    createStore, loadStores, deleteStore // 🔥 НОВІ ІМПОРТИ
 } from './modules/admin.js';
 import { loadRequests, handleRequest, approveAllRequests } from './modules/requests.js';
 import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
@@ -32,6 +33,7 @@ window.triggerHaptic = triggerHaptic;
 
 window.showAdminTab = (t) => {
     uiShowAdminTab(t);
+    // Логіка для KPI
     if (t === 'kpi') {
         const now = new Date();
         const mStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -39,6 +41,10 @@ window.showAdminTab = (t) => {
         const inp2 = document.getElementById('kpiMonthSettings');
         if(inp1 && !inp1.value) inp1.value = mStr;
         if(inp2 && !inp2.value) inp2.value = mStr;
+    }
+    // 🔥 Логіка для Global Admin
+    if (t === 'global') {
+        loadStores();
     }
 };
 
@@ -70,6 +76,11 @@ window.toggleTaskTimeInputs = toggleTaskTimeInputs;
 window.bulkImport = bulkImport;
 window.publishNews = publishNews;
 window.loadLogs = loadLogs;
+
+// 🔥 НОВІ ФУНКЦІЇ В WINDOW
+window.createStore = createStore;
+window.loadStores = loadStores;
+window.deleteStore = deleteStore;
 
 window.importKpi = importKpi;
 window.saveKpiSettings = saveKpiSettings;
@@ -239,7 +250,6 @@ async function registerUser() {
     btn.disabled = true;
 
     try {
-        // 🔥 ВИПРАВЛЕНО: Додав /api/register (бо postJson може не додавати префікс, а server.js чекає /api)
         const res = await postJson('/api/register', { fullName, username, password: pass, phone, email, storeCode });
         
         if (res.success) {

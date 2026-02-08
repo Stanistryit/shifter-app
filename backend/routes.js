@@ -23,6 +23,11 @@ router.get('/users', authController.getUsers);
 router.get('/me', authController.getMe);
 router.post('/user/avatar', authController.uploadAvatar);
 
+// --- STORES (Global Admin) --- 🔥 НОВЕ
+router.post('/admin/stores/create', adminController.createStore);
+router.get('/admin/stores', adminController.getAllStores);
+router.post('/admin/stores/delete', adminController.deleteStore);
+
 // --- SHIFTS ---
 router.get('/shifts', shiftController.getShifts);
 router.post('/shifts', shiftController.addShift);

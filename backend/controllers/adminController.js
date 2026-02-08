@@ -1,6 +1,47 @@
-const { User, Request, Shift, Task, NewsPost, AuditLog } = require('../models');
+const { User, Request, Shift, Task, NewsPost, AuditLog, Store } = require('../models');
 const { logAction } = require('../utils');
 const { notifyUser, notifyRole, getBot } = require('../bot');
+
+// --- STORES (Global Admin) ---
+exports.createStore = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (u?.role !== 'admin') return res.status(403).json({ success: false, message: "Тільки для Global Admin" });
+
+    try {
+        const { name, code, type } = req.body;
+        if (!name || !code || !type) return res.json({ success: false, message: "Заповніть всі поля" });
+
+        const existing = await Store.findOne({ code });
+        if (existing) return res.json({ success: false, message: "Код магазину вже зайнятий" });
+
+        await Store.create({ name, code, type });
+        logAction(u.name, 'create_store', `Created ${name} (${code})`);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
+exports.getAllStores = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (u?.role !== 'admin') return res.status(403).json([]);
+    
+    const stores = await Store.find().sort({ createdAt: -1 });
+    res.json(stores);
+};
+
+exports.deleteStore = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (u?.role !== 'admin') return res.status(403).json({ success: false, message: "Тільки для Global Admin" });
+    
+    try {
+        await Store.findByIdAndDelete(req.body.id);
+        logAction(u.name, 'delete_store', req.body.id);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
 
 // --- LOGS ---
 exports.getLogs = async (req, res) => {
@@ -69,13 +110,7 @@ exports.publishNews = async (req, res) => {
     const { text } = req.body;
     const files = req.files || [];
     
-    // Отримуємо налаштування з app (req.app.get) або через user/store
-    // Тут припускаємо, що новина йде в основний канал або прив'язаний топік
-    // Для універсальності візьмемо storeId користувача і знайдемо topicId
-    // Або використаємо tgConfig (якщо він ще актуальний)
-    
-    // Спрощена логіка: відправляємо в Store News Topic
-    const store = await require('../models').Store.findById(u.storeId);
+    const store = await Store.findById(u.storeId);
     if (!store || !store.telegram.chatId) return res.json({success: false, message: "Telegram не налаштовано"});
 
     const chatId = store.telegram.chatId;
@@ -94,8 +129,6 @@ exports.publishNews = async (req, res) => {
         if (f.mimetype.startsWith('image/')) sentMsg = await bot.sendPhoto(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn }, fOpt);
         else sentMsg = await bot.sendDocument(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn }, fOpt);
     } else {
-        // Media Group logic (спрощено)
-        // Для групи файлів кнопки зазвичай додають окремим повідомленням
         const media = files.map((f, i) => ({
             type: f.mimetype.startsWith('image/') ? 'photo' : 'document',
             media: f.buffer,
