@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-// ДОДАНО: Store в імпорті
+// ДОДАНО: MonthSettings та Store в імпорті
 const { User, Shift, Task, Event, Request, NewsPost, Note, AuditLog, KPI, MonthSettings, Store } = require('./models');
 const { logAction, handlePermission } = require('./utils');
 const { notifyUser, notifyRole, notifyAll, sendRequestToSM, getBot } = require('./bot');
@@ -176,28 +176,52 @@ router.get('/requests', async (req, res) => { const u=await User.findById(req.se
 
 router.get('/kpi', async (req, res) => {
     if (!req.session.userId) return res.status(403).json({});
-    const { month } = req.query;
+    const { month } = req.query; // YYYY-MM
     if (!month) return res.json({ kpi: [], settings: null, hours: {} });
+
+    // Отримуємо KPI
     const kpiData = await KPI.find({ month });
+    
+    // Отримуємо Налаштування
     const settings = await MonthSettings.findOne({ month });
+
+    // Рахуємо Години на основі графіку
     const shifts = await Shift.find({ date: { $regex: `^${month}` } });
     const hoursMap = {};
+    
     shifts.forEach(s => {
         if (s.start === 'Відпустка') return;
         const [h1, m1] = s.start.split(':').map(Number);
         const [h2, m2] = s.end.split(':').map(Number);
         const dur = (h2 + m2/60) - (h1 + m1/60);
-        if (dur > 0) hoursMap[s.name] = (hoursMap[s.name] || 0) + dur;
+        if (dur > 0) {
+            hoursMap[s.name] = (hoursMap[s.name] || 0) + dur;
+        }
     });
-    for (const name in hoursMap) hoursMap[name] = parseFloat(hoursMap[name].toFixed(1));
-    res.json({ kpi: kpiData, settings: settings || { normHours: 0 }, hours: hoursMap });
+
+    // Форматуємо години (округлення до 1 знаку)
+    for (const name in hoursMap) {
+        hoursMap[name] = parseFloat(hoursMap[name].toFixed(1));
+    }
+
+    res.json({
+        kpi: kpiData,
+        settings: settings || { normHours: 0 },
+        hours: hoursMap
+    });
 });
 
 router.post('/kpi/settings', async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ message: "Тільки SM" });
+    
     const { month, normHours } = req.body;
-    await MonthSettings.findOneAndUpdate({ month }, { month, normHours: Number(normHours) }, { upsert: true });
+    await MonthSettings.findOneAndUpdate(
+        { month }, 
+        { month, normHours: Number(normHours) }, 
+        { upsert: true }
+    );
+    
     logAction(u.name, 'update_kpi_settings', `${month}: ${normHours}h`);
     res.json({ success: true });
 });
@@ -205,48 +229,72 @@ router.post('/kpi/settings', async (req, res) => {
 router.post('/kpi/import', async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ message: "Тільки SM" });
+
     const { text, month } = req.body;
     if (!text || !month) return res.json({ success: false, message: "Немає даних" });
+
     const lines = text.trim().split('\n');
     const users = await User.find();
     let importedCount = 0;
+
     for (const line of lines) {
         if (!line.match(/\d/)) continue;
         const parts = line.includes('\t') ? line.split('\t') : line.trim().split(/\s{2,}/);
-        if (parts.length < 13) continue;
+        if (parts.length < 5) continue;
+
         const fullName = parts[0].trim();
         let kpiName = null;
-        if (fullName.toLowerCase().includes('тотал') || fullName.toLowerCase().includes('total')) { kpiName = 'TOTAL'; } 
-        else {
+
+        if (fullName.toLowerCase().includes('тотал') || fullName.toLowerCase().includes('total')) {
+            kpiName = 'TOTAL';
+        } else {
             const foundUser = users.find(dbUser => {
                 const parts = dbUser.name.split(' ');
                 return fullName.includes(dbUser.name) || (parts.length > 1 && fullName.includes(parts[0]) && fullName.includes(parts[1]));
             });
             if (foundUser) kpiName = foundUser.name;
         }
+
         if (kpiName) {
             const parseNum = (val) => parseFloat(val?.replace(',', '.') || 0);
+            
             const stats = {
-                orders: 0, 
-                devices: parseNum(parts[6]), devicesTarget: parseNum(parts[5]), devicePercent: parseNum(parts[7]),
-                upt: parseNum(parts[9]), uptTarget: parseNum(parts[10]), uptPercent: parseNum(parts[11]),
-                nps: parseNum(parts[12]), npsTarget: 0, npsPercent: 0, 
-                nba: parseNum(parts[13]), nbaPercent: 0
+                orders: parseNum(parts[2]),
+                devices: parseNum(parts[6]),
+                devicesTarget: parseNum(parts[5]),
+                devicePercent: parseNum(parts[7]),
+                upt: parseNum(parts[9]),
+                uptTarget: parseNum(parts[10]),
+                uptPercent: parseNum(parts[11]),
+                nps: parseNum(parts[12]),
+                nba: parseNum(parts[13])
             };
-            await KPI.findOneAndUpdate({ month, name: kpiName }, { month, name: kpiName, stats, updatedAt: new Date() }, { upsert: true, new: true });
+
+            await KPI.findOneAndUpdate(
+                { month, name: kpiName },
+                { month, name: kpiName, stats, updatedAt: new Date() },
+                { upsert: true, new: true }
+            );
             importedCount++;
         }
     }
+
     logAction(u.name, 'import_kpi', `${month}: ${importedCount} records`);
-    if (importedCount > 0) notifyAll(`📊 <b>KPI оновлено!</b>\n\nОпубліковано дані за: <b>${month}</b> 🏆`);
+    
+    if (importedCount > 0) {
+        notifyAll(`📊 <b>KPI оновлено!</b>\n\nОпубліковано дані за: <b>${month}</b> 🏆`);
+    }
+
     res.json({ success: true, count: importedCount });
 });
 
 // --- EXISTING REQUEST LOGIC ---
+
 router.post('/requests/action', async (req, res) => { 
     const {id, action} = req.body; 
     const r = await Request.findById(id); 
     if(!r) return res.json({success:false});
+
     if(action === 'approve'){ 
         if(r.type === 'add_shift') { await Shift.deleteOne({ date: r.data.date, name: r.data.name }); await Shift.create(r.data); }
         if(r.type === 'del_shift') await Shift.findByIdAndDelete(r.data.id);
@@ -286,47 +334,62 @@ router.post('/requests/approve-all', async (req, res) => {
 
 router.post('/news/publish', upload.array('media', 10), async (req, res) => { const u = await User.findById(req.session.userId); if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({}); const bot = getBot(); const { text } = req.body; const files = req.files || []; const tgConfig = req.app.get('tgConfig'); const chatId = tgConfig.groupId; const topicId = tgConfig.topics.news; const opts = { parse_mode: 'HTML', message_thread_id: topicId }; const btn = { inline_keyboard: [[{ text: "✅ Ознайомлений", callback_data: 'read_news' }]] }; let sentMsg; if (!files.length) sentMsg = await bot.sendMessage(chatId, `📢 <b>Новини:</b>\n\n${text}`, { ...opts, reply_markup: btn }); else if (files.length === 1) { const f = files[0]; const fOpt = { filename: Buffer.from(f.originalname, 'latin1').toString('utf8'), contentType: f.mimetype }; if (f.mimetype.startsWith('image/')) sentMsg = await bot.sendPhoto(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn }, fOpt); else sentMsg = await bot.sendDocument(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn }, fOpt); } else { const allImg = files.every(f=>f.mimetype.startsWith('image/')); if(allImg) { const media = files.map((f,i)=>({type:'photo', media:f.buffer, caption: i===0?`📢 <b>Новини:</b>\n\n${text}`:'', parse_mode:'HTML'})); const msgs = await bot.sendMediaGroup(chatId, media, opts); sentMsg = msgs[0]; await bot.sendMessage(chatId, "👇 Підтвердити:", { ...opts, reply_to_message_id: sentMsg.message_id, reply_markup: btn }); } else { if(files[0].mimetype.startsWith('image/')) sentMsg = await bot.sendPhoto(chatId, files[0].buffer, {...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn}); else sentMsg = await bot.sendDocument(chatId, files[0].buffer, {...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn}, {filename: Buffer.from(files[0].originalname, 'latin1').toString('utf8')}); for(let i=1; i<files.length; i++) { const f=files[i]; const name=Buffer.from(f.originalname, 'latin1').toString('utf8'); if(f.mimetype.startsWith('image/')) await bot.sendPhoto(chatId, f.buffer, opts); else await bot.sendDocument(chatId, f.buffer, opts, {filename:name}); } } } await NewsPost.create({ messageId: sentMsg.message_id, chatId: sentMsg.chat.id, text, type: files.length?'file':'text', readBy:[] }); logAction(u.name, 'publish_news', 'Posted'); res.json({ success: true }); });
 
-// --- MIGRATION ROUTE (ЗАПУСТИТИ ОДИН РАЗ) ---
+// --- MIGRATION ROUTE (ОНОВЛЕНО З ФІКСОМ РОЛІ) ---
 router.get('/migrate', async (req, res) => {
     try {
-        // ID твоєї поточної групи Telegram (ЗАМІНИ null НА ID, якщо знаєш, або залиш так)
-        const DEFAULT_TELEGRAM_ID = null; 
+        const DEFAULT_TELEGRAM_ID = null; // Впиши свій ID групи якщо знаєш
 
-        // 1. Створюємо Магазин
-        let store = await Store.findOne({ code: 'iqos_dt' });
+        // 1. Магазин
+        let store = await Store.findOne({ code: 'iqos_space_sumy' });
         if (!store) {
             store = await Store.create({
-                name: 'IQOS Space Dream Town',
-                code: 'iqos_dt',
-                type: 'ТОП 5',
-                telegram: { chatId: DEFAULT_TELEGRAM_ID, newsTopicId: null, requestsTopicId: null }
+                name: 'IQOS Space Sumy',
+                code: 'iqos_space_sumy',
+                type: 'Експансія',
+                telegram: { chatId: DEFAULT_TELEGRAM_ID, newsTopicId: null, requestsTopicId: null, eveningTopicId: null }
             });
-        } else if (DEFAULT_TELEGRAM_ID && !store.telegram.chatId) {
-            store.telegram.chatId = DEFAULT_TELEGRAM_ID;
-            await store.save();
         }
 
-        // 2. Оновлюємо користувачів
+        // 2. Користувачі
         const users = await User.find();
         let updatedCount = 0;
+        
+        // Дозволені ролі
+        const validRoles = ['admin', 'SM', 'SSE', 'SE', 'RRP', 'Guest'];
+
         for (const user of users) {
             let changed = false;
+
+            // ФІКС НЕВАЛІДНОЇ РОЛІ (user -> SE)
+            if (!validRoles.includes(user.role)) {
+                console.log(`Fixing invalid role for ${user.name}: ${user.role} -> SE`);
+                user.role = 'SE'; 
+                changed = true;
+            }
+
             // Прив'язка до магазину
             if (!user.storeId) { user.storeId = store._id; changed = true; }
+            
             // Статус
             if (!user.status || user.status === 'pending') { user.status = 'active'; changed = true; }
+            
             // Кадрові дані
             if (user.position === 'None') {
                 if (user.role === 'admin' || user.role === 'SM') { user.position = 'SM'; user.grade = 7; }
                 else if (user.role === 'SSE') { user.position = 'SSE'; user.grade = 5; }
                 else if (user.role === 'SE') { user.position = 'SE'; user.grade = 3; }
                 else if (user.role === 'RRP') { user.position = 'RRP'; user.grade = 1; }
+                else { user.position = 'SE'; user.grade = 3; } // Fallback для 'user'
                 changed = true;
             }
+            
             if (!user.email) user.email = `${user.username}@example.com`;
             if (!user.phone) user.phone = '-';
             
-            if (changed) { await user.save(); updatedCount++; }
+            if (changed) { 
+                await user.save(); 
+                updatedCount++; 
+            }
         }
 
         res.json({ success: true, message: `Міграцію виконано. Оновлено юзерів: ${updatedCount}`, storeId: store._id });
