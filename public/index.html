@@ -41,15 +41,51 @@
     </div>
     <div id="toastContainer" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] space-y-2 w-full max-w-xs pointer-events-none"></div>
 
-    <div id="loginScreen" class="hidden flex-grow flex items-center justify-center p-6">
-        <div class="ios-card p-8 w-full max-w-sm text-center">
+    <div id="loginScreen" class="hidden flex-grow flex items-center justify-center p-6 min-h-screen">
+        <div class="ios-card p-8 w-full max-w-sm text-center relative overflow-hidden transition-all duration-300">
             <h1 class="text-4xl font-bold mb-2 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-indigo-600">Shifter</h1>
-            <p class="text-gray-400 mb-8 text-sm">Увійдіть для доступу</p>
-            <div id="loginForm" class="space-y-3">
-                <input type="text" id="loginUser" placeholder="Логін" class="ios-input">
-                <input type="password" id="loginPass" placeholder="Пароль" class="ios-input">
-                <button onclick="login()" class="btn-primary mt-4 shadow-lg shadow-blue-500/30">Увійти</button>
+            
+            <div id="loginContainer" class="transition-opacity duration-300">
+                <p class="text-gray-400 mb-6 text-sm">Увійдіть для доступу</p>
+                <div class="space-y-3">
+                    <input type="text" id="loginUser" placeholder="Логін" class="ios-input">
+                    <input type="password" id="loginPass" placeholder="Пароль" class="ios-input">
+                    <button onclick="login()" class="btn-primary mt-4 shadow-lg shadow-blue-500/30">Увійти</button>
+                    
+                    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                        <button onclick="toggleAuthMode('register')" class="text-sm text-blue-500 font-medium hover:underline">Немає акаунту? Зареєструватися</button>
+                    </div>
+                </div>
             </div>
+
+            <div id="registerContainer" class="hidden transition-opacity duration-300">
+                <p class="text-gray-400 mb-6 text-sm">Створення нового акаунту</p>
+                <div class="space-y-3 text-left">
+                    <input type="text" id="regFullName" placeholder="ПІП (напр. Іванов Іван)" class="ios-input">
+                    <input type="text" id="regLogin" placeholder="Придумайте Логін" class="ios-input">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="password" id="regPass" placeholder="Пароль" class="ios-input">
+                        <input type="password" id="regPassConfirm" placeholder="Повторіть" class="ios-input">
+                    </div>
+                    <input type="tel" id="regPhone" placeholder="Телефон" class="ios-input">
+                    <input type="email" id="regEmail" placeholder="Email" class="ios-input">
+                    
+                    <div class="relative">
+                        <label class="text-[10px] uppercase font-bold text-gray-400 ml-2">Магазин</label>
+                        <select id="regStore" class="ios-input bg-transparent appearance-none">
+                            <option value="" disabled selected>Завантаження списку...</option>
+                        </select>
+                        <div class="absolute right-3 bottom-3 text-gray-400 pointer-events-none">▼</div>
+                    </div>
+
+                    <button onclick="registerUser()" class="btn-primary mt-4 bg-green-500 shadow-lg shadow-green-500/30">Створити акаунт</button>
+                    
+                    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
+                        <button onclick="toggleAuthMode('login')" class="text-sm text-gray-500 hover:text-black dark:hover:text-white transition-colors">← Повернутися до входу</button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 

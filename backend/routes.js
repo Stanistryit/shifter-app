@@ -11,15 +11,100 @@ const axios = require('axios');
 
 // --- Auth & User ---
 
+// 1. Отримання списку магазинів (для реєстрації)
+router.get('/api/stores', async (req, res) => {
+    try {
+        const stores = await Store.find({}, 'name code type');
+        res.json(stores);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 2. Реєстрація нового користувача
+router.post('/register', async (req, res) => {
+    try {
+        const { fullName, username, password, phone, email, storeCode } = req.body;
+
+        // Перевірка на унікальність логіна
+        const existingUser = await User.findOne({ username });
+        if (existingUser) {
+            return res.json({ success: false, message: "Цей логін вже зайнятий" });
+        }
+
+        // Знаходимо магазин
+        const store = await Store.findOne({ code: storeCode });
+        if (!store) {
+            return res.json({ success: false, message: "Магазин не знайдено" });
+        }
+
+        // Хешування пароля
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // Створення користувача (Guest, Pending)
+        // Коротке ім'я беремо як перше слово з ПІП (або логін, якщо ПІП пустий)
+        const shortName = fullName.split(' ')[0] || username; 
+
+        const newUser = await User.create({
+            username,
+            password: hashedPassword,
+            fullName,
+            name: shortName, // Тимчасове ім'я для графіка
+            phone,
+            email,
+            storeId: store._id,
+            role: 'Guest',       // Гість (без прав)
+            status: 'pending',   // Очікує підтвердження
+            position: 'None',
+            grade: 0
+        });
+
+        // Сповіщення SM цього магазину
+        const bot = getBot();
+        if (bot) {
+            // Знаходимо SM цього магазину
+            const managers = await User.find({ storeId: store._id, role: { $in: ['SM', 'admin'] } });
+            
+            for (const sm of managers) {
+                if (sm.telegramChatId) {
+                    try {
+                        await bot.sendMessage(sm.telegramChatId, 
+                            `🔔 <b>Нова заявка на вступ!</b>\n\n👤 <b>${fullName}</b>\n📞 ${phone}\n🏪 Магазин: ${store.name}\n\nЗайдіть в "Команду", щоб підтвердити.`, 
+                            { parse_mode: 'HTML' }
+                        );
+                    } catch (e) { console.error(e); }
+                }
+            }
+        }
+
+        logAction('System', 'register_user', `New user: ${username} (${store.name})`);
+        res.json({ success: true });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: "Помилка сервера" });
+    }
+});
+
 router.post('/login', async (req, res) => {
     try { 
         const { username, password } = req.body; 
         const user = await User.findOne({ username });
         
-        if (user && (await user.comparePassword(password))) { 
+        if (user && (await user.comparePassword(password))) {
+            // Перевірка статусу (якщо заблокований або pending)
+            if (user.status === 'blocked') {
+                return res.json({ success: false, message: "Акаунт заблоковано" });
+            }
+            
+            // Якщо pending - пускаємо, але на фронті покажемо заглушку (це зробимо в app.js)
+            // Або можна не пускати:
+            // if (user.status === 'pending') return res.json({ success: false, message: "Очікуйте підтвердження SM" });
+
             req.session.userId = user._id; 
             logAction(user.name, 'login', 'Web Login'); 
-            req.session.save(() => res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar } })); 
+            req.session.save(() => res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar, status: user.status } })); 
         } 
         else {
             res.json({ success: false, message: "Невірний логін або пароль" });

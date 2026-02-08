@@ -59,6 +59,9 @@ window.updateFileName = updateFileName;
 // Auth
 window.login = login;
 window.logout = logout;
+// 🔥 НОВЕ: Функції реєстрації
+window.toggleAuthMode = toggleAuthMode;
+window.registerUser = registerUser;
 
 // Admin Actions (Shifts)
 window.addShift = addShift;
@@ -79,7 +82,7 @@ window.loadLogs = loadLogs;
 
 // KPI Actions
 window.importKpi = importKpi;
-window.saveKpiSettings = saveKpiSettings; // НОВЕ
+window.saveKpiSettings = saveKpiSettings;
 
 // Requests
 window.approveAllRequests = approveAllRequests;
@@ -128,12 +131,10 @@ function toggleArchive() {
     document.getElementById('archiveContainer').classList.toggle('hidden'); 
 }
 
-// ОНОВЛЕНО: Додано логіку для KPI
 async function changeMonth(d) { 
     triggerHaptic(); 
     state.currentDate.setMonth(state.currentDate.getMonth() + d); 
     
-    // Якщо ми в режимі KPI, треба оновити дані KPI
     const kpiContainer = document.getElementById('kpiViewContainer');
     if (kpiContainer && !kpiContainer.classList.contains('hidden')) {
         await loadKpiData();
@@ -143,7 +144,6 @@ async function changeMonth(d) {
     }
 }
 
-// ОНОВЛЕНО: Додано режим 'kpi'
 function setMode(m) {
     triggerHaptic();
     
@@ -157,12 +157,11 @@ function setMode(m) {
     gridDiv.classList.add('hidden');
     kpiDiv.classList.add('hidden');
     
-    // УПРАВЛІННЯ КНОПКОЮ ФІЛЬТРУ
     const filterBtn = document.querySelector('button[onclick="openFilterModal()"]');
     if (filterBtn) {
         if (m === 'list') {
             filterBtn.classList.remove('hidden');
-            filterBtn.classList.add('flex'); // Відновлюємо flex, якщо він був
+            filterBtn.classList.add('flex');
         } else {
             filterBtn.classList.add('hidden');
             filterBtn.classList.remove('flex');
@@ -203,7 +202,80 @@ function setMode(m) {
     }
 }
 
-// ОНОВЛЕНО: Імпорт KPI з вибором місяця
+// --- 🔥 REGISTRATION LOGIC ---
+
+async function toggleAuthMode(mode) {
+    const loginContainer = document.getElementById('loginContainer');
+    const registerContainer = document.getElementById('registerContainer');
+    
+    if (mode === 'register') {
+        loginContainer.classList.add('hidden');
+        registerContainer.classList.remove('hidden');
+        
+        // Завантажуємо список магазинів
+        const storeSelect = document.getElementById('regStore');
+        if (storeSelect.options.length <= 1) { // Якщо ще не завантажили
+            try {
+                const stores = await fetchJson('/api/stores');
+                storeSelect.innerHTML = '<option value="" disabled selected>Оберіть магазин</option>';
+                stores.forEach(s => {
+                    storeSelect.innerHTML += `<option value="${s.code}">${s.name}</option>`;
+                });
+            } catch (e) {
+                showToast('Помилка завантаження магазинів', 'error');
+                storeSelect.innerHTML = '<option value="" disabled>Помилка</option>';
+            }
+        }
+    } else {
+        registerContainer.classList.add('hidden');
+        loginContainer.classList.remove('hidden');
+    }
+}
+
+async function registerUser() {
+    const fullName = document.getElementById('regFullName').value.trim();
+    const username = document.getElementById('regLogin').value.trim();
+    const pass = document.getElementById('regPass').value;
+    const passConfirm = document.getElementById('regPassConfirm').value;
+    const phone = document.getElementById('regPhone').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const storeCode = document.getElementById('regStore').value;
+
+    if (!fullName || !username || !pass || !storeCode) {
+        return showToast('Заповніть обов’язкові поля (ПІП, Логін, Пароль, Магазин)', 'error');
+    }
+    if (pass !== passConfirm) {
+        return showToast('Паролі не співпадають', 'error');
+    }
+
+    const btn = document.querySelector('#registerContainer button');
+    const originalText = btn.innerText;
+    btn.innerText = '⏳ Реєстрація...';
+    btn.disabled = true;
+
+    try {
+        const res = await postJson('/register', { fullName, username, password: pass, phone, email, storeCode });
+        
+        if (res.success) {
+            showToast('✅ Заявку надіслано! Очікуйте підтвердження SM.', 'info');
+            // Очищення полів
+            document.getElementById('regPass').value = '';
+            document.getElementById('regPassConfirm').value = '';
+            // Перехід на логін
+            toggleAuthMode('login');
+        } else {
+            showToast('❌ ' + res.message, 'error');
+        }
+    } catch (e) {
+        showToast('❌ Помилка з\'єднання', 'error');
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+}
+
+// ... rest of the file (importKpi, saveKpiSettings, etc)
+
 async function importKpi() {
     const text = document.getElementById('kpiImportData').value;
     const month = document.getElementById('kpiMonthImport').value;
@@ -216,7 +288,6 @@ async function importKpi() {
         showToast(`Імпортовано: ${res.count} записів`);
         document.getElementById('kpiImportData').value = '';
         
-        // Оновлюємо, якщо ми дивимось на цей же місяць
         const y = state.currentDate.getFullYear();
         const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
         if (`${y}-${m}` === month) {
@@ -228,7 +299,6 @@ async function importKpi() {
     }
 }
 
-// НОВЕ: Збереження норми годин
 async function saveKpiSettings() {
     const month = document.getElementById('kpiMonthSettings').value;
     const normHours = document.getElementById('kpiNormHours').value;
@@ -239,7 +309,6 @@ async function saveKpiSettings() {
     if(res.success) {
         showToast('Норму збережено ✅');
         
-        // Оновлюємо, якщо ми дивимось на цей же місяць
         const y = state.currentDate.getFullYear();
         const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
         if (`${y}-${m}` === month) {
@@ -251,16 +320,13 @@ async function saveKpiSettings() {
     }
 }
 
-// Завантаження даних KPI
 async function loadKpiData() {
     const y = state.currentDate.getFullYear();
     const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
     const month = `${y}-${m}`;
-    // Тепер це повертає { kpi: [], settings: {}, hours: {} }
     state.kpiData = await fetchJson(`/api/kpi?month=${month}`);
 }
 
-// Scroll to Top Listener
 window.addEventListener('scroll', () => {
     const btn = document.getElementById('backToTopBtn');
     if (btn) {
@@ -269,9 +335,7 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// --- CONTEXT MENU LISTENERS ---
 function initContextMenuListeners() {
-    // Edit Shift
     const btnEdit = document.getElementById('ctxEdit');
     if (btnEdit) {
         btnEdit.onclick = () => {
@@ -294,7 +358,6 @@ function initContextMenuListeners() {
                     toggleShiftTimeInputs();
                     
                     document.getElementById('adminPanel').classList.remove('hidden');
-                    // Використовуємо обгортку window.showAdminTab
                     window.showAdminTab('shifts');
                     showToast('Дані заповнено. Відредагуйте та натисніть "Додати"', 'info');
                     
@@ -304,7 +367,6 @@ function initContextMenuListeners() {
         };
     }
 
-    // Copy Info
     const btnCopy = document.getElementById('ctxCopy');
     if (btnCopy) {
         btnCopy.onclick = () => {
@@ -319,7 +381,6 @@ function initContextMenuListeners() {
         };
     }
 
-    // Delete Shift
     const btnDelete = document.getElementById('ctxDelete');
     if (btnDelete) {
         btnDelete.onclick = () => {
