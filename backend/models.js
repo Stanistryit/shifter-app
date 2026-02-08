@@ -2,42 +2,42 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 // 0. Схема Магазину (ОНОВЛЕНО)
-// Зберігає налаштування конкретного магазину та Telegram-групи
 const storeSchema = new mongoose.Schema({
-    name: { type: String, required: true }, // Назва: "IQOS Space Dream Town"
-    type: { type: String, enum: ['Експансія', 'ТОП 5', 'Київ', 'Standard'], default: 'Standard' }, // Тип для майбутнього розрахунку ЗП
-    code: { type: String, unique: true, required: true }, // Унікальний код (напр. "iqos_dt") для реєстрації
+    name: { type: String, required: true }, 
+    // 🔥 ВИПРАВЛЕНО: enum тепер відповідає value з HTML (expansion, top, kiev)
+    type: { type: String, enum: ['expansion', 'top', 'kiev', 'standard'], default: 'standard' }, 
+    code: { type: String, unique: true, required: true }, 
     telegram: {
-        chatId: { type: Number, default: null },       // ID групи магазину
-        newsTopicId: { type: Number, default: null },  // Гілка новин
-        requestsTopicId: { type: Number, default: null }, // Гілка запитів
-        eveningTopicId: { type: Number, default: null }   // 🔥 НОВЕ: Гілка для звіту "Хто завтра"
+        chatId: { type: Number, default: null },       
+        newsTopicId: { type: Number, default: null },  
+        requestsTopicId: { type: Number, default: null }, 
+        eveningTopicId: { type: Number, default: null }   
     },
     createdAt: { type: Date, default: Date.now }
 });
 
-// 1. Схема Користувача (ОНОВЛЕНО)
+// 1. Схема Користувача
 const userSchema = new mongoose.Schema({
     // Auth info
-    username: { type: String, unique: true, required: true }, // login
+    username: { type: String, unique: true, required: true }, 
     password: { type: String, required: true },
     
-    // Personal info (НОВЕ - для реєстрації)
-    fullName: { type: String, default: '' }, // ПІП
+    // Personal info
+    fullName: { type: String, default: '' }, 
     email: { type: String, default: '' },
     phone: { type: String, default: '' },
     
     // System info
-    name: { type: String, required: true }, // Коротке ім'я для графіку (напр. "Стас")
+    name: { type: String, required: true }, 
     avatar: { type: String, default: null }, 
     telegramChatId: { type: Number, default: null }, 
     
-    // Work info (НОВЕ - для кадрів і ЗП)
-    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }, // Прив'язка до магазину
-    role: { type: String, enum: ['admin', 'SM', 'SSE', 'SE', 'RRP', 'Guest'], default: 'Guest' }, // Guest - до апруву
-    position: { type: String, enum: ['SM', 'SSE', 'SE', 'RRP', 'None'], default: 'None' }, // Конкретна посада
-    grade: { type: Number, default: 0 }, // 3, 4, 5... (0 - не визначено)
-    status: { type: String, enum: ['pending', 'active', 'blocked'], default: 'active' }, // pending - чекає підтвердження
+    // Work info
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }, 
+    role: { type: String, enum: ['admin', 'SM', 'SSE', 'SE', 'RRP', 'Guest'], default: 'Guest' }, 
+    position: { type: String, enum: ['SM', 'SSE', 'SE', 'RRP', 'None'], default: 'None' }, 
+    grade: { type: Number, default: 0 }, 
+    status: { type: String, enum: ['pending', 'active', 'blocked'], default: 'active' }, 
     
     // Settings
     reminderTime: { type: String, default: 'none' },
@@ -50,10 +50,10 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
 
 // 2. Схема Зміни
 const shiftSchema = new mongoose.Schema({
-    date: { type: String, required: true }, // YYYY-MM-DD
+    date: { type: String, required: true }, 
     name: { type: String, required: true },
-    start: { type: String, required: true }, // HH:MM
-    end: { type: String, required: true }    // HH:MM
+    start: { type: String, required: true }, 
+    end: { type: String, required: true }    
 });
 
 // 3. Схема Задачі
@@ -72,15 +72,15 @@ const newsPostSchema = new mongoose.Schema({
     messageId: { type: Number, required: true },
     chatId: { type: Number, required: true },
     text: { type: String },
-    type: { type: String, default: 'text' }, // text, file
-    readBy: { type: [String], default: [] }, // Список імен тих, хто прочитав
+    type: { type: String, default: 'text' }, 
+    readBy: { type: [String], default: [] }, 
     createdAt: { type: Date, default: Date.now }
 });
 
-// 5. Схема Запитів (Requests)
+// 5. Схема Запитів
 const requestSchema = new mongoose.Schema({
-    type: { type: String, required: true }, // add_shift, del_shift, add_task
-    data: { type: Object, required: true }, // Дані зміни/задачі
+    type: { type: String, required: true }, 
+    data: { type: Object, required: true }, 
     createdBy: { type: String, required: true },
     createdAt: { type: Date, default: Date.now }
 });
@@ -115,32 +115,32 @@ const eventSchema = new mongoose.Schema({
 
 // 10. Схема KPI
 const kpiSchema = new mongoose.Schema({
-    month: { type: String, required: true }, // "YYYY-MM"
-    name: { type: String, required: true },  // "Ivanov" або "TOTAL"
+    month: { type: String, required: true }, 
+    name: { type: String, required: true },  
     updatedAt: { type: Date, default: Date.now },
     stats: {
-        orders: { type: Number, default: 0 },        // Замовлень (User)
-        devices: { type: Number, default: 0 },       // Девайсів (User)
-        devicesTarget: { type: Number, default: 0 }, // Ціль девайсів
-        devicePercent: { type: Number, default: 0 }, // % Device KPI
-        upt: { type: Number, default: 0 },           // UPT факт
-        uptTarget: { type: Number, default: 0 },     // UPT ціль
-        uptPercent: { type: Number, default: 0 },    // % UPT KPI
-        nps: { type: Number, default: 0 },           // NPS
-        npsTarget: { type: Number, default: 0 },     // NPS ціль (NEW)
-        npsPercent: { type: Number, default: 0 },    // % NPS KPI (NEW)
-        nba: { type: Number, default: 0 },           // NBA
-        nbaPercent: { type: Number, default: 0 }     // % NBA KPI (NEW)
+        orders: { type: Number, default: 0 },        
+        devices: { type: Number, default: 0 },       
+        devicesTarget: { type: Number, default: 0 }, 
+        devicePercent: { type: Number, default: 0 }, 
+        upt: { type: Number, default: 0 },           
+        uptTarget: { type: Number, default: 0 },     
+        uptPercent: { type: Number, default: 0 },    
+        nps: { type: Number, default: 0 },           
+        npsTarget: { type: Number, default: 0 },     
+        npsPercent: { type: Number, default: 0 },    
+        nba: { type: Number, default: 0 },           
+        nbaPercent: { type: Number, default: 0 }     
     }
 });
 
 // 11. Схема Налаштувань Місяця
 const monthSettingsSchema = new mongoose.Schema({
-    month: { type: String, required: true, unique: true }, // "YYYY-MM"
+    month: { type: String, required: true, unique: true }, 
     normHours: { type: Number, required: true }
 });
 
-// 12. Схема Відкладених Сповіщень (ТИХА ГОДИНА)
+// 12. Схема Відкладених Сповіщень
 const pendingNotificationSchema = new mongoose.Schema({
     chatId: { type: Number, required: true },
     text: { type: String, required: true },
