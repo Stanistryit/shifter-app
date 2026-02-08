@@ -1,16 +1,47 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-// 1. Схема Користувача
+// 0. Схема Магазину (ОНОВЛЕНО)
+// Зберігає налаштування конкретного магазину та Telegram-групи
+const storeSchema = new mongoose.Schema({
+    name: { type: String, required: true }, // Назва: "IQOS Space Dream Town"
+    type: { type: String, enum: ['Експансія', 'ТОП 5', 'Київ', 'Standard'], default: 'Standard' }, // Тип для майбутнього розрахунку ЗП
+    code: { type: String, unique: true, required: true }, // Унікальний код (напр. "iqos_dt") для реєстрації
+    telegram: {
+        chatId: { type: Number, default: null },       // ID групи магазину
+        newsTopicId: { type: Number, default: null },  // Гілка новин
+        requestsTopicId: { type: Number, default: null }, // Гілка запитів
+        eveningTopicId: { type: Number, default: null }   // 🔥 НОВЕ: Гілка для звіту "Хто завтра"
+    },
+    createdAt: { type: Date, default: Date.now }
+});
+
+// 1. Схема Користувача (ОНОВЛЕНО)
 const userSchema = new mongoose.Schema({
-    username: { type: String, unique: true, required: true },
+    // Auth info
+    username: { type: String, unique: true, required: true }, // login
     password: { type: String, required: true },
-    name: { type: String, required: true }, // Прізвище Ім'я
-    role: { type: String, enum: ['admin', 'SM', 'SSE', 'SE', 'RRP'], default: 'SE' },
-    telegramChatId: { type: Number, default: null }, // Для сповіщень
-    avatar: { type: String, default: null }, // Base64 картинка
-    reminderTime: { type: String, default: 'none' }, // 1h, 12h, start, none, 20:00
-    tSalesCookie: { type: String, default: null } // Сесія T-Sales
+    
+    // Personal info (НОВЕ - для реєстрації)
+    fullName: { type: String, default: '' }, // ПІП
+    email: { type: String, default: '' },
+    phone: { type: String, default: '' },
+    
+    // System info
+    name: { type: String, required: true }, // Коротке ім'я для графіку (напр. "Стас")
+    avatar: { type: String, default: null }, 
+    telegramChatId: { type: Number, default: null }, 
+    
+    // Work info (НОВЕ - для кадрів і ЗП)
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }, // Прив'язка до магазину
+    role: { type: String, enum: ['admin', 'SM', 'SSE', 'SE', 'RRP', 'Guest'], default: 'Guest' }, // Guest - до апруву
+    position: { type: String, enum: ['SM', 'SSE', 'SE', 'RRP', 'None'], default: 'None' }, // Конкретна посада
+    grade: { type: Number, default: 0 }, // 3, 4, 5... (0 - не визначено)
+    status: { type: String, enum: ['pending', 'active', 'blocked'], default: 'active' }, // pending - чекає підтвердження
+    
+    // Settings
+    reminderTime: { type: String, default: 'none' },
+    tSalesCookie: { type: String, default: null }
 });
 
 userSchema.methods.comparePassword = async function(candidatePassword) {
@@ -82,7 +113,7 @@ const eventSchema = new mongoose.Schema({
     date: { type: String, required: true }
 });
 
-// 10. Схема KPI (ОНОВЛЕНО)
+// 10. Схема KPI
 const kpiSchema = new mongoose.Schema({
     month: { type: String, required: true }, // "YYYY-MM"
     name: { type: String, required: true },  // "Ivanov" або "TOTAL"
@@ -96,7 +127,10 @@ const kpiSchema = new mongoose.Schema({
         uptTarget: { type: Number, default: 0 },     // UPT ціль
         uptPercent: { type: Number, default: 0 },    // % UPT KPI
         nps: { type: Number, default: 0 },           // NPS
-        nba: { type: Number, default: 0 }            // NBA
+        npsTarget: { type: Number, default: 0 },     // NPS ціль (NEW)
+        npsPercent: { type: Number, default: 0 },    // % NPS KPI (NEW)
+        nba: { type: Number, default: 0 },           // NBA
+        nbaPercent: { type: Number, default: 0 }     // % NBA KPI (NEW)
     }
 });
 
@@ -106,13 +140,14 @@ const monthSettingsSchema = new mongoose.Schema({
     normHours: { type: Number, required: true }
 });
 
-// 12. Схема Відкладених Сповіщень (НОВЕ)
+// 12. Схема Відкладених Сповіщень (ТИХА ГОДИНА)
 const pendingNotificationSchema = new mongoose.Schema({
     chatId: { type: Number, required: true },
     text: { type: String, required: true },
     createdAt: { type: Date, default: Date.now }
 });
 
+const Store = mongoose.model('Store', storeSchema);
 const User = mongoose.model('User', userSchema);
 const Shift = mongoose.model('Shift', shiftSchema);
 const Task = mongoose.model('Task', taskSchema);
@@ -126,4 +161,4 @@ const KPI = mongoose.model('KPI', kpiSchema);
 const MonthSettings = mongoose.model('MonthSettings', monthSettingsSchema);
 const PendingNotification = mongoose.model('PendingNotification', pendingNotificationSchema);
 
-module.exports = { User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event, KPI, MonthSettings, PendingNotification };
+module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event, KPI, MonthSettings, PendingNotification };

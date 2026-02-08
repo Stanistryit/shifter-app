@@ -1,8 +1,7 @@
 process.env.NTBA_FIX_350 = 1;
 
 const TelegramBot = require('node-telegram-bot-api');
-// ДОДАНО: PendingNotification
-const { User, Shift, Request, NewsPost, Task, AuditLog, PendingNotification } = require('./models');
+const { User, Shift, Request, NewsPost, Task, AuditLog, PendingNotification, Store } = require('./models');
 const bcrypt = require('bcryptjs'); 
 
 let bot = null;
@@ -30,7 +29,60 @@ const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
     }
 };
 
-const initBot = (token, appUrl, tgConfig) => {
+// --- ВЕЧІРНЯ РОЗСИЛКА ---
+const sendTomorrowShifts = async () => {
+    if (!bot) return;
+    
+    // Визначаємо "Завтра"
+    const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateStr = tomorrow.toISOString().split('T')[0];
+    const dateDisplay = tomorrow.toLocaleDateString('uk-UA', {weekday: 'long', day: 'numeric', month: 'long'});
+
+    const stores = await Store.find();
+
+    for (const store of stores) {
+        // Перевіряємо, чи налаштована вечірня гілка
+        if (!store.telegram.chatId || !store.telegram.eveningTopicId) continue;
+
+        // Знаходимо співробітників цього магазину
+        const storeUsers = await User.find({ storeId: store._id });
+        const userNames = storeUsers.map(u => u.name);
+
+        // Шукаємо зміни на завтра для цих людей
+        const shifts = await Shift.find({ date: dateStr, name: { $in: userNames } });
+        
+        // Якщо змін немає - можна пропустити або написати "Завтра вихідний у всіх"
+        if (shifts.length === 0) continue; 
+
+        let msg = `🌙 <b>Завтра (${dateDisplay}) працюють:</b>\n\n`;
+        
+        // Сортуємо за часом початку (09:00, 10:00...)
+        shifts.sort((a, b) => a.start.localeCompare(b.start));
+
+        shifts.forEach(s => {
+            if (s.start === 'Відпустка') {
+                msg += `🌴 <b>${s.name}</b>: Відпустка\n`;
+            } else {
+                msg += `👤 <b>${s.name}</b>: ${s.start} - ${s.end}\n`;
+            }
+        });
+
+        try {
+            // Відправляємо напряму (це запланована подія, не "тиха година")
+            await bot.sendMessage(store.telegram.chatId, msg, {
+                parse_mode: 'HTML',
+                message_thread_id: store.telegram.eveningTopicId
+            });
+            console.log(`✅ Вечірній звіт відправлено для ${store.name}`);
+        } catch (e) {
+            console.error(`❌ Помилка вечірнього звіту для ${store.name}:`, e.message);
+        }
+    }
+};
+
+const initBot = (token, appUrl) => { 
     if (!token) return null;
     
     bot = new TelegramBot(token, { polling: false });
@@ -39,12 +91,13 @@ const initBot = (token, appUrl, tgConfig) => {
         .then(() => console.log("🤖 Telegram Bot: Webhook set successfully"))
         .catch(err => console.error("⚠️ Telegram Bot: Webhook connection failed:", err.message));
 
-    // --- CRON JOB: Check Quiet Hours Queue (Every minute) ---
+    // --- CRON JOB (Кожну хвилину) ---
     setInterval(async () => {
         const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
         const hours = now.getHours();
+        const minutes = now.getMinutes();
         
-        // Відправляємо тільки якщо вже не "тиха година" (наприклад, настало 08:00)
+        // 1. Відправка відкладених (після 08:00)
         if (hours >= 8 && hours < 22) {
             const pending = await PendingNotification.find().sort({ createdAt: 1 });
             if (pending.length > 0) {
@@ -53,7 +106,6 @@ const initBot = (token, appUrl, tgConfig) => {
                     try {
                         await bot.sendMessage(p.chatId, p.text, {parse_mode: 'HTML'});
                         await PendingNotification.findByIdAndDelete(p._id);
-                        // Невелика затримка, щоб не спамити API телеграма
                         await new Promise(r => setTimeout(r, 100)); 
                     } catch (e) {
                         console.error(`Error sending pending msg: ${e.message}`);
@@ -61,7 +113,14 @@ const initBot = (token, appUrl, tgConfig) => {
                 }
             }
         }
-    }, 60 * 1000); // Перевірка кожну хвилину
+
+        // 2. 🔥 ВЕЧІРНЄ СПОВІЩЕННЯ (Рівно о 21:00)
+        if (hours === 21 && minutes === 0) {
+            console.log('🕘 21:00 - Запуск вечірньої розсилки...');
+            await sendTomorrowShifts();
+        }
+
+    }, 60 * 1000); 
 
     bot.on('polling_error', (error) => console.log(`[Polling Error] ${error.code}: ${error.message}`));
     bot.on('webhook_error', (error) => console.log(`[Webhook Error] ${error.code}: ${error.message}`));
@@ -85,11 +144,75 @@ const initBot = (token, appUrl, tgConfig) => {
         resize_keyboard: true
     };
 
+    // --- COMMANDS ---
+
     bot.onText(/\/start/, (msg) => {
         const txt = `👋 <b>Привіт! Це бот Shifter.</b>\n\nТут ти можеш:\n📅 Дивитись графік роботи\n👀 Бачити, хто зараз працює\n🔔 Отримувати нагадування про зміни\n\n🔐 <b>Доступ:</b>\nЩоб користуватися кнопками, треба авторизуватися:\n<code>/login логін пароль</code>`;
         bot.sendMessage(msg.chat.id, txt, { reply_markup: mainMenu, parse_mode: 'HTML' });
     });
+
+    // 1. Основна прив'язка (Група)
+    bot.onText(/\/link_store (.+)/, async (msg, match) => {
+        const code = match[1].trim();
+        const chatId = msg.chat.id;
+        
+        try {
+            const store = await Store.findOne({ code });
+            if (!store) {
+                return bot.sendMessage(chatId, `❌ Магазин з кодом <b>${code}</b> не знайдено.`, {parse_mode: 'HTML'});
+            }
+            
+            store.telegram.chatId = chatId;
+            // Якщо команда в гілці, можемо зберегти її як дефолтну, але краще використовувати спеціальні команди
+            await store.save();
+            bot.sendMessage(chatId, `✅ <b>Основний чат прив'язано!</b>\nМагазин: <b>${store.name}</b>\n\nТепер налаштуйте гілки командами:\n/link_news ${code} (в гілці новин)\n/link_evening ${code} (в гілці звітів)`, {parse_mode: 'HTML'});
+
+        } catch (e) {
+            console.error(e);
+            bot.sendMessage(chatId, "❌ Помилка при прив'язці.");
+        }
+    });
+
+    // 2. 🔥 Прив'язка НОВИН (Гілка)
+    bot.onText(/\/link_news (.+)/, async (msg, match) => {
+        const code = match[1].trim();
+        const chatId = msg.chat.id;
+        const topicId = msg.message_thread_id; 
+        
+        if (!topicId) return bot.sendMessage(chatId, "⚠️ Цю команду треба писати всередині гілки (Topic).");
+
+        try {
+            const store = await Store.findOne({ code });
+            if (!store) return bot.sendMessage(chatId, `❌ Магазин <b>${code}</b> не знайдено.`, {message_thread_id: topicId});
+            
+            store.telegram.chatId = chatId; // Оновлюємо основний чат про всяк випадок
+            store.telegram.newsTopicId = topicId;
+            await store.save();
+            bot.sendMessage(chatId, `📢 <b>Гілку Новин налаштовано!</b>\nТепер новини будуть падати сюди.`, {parse_mode: 'HTML', message_thread_id: topicId});
+        } catch (e) { console.error(e); }
+    });
+
+    // 3. 🔥 Прив'язка "ХТО ЗАВТРА" (Гілка)
+    bot.onText(/\/link_evening (.+)/, async (msg, match) => {
+        const code = match[1].trim();
+        const chatId = msg.chat.id;
+        const topicId = msg.message_thread_id; 
+
+        if (!topicId) return bot.sendMessage(chatId, "⚠️ Цю команду треба писати всередині гілки (Topic).", {message_thread_id: topicId});
+
+        try {
+            const store = await Store.findOne({ code });
+            if (!store) return bot.sendMessage(chatId, `❌ Магазин <b>${code}</b> не знайдено.`, {message_thread_id: topicId});
+            
+            store.telegram.chatId = chatId;
+            store.telegram.eveningTopicId = topicId;
+            await store.save();
+            bot.sendMessage(chatId, `🌙 <b>Вечірні звіти налаштовано!</b>\nО 21:00 сюди приходитиме список змін на завтра.`, {parse_mode: 'HTML', message_thread_id: topicId});
+        } catch (e) { console.error(e); }
+    });
     
+    // --- AUTH & OTHER MESSAGES ---
+
     bot.onText(/\/login (.+) (.+)/, async (msg, match) => { 
         try {
             const u = await User.findOne({ username: match[1] }); 
@@ -135,7 +258,16 @@ const initBot = (token, appUrl, tgConfig) => {
             const shifts = await Shift.find({ date: now.toISOString().split('T')[0] });
             const curMin = now.getHours()*60 + now.getMinutes();
             let active = [];
+
+            let storeUserNames = [];
+            if (user && user.storeId) {
+                const colleagues = await User.find({ storeId: user.storeId });
+                storeUserNames = colleagues.map(c => c.name);
+            }
+
             for (const s of shifts) {
+                if (user && user.storeId && !storeUserNames.includes(s.name)) continue;
+
                 if(s.start === 'Відпустка') continue;
                 const [h1,m1]=s.start.split(':').map(Number); const [h2,m2]=s.end.split(':').map(Number); const st=h1*60+m1; const en=h2*60+m2; 
                 if(curMin>=st && curMin<en) {
@@ -227,7 +359,8 @@ const initBot = (token, appUrl, tgConfig) => {
     return bot;
 };
 
-// ВИКОРИСТОВУЄМО ТЕПЕР sendMessageWithQuietHours
+// --- NOTIFICATIONS WITH STORE FILTERING ---
+
 const notifyUser = async (name, msg) => { 
     if(!bot) return; 
     try { 
@@ -236,25 +369,34 @@ const notifyUser = async (name, msg) => {
     } catch(e){} 
 };
 
-const notifyRole = async (role, msg) => { 
+const notifyRole = async (role, msg, storeId = null) => { 
     if(!bot) return; 
     try { 
-        const us = await User.find({role}); 
+        const query = { role };
+        if (storeId) query.storeId = storeId;
+        const us = await User.find(query); 
         for(const u of us) if(u.telegramChatId) await sendMessageWithQuietHours(u.telegramChatId, msg, {parse_mode:'HTML'}); 
     } catch(e){} 
 };
 
-const notifyAll = async (msg) => { 
+const notifyAll = async (msg, storeId = null) => { 
     if(!bot) return; 
     try { 
-        const us = await User.find({telegramChatId:{$ne:null}}); 
+        const query = { telegramChatId: { $ne: null } };
+        if (storeId) query.storeId = storeId;
+        const us = await User.find(query); 
         for(const u of us) await sendMessageWithQuietHours(u.telegramChatId, msg, {parse_mode:'HTML'}); 
     } catch(e){} 
 };
 
 const sendRequestToSM = async (requestDoc) => {
     if(!bot) return;
-    const sms = await User.find({ role: { $in: ['SM', 'admin'] } });
+    const creator = await User.findOne({ name: requestDoc.createdBy });
+    const storeId = creator ? creator.storeId : null;
+    const query = { role: { $in: ['SM', 'admin'] } };
+    if (storeId) query.storeId = storeId;
+    const sms = await User.find(query);
+
     let details = "";
     if (requestDoc.type === 'add_shift') details = `📅 Зміна: ${requestDoc.data.date}\n⏰ ${requestDoc.data.start}-${requestDoc.data.end}`;
     if (requestDoc.type === 'del_shift') details = `❌ Видалення зміни: ${requestDoc.data.date}`;
@@ -262,14 +404,10 @@ const sendRequestToSM = async (requestDoc) => {
         details = `📌 Задача: ${requestDoc.data.title}`;
         if (requestDoc.data.description) details += `\nℹ️ ${requestDoc.data.description}`;
     }
-    
     const txt = `🔔 <b>Новий запит</b>\n👤 <b>Від:</b> ${requestDoc.createdBy}\nℹ️ <b>Тип:</b> ${requestDoc.type}\n\n${details}`;
     const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[ { text: "✅ Дозволити", callback_data: `approve_req_${requestDoc._id}` }, { text: "❌ Відхилити", callback_data: `reject_req_${requestDoc._id}` } ]] } };
-    
-    // Запити SM отримують ОДРАЗУ, щоб оперативно реагувати (ігноруємо тиху годину для них, або можна теж включити)
-    // Я залишу пряму відправку, бо це термінове. Або можна змінити на sendMessageWithQuietHours
     for(const sm of sms) { 
-        if(sm.telegramChatId) await sendMessageWithQuietHours(sm.telegramChatId, txt, opts); // Нехай теж поважає сон
+        if(sm.telegramChatId) await sendMessageWithQuietHours(sm.telegramChatId, txt, opts); 
     }
 };
 
