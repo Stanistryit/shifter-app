@@ -4,7 +4,6 @@ import {
     initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab as uiShowAdminTab, formatText, updateFileName,
     openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext 
 } from './modules/ui.js';
-// ДОДАНО: renderKpi
 import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } from './modules/render.js';
 import { checkAuth, login, logout } from './modules/auth.js';
 import { 
@@ -28,12 +27,9 @@ checkAuth();
 initContextMenuListeners();
 
 // --- EXPOSE TO HTML (WINDOW) ---
-
-// UI & Theme
 window.toggleTheme = toggleTheme;
 window.triggerHaptic = triggerHaptic;
 
-// WRAPPER: Підставляємо місяць при відкритті вкладки KPI
 window.showAdminTab = (t) => {
     uiShowAdminTab(t);
     if (t === 'kpi') {
@@ -52,43 +48,35 @@ window.setMode = setMode;
 window.changeMonth = changeMonth;
 window.scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-// News
 window.formatText = formatText;
 window.updateFileName = updateFileName;
 
-// Auth
 window.login = login;
 window.logout = logout;
-// 🔥 НОВЕ: Функції реєстрації
+// Реєстрація
 window.toggleAuthMode = toggleAuthMode;
 window.registerUser = registerUser;
 
-// Admin Actions (Shifts)
 window.addShift = addShift;
 window.delS = delS;
 window.clearDay = clearDay;
 window.clearMonth = clearMonth;
 window.toggleShiftTimeInputs = toggleShiftTimeInputs;
 
-// Admin Actions (Tasks)
 window.addTask = addTask;
 window.deleteTask = deleteTask;
 window.toggleTaskTimeInputs = toggleTaskTimeInputs;
 
-// Admin Actions (Other)
 window.bulkImport = bulkImport;
 window.publishNews = publishNews;
 window.loadLogs = loadLogs;
 
-// KPI Actions
 window.importKpi = importKpi;
 window.saveKpiSettings = saveKpiSettings;
 
-// Requests
 window.approveAllRequests = approveAllRequests;
 window.handleRequest = handleRequest;
 
-// Settings & Modals
 window.openFilterModal = openFilterModal;
 window.closeFilterModal = closeFilterModal;
 window.applyFilter = applyFilter;
@@ -100,21 +88,18 @@ window.openChangePasswordModal = openChangePasswordModal;
 window.closeChangePasswordModal = closeChangePasswordModal;
 window.submitChangePassword = submitChangePassword;
 
-// Notes
 window.openNotesModal = openNotesModal;
 window.closeNotesModal = closeNotesModal;
 window.toggleNoteType = toggleNoteType;
 window.saveNote = saveNote;
 window.deleteNote = deleteNote;
 
-// Task Modal Proxy
 window.openTaskProxy = (id) => {
     const task = state.tasks.find(t => t._id === id);
     if(task) openTaskDetailsModal(task);
 };
 window.closeTaskDetailsModal = closeTaskDetailsModal;
 
-// Context Menu Proxy
 window.contextMenuProxy = (e, type, id) => {
     showContextMenu(e, type, id);
 };
@@ -146,7 +131,6 @@ async function changeMonth(d) {
 
 function setMode(m) {
     triggerHaptic();
-    
     const listDiv = document.getElementById('listViewContainer');
     const calDiv = document.getElementById('calendarViewContainer');
     const gridDiv = document.getElementById('gridViewContainer');
@@ -202,7 +186,7 @@ function setMode(m) {
     }
 }
 
-// --- 🔥 REGISTRATION LOGIC ---
+// --- REGISTRATION LOGIC ---
 
 async function toggleAuthMode(mode) {
     const loginContainer = document.getElementById('loginContainer');
@@ -212,10 +196,11 @@ async function toggleAuthMode(mode) {
         loginContainer.classList.add('hidden');
         registerContainer.classList.remove('hidden');
         
-        // Завантажуємо список магазинів
+        // Завантаження магазинів
         const storeSelect = document.getElementById('regStore');
-        if (storeSelect.options.length <= 1) { // Якщо ще не завантажили
+        if (storeSelect.options.length <= 1) { 
             try {
+                // Тут URL правильний (/api/stores), бо на бекенді ми прибрали дубль
                 const stores = await fetchJson('/api/stores');
                 storeSelect.innerHTML = '<option value="" disabled selected>Оберіть магазин</option>';
                 stores.forEach(s => {
@@ -254,14 +239,13 @@ async function registerUser() {
     btn.disabled = true;
 
     try {
-        const res = await postJson('/register', { fullName, username, password: pass, phone, email, storeCode });
+        // 🔥 ВИПРАВЛЕНО: Додав /api/register (бо postJson може не додавати префікс, а server.js чекає /api)
+        const res = await postJson('/api/register', { fullName, username, password: pass, phone, email, storeCode });
         
         if (res.success) {
             showToast('✅ Заявку надіслано! Очікуйте підтвердження SM.', 'info');
-            // Очищення полів
             document.getElementById('regPass').value = '';
             document.getElementById('regPassConfirm').value = '';
-            // Перехід на логін
             toggleAuthMode('login');
         } else {
             showToast('❌ ' + res.message, 'error');
@@ -274,50 +258,32 @@ async function registerUser() {
     }
 }
 
-// ... rest of the file (importKpi, saveKpiSettings, etc)
-
 async function importKpi() {
     const text = document.getElementById('kpiImportData').value;
     const month = document.getElementById('kpiMonthImport').value;
-
     if(!text) return showToast('Вставте текст таблиці', 'error');
     if(!month) return showToast('Оберіть місяць', 'error');
-
     const res = await postJson('/api/kpi/import', { text, month });
     if(res.success) {
         showToast(`Імпортовано: ${res.count} записів`);
         document.getElementById('kpiImportData').value = '';
-        
         const y = state.currentDate.getFullYear();
         const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
-        if (`${y}-${m}` === month) {
-            await loadKpiData();
-            renderKpi();
-        }
-    } else {
-        showToast('Помилка імпорту', 'error');
-    }
+        if (`${y}-${m}` === month) { await loadKpiData(); renderKpi(); }
+    } else { showToast('Помилка імпорту', 'error'); }
 }
 
 async function saveKpiSettings() {
     const month = document.getElementById('kpiMonthSettings').value;
     const normHours = document.getElementById('kpiNormHours').value;
-
     if(!month || !normHours) return showToast('Заповніть всі поля', 'error');
-
     const res = await postJson('/api/kpi/settings', { month, normHours });
     if(res.success) {
         showToast('Норму збережено ✅');
-        
         const y = state.currentDate.getFullYear();
         const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
-        if (`${y}-${m}` === month) {
-            await loadKpiData();
-            renderKpi();
-        }
-    } else {
-        showToast('Помилка збереження', 'error');
-    }
+        if (`${y}-${m}` === month) { await loadKpiData(); renderKpi(); }
+    } else { showToast('Помилка збереження', 'error'); }
 }
 
 async function loadKpiData() {
@@ -341,32 +307,22 @@ function initContextMenuListeners() {
         btnEdit.onclick = () => {
             const menu = document.getElementById('contextMenu');
             menu.classList.add('hidden');
-            
             if (activeContext.type === 'shift') {
                 const s = state.shifts.find(x => x._id === activeContext.id);
                 if (s) {
                     document.getElementById('shiftDate').value = s.date;
                     document.getElementById('employeeSelect').value = s.name;
-                    
-                    if (s.start === 'Відпустка') {
-                        document.getElementById('shiftVacation').checked = true;
-                    } else {
-                        document.getElementById('shiftVacation').checked = false;
-                        document.getElementById('startTime').value = s.start;
-                        document.getElementById('endTime').value = s.end;
-                    }
+                    if (s.start === 'Відпустка') { document.getElementById('shiftVacation').checked = true; } 
+                    else { document.getElementById('shiftVacation').checked = false; document.getElementById('startTime').value = s.start; document.getElementById('endTime').value = s.end; }
                     toggleShiftTimeInputs();
-                    
                     document.getElementById('adminPanel').classList.remove('hidden');
                     window.showAdminTab('shifts');
                     showToast('Дані заповнено. Відредагуйте та натисніть "Додати"', 'info');
-                    
                     document.getElementById('adminPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             }
         };
     }
-
     const btnCopy = document.getElementById('ctxCopy');
     if (btnCopy) {
         btnCopy.onclick = () => {
@@ -380,14 +336,11 @@ function initContextMenuListeners() {
             }
         };
     }
-
     const btnDelete = document.getElementById('ctxDelete');
     if (btnDelete) {
         btnDelete.onclick = () => {
             document.getElementById('contextMenu').classList.add('hidden');
-            if (activeContext.type === 'shift') {
-                delS(activeContext.id);
-            }
+            if (activeContext.type === 'shift') { delS(activeContext.id); }
         };
     }
 }
