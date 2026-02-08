@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-// ДОДАНО: MonthSettings та Store в імпорті
+// Зберігаємо важливі імпорти Store та MonthSettings
 const { User, Shift, Task, Event, Request, NewsPost, Note, AuditLog, KPI, MonthSettings, Store } = require('./models');
 const { logAction, handlePermission } = require('./utils');
 const { notifyUser, notifyRole, notifyAll, sendRequestToSM, getBot } = require('./bot');
@@ -30,6 +30,45 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// 🔥 НОВИЙ МАРШРУТ: Редагування користувача (для SM/Admin)
+router.post('/user/update', async (req, res) => {
+    const admin = await User.findById(req.session.userId);
+    if (!admin || (admin.role !== 'SM' && admin.role !== 'admin')) {
+        return res.status(403).json({ success: false, message: "Тільки SM може редагувати" });
+    }
+
+    try {
+        const { id, fullName, email, phone, position, grade, role, status } = req.body;
+        
+        // Знаходимо користувача, якого редагуємо
+        const userToEdit = await User.findById(id);
+        if (!userToEdit) return res.json({ success: false, message: "Користувача не знайдено" });
+
+        // Перевірка: SM може редагувати тільки свій магазин (якщо це не глобальний адмін)
+        if (admin.role === 'SM' && String(userToEdit.storeId) !== String(admin.storeId)) {
+            return res.status(403).json({ success: false, message: "Це не ваш співробітник" });
+        }
+
+        // Оновлюємо поля
+        if (fullName !== undefined) userToEdit.fullName = fullName;
+        if (email !== undefined) userToEdit.email = email;
+        if (phone !== undefined) userToEdit.phone = phone;
+        if (position !== undefined) userToEdit.position = position;
+        if (grade !== undefined) userToEdit.grade = Number(grade);
+        if (role !== undefined) userToEdit.role = role;
+        if (status !== undefined) userToEdit.status = status;
+
+        await userToEdit.save();
+        
+        logAction(admin.name, 'update_user', `Updated profile for ${userToEdit.name}`);
+        res.json({ success: true });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
 router.post('/user/change-password', async (req, res) => {
     if (!req.session.userId) return res.status(403).json({});
     try {
@@ -53,8 +92,15 @@ router.post('/user/change-password', async (req, res) => {
 
 router.post('/login-telegram', async (req, res) => { const { telegramId } = req.body; const user = await User.findOne({ telegramChatId: telegramId }); if (user) { req.session.userId = user._id; logAction(user.name, 'login', 'Tg Login'); req.session.save(() => res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar } })); } else res.json({ success: false }); });
 router.post('/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
+// ОНОВЛЕНО: Повертаємо більше інфо про юзерів для редагування
+router.get('/users', async (req, res) => { 
+    // Тільки авторизовані бачать список
+    if (!req.session.userId) return res.status(403).json([]);
+    const users = await User.find({}, 'name role avatar fullName email phone position grade status storeId'); 
+    res.json(users); 
+});
+
 router.get('/me', async (req, res) => { if (!req.session.userId) return res.json({ loggedIn: false }); const user = await User.findById(req.session.userId); res.json({ loggedIn: !!user, user: user ? { name: user.name, role: user.role, avatar: user.avatar } : null }); });
-router.get('/users', async (req, res) => { const users = await User.find({}, 'name role avatar'); res.json(users); });
 router.post('/user/avatar', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); await User.findByIdAndUpdate(req.session.userId, { avatar: req.body.avatar }); res.json({ success: true }); });
 router.get('/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); const s = await Shift.find(); res.json(s); });
 
@@ -333,70 +379,5 @@ router.post('/requests/approve-all', async (req, res) => {
 });
 
 router.post('/news/publish', upload.array('media', 10), async (req, res) => { const u = await User.findById(req.session.userId); if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({}); const bot = getBot(); const { text } = req.body; const files = req.files || []; const tgConfig = req.app.get('tgConfig'); const chatId = tgConfig.groupId; const topicId = tgConfig.topics.news; const opts = { parse_mode: 'HTML', message_thread_id: topicId }; const btn = { inline_keyboard: [[{ text: "✅ Ознайомлений", callback_data: 'read_news' }]] }; let sentMsg; if (!files.length) sentMsg = await bot.sendMessage(chatId, `📢 <b>Новини:</b>\n\n${text}`, { ...opts, reply_markup: btn }); else if (files.length === 1) { const f = files[0]; const fOpt = { filename: Buffer.from(f.originalname, 'latin1').toString('utf8'), contentType: f.mimetype }; if (f.mimetype.startsWith('image/')) sentMsg = await bot.sendPhoto(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn }, fOpt); else sentMsg = await bot.sendDocument(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn }, fOpt); } else { const allImg = files.every(f=>f.mimetype.startsWith('image/')); if(allImg) { const media = files.map((f,i)=>({type:'photo', media:f.buffer, caption: i===0?`📢 <b>Новини:</b>\n\n${text}`:'', parse_mode:'HTML'})); const msgs = await bot.sendMediaGroup(chatId, media, opts); sentMsg = msgs[0]; await bot.sendMessage(chatId, "👇 Підтвердити:", { ...opts, reply_to_message_id: sentMsg.message_id, reply_markup: btn }); } else { if(files[0].mimetype.startsWith('image/')) sentMsg = await bot.sendPhoto(chatId, files[0].buffer, {...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn}); else sentMsg = await bot.sendDocument(chatId, files[0].buffer, {...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn}, {filename: Buffer.from(files[0].originalname, 'latin1').toString('utf8')}); for(let i=1; i<files.length; i++) { const f=files[i]; const name=Buffer.from(f.originalname, 'latin1').toString('utf8'); if(f.mimetype.startsWith('image/')) await bot.sendPhoto(chatId, f.buffer, opts); else await bot.sendDocument(chatId, f.buffer, opts, {filename:name}); } } } await NewsPost.create({ messageId: sentMsg.message_id, chatId: sentMsg.chat.id, text, type: files.length?'file':'text', readBy:[] }); logAction(u.name, 'publish_news', 'Posted'); res.json({ success: true }); });
-
-// --- MIGRATION ROUTE (ОНОВЛЕНО З ФІКСОМ РОЛІ) ---
-router.get('/migrate', async (req, res) => {
-    try {
-        const DEFAULT_TELEGRAM_ID = null; // Впиши свій ID групи якщо знаєш
-
-        // 1. Магазин
-        let store = await Store.findOne({ code: 'iqos_space_sumy' });
-        if (!store) {
-            store = await Store.create({
-                name: 'IQOS Space Sumy',
-                code: 'iqos_space_sumy',
-                type: 'Експансія',
-                telegram: { chatId: DEFAULT_TELEGRAM_ID, newsTopicId: null, requestsTopicId: null, eveningTopicId: null }
-            });
-        }
-
-        // 2. Користувачі
-        const users = await User.find();
-        let updatedCount = 0;
-        
-        // Дозволені ролі
-        const validRoles = ['admin', 'SM', 'SSE', 'SE', 'RRP', 'Guest'];
-
-        for (const user of users) {
-            let changed = false;
-
-            // ФІКС НЕВАЛІДНОЇ РОЛІ (user -> SE)
-            if (!validRoles.includes(user.role)) {
-                console.log(`Fixing invalid role for ${user.name}: ${user.role} -> SE`);
-                user.role = 'SE'; 
-                changed = true;
-            }
-
-            // Прив'язка до магазину
-            if (!user.storeId) { user.storeId = store._id; changed = true; }
-            
-            // Статус
-            if (!user.status || user.status === 'pending') { user.status = 'active'; changed = true; }
-            
-            // Кадрові дані
-            if (user.position === 'None') {
-                if (user.role === 'admin' || user.role === 'SM') { user.position = 'SM'; user.grade = 7; }
-                else if (user.role === 'SSE') { user.position = 'SSE'; user.grade = 5; }
-                else if (user.role === 'SE') { user.position = 'SE'; user.grade = 3; }
-                else if (user.role === 'RRP') { user.position = 'RRP'; user.grade = 1; }
-                else { user.position = 'SE'; user.grade = 3; } // Fallback для 'user'
-                changed = true;
-            }
-            
-            if (!user.email) user.email = `${user.username}@example.com`;
-            if (!user.phone) user.phone = '-';
-            
-            if (changed) { 
-                await user.save(); 
-                updatedCount++; 
-            }
-        }
-
-        res.json({ success: true, message: `Міграцію виконано. Оновлено юзерів: ${updatedCount}`, storeId: store._id });
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
 
 module.exports = router;
