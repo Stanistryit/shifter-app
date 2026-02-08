@@ -101,7 +101,7 @@ exports.approveAllRequests = async (req, res) => {
     res.json({ success: true });
 };
 
-// --- NEWS ---
+// --- NEWS (UPDATED) ---
 exports.publishNews = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({});
@@ -111,36 +111,47 @@ exports.publishNews = async (req, res) => {
     const files = req.files || [];
     
     const store = await Store.findById(u.storeId);
+    
+    // 🔥 ВИПРАВЛЕНО: Перевіряємо тільки chatId. Топік не обов'язковий.
     if (!store || !store.telegram.chatId) return res.json({success: false, message: "Telegram не налаштовано"});
 
     const chatId = store.telegram.chatId;
     const topicId = store.telegram.newsTopicId;
     
-    const opts = { parse_mode: 'HTML', message_thread_id: topicId };
+    // 🔥 ВИПРАВЛЕНО: Динамічно додаємо топік
+    const opts = { parse_mode: 'HTML' };
+    if (topicId) opts.message_thread_id = topicId;
+
     const btn = { inline_keyboard: [[{ text: "✅ Ознайомлений", callback_data: 'read_news' }]] };
     
     let sentMsg;
     
-    if (!files.length) {
-        sentMsg = await bot.sendMessage(chatId, `📢 <b>Новини:</b>\n\n${text}`, { ...opts, reply_markup: btn });
-    } else if (files.length === 1) {
-        const f = files[0];
-        const fOpt = { filename: Buffer.from(f.originalname, 'latin1').toString('utf8'), contentType: f.mimetype };
-        if (f.mimetype.startsWith('image/')) sentMsg = await bot.sendPhoto(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn }, fOpt);
-        else sentMsg = await bot.sendDocument(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn }, fOpt);
-    } else {
-        const media = files.map((f, i) => ({
-            type: f.mimetype.startsWith('image/') ? 'photo' : 'document',
-            media: f.buffer,
-            caption: i === 0 ? `📢 <b>Новини:</b>\n\n${text}` : '',
-            parse_mode: 'HTML'
-        }));
-        const msgs = await bot.sendMediaGroup(chatId, media, opts);
-        sentMsg = msgs[0];
-        await bot.sendMessage(chatId, "👇 Підтвердити:", { ...opts, reply_to_message_id: sentMsg.message_id, reply_markup: btn });
-    }
+    try {
+        if (!files.length) {
+            sentMsg = await bot.sendMessage(chatId, `📢 <b>Новини:</b>\n\n${text}`, { ...opts, reply_markup: btn });
+        } else if (files.length === 1) {
+            const f = files[0];
+            const fOpt = { filename: Buffer.from(f.originalname, 'latin1').toString('utf8'), contentType: f.mimetype };
+            if (f.mimetype.startsWith('image/')) sentMsg = await bot.sendPhoto(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn }, fOpt);
+            else sentMsg = await bot.sendDocument(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn }, fOpt);
+        } else {
+            const media = files.map((f, i) => ({
+                type: f.mimetype.startsWith('image/') ? 'photo' : 'document',
+                media: f.buffer,
+                caption: i === 0 ? `📢 <b>Новини:</b>\n\n${text}` : '',
+                parse_mode: 'HTML'
+            }));
+            const msgs = await bot.sendMediaGroup(chatId, media, opts);
+            sentMsg = msgs[0];
+            await bot.sendMessage(chatId, "👇 Підтвердити:", { ...opts, reply_to_message_id: sentMsg.message_id, reply_markup: btn });
+        }
 
-    await NewsPost.create({ messageId: sentMsg.message_id, chatId: sentMsg.chat.id, text, type: files.length ? 'file' : 'text', readBy: [] });
-    logAction(u.name, 'publish_news', 'Posted');
-    res.json({ success: true });
+        await NewsPost.create({ messageId: sentMsg.message_id, chatId: sentMsg.chat.id, text, type: files.length ? 'file' : 'text', readBy: [] });
+        logAction(u.name, 'publish_news', 'Posted');
+        res.json({ success: true });
+        
+    } catch (error) {
+        console.error("News Error:", error.message);
+        res.json({ success: false, message: "Помилка відправки в Telegram" });
+    }
 };

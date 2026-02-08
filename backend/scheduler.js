@@ -182,7 +182,8 @@ const initScheduler = (tgConfig) => {
         const stores = await Store.find();
 
         for (const store of stores) {
-            if (!store.telegram.chatId || !store.telegram.eveningTopicId) continue;
+            // 🔥 ОНОВЛЕНО: Пропускаємо тільки якщо немає Chat ID. Топік не обов'язковий.
+            if (!store.telegram.chatId) continue;
 
             const storeUsers = await User.find({ storeId: store._id });
             const userNames = storeUsers.map(u => u.name);
@@ -199,10 +200,13 @@ const initScheduler = (tgConfig) => {
             });
 
             try {
-                await bot.sendMessage(store.telegram.chatId, msg, {
-                    parse_mode: 'HTML',
-                    message_thread_id: store.telegram.eveningTopicId
-                });
+                // 🔥 ОНОВЛЕНО: Формуємо опції динамічно
+                const opts = { parse_mode: 'HTML' };
+                if (store.telegram.eveningTopicId) {
+                    opts.message_thread_id = store.telegram.eveningTopicId;
+                }
+
+                await bot.sendMessage(store.telegram.chatId, msg, opts);
                 console.log(`✅ Вечірній звіт відправлено для ${store.name}`);
             } catch (e) {
                 console.error(`❌ Помилка вечірнього звіту для ${store.name}:`, e.message);
