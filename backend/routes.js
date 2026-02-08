@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-// Зберігаємо важливі імпорти Store та MonthSettings
+// Переконуємось, що Store імпортовано
 const { User, Shift, Task, Event, Request, NewsPost, Note, AuditLog, KPI, MonthSettings, Store } = require('./models');
 const { logAction, handlePermission } = require('./utils');
 const { notifyUser, notifyRole, notifyAll, sendRequestToSM, getBot } = require('./bot');
@@ -14,9 +14,12 @@ const axios = require('axios');
 // 1. Отримання списку магазинів (для реєстрації)
 router.get('/api/stores', async (req, res) => {
     try {
+        console.log('📥 Отримано запит на список магазинів...');
         const stores = await Store.find({}, 'name code type');
+        console.log(`✅ Знайдено магазинів: ${stores.length}`);
         res.json(stores);
     } catch (e) {
+        console.error('❌ Помилка завантаження магазинів:', e);
         res.status(500).json({ error: e.message });
     }
 });
@@ -25,6 +28,7 @@ router.get('/api/stores', async (req, res) => {
 router.post('/register', async (req, res) => {
     try {
         const { fullName, username, password, phone, email, storeCode } = req.body;
+        console.log(`👤 Реєстрація: ${username} в магазин ${storeCode}`);
 
         // Перевірка на унікальність логіна
         const existingUser = await User.findOne({ username });
@@ -35,6 +39,7 @@ router.post('/register', async (req, res) => {
         // Знаходимо магазин
         const store = await Store.findOne({ code: storeCode });
         if (!store) {
+            console.log(`❌ Магазин з кодом ${storeCode} не знайдено`);
             return res.json({ success: false, message: "Магазин не знайдено" });
         }
 
@@ -42,15 +47,14 @@ router.post('/register', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Створення користувача (Guest, Pending)
-        // Коротке ім'я беремо як перше слово з ПІП (або логін, якщо ПІП пустий)
+        // Коротке ім'я (для графіка)
         const shortName = fullName.split(' ')[0] || username; 
 
-        const newUser = await User.create({
+        await User.create({
             username,
             password: hashedPassword,
             fullName,
-            name: shortName, // Тимчасове ім'я для графіка
+            name: shortName,
             phone,
             email,
             storeId: store._id,
@@ -63,9 +67,7 @@ router.post('/register', async (req, res) => {
         // Сповіщення SM цього магазину
         const bot = getBot();
         if (bot) {
-            // Знаходимо SM цього магазину
             const managers = await User.find({ storeId: store._id, role: { $in: ['SM', 'admin'] } });
-            
             for (const sm of managers) {
                 if (sm.telegramChatId) {
                     try {
@@ -82,7 +84,7 @@ router.post('/register', async (req, res) => {
         res.json({ success: true });
 
     } catch (e) {
-        console.error(e);
+        console.error('❌ Помилка реєстрації:', e);
         res.status(500).json({ success: false, message: "Помилка сервера" });
     }
 });
@@ -92,19 +94,22 @@ router.post('/login', async (req, res) => {
         const { username, password } = req.body; 
         const user = await User.findOne({ username });
         
-        if (user && (await user.comparePassword(password))) {
-            // Перевірка статусу (якщо заблокований або pending)
+        if (user && (await user.comparePassword(password))) { 
             if (user.status === 'blocked') {
-                return res.json({ success: false, message: "Акаунт заблоковано" });
+                return res.json({ success: false, message: "Ваш акаунт заблоковано." });
             }
-            
-            // Якщо pending - пускаємо, але на фронті покажемо заглушку (це зробимо в app.js)
-            // Або можна не пускати:
-            // if (user.status === 'pending') return res.json({ success: false, message: "Очікуйте підтвердження SM" });
 
             req.session.userId = user._id; 
             logAction(user.name, 'login', 'Web Login'); 
-            req.session.save(() => res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar, status: user.status } })); 
+            req.session.save(() => res.json({ 
+                success: true, 
+                user: { 
+                    name: user.name, 
+                    role: user.role, 
+                    avatar: user.avatar,
+                    status: user.status 
+                } 
+            })); 
         } 
         else {
             res.json({ success: false, message: "Невірний логін або пароль" });
@@ -115,7 +120,7 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// 🔥 НОВИЙ МАРШРУТ: Редагування користувача (для SM/Admin)
+// 🔥 Оновлення користувача (SM/Admin)
 router.post('/user/update', async (req, res) => {
     const admin = await User.findById(req.session.userId);
     if (!admin || (admin.role !== 'SM' && admin.role !== 'admin')) {
@@ -125,16 +130,14 @@ router.post('/user/update', async (req, res) => {
     try {
         const { id, fullName, email, phone, position, grade, role, status } = req.body;
         
-        // Знаходимо користувача, якого редагуємо
         const userToEdit = await User.findById(id);
         if (!userToEdit) return res.json({ success: false, message: "Користувача не знайдено" });
 
-        // Перевірка: SM може редагувати тільки свій магазин (якщо це не глобальний адмін)
+        // Перевірка: SM редагує тільки своїх
         if (admin.role === 'SM' && String(userToEdit.storeId) !== String(admin.storeId)) {
             return res.status(403).json({ success: false, message: "Це не ваш співробітник" });
         }
 
-        // Оновлюємо поля
         if (fullName !== undefined) userToEdit.fullName = fullName;
         if (email !== undefined) userToEdit.email = email;
         if (phone !== undefined) userToEdit.phone = phone;
@@ -177,15 +180,24 @@ router.post('/user/change-password', async (req, res) => {
 
 router.post('/login-telegram', async (req, res) => { const { telegramId } = req.body; const user = await User.findOne({ telegramChatId: telegramId }); if (user) { req.session.userId = user._id; logAction(user.name, 'login', 'Tg Login'); req.session.save(() => res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar } })); } else res.json({ success: false }); });
 router.post('/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
-// ОНОВЛЕНО: Повертаємо більше інфо про юзерів для редагування
+
+// ОНОВЛЕНО: Список юзерів (фільтрація для SM)
 router.get('/users', async (req, res) => { 
-    // Тільки авторизовані бачать список
     if (!req.session.userId) return res.status(403).json([]);
-    const users = await User.find({}, 'name role avatar fullName email phone position grade status storeId'); 
+    
+    const currentUser = await User.findById(req.session.userId);
+    let query = {};
+    
+    // Якщо це SM, показуємо тільки його магазин
+    if (currentUser.role === 'SM') {
+        query.storeId = currentUser.storeId;
+    }
+
+    const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId'); 
     res.json(users); 
 });
 
-router.get('/me', async (req, res) => { if (!req.session.userId) return res.json({ loggedIn: false }); const user = await User.findById(req.session.userId); res.json({ loggedIn: !!user, user: user ? { name: user.name, role: user.role, avatar: user.avatar } : null }); });
+router.get('/me', async (req, res) => { if (!req.session.userId) return res.json({ loggedIn: false }); const user = await User.findById(req.session.userId); res.json({ loggedIn: !!user, user: user ? { name: user.name, role: user.role, avatar: user.avatar, status: user.status } : null }); });
 router.post('/user/avatar', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); await User.findByIdAndUpdate(req.session.userId, { avatar: req.body.avatar }); res.json({ success: true }); });
 router.get('/shifts', async (req, res) => { if (!req.session.userId) return res.status(403).json({}); const s = await Shift.find(); res.json(s); });
 
