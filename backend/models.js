@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 // 0. Схема Магазину (ОНОВЛЕНО)
 const storeSchema = new mongoose.Schema({
     name: { type: String, required: true }, 
-    // 🔥 ВИПРАВЛЕНО: enum тепер відповідає value з HTML (expansion, top, kiev)
     type: { type: String, enum: ['expansion', 'top', 'kiev', 'standard'], default: 'standard' }, 
     code: { type: String, unique: true, required: true }, 
     telegram: {
@@ -53,7 +52,10 @@ const shiftSchema = new mongoose.Schema({
     date: { type: String, required: true }, 
     name: { type: String, required: true },
     start: { type: String, required: true }, 
-    end: { type: String, required: true }    
+    end: { type: String, required: true },
+    // 🔥 НОВЕ: Прив'язка зміни до магазину. 
+    // default: null дозволяє нам не зламати старі записи до міграції.
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null } 
 });
 
 // 3. Схема Задачі
@@ -64,7 +66,9 @@ const taskSchema = new mongoose.Schema({
     description: { type: String, default: '' },
     isFullDay: { type: Boolean, default: false },
     start: { type: String, default: '' },
-    end: { type: String, default: '' }
+    end: { type: String, default: '' },
+    // 🔥 НОВЕ: Прив'язка задачі до магазину
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null } 
 });
 
 // 4. Схема Новин

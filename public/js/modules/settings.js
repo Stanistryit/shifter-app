@@ -3,6 +3,114 @@ import { fetchJson, postJson } from './api.js';
 import { showToast, triggerHaptic } from './ui.js';
 import { renderAll } from './render.js';
 
+// --- STORE DISPLAY & TRANSFER (🔥 НОВЕ) ---
+
+// Функція для відображення назви магазину в шапці
+export async function updateStoreDisplay() {
+    // Шукаємо повні дані про себе в списку юзерів (бо в state.currentUser може не бути storeId)
+    const me = state.users.find(u => u.name === state.currentUser?.name);
+    if (!me || !me.storeId) return;
+
+    try {
+        // Отримуємо список магазинів, щоб знайти назву за ID
+        const stores = await fetchJson('/api/stores'); // Це кешований запит, швидко
+        const myStore = stores.find(s => s._id === me.storeId || s.code === me.storeId); // На всяк випадок
+
+        if (myStore) {
+            const nameContainer = document.querySelector('#userNameDisplay').parentNode;
+            
+            // Видаляємо старий лейбл якщо є
+            const oldLabel = document.getElementById('storeNameLabel');
+            if (oldLabel) oldLabel.remove();
+
+            // Додаємо назву магазину
+            const label = document.createElement('div');
+            label.id = 'storeNameLabel';
+            label.className = "text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5";
+            label.innerText = myStore.name;
+            nameContainer.appendChild(label);
+        }
+    } catch (e) { console.error(e); }
+}
+
+export async function openTransferModal() {
+    closeAvatarModal(); // Закриваємо попереднє вікно
+    triggerHaptic();
+
+    // Знаходимо свій поточний магазин
+    const me = state.users.find(u => u.name === state.currentUser?.name);
+    const currentStoreId = me ? me.storeId : null;
+
+    // Завантажуємо магазини
+    let stores = [];
+    try {
+        stores = await fetchJson('/api/stores');
+    } catch (e) {
+        return showToast("Не вдалося завантажити список магазинів", 'error');
+    }
+
+    // Фільтруємо: прибираємо поточний
+    const availableStores = stores.filter(s => s._id !== currentStoreId);
+
+    // Створюємо HTML модального вікна динамічно
+    const modalHtml = `
+        <div id="transferModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="document.getElementById('transferModal').remove()"></div>
+            <div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up text-center">
+                <h3 class="font-bold text-xl mb-2">🔄 Переведення</h3>
+                <p class="text-sm text-gray-500 mb-6">Оберіть магазин, в який плануєте перейти. SM нової точки отримає запит.</p>
+                
+                <div class="relative mb-6 text-left">
+                    <label class="text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1 block">Новий магазин</label>
+                    <div class="relative">
+                        <select id="transferStoreSelect" class="ios-input bg-transparent appearance-none w-full p-3 border rounded-xl bg-gray-50 dark:bg-white/5">
+                            <option value="" disabled selected>Оберіть зі списку...</option>
+                            ${availableStores.map(s => `<option value="${s.code}">${s.name}</option>`).join('')}
+                        </select>
+                        <div class="absolute right-3 top-3.5 text-gray-400 pointer-events-none">▼</div>
+                    </div>
+                </div>
+
+                <button onclick="window.submitTransferRequest()" class="btn-primary bg-blue-600 shadow-lg shadow-blue-500/30 mb-3">Надіслати запит</button>
+                <button onclick="document.getElementById('transferModal').remove()" class="w-full py-3 text-red-500 font-medium hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-colors">Скасувати</button>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// Функція відправки (має бути глобальною, щоб HTML її бачив)
+window.submitTransferRequest = async function() {
+    const select = document.getElementById('transferStoreSelect');
+    const targetStoreCode = select.value;
+
+    if (!targetStoreCode) return showToast("Будь ласка, оберіть магазин", 'error');
+
+    const btn = document.querySelector('#transferModal .btn-primary');
+    const originalText = btn.innerText;
+    btn.innerText = "⏳ Надсилаю...";
+    btn.disabled = true;
+
+    try {
+        const res = await postJson('/api/user/transfer/request', { targetStoreCode });
+        
+        if (res.success) {
+            showToast(res.message || "Запит надіслано! ✅");
+            document.getElementById('transferModal').remove();
+        } else {
+            showToast(res.message || "Помилка", 'error');
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+    } catch (e) {
+        showToast("Помилка мережі", 'error');
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+};
+
+
 // --- FILTER ---
 
 export function openFilterModal() {
@@ -53,7 +161,23 @@ export function applyFilter(val) {
 
 export function openAvatarModal() {
     triggerHaptic();
-    document.getElementById('avatarModal').classList.remove('hidden');
+    const modal = document.getElementById('avatarModal');
+    modal.classList.remove('hidden');
+
+    // 🔥 ДОДАЄМО КНОПКУ ТРАНСФЕРУ, ЯКЩО ЇЇ ЩЕ НЕМАЄ
+    const container = modal.querySelector('.glass-modal');
+    // Перевіряємо, щоб не дублювати
+    if (!document.getElementById('btnOpenTransfer') && state.currentUser.role !== 'Guest') {
+        const btn = document.createElement('button');
+        btn.id = 'btnOpenTransfer';
+        btn.className = "w-full py-2 text-blue-500 font-medium text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors border-t border-gray-100 dark:border-gray-800 mt-2 flex items-center justify-center gap-2";
+        btn.innerHTML = "🔄 Змінити Магазин";
+        btn.onclick = openTransferModal;
+        
+        // Вставляємо перед блоком зміни паролю (він останній)
+        const lastDiv = container.lastElementChild; 
+        container.insertBefore(btn, lastDiv);
+    }
 }
 
 export function closeAvatarModal() {

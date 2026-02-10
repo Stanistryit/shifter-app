@@ -9,14 +9,15 @@ import { checkAuth, login, logout } from './modules/auth.js';
 import { 
     addShift, delS, clearDay, clearMonth, toggleShiftTimeInputs, 
     addTask, deleteTask, toggleTaskTimeInputs, bulkImport, publishNews,
-    createStore, loadStores, deleteStore // 🔥 НОВІ ІМПОРТИ
+    createStore, loadStores, deleteStore 
 } from './modules/admin.js';
 import { loadRequests, handleRequest, approveAllRequests } from './modules/requests.js';
 import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
 import { 
     openFilterModal, closeFilterModal, applyFilter, 
     openAvatarModal, closeAvatarModal, handleAvatarSelect, uploadAvatar, 
-    openChangePasswordModal, closeChangePasswordModal, submitChangePassword, loadLogs 
+    openChangePasswordModal, closeChangePasswordModal, submitChangePassword, loadLogs,
+    openTransferModal, updateStoreDisplay // 🔥 НОВІ ІМПОРТИ
 } from './modules/settings.js';
 
 const tg = window.Telegram.WebApp;
@@ -104,6 +105,9 @@ window.closeNotesModal = closeNotesModal;
 window.toggleNoteType = toggleNoteType;
 window.saveNote = saveNote;
 window.deleteNote = deleteNote;
+
+// 🔥 НОВІ ЕКСПОРТИ ТРАНСФЕРУ
+window.openTransferModal = openTransferModal;
 
 window.openTaskProxy = (id) => {
     const task = state.tasks.find(t => t._id === id);
@@ -354,3 +358,7 @@ function initContextMenuListeners() {
         };
     }
 }
+
+// 🔥 ОНОВЛЮЄМО НАЗВУ МАГАЗИНУ ПРИ СТАРТІ
+setInterval(updateStoreDisplay, 5000); // Оновлюємо кожні 5 сек (або можна 1 раз при loadData)
+setTimeout(updateStoreDisplay, 1000); // І один раз через секунду після старту

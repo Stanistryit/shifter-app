@@ -1,9 +1,10 @@
 process.env.NTBA_FIX_350 = 1;
-
+const axios = require('axios'); // 🔥 НОВЕ: Для запитів до свого ж API
 const TelegramBot = require('node-telegram-bot-api');
 const { User, Shift, Request, NewsPost, Task, AuditLog, PendingNotification, Store } = require('./models');
 
 let bot = null;
+let APP_URL = ''; // Збережемо URL додатку
 
 // --- 1. QUIET HOURS LOGIC (Черга повідомлень) ---
 const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
@@ -11,11 +12,9 @@ const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
     const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
     const hours = now.getHours();
 
-    // Тиха година: з 22:00 до 07:59
     const isQuietHour = hours >= 22 || hours < 8;
 
     if (isQuietHour) {
-        // Зберігаємо в базу, Scheduler відправить вранці
         await PendingNotification.create({ chatId, text });
         console.log(`zzz Повідомлення відкладено для ${chatId} (Тиха година)`);
     } else {
@@ -31,13 +30,13 @@ const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
 const initBot = (token, appUrl) => { 
     if (!token) return null;
     
+    APP_URL = appUrl; // Зберігаємо URL для внутрішніх запитів
     bot = new TelegramBot(token, { polling: false });
 
     bot.setWebHook(`${appUrl}/bot${token}`)
         .then(() => console.log("🤖 Telegram Bot: Webhook set successfully"))
         .catch(err => console.error("⚠️ Telegram Bot: Webhook connection failed:", err.message));
 
-    // Налаштування команд меню
     const commands = [
         { command: '/start', description: '🏠 Головне меню' },
         { command: '/now', description: '👀 Хто зараз на зміні' },
@@ -47,19 +46,12 @@ const initBot = (token, appUrl) => {
     ];
     bot.setMyCommands(commands).catch(e => {});
 
-    // --- ОБРОБНИКИ ПОДІЙ ---
-    
-    // Команди
     bot.onText(/\/start/, (msg) => handleStart(msg, appUrl));
     bot.onText(/\/login (.+) (.+)/, handleLogin);
     bot.onText(/\/link_store (.+)/, handleLinkStore);
     bot.onText(/\/link_news (.+)/, (msg, match) => handleLinkTopic(msg, match, 'news'));
     bot.onText(/\/link_evening (.+)/, (msg, match) => handleLinkTopic(msg, match, 'evening'));
-
-    // Текстові повідомлення (Кнопки меню)
     bot.on('message', handleMessage);
-
-    // Інлайн кнопки (Callback Queries)
     bot.on('callback_query', handleCallback);
 
     bot.on('polling_error', (e) => console.log(`[Polling Error] ${e.message}`));
@@ -69,7 +61,7 @@ const initBot = (token, appUrl) => {
     return bot;
 };
 
-// --- 3. HANDLERS (Логіка винесена сюди) ---
+// --- 3. HANDLERS ---
 
 const mainMenu = (appUrl) => ({
     keyboard: [
@@ -80,13 +72,11 @@ const mainMenu = (appUrl) => ({
     resize_keyboard: true
 });
 
-// Обробка /start
 const handleStart = (msg, appUrl) => {
     const txt = `👋 <b>Привіт! Це бот Shifter.</b>\n\nТут ти можеш:\n📅 Дивитись графік роботи\n👀 Бачити, хто зараз працює\n🔔 Отримувати нагадування про зміни\n\n🔐 <b>Доступ:</b>\nЩоб користуватися кнопками, треба авторизуватися:\n<code>/login логін пароль</code>`;
     bot.sendMessage(msg.chat.id, txt, { reply_markup: mainMenu(appUrl), parse_mode: 'HTML' });
 };
 
-// Обробка /login
 const handleLogin = async (msg, match) => {
     try {
         const u = await User.findOne({ username: match[1] }); 
@@ -100,7 +90,6 @@ const handleLogin = async (msg, match) => {
     } catch (e) { bot.sendMessage(msg.chat.id, "❌ Помилка сервера"); }
 };
 
-// Обробка прив'язки магазину
 const handleLinkStore = async (msg, match) => {
     const code = match[1].trim();
     const chatId = msg.chat.id;
@@ -114,7 +103,6 @@ const handleLinkStore = async (msg, match) => {
     } catch (e) { console.error(e); }
 };
 
-// Обробка прив'язки топіків
 const handleLinkTopic = async (msg, match, type) => {
     const code = match[1].trim();
     const chatId = msg.chat.id;
@@ -135,7 +123,6 @@ const handleLinkTopic = async (msg, match, type) => {
     } catch (e) { console.error(e); }
 };
 
-// Обробка текстових повідомлень
 const handleMessage = async (msg) => {
     if (!msg.text || msg.text.startsWith('/')) return;
     const chatId = msg.chat.id;
@@ -177,7 +164,7 @@ const handleMessage = async (msg) => {
         }
 
         for (const s of shifts) {
-            if (user.storeId && !storeUserNames.includes(s.name)) continue; // Фільтр по магазину
+            if (user.storeId && !storeUserNames.includes(s.name)) continue; 
             if(s.start === 'Відпустка') continue;
             const [h1,m1]=s.start.split(':').map(Number); const [h2,m2]=s.end.split(':').map(Number); const st=h1*60+m1; const en=h2*60+m2; 
             if(curMin>=st && curMin<en) {
@@ -196,7 +183,6 @@ const handleMessage = async (msg) => {
     }
 };
 
-// Обробка Callback Query (Натискання кнопок)
 const handleCallback = async (q) => {
     const uid = q.from.id;
     const data = q.data;
@@ -209,18 +195,14 @@ const handleCallback = async (q) => {
         
         let p = await NewsPost.findOne({messageId:q.message.reply_to_message ? q.message.reply_to_message.message_id : q.message.message_id});
         if(!p) p = await NewsPost.findOne({messageId: q.message.message_id});
-        
         if(!p) return bot.answerCallbackQuery(q.id, {text:'Старий пост'});
         if(p.readBy.includes(shortName)) return bot.answerCallbackQuery(q.id, {text:'Вже є', show_alert:true});
         
-        p.readBy.push(shortName); 
-        await p.save(); 
-        
+        p.readBy.push(shortName); await p.save(); 
         const readList = `\n\n👀 <b>Ознайомились:</b>\n${p.readBy.join(', ')}`;
         try {
             const baseText = p.text || "";
             const newContent = q.message.reply_to_message && p.type === 'file' ? "👇 Підтвердити:" + readList : baseText + readList;
-            
             if (q.message.caption !== undefined) {
                 await bot.editMessageCaption(newContent, { chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML', reply_markup: q.message.reply_markup });
             } else {
@@ -229,7 +211,6 @@ const handleCallback = async (q) => {
         } catch(e) {}
         bot.answerCallbackQuery(q.id, {text:`Дякую, ${shortName}! ✅`});
     }
-    
     // 2. Налаштування нагадувань
     else if (data.startsWith('set_remind_')) {
         const val = data.replace('set_remind_','');
@@ -237,14 +218,82 @@ const handleCallback = async (q) => {
         const u = await User.findOne({telegramChatId:uid});
         if(u){ u.reminderTime = dbVal; await u.save(); bot.answerCallbackQuery(q.id, {text: 'Збережено ✅'}); bot.sendMessage(q.message.chat.id, `✅ Режим сповіщень змінено.`); }
     }
-
-    // 3. Апрув/Відхилення (Користувачі та Запити)
+    // 3. 🔥 НОВЕ: Трансфери (переведення)
+    else if (data.startsWith('transfer_')) {
+        await handleTransferLogic(bot, q, uid, data);
+    }
+    // 4. Апрув/Відхилення (Користувачі та Запити)
     else if (data.startsWith('approve_') || data.startsWith('reject_')) {
         await handleApprovalLogic(bot, q, uid, data);
     }
 };
 
-// Винесена логіка апрувів
+// Логіка трансферів
+const handleTransferLogic = async (bot, q, uid, data) => {
+    const action = data.includes('approve') ? 'approve' : 'reject';
+    const requestId = data.split('_').pop();
+    const admin = await User.findOne({telegramChatId: uid});
+
+    if (!admin || (admin.role !== 'SM' && admin.role !== 'admin')) {
+        return bot.answerCallbackQuery(q.id, {text: '⛔️ Тільки для SM', show_alert: true});
+    }
+
+    try {
+        // Ми використовуємо внутрішній API або Model прямо тут.
+        // Для надійності краще викликати контролер, але оскільки це бот в тому ж процесі, 
+        // ми можемо викликати функцію контролера (якщо б вона була експортована), або зробити HTTP запит.
+        // Але найпростіше - зробити емуляцію запиту до API або прямий виклик логіки.
+        // Зробимо запит до локального API (щоб логіка була в одному місці).
+        
+        // Для цього нам треба сесію. Оскільки тут сесії немає, ми "хакнемо" систему, 
+        // змінивши контролер userController, щоб він не вимагав сесію, якщо ми передаємо adminId явно.
+        // Або просто продублюємо логіку тут? Ні, краще виклик.
+        
+        // В даному випадку, найпростіше - зробити запит через axios, якщо сервер запущений.
+        // Але ми не знаємо точно порт.
+        // Тому зробимо імпорт функції з контролера! 
+        
+        // ⚠️ Оскільки ми не хочемо ускладнювати архітектуру, ми зробимо прямий запит до БД тут,
+        // дублюючи частину логіки контролера respondTransfer. Це безпечніше і швидше.
+
+        const { Request, User, AuditLog } = require('./models');
+        const request = await Request.findById(requestId);
+        
+        if (!request) {
+            return bot.editMessageText(`⚠️ Запит вже не актуальний.`, {chat_id: q.message.chat.id, message_id: q.message.message_id});
+        }
+
+        if (action === 'approve') {
+            const targetUser = await User.findById(request.data.userId);
+            if (targetUser) {
+                targetUser.storeId = request.data.targetStoreId;
+                await targetUser.save();
+                
+                await AuditLog.create({
+                    performer: admin.name,
+                    action: 'approve_transfer',
+                    details: `${targetUser.name} moved to ${request.data.targetStoreName}`
+                });
+
+                if (targetUser.telegramChatId) {
+                    bot.sendMessage(targetUser.telegramChatId, `✅ <b>Вас переведено!</b>\n🏠 Новий магазин: <b>${request.data.targetStoreName}</b>`, {parse_mode: 'HTML'});
+                }
+            }
+            bot.editMessageText(`✅ <b>Прийнято</b> (SM: ${admin.name})\nСпівробітник переведений.`, {chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML'});
+        } else {
+            bot.editMessageText(`❌ <b>Відхилено</b> (SM: ${admin.name})`, {chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML'});
+            // Можна сповістити юзера про відмову
+        }
+
+        await Request.findByIdAndDelete(requestId);
+        bot.answerCallbackQuery(q.id, {text: 'Готово'});
+
+    } catch (e) {
+        console.error(e);
+        bot.answerCallbackQuery(q.id, {text: 'Помилка', show_alert: true});
+    }
+};
+
 const handleApprovalLogic = async (bot, q, uid, data) => {
     const action = data.includes('approve') ? 'approve' : 'reject';
     const type = data.includes('_user_') ? 'user' : 'req';
@@ -290,8 +339,6 @@ const handleApprovalLogic = async (bot, q, uid, data) => {
     }
     bot.answerCallbackQuery(q.id, {text: 'Готово'});
 };
-
-// --- EXPORTED NOTIFIERS (Використовуються в routes/scheduler) ---
 
 const notifyUser = async (name, msg) => { 
     if(!bot) return; 

@@ -10,6 +10,7 @@ const taskController = require('./controllers/taskController');
 const kpiController = require('./controllers/kpiController');
 const adminController = require('./controllers/adminController');
 const noteController = require('./controllers/noteController');
+const userController = require('./controllers/userController'); // 🔥 НОВЕ: Контролер користувачів
 
 // --- AUTH & USER ---
 router.get('/stores', authController.getStores);
@@ -23,7 +24,11 @@ router.get('/users', authController.getUsers);
 router.get('/me', authController.getMe);
 router.post('/user/avatar', authController.uploadAvatar);
 
-// --- STORES (Global Admin) --- 🔥 НОВЕ
+// --- USER TRANSFERS --- 🔥 НОВЕ
+router.post('/user/transfer/request', userController.requestTransfer); // Запит на перехід
+router.post('/user/transfer/respond', userController.respondTransfer); // Відповідь SM (так/ні)
+
+// --- STORES (Global Admin) ---
 router.post('/admin/stores/create', adminController.createStore);
 router.get('/admin/stores', adminController.getAllStores);
 router.post('/admin/stores/delete', adminController.deleteStore);
