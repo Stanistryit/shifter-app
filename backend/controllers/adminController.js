@@ -43,6 +43,39 @@ exports.deleteStore = async (req, res) => {
     }
 };
 
+// 🔥 НОВЕ: Збереження налаштувань магазину (час звіту)
+exports.updateStoreSettings = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    // Тільки SM або Admin (але в межах свого магазину)
+    if (!u || (u.role !== 'SM' && u.role !== 'admin')) {
+        return res.status(403).json({ success: false, message: "Тільки для SM" });
+    }
+
+    try {
+        const { reportTime } = req.body;
+        
+        // Валідація формату часу (HH:MM)
+        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+        if (!reportTime || !timeRegex.test(reportTime)) {
+            return res.json({ success: false, message: "Невірний формат часу (HH:MM)" });
+        }
+
+        const store = await Store.findById(u.storeId);
+        if (!store) return res.json({ success: false, message: "Магазин не знайдено" });
+
+        // Зберігаємо час
+        store.telegram.reportTime = reportTime;
+        await store.save();
+
+        logAction(u.name, 'update_settings', `Report Time changed to ${reportTime}`);
+        res.json({ success: true });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
 // --- LOGS ---
 exports.getLogs = async (req, res) => {
     const u = await User.findById(req.session.userId);

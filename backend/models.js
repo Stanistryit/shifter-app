@@ -10,10 +10,14 @@ const storeSchema = new mongoose.Schema({
         chatId: { type: Number, default: null },       
         newsTopicId: { type: Number, default: null },  
         requestsTopicId: { type: Number, default: null }, 
-        eveningTopicId: { type: Number, default: null }   
+        eveningTopicId: { type: Number, default: null },
+        // 🔥 НОВЕ: Кожен магазин має свій час звіту
+        reportTime: { type: String, default: "20:00" } 
     },
     createdAt: { type: Date, default: Date.now }
 });
+
+// ... (решта файлу без змін) ...
 
 // 1. Схема Користувача
 const userSchema = new mongoose.Schema({
@@ -53,9 +57,7 @@ const shiftSchema = new mongoose.Schema({
     name: { type: String, required: true },
     start: { type: String, required: true }, 
     end: { type: String, required: true },
-    // 🔥 НОВЕ: Прив'язка зміни до магазину. 
-    // default: null дозволяє нам не зламати старі записи до міграції.
-    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null } 
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }
 });
 
 // 3. Схема Задачі
@@ -67,8 +69,7 @@ const taskSchema = new mongoose.Schema({
     isFullDay: { type: Boolean, default: false },
     start: { type: String, default: '' },
     end: { type: String, default: '' },
-    // 🔥 НОВЕ: Прив'язка задачі до магазину
-    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null } 
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }
 });
 
 // 4. Схема Новин

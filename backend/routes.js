@@ -10,7 +10,7 @@ const taskController = require('./controllers/taskController');
 const kpiController = require('./controllers/kpiController');
 const adminController = require('./controllers/adminController');
 const noteController = require('./controllers/noteController');
-const userController = require('./controllers/userController'); // 🔥 НОВЕ: Контролер користувачів
+const userController = require('./controllers/userController'); 
 
 // --- AUTH & USER ---
 router.get('/stores', authController.getStores);
@@ -24,14 +24,17 @@ router.get('/users', authController.getUsers);
 router.get('/me', authController.getMe);
 router.post('/user/avatar', authController.uploadAvatar);
 
-// --- USER TRANSFERS --- 🔥 НОВЕ
-router.post('/user/transfer/request', userController.requestTransfer); // Запит на перехід
-router.post('/user/transfer/respond', userController.respondTransfer); // Відповідь SM (так/ні)
+// --- USER TRANSFERS ---
+router.post('/user/transfer/request', userController.requestTransfer);
+router.post('/user/transfer/respond', userController.respondTransfer);
 
 // --- STORES (Global Admin) ---
 router.post('/admin/stores/create', adminController.createStore);
 router.get('/admin/stores', adminController.getAllStores);
 router.post('/admin/stores/delete', adminController.deleteStore);
+
+// 🔥 НОВЕ: Збереження налаштувань магазину (час звіту)
+router.post('/admin/store/settings', adminController.updateStoreSettings); 
 
 // --- SHIFTS ---
 router.get('/shifts', shiftController.getShifts);
