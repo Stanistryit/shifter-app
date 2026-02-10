@@ -3,15 +3,13 @@ const { User, Shift, Task, PendingNotification, Store } = require('./models');
 const { getBot, notifyUser } = require('./bot');
 const { syncWithGoogleSheets } = require('./utils');
 
-// Конфігурація (тимчасово хардкод, поки не винесли в БД повністю)
-// Але краще брати з process.env або передавати в init
-const GOOGLE_SHEET_URL = ''; // Встав сюди свій URL, якщо він був у server.js
+// Конфігурація
+const GOOGLE_SHEET_URL = ''; 
 
 const initScheduler = (tgConfig) => {
     console.log("⏰ Scheduler: Initialized");
 
-    // 1. ХВИЛИННИЙ CRON (Тиха година) - Раніше було в bot.js (setInterval)
-    // Перевіряє чергу повідомлень щохвилини
+    // 1. ХВИЛИННИЙ CRON (Тиха година + Черга)
     cron.schedule('* * * * *', async () => {
         const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
         const hours = now.getHours();
@@ -28,7 +26,6 @@ const initScheduler = (tgConfig) => {
                     try {
                         await bot.sendMessage(p.chatId, p.text, {parse_mode: 'HTML'});
                         await PendingNotification.findByIdAndDelete(p._id);
-                        // Маленька затримка, щоб не спамити API
                         await new Promise(r => setTimeout(r, 100)); 
                     } catch (e) {
                         console.error(`Error sending pending msg: ${e.message}`);
@@ -38,7 +35,7 @@ const initScheduler = (tgConfig) => {
         }
     });
 
-    // 2. ЩОГОДИННИЙ CRON (Sync + Reminders) - Раніше було в server.js
+    // 2. ЩОГОДИННИЙ CRON (Sync + Reminders)
     cron.schedule('0 * * * *', async () => {
         console.log("⏰ Scheduler: Hourly tasks...");
         
@@ -102,114 +99,90 @@ const initScheduler = (tgConfig) => {
         }
     });
 
-    // 3. ЩОДЕННИЙ БРИФІНГ (18:00) - Раніше було в server.js
+    // 3. ЩОДЕННИЙ БРИФІНГ (20:00 за Києвом / 18:00 UTC)
+    // Єдине місце, яке формує звіт!
     cron.schedule('0 18 * * *', async () => {
-        console.log("⏰ Scheduler: Daily Briefing (18:00)");
-        const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-        const dateStr = tomorrow.toISOString().split('T')[0];
-        const display = tomorrow.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
-        
-        const shifts = await Shift.find({ date: dateStr }).sort({ start: 1 });
-        const tasks = await Task.find({ date: dateStr });
-        const allUsers = await User.find({ role: { $nin: ['admin', 'RRP'] } });
-        
-        let msg = `🌙 <b>План на завтра (${display}):</b>\n\n`;
-        const workingShifts = [];
-        const vacationShifts = [];
-        const scheduledNames = [];
-
-        shifts.forEach(s => {
-            scheduledNames.push(s.name);
-            if (s.start === 'Відпустка') vacationShifts.push(s);
-            else workingShifts.push(s);
-        });
-
-        if (workingShifts.length > 0) {
-            msg += `👷‍♂️ <b>На зміні:</b>\n`;
-            workingShifts.forEach(s => msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`);
-        } else if (vacationShifts.length === 0) {
-            msg += `🤷‍♂️ <b>Змін немає</b>\n`;
-        }
-
-        if (vacationShifts.length > 0) {
-            msg += `\n🌴 <b>Відпустка:</b>\n`;
-            vacationShifts.forEach(s => msg += `🔸 <b>${s.name}</b>\n`);
-        }
-
-        if (tasks.length) { 
-            msg += `\n📌 <b>Задачі:</b>\n`; 
-            tasks.forEach(t => { 
-                const time = t.isFullDay ? "Весь день" : `${t.start}-${t.end}`; 
-                msg += `▫️ <b>${t.name}</b>: ${t.title} (${time})\n`; 
-            }); 
-        }
-
-        const offUsers = allUsers.filter(u => !scheduledNames.includes(u.name));
-        if (offUsers.length > 0) { 
-            msg += `\n😴 <b>Вихідні:</b>\n`; 
-            const names = offUsers.map(u => { 
-                const parts = u.name.split(' '); 
-                return `🏠 ${parts.length > 1 ? parts[1] : parts[0]}`; 
-            }).join('\n'); 
-            msg += `${names}\n`; 
-        }
-        msg += `\nGood luck! 🚀`;
-
-        const bot = getBot(); 
-        if(bot) {
-            // ВІДПРАВКА В ОСНОВНИЙ МАГАЗИН (Legacy support або через loop по магазинах)
-            // Поки що використовуємо старий конфіг, якщо він переданий
-            if (tgConfig && tgConfig.groupId) {
-                try { await bot.sendMessage(tgConfig.groupId, msg, { parse_mode: 'HTML', message_thread_id: tgConfig.topics.schedule }); } catch (e) {}
-            }
-            // Сповіщення RRP
-            try { const rrp = await User.findOne({ role: 'RRP' }); if (rrp?.telegramChatId) await bot.sendMessage(rrp.telegramChatId, `🔔 <b>Звіт (RRP):</b>\n\n${msg}`, { parse_mode: 'HTML' }); } catch (e) {}
-        }
-    });
-
-    // 4. ВЕЧІРНІЙ ЗВІТ ПО МАГАЗИНАХ (21:00) - Раніше було в bot.js
-    cron.schedule('0 21 * * *', async () => {
-        console.log("⏰ Scheduler: Evening Store Report (21:00)");
+        console.log("⏰ Scheduler: Daily Briefing (20:00 UA)");
         const bot = getBot();
         if (!bot) return;
-        
-        const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
-        const tomorrow = new Date(now);
+
+        const tomorrow = new Date(); 
         tomorrow.setDate(tomorrow.getDate() + 1);
         const dateStr = tomorrow.toISOString().split('T')[0];
-        const dateDisplay = tomorrow.toLocaleDateString('uk-UA', {weekday: 'long', day: 'numeric', month: 'long'});
+        const display = tomorrow.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
 
+        // Отримуємо всі магазини
         const stores = await Store.find();
 
         for (const store of stores) {
-            // 🔥 ОНОВЛЕНО: Пропускаємо тільки якщо немає Chat ID. Топік не обов'язковий.
             if (!store.telegram.chatId) continue;
 
-            const storeUsers = await User.find({ storeId: store._id });
+            // 🔥 ВИПРАВЛЕНО: Виключаємо тільки RRP. Admin (якщо він прив'язаний до стору) тепер потрапляє у вибірку.
+            const storeUsers = await User.find({ storeId: store._id, role: { $ne: 'RRP' } });
             const userNames = storeUsers.map(u => u.name);
-            const shifts = await Shift.find({ date: dateStr, name: { $in: userNames } });
-            
-            if (shifts.length === 0) continue; 
 
-            let msg = `🌙 <b>Завтра (${dateDisplay}) працюють:</b>\n\n`;
-            shifts.sort((a, b) => a.start.localeCompare(b.start));
+            // Отримуємо зміни та задачі тільки для цього магазину
+            const shifts = await Shift.find({ date: dateStr, name: { $in: userNames } }).sort({ start: 1 });
+            const tasks = await Task.find({ date: dateStr, name: { $in: userNames } });
+
+            // Формуємо красиве повідомлення
+            let msg = `🌙 <b>План на завтра (${display}):</b>\n\n`;
+
+            const workingShifts = [];
+            const vacationShifts = [];
+            const scheduledNames = [];
 
             shifts.forEach(s => {
-                if (s.start === 'Відпустка') msg += `🌴 <b>${s.name}</b>: Відпустка\n`;
-                else msg += `👤 <b>${s.name}</b>: ${s.start} - ${s.end}\n`;
+                scheduledNames.push(s.name);
+                if (s.start === 'Відпустка') vacationShifts.push(s);
+                else workingShifts.push(s);
             });
 
-            try {
-                // 🔥 ОНОВЛЕНО: Формуємо опції динамічно
-                const opts = { parse_mode: 'HTML' };
-                if (store.telegram.eveningTopicId) {
-                    opts.message_thread_id = store.telegram.eveningTopicId;
-                }
+            // 1. На зміні
+            if (workingShifts.length > 0) {
+                msg += `👷‍♂️ <b>На зміні:</b>\n`;
+                workingShifts.forEach(s => msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`);
+            } else if (vacationShifts.length === 0) {
+                msg += `🤷‍♂️ <b>Змін немає</b>\n`;
+            }
 
+            // 2. Відпустка
+            if (vacationShifts.length > 0) {
+                msg += `\n🌴 <b>Відпустка:</b>\n`;
+                vacationShifts.forEach(s => msg += `🔸 <b>${s.name}</b>\n`);
+            }
+
+            // 3. Задачі
+            if (tasks.length) { 
+                msg += `\n📌 <b>Задачі:</b>\n`; 
+                tasks.forEach(t => { 
+                    const time = t.isFullDay ? "Весь день" : `${t.start}-${t.end}`; 
+                    msg += `▫️ <b>${t.name}</b>: ${t.title} (${time})\n`; 
+                }); 
+            }
+
+            // 4. Вихідні
+            const offUsers = storeUsers.filter(u => !scheduledNames.includes(u.name));
+            if (offUsers.length > 0) { 
+                msg += `\n😴 <b>Вихідні:</b>\n`; 
+                const names = offUsers.map(u => { 
+                    const parts = u.name.split(' '); 
+                    return `🏠 ${parts.length > 1 ? parts[1] : parts[0]}`; 
+                }).join('\n'); 
+                msg += `${names}\n`; 
+            }
+
+            msg += `\nGood luck! 🚀`;
+
+            // Відправка
+            try {
+                const opts = { parse_mode: 'HTML' };
+                if (store.telegram.eveningTopicId) opts.message_thread_id = store.telegram.eveningTopicId;
+                
                 await bot.sendMessage(store.telegram.chatId, msg, opts);
                 console.log(`✅ Вечірній звіт відправлено для ${store.name}`);
             } catch (e) {
-                console.error(`❌ Помилка вечірнього звіту для ${store.name}:`, e.message);
+                console.error(`❌ Помилка звіту для ${store.name}:`, e.message);
             }
         }
     });

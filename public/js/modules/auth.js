@@ -116,7 +116,10 @@ export async function loadData() {
         fetchJson('/api/notes')
     ]);
 
-    state.users = users.filter(u => u.role !== 'admin' && u.role !== 'RRP');
+    // 🔥 ВИПРАВЛЕНО: Тепер ми не ховаємо адмінів, тільки RRP
+    // Раніше було: u.role !== 'admin' && u.role !== 'RRP'
+    state.users = users.filter(u => u.role !== 'RRP');
+    
     state.shifts = shifts;
     state.tasks = tasks;
     state.notes = notes;
