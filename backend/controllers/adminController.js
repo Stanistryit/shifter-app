@@ -107,33 +107,38 @@ exports.publishNews = async (req, res) => {
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({});
     
     const bot = getBot();
-    const { text } = req.body;
+    const { text, requestRead } = req.body; // 🔥 Отримуємо стан чекбокса
     const files = req.files || [];
     
     const store = await Store.findById(u.storeId);
     
-    // 🔥 ВИПРАВЛЕНО: Перевіряємо тільки chatId. Топік не обов'язковий.
     if (!store || !store.telegram.chatId) return res.json({success: false, message: "Telegram не налаштовано"});
 
     const chatId = store.telegram.chatId;
     const topicId = store.telegram.newsTopicId;
     
-    // 🔥 ВИПРАВЛЕНО: Динамічно додаємо топік
     const opts = { parse_mode: 'HTML' };
     if (topicId) opts.message_thread_id = topicId;
 
+    // 🔥 Логіка кнопки
+    const shouldRequestRead = requestRead === 'true'; // FormData передає boolean як рядок
     const btn = { inline_keyboard: [[{ text: "✅ Ознайомлений", callback_data: 'read_news' }]] };
+    const replyMarkup = shouldRequestRead ? btn : undefined;
     
     let sentMsg;
     
     try {
         if (!files.length) {
-            sentMsg = await bot.sendMessage(chatId, `📢 <b>Новини:</b>\n\n${text}`, { ...opts, reply_markup: btn });
+            sentMsg = await bot.sendMessage(chatId, `📢 <b>Новини:</b>\n\n${text}`, { ...opts, reply_markup: replyMarkup });
         } else if (files.length === 1) {
             const f = files[0];
             const fOpt = { filename: Buffer.from(f.originalname, 'latin1').toString('utf8'), contentType: f.mimetype };
-            if (f.mimetype.startsWith('image/')) sentMsg = await bot.sendPhoto(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn }, fOpt);
-            else sentMsg = await bot.sendDocument(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: btn }, fOpt);
+            
+            if (f.mimetype.startsWith('image/')) {
+                sentMsg = await bot.sendPhoto(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: replyMarkup }, fOpt);
+            } else {
+                sentMsg = await bot.sendDocument(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: replyMarkup }, fOpt);
+            }
         } else {
             const media = files.map((f, i) => ({
                 type: f.mimetype.startsWith('image/') ? 'photo' : 'document',
@@ -142,8 +147,14 @@ exports.publishNews = async (req, res) => {
                 parse_mode: 'HTML'
             }));
             const msgs = await bot.sendMediaGroup(chatId, media, opts);
-            sentMsg = msgs[0];
-            await bot.sendMessage(chatId, "👇 Підтвердити:", { ...opts, reply_to_message_id: sentMsg.message_id, reply_markup: btn });
+            
+            // Якщо потрібне підтвердження - відправляємо окреме повідомлення з кнопкою
+            if (shouldRequestRead) {
+                sentMsg = await bot.sendMessage(chatId, "👇 Підтвердити:", { ...opts, reply_to_message_id: msgs[0].message_id, reply_markup: btn });
+            } else {
+                // Якщо ні - просто зберігаємо ID першого повідомлення альбому
+                sentMsg = msgs[0];
+            }
         }
 
         await NewsPost.create({ messageId: sentMsg.message_id, chatId: sentMsg.chat.id, text, type: files.length ? 'file' : 'text', readBy: [] });

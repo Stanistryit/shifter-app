@@ -160,7 +160,26 @@
                     <button onclick="addTask()" class="btn-primary bg-purple-500">Призначити</button>
                 </div>
                 <div id="adminTabImport" class="hidden space-y-3"><textarea id="importData" placeholder="2026-01-01 Ім'я 10:00 20:00" class="ios-input h-24 font-mono text-xs"></textarea><button onclick="bulkImport()" class="btn-primary bg-indigo-500">Завантажити</button></div>
-                <div id="adminTabNews" class="hidden space-y-3"><div class="flex gap-2 mb-1 overflow-x-auto pb-1"><button onclick="formatText('bold')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs font-bold">B</button><button onclick="formatText('italic')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs italic">I</button><button onclick="formatText('link')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs">🔗</button></div><textarea id="newsText" placeholder="Новина..." class="ios-input h-32 text-sm"></textarea><label class="flex-1 flex items-center justify-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity mt-2"><span class="text-xl">📎</span> <span id="fileName" class="text-xs truncate">Оберіть файли (можна декілька)</span><input type="file" id="newsFile" class="hidden" multiple onchange="updateFileName()"></label><button onclick="publishNews()" class="btn-primary bg-pink-500 mt-2">Опублікувати</button></div>
+                <div id="adminTabNews" class="hidden space-y-3">
+                    <div class="flex gap-2 mb-1 overflow-x-auto pb-1">
+                        <button onclick="formatText('bold')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs font-bold">B</button>
+                        <button onclick="formatText('italic')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs italic">I</button>
+                        <button onclick="formatText('link')" class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs">🔗</button>
+                    </div>
+                    <textarea id="newsText" placeholder="Новина..." class="ios-input h-32 text-sm"></textarea>
+                    
+                    <div class="flex items-center justify-between px-1">
+                        <span class="text-sm font-medium text-gray-500">Кнопка "Ознайомився"</span>
+                        <input type="checkbox" id="newsRequestRead" class="w-5 h-5 accent-pink-500 rounded" checked>
+                    </div>
+
+                    <label class="flex-1 flex items-center justify-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity mt-2">
+                        <span class="text-xl">📎</span> 
+                        <span id="fileName" class="text-xs truncate">Оберіть файли (можна декілька)</span>
+                        <input type="file" id="newsFile" class="hidden" multiple onchange="updateFileName()">
+                    </label>
+                    <button onclick="publishNews()" class="btn-primary bg-pink-500 mt-2">Опублікувати</button>
+                </div>
                 
                 <div id="adminTabKpi" class="hidden space-y-4">
                     <div class="bg-white dark:bg-[#2C2C2E] p-3 rounded-xl border border-gray-100 dark:border-gray-700">

@@ -154,11 +154,16 @@ export async function bulkImport() {
 export async function publishNews() {
     const text = document.getElementById('newsText').value;
     const files = document.getElementById('newsFile').files;
+    // 🔥 Зчитуємо стан чекбокса
+    const requestRead = document.getElementById('newsRequestRead').checked;
     
     if (!text && files.length === 0) return showToast("Введіть текст або файл", 'error');
     
     const formData = new FormData();
     formData.append('text', text);
+    // 🔥 Додаємо параметр до запиту
+    formData.append('requestRead', requestRead);
+
     for (let i = 0; i < files.length; i++) {
         formData.append('media', files[i]);
     }
@@ -173,6 +178,8 @@ export async function publishNews() {
             showToast("✅ Опубліковано!");
             document.getElementById('newsText').value = '';
             document.getElementById('newsFile').value = '';
+            // Скидаємо чекбокс на "увімкнено" за замовчуванням
+            document.getElementById('newsRequestRead').checked = true;
             updateFileName();
         } else showToast("Помилка публікації", 'error');
     } catch (e) {
@@ -183,7 +190,7 @@ export async function publishNews() {
     }
 }
 
-// --- GLOBAL ADMIN (STORES) --- 🔥 НОВЕ
+// --- GLOBAL ADMIN (STORES) ---
 
 export async function createStore() {
     const name = document.getElementById('newStoreName').value.trim();
