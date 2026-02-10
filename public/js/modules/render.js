@@ -258,7 +258,14 @@ export function renderTable() {
     });
     html += '</tbody></table>';
     tableDiv.innerHTML = html;
-    setTimeout(() => { const el = document.getElementById('todayColumn'); if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); }, 100);
+    
+    // 🔥 НОВЕ: Видаляємо клас анімації, щоб пофіксити sticky position
+    setTimeout(() => {
+        const el = document.getElementById('todayColumn'); 
+        if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        
+        if (container) container.classList.remove('animate-slide-up');
+    }, 600);
 }
 
 // --- НОВА ФУНКЦІЯ: ВІДКРИТТЯ МОДАЛКИ РЕДАГУВАННЯ ЮЗЕРА ---
