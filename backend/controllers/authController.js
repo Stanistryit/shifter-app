@@ -1,4 +1,4 @@
-const { User, Store } = require('../models');
+const { User, Store, Shift, Task } = require('../models'); // 🔥 Додано Shift та Task
 const { logAction } = require('../utils');
 const { getBot } = require('../bot');
 const bcrypt = require('bcryptjs');
@@ -121,7 +121,23 @@ exports.updateUser = async (req, res) => {
         if (position !== undefined) userToEdit.position = position;
         if (grade !== undefined) userToEdit.grade = Number(grade);
         if (role !== undefined) userToEdit.role = role;
-        if (status !== undefined) userToEdit.status = status;
+        
+        // 🔥 ОНОВЛЕНО: Логіка звільнення (авто-чистка графіку)
+        if (status !== undefined) {
+            userToEdit.status = status;
+            
+            if (status === 'blocked') {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+                // Видаляємо всі зміни та задачі починаючи з завтра
+                await Shift.deleteMany({ name: userToEdit.name, date: { $gte: tomorrowStr } });
+                await Task.deleteMany({ name: userToEdit.name, date: { $gte: tomorrowStr } });
+                
+                console.log(`🧹 [Auto-Clean] Видалено майбутній графік для звільненого: ${userToEdit.name}`);
+            }
+        }
 
         await userToEdit.save();
         logAction(admin.name, 'update_user', `Updated profile for ${userToEdit.name}`);
