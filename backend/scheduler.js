@@ -19,6 +19,7 @@ const initScheduler = (tgConfig) => {
         const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
         
         // --- A. Тиха година (Черга) ---
+        // Відправка черги дозволена з 08:00 до 21:59
         if (hours >= 8 && hours < 22) {
             const pending = await PendingNotification.find().sort({ createdAt: 1 });
             if (pending.length > 0) {

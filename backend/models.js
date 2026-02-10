@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-// 0. Схема Магазину (ОНОВЛЕНО)
+// 0. Схема Магазину
 const storeSchema = new mongoose.Schema({
     name: { type: String, required: true }, 
     type: { type: String, enum: ['expansion', 'top', 'kiev', 'standard'], default: 'standard' }, 
@@ -11,38 +11,31 @@ const storeSchema = new mongoose.Schema({
         newsTopicId: { type: Number, default: null },  
         requestsTopicId: { type: Number, default: null }, 
         eveningTopicId: { type: Number, default: null },
-        // 🔥 НОВЕ: Кожен магазин має свій час звіту
+        // 🔥 Час вечірнього звіту (за замовчуванням 20:00)
         reportTime: { type: String, default: "20:00" } 
     },
     createdAt: { type: Date, default: Date.now }
 });
 
-// ... (решта файлу без змін) ...
-
 // 1. Схема Користувача
 const userSchema = new mongoose.Schema({
-    // Auth info
     username: { type: String, unique: true, required: true }, 
     password: { type: String, required: true },
     
-    // Personal info
     fullName: { type: String, default: '' }, 
     email: { type: String, default: '' },
     phone: { type: String, default: '' },
     
-    // System info
     name: { type: String, required: true }, 
     avatar: { type: String, default: null }, 
     telegramChatId: { type: Number, default: null }, 
     
-    // Work info
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }, 
     role: { type: String, enum: ['admin', 'SM', 'SSE', 'SE', 'RRP', 'Guest'], default: 'Guest' }, 
     position: { type: String, enum: ['SM', 'SSE', 'SE', 'RRP', 'None'], default: 'None' }, 
     grade: { type: Number, default: 0 }, 
     status: { type: String, enum: ['pending', 'active', 'blocked'], default: 'active' }, 
     
-    // Settings
     reminderTime: { type: String, default: 'none' },
     tSalesCookie: { type: String, default: null }
 });
