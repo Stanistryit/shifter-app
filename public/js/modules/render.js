@@ -1,34 +1,39 @@
 import { state } from './state.js';
 import { triggerHaptic } from './ui.js';
-import { fetchJson, postJson } from './api.js'; // Додав імпорт postJson для блокування
+import { fetchJson, postJson } from './api.js'; 
 
-// --- ГОЛОВНА ФУНКЦІЯ РЕНДЕРУ ---
 export function renderAll() {
     renderTimeline();
     renderCalendar();
     renderTable();
-    // renderKpi викликається окремо через app.js при зміні режиму
 }
 
-// Хелпер для фільтрації користувачів (враховує звільнених)
+// 🔥 ОНОВЛЕНО: Хелпер для фільтрації та розумного сортування
 function getUsersForView(viewMonthStr) {
     let users = state.users;
     
-    // 1. Фільтр по імені (якщо обрано в меню)
     if (state.filter !== 'all') {
         users = users.filter(u => u.name === state.filter);
     }
 
-    // 2. Фільтр звільнених (показуємо тільки якщо є зміни в цьому місяці)
-    return users.filter(u => {
-        if (u.status !== 'blocked') return true; // Активних показуємо завжди
-        // Перевіряємо, чи є зміни в поточному місяці перегляду
+    let filtered = users.filter(u => {
+        // СЕБЕ ПОКАЗУЄМО ЗАВЖДИ (щоб ти ніколи не зникав зі свого екрану)
+        if (u.name === state.currentUser.name) return true; 
+
+        if (u.status !== 'blocked') return true; 
+        
         const hasShifts = state.shifts.some(s => s.name === u.name && s.date.startsWith(viewMonthStr));
         return hasShifts;
     });
+
+    // Сортуємо так, щоб поточний юзер ЗАВЖДИ був першим, а інші - за алфавітом
+    return filtered.sort((a, b) => {
+        if (a.name === state.currentUser.name) return -1;
+        if (b.name === state.currentUser.name) return 1;
+        return a.name.localeCompare(b.name);
+    });
 }
 
-// ... (renderTimeline та renderCalendar без змін - скоротив для зручності) ...
 export function renderTimeline() {
     const main = document.getElementById('scheduleView');
     main.innerHTML = '';
@@ -46,7 +51,6 @@ export function renderTimeline() {
     
     const dates = allDates.filter(d => d.startsWith(viewMonthStr)).sort();
     
-    // 🔥 ВИКОРИСТОВУЄМО НОВУ ЛОГІКУ ФІЛЬТРАЦІЇ
     let usersToShow = getUsersForView(viewMonthStr);
 
     let pastDaysCount = 0;
@@ -113,7 +117,6 @@ export function renderTimeline() {
             let avatarHtml = `<div class="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] overflow-hidden mr-2 border border-gray-300 dark:border-gray-600">👤</div>`;
             if(user.avatar) avatarHtml = `<div class="w-5 h-5 rounded-full overflow-hidden mr-2 border border-gray-300 dark:border-gray-600"><img src="${user.avatar}" class="w-full h-full object-cover"></div>`;
 
-            // Якщо юзер заблокований, додаємо візуальну мітку
             const blockedStyle = user.status === 'blocked' ? 'opacity-60 grayscale' : '';
 
             if (shift) {
@@ -144,7 +147,6 @@ export function renderTimeline() {
                     html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" ${ctxAttr} style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
                 }
             } else if (userTasks.length > 0) {
-                 // ... Tasks only logic
                  let tasksHtml = ''; userTasks.forEach(task => { if(!task.isFullDay) { 
                         const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number);
                         const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60;
@@ -191,7 +193,6 @@ export function renderCalendar() {
     }
 }
 
-// --- TABLE VIEW (GRID) ---
 export function renderTable() {
     const container = document.getElementById('gridViewContainer');
     const tableDiv = document.getElementById('gridViewTable');
@@ -224,9 +225,7 @@ export function renderTable() {
     }
     html += '</tr></thead><tbody>';
 
-    // 🔥 ВИКОРИСТОВУЄМО НОВУ ЛОГІКУ ФІЛЬТРАЦІЇ
     let usersToShow = getUsersForView(viewMonthStr);
-
     const canEditUser = ['SM', 'admin'].includes(state.currentUser.role);
 
     usersToShow.forEach(user => {
@@ -235,9 +234,13 @@ export function renderTable() {
         const editAttr = canEditUser ? `onclick="window.openEditUserProxy('${user._id}')" class="cursor-pointer hover:text-blue-500"` : '';
         const editIcon = canEditUser ? ' <span class="text-[9px] opacity-30">✏️</span>' : '';
         const blockedClass = user.status === 'blocked' ? 'opacity-50 grayscale' : '';
+        
+        // Підсвітка свого імені
+        const isMe = user.name === state.currentUser.name;
+        const meStyle = isMe ? 'bg-blue-50/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'bg-white dark:bg-[#1C1C1E]';
 
         html += `<tr class="h-10 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors ${blockedClass}">`;
-        html += `<td ${editAttr} class="sticky left-0 z-10 bg-white dark:bg-[#1C1C1E] px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[100px] shadow-sm">${shortName}${editIcon}</td>`;
+        html += `<td ${editAttr} class="sticky left-0 z-10 ${meStyle} px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[100px] shadow-sm">${shortName}${editIcon}</td>`;
         
         for(let d=1; d<=daysInMonth; d++) {
             const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -259,25 +262,20 @@ export function renderTable() {
     html += '</tbody></table>';
     tableDiv.innerHTML = html;
     
-    // 🔥 НОВЕ: Видаляємо клас анімації, щоб пофіксити sticky position
     setTimeout(() => {
         const el = document.getElementById('todayColumn'); 
         if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        
         if (container) container.classList.remove('animate-slide-up');
     }, 600);
 }
 
-// --- НОВА ФУНКЦІЯ: ВІДКРИТТЯ МОДАЛКИ РЕДАГУВАННЯ ЮЗЕРА ---
 window.openEditUserProxy = (userId) => {
     const user = state.users.find(u => u._id === userId);
     if (!user) return;
 
-    // Створюємо HTML для модалки динамічно
     const existingModal = document.getElementById('editUserModal');
     if (existingModal) existingModal.remove();
 
-    // 🔥 ЛОГІКА ГРЕЙДІВ (SE=3-4, SSE=5-6, SM=7-9)
     const gradesByPos = {
         'SE': [3, 4],
         'SSE': [5, 6],
@@ -285,7 +283,6 @@ window.openEditUserProxy = (userId) => {
         'RRP': [0]
     };
     
-    // Функція генерації options для грейдів
     const getGradeOptions = (pos, selectedGrade) => {
         const allowed = gradesByPos[pos] || [0];
         return allowed.map(g => `<option value="${g}" ${g === selectedGrade ? 'selected' : ''}>${g}</option>`).join('');
@@ -338,14 +335,18 @@ window.openEditUserProxy = (userId) => {
                         <option value="Guest" ${user.role==='Guest'?'selected':''}>Guest (Новачок)</option>
                         <option value="SE" ${user.role==='SE'?'selected':''}>SE</option>
                         <option value="SSE" ${user.role==='SSE'?'selected':''}>SSE</option>
-                        <option value="SM" ${user.role==='SM'?'selected':''}>SM</option> </select>
+                        <option value="SM" ${user.role==='SM'?'selected':''}>SM</option>
+                    </select>
                 </div>
 
                 <button onclick="saveUserChanges('${user._id}')" class="w-full py-3.5 bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 active:scale-95 transition-transform">💾 Зберегти зміни</button>
                 
                 ${user.status !== 'blocked' ? 
                     `<button onclick="window.blockUser('${user._id}')" class="w-full py-3 text-red-500 font-bold bg-red-50 dark:bg-red-900/10 rounded-xl hover:bg-red-100 transition-colors mt-2">🚫 Звільнити співробітника</button>` 
-                    : `<div class="text-center text-red-500 font-bold py-2">🔴 Співробітник звільнений</div>`
+                    : `
+                    <div class="text-center text-red-500 font-bold py-2 mt-2">🔴 Співробітник звільнений</div>
+                    <button onclick="window.restoreUser('${user._id}')" class="w-full py-3 text-green-600 font-bold bg-green-50 dark:bg-green-900/10 rounded-xl hover:bg-green-100 transition-colors mt-1">✅ Відновити співробітника</button>
+                    `
                 }
             </div>
         </div>
@@ -354,35 +355,22 @@ window.openEditUserProxy = (userId) => {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 };
 
-// Хелпер для оновлення грейдів при зміні посади
 window.updateGradeOptions = (pos) => {
-    const gradesByPos = {
-        'SE': [3, 4],
-        'SSE': [5, 6],
-        'SM': [7, 8, 9],
-        'RRP': [0]
-    };
+    const gradesByPos = { 'SE': [3, 4], 'SSE': [5, 6], 'SM': [7, 8, 9], 'RRP': [0] };
     const select = document.getElementById('edit_grade');
     const allowed = gradesByPos[pos] || [0];
     select.innerHTML = allowed.map(g => `<option value="${g}">${g}</option>`).join('');
 };
 
-// Функція звільнення
 window.blockUser = async (id) => {
     if(!confirm("Ви впевнені, що хочете звільнити цього співробітника?\n\nВін буде заблокований, а майбутні зміни (починаючи з завтра) будуть видалені.")) return;
-    
-    // Ми використовуємо той самий ендпоінт оновлення, просто ставимо статус 'blocked'
-    // Бекенд (authController.updateUser) просто оновить поле. 
-    // Видалення змін має відбутися або там, або окремим викликом.
-    // Поки що ми просто блокуємо доступ.
-    
-    // Щоб видалити майбутні зміни, нам би знадобився бекенд. 
-    // Але оскільки я зараз не можу правити бекенд, ми зробимо хитро:
-    // Ми просто оновимо статус. Графік залишиться візуально, але людина не зможе увійти.
-    // (Користувач просив: "графік співробітника повинен залишатись по день звільнення... А після звільнення, його вже не повинно бути ні в графіку-спіску, ні в графіку-таблиці")
-    // Наша функція getUsersForView вже це робить! Вона сховає юзера в майбутніх місяцях.
-    
     await window.saveUserChanges(id, { status: 'blocked' });
+};
+
+// 🔥 НОВА ФУНКЦІЯ ВІДНОВЛЕННЯ
+window.restoreUser = async (id) => {
+    if(!confirm("Ви впевнені, що хочете відновити цього співробітника?")) return;
+    await window.saveUserChanges(id, { status: 'active' });
 };
 
 window.saveUserChanges = async (id, overrideData = null) => {
@@ -402,7 +390,7 @@ window.saveUserChanges = async (id, overrideData = null) => {
     }
 
     const btn = document.querySelector('#editUserModal button[onclick^="save"]');
-    if(btn) btn.innerHTML = '⏳ Збереження...';
+    if(btn && !overrideData) btn.innerHTML = '⏳ Збереження...';
     
     try {
         const res = await fetch('/api/user/update', {
@@ -416,18 +404,15 @@ window.saveUserChanges = async (id, overrideData = null) => {
             const modal = document.getElementById('editUserModal');
             if(modal) modal.remove();
             
-            // Оновлюємо локальний стейт
             const idx = state.users.findIndex(u => u._id === id);
             if (idx !== -1) {
                 state.users[idx] = { ...state.users[idx], ...data };
                 if(data.grade) state.users[idx].grade = Number(data.grade);
             }
             
-            // Якщо це було звільнення - можна показати тост
-            if(data.status === 'blocked') triggerHaptic();
+            if(data.status === 'blocked' || data.status === 'active') triggerHaptic();
 
             renderTable(); 
-            // renderTimeline() теж бажано оновити, якщо ми в режимі списку
             const listContainer = document.getElementById('listViewContainer');
             if (!listContainer.classList.contains('hidden')) renderTimeline();
             
@@ -440,7 +425,6 @@ window.saveUserChanges = async (id, overrideData = null) => {
     }
 };
 
-// ... (renderKpi без змін) ...
 export function renderKpi() {
     const listDiv = document.getElementById('kpiList');
     const totalDiv = document.getElementById('kpiTotalCard');
