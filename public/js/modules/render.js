@@ -8,7 +8,7 @@ export function renderAll() {
     renderTable();
 }
 
-// 🔥 ОНОВЛЕНО: Хелпер для фільтрації та розумного сортування
+// Хелпер для фільтрації та розумного сортування
 function getUsersForView(viewMonthStr) {
     let users = state.users;
     
@@ -17,21 +17,37 @@ function getUsersForView(viewMonthStr) {
     }
 
     let filtered = users.filter(u => {
-        // СЕБЕ ПОКАЗУЄМО ЗАВЖДИ (щоб ти ніколи не зникав зі свого екрану)
         if (u.name === state.currentUser.name) return true; 
-
         if (u.status !== 'blocked') return true; 
-        
         const hasShifts = state.shifts.some(s => s.name === u.name && s.date.startsWith(viewMonthStr));
         return hasShifts;
     });
 
-    // Сортуємо так, щоб поточний юзер ЗАВЖДИ був першим, а інші - за алфавітом
     return filtered.sort((a, b) => {
         if (a.name === state.currentUser.name) return -1;
         if (b.name === state.currentUser.name) return 1;
         return a.name.localeCompare(b.name);
     });
+}
+
+// 🔥 НОВЕ: Хелпер для форматування імені ("Іванов Іван", посада SE -> "Іван І. SE")
+function getDisplayName(user) {
+    if (!user) return 'Анонім';
+    const nameToParse = user.fullName || user.name || '';
+    const parts = nameToParse.trim().split(/\s+/);
+    
+    let displayName = parts[0];
+    if (parts.length > 1) {
+        // Беремо ім'я (друге слово) + першу літеру прізвища (першого слова)
+        displayName = `${parts[1]} ${parts[0][0]}.`;
+    }
+    
+    // Додаємо посаду, якщо вона вказана
+    if (user.position && user.position !== 'None' && user.position !== 'Guest') {
+        displayName += ` ${user.position}`;
+    }
+    
+    return displayName;
 }
 
 export function renderTimeline() {
@@ -111,8 +127,10 @@ export function renderTimeline() {
         usersToShow.forEach(user => {
             const shift = state.shifts.find(s => s.date === dateStr && s.name === user.name);
             const userTasks = state.tasks.filter(t => t.date === dateStr && t.name === user.name);
-            const parts = user.name.split(' ');
-            const shortName = parts.length > 1 ? parts[1] : parts[0];
+            
+            // 🔥 ВИКОРИСТОВУЄМО НОВИЙ ФОРМАТ ІМЕНІ
+            const shortName = getDisplayName(user);
+            
             const hoursBadges = ` <span class="text-[9px] text-gray-400 font-normal">(${userHours[user.name]} год.)</span>`;
             let avatarHtml = `<div class="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] overflow-hidden mr-2 border border-gray-300 dark:border-gray-600">👤</div>`;
             if(user.avatar) avatarHtml = `<div class="w-5 h-5 rounded-full overflow-hidden mr-2 border border-gray-300 dark:border-gray-600"><img src="${user.avatar}" class="w-full h-full object-cover"></div>`;
@@ -208,7 +226,7 @@ export function renderTable() {
 
     let html = '<table class="w-full text-xs border-collapse">';
     html += '<thead><tr class="h-10 border-b border-gray-100 dark:border-gray-800">';
-    html += '<th class="sticky left-0 z-20 bg-gray-50 dark:bg-[#2C2C2E] px-2 text-left font-bold min-w-[100px] border-r border-gray-200 dark:border-gray-700 shadow-sm">Співробітник</th>';
+    html += '<th class="sticky left-0 z-20 bg-gray-50 dark:bg-[#2C2C2E] px-2 text-left font-bold min-w-[120px] border-r border-gray-200 dark:border-gray-700 shadow-sm">Співробітник</th>';
     for(let d=1; d<=daysInMonth; d++) {
         const isToday = isCurrentMonth && d === todayDate;
         const dateObj = new Date(y, m, d);
@@ -229,18 +247,18 @@ export function renderTable() {
     const canEditUser = ['SM', 'admin'].includes(state.currentUser.role);
 
     usersToShow.forEach(user => {
-        const parts = user.name.split(' ');
-        const shortName = parts.length > 1 ? parts[1] : parts[0];
+        // 🔥 ВИКОРИСТОВУЄМО НОВИЙ ФОРМАТ ІМЕНІ
+        const shortName = getDisplayName(user);
+        
         const editAttr = canEditUser ? `onclick="window.openEditUserProxy('${user._id}')" class="cursor-pointer hover:text-blue-500"` : '';
         const editIcon = canEditUser ? ' <span class="text-[9px] opacity-30">✏️</span>' : '';
         const blockedClass = user.status === 'blocked' ? 'opacity-50 grayscale' : '';
         
-        // Підсвітка свого імені
         const isMe = user.name === state.currentUser.name;
         const meStyle = isMe ? 'bg-blue-50/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'bg-white dark:bg-[#1C1C1E]';
 
         html += `<tr class="h-10 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors ${blockedClass}">`;
-        html += `<td ${editAttr} class="sticky left-0 z-10 ${meStyle} px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[100px] shadow-sm">${shortName}${editIcon}</td>`;
+        html += `<td ${editAttr} class="sticky left-0 z-10 ${meStyle} px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[120px] shadow-sm">${shortName}${editIcon}</td>`;
         
         for(let d=1; d<=daysInMonth; d++) {
             const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -367,7 +385,6 @@ window.blockUser = async (id) => {
     await window.saveUserChanges(id, { status: 'blocked' });
 };
 
-// 🔥 НОВА ФУНКЦІЯ ВІДНОВЛЕННЯ
 window.restoreUser = async (id) => {
     if(!confirm("Ви впевнені, що хочете відновити цього співробітника?")) return;
     await window.saveUserChanges(id, { status: 'active' });
@@ -524,7 +541,12 @@ export function renderKpi() {
         }
 
         const userObj = state.users.find(usr => usr.name === u.name);
-        let avatarHtml = `<div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 uppercase">${u.name.substring(0,2)}</div>`;
+        
+        // 🔥 ВИКОРИСТОВУЄМО НОВИЙ ФОРМАТ ІМЕНІ ДЛЯ KPI
+        const displayName = getDisplayName(userObj) || u.name;
+        const initial = displayName.substring(0, 2);
+        
+        let avatarHtml = `<div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 uppercase">${initial}</div>`;
         if (userObj && userObj.avatar) {
             avatarHtml = `<div class="w-8 h-8 rounded-full overflow-hidden border border-gray-200"><img src="${userObj.avatar}" class="w-full h-full object-cover"></div>`;
         }
@@ -546,7 +568,7 @@ export function renderKpi() {
                 <div class="flex items-center gap-3 mb-3">
                     ${avatarHtml}
                     <div>
-                        <div class="font-bold text-sm ${isMe ? 'text-blue-600' : ''}">${u.name}</div>
+                        <div class="font-bold text-sm ${isMe ? 'text-blue-600' : ''}">${displayName}</div>
                         <div class="text-[10px] text-gray-400">KPI Девайсів: ${s.devicesTarget ? Math.round(s.devices/s.devicesTarget*100) : 0}%</div>
                     </div>
                 </div>
