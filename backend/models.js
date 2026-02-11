@@ -145,18 +145,19 @@ const pendingNotificationSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-const Store = mongoose.model('Store', storeSchema);
-const User = mongoose.model('User', userSchema);
-const Shift = mongoose.model('Shift', shiftSchema);
-const Task = mongoose.model('Task', taskSchema);
-const NewsPost = mongoose.model('NewsPost', newsPostSchema);
-const Request = mongoose.model('Request', requestSchema);
-const Note = mongoose.model('Note', noteSchema);
-const AuditLog = mongoose.model('AuditLog', auditLogSchema);
-const Contact = mongoose.model('Contact', contactSchema);
-const Event = mongoose.model('Event', eventSchema);
-const KPI = mongoose.model('KPI', kpiSchema);
-const MonthSettings = mongoose.model('MonthSettings', monthSettingsSchema);
-const PendingNotification = mongoose.model('PendingNotification', pendingNotificationSchema);
+// 🔥 БЕЗПЕЧНА РЕЄСТРАЦІЯ МОДЕЛЕЙ (Фікс помилки OverwriteModelError)
+const Store = mongoose.models.Store || mongoose.model('Store', storeSchema);
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+const Shift = mongoose.models.Shift || mongoose.model('Shift', shiftSchema);
+const Task = mongoose.models.Task || mongoose.model('Task', taskSchema);
+const NewsPost = mongoose.models.NewsPost || mongoose.model('NewsPost', newsPostSchema);
+const Request = mongoose.models.Request || mongoose.model('Request', requestSchema);
+const Note = mongoose.models.Note || mongoose.model('Note', noteSchema);
+const AuditLog = mongoose.models.AuditLog || mongoose.model('AuditLog', auditLogSchema);
+const Contact = mongoose.models.Contact || mongoose.model('Contact', contactSchema);
+const Event = mongoose.models.Event || mongoose.model('Event', eventSchema);
+const KPI = mongoose.models.KPI || mongoose.model('KPI', kpiSchema);
+const MonthSettings = mongoose.models.MonthSettings || mongoose.model('MonthSettings', monthSettingsSchema);
+const PendingNotification = mongoose.models.PendingNotification || mongoose.model('PendingNotification', pendingNotificationSchema);
 
 module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event, KPI, MonthSettings, PendingNotification };
