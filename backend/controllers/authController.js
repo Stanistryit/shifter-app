@@ -1,16 +1,13 @@
-const { User, Store, Shift, Task } = require('../models'); // 🔥 Додано Shift та Task
+const { User, Store, Shift, Task } = require('../models'); 
 const { logAction } = require('../utils');
 const { getBot } = require('../bot');
 const bcrypt = require('bcryptjs');
 
 exports.getStores = async (req, res) => {
     try {
-        console.log('📥 Отримано запит на список магазинів...');
         const stores = await Store.find({}, 'name code type');
-        console.log(`✅ Знайдено магазинів: ${stores.length}`);
         res.json(stores);
     } catch (e) {
-        console.error('❌ Помилка завантаження магазинів:', e);
         res.status(500).json({ error: e.message });
     }
 };
@@ -18,7 +15,6 @@ exports.getStores = async (req, res) => {
 exports.register = async (req, res) => {
     try {
         const { fullName, username, password, phone, email, storeCode } = req.body;
-        console.log(`👤 Реєстрація: ${username} в магазин ${storeCode}`);
 
         const existingUser = await User.findOne({ username });
         if (existingUser) return res.json({ success: false, message: "Цей логін вже зайнятий" });
@@ -44,7 +40,6 @@ exports.register = async (req, res) => {
             grade: 0
         });
 
-        // Сповіщення SM
         const bot = getBot();
         if (bot) {
             const managers = await User.find({ storeId: store._id, role: { $in: ['SM', 'admin'] } });
@@ -95,7 +90,6 @@ exports.login = async (req, res) => {
             res.json({ success: false, message: "Невірний логін або пароль" });
         }
     } catch (e) {
-        console.error(e);
         res.status(500).json({ success: false });
     }
 };
@@ -122,7 +116,6 @@ exports.updateUser = async (req, res) => {
         if (grade !== undefined) userToEdit.grade = Number(grade);
         if (role !== undefined) userToEdit.role = role;
         
-        // 🔥 ОНОВЛЕНО: Логіка звільнення (авто-чистка графіку)
         if (status !== undefined) {
             userToEdit.status = status;
             
@@ -131,11 +124,8 @@ exports.updateUser = async (req, res) => {
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-                // Видаляємо всі зміни та задачі починаючи з завтра
                 await Shift.deleteMany({ name: userToEdit.name, date: { $gte: tomorrowStr } });
                 await Task.deleteMany({ name: userToEdit.name, date: { $gte: tomorrowStr } });
-                
-                console.log(`🧹 [Auto-Clean] Видалено майбутній графік для звільненого: ${userToEdit.name}`);
             }
         }
 
@@ -143,7 +133,6 @@ exports.updateUser = async (req, res) => {
         logAction(admin.name, 'update_user', `Updated profile for ${userToEdit.name}`);
         res.json({ success: true });
     } catch (e) {
-        console.error(e);
         res.status(500).json({ success: false, message: e.message });
     }
 };
@@ -188,7 +177,12 @@ exports.getUsers = async (req, res) => {
     if (!req.session.userId) return res.status(403).json([]);
     const currentUser = await User.findById(req.session.userId);
     let query = {};
-    if (currentUser.role === 'SM') { query.storeId = currentUser.storeId; }
+    
+    // 🔥 ВИПРАВЛЕНО: Тепер фільтрує для ВСІХ юзерів, крім глобального адміна
+    if (currentUser.role !== 'admin') { 
+        query.storeId = currentUser.storeId; 
+    }
+    
     const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId');
     res.json(users);
 };
