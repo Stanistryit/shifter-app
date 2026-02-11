@@ -5,7 +5,9 @@ export const state = {
     users: [],
     tasks: [],
     notes: [],
+    stores: [], // 🔥 Зберігаємо завантажені магазини
     filter: 'all',
+    selectedStoreFilter: 'all', 
     currentDate: new Date(),
     selectedNoteDate: null,
     noteType: 'private'

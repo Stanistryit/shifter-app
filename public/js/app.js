@@ -17,7 +17,7 @@ import {
     openFilterModal, closeFilterModal, applyFilter, 
     openAvatarModal, closeAvatarModal, handleAvatarSelect, uploadAvatar, 
     openChangePasswordModal, closeChangePasswordModal, submitChangePassword, loadLogs,
-    openTransferModal, updateStoreDisplay // 🔥 НОВІ ІМПОРТИ
+    openTransferModal, updateStoreDisplay 
 } from './modules/settings.js';
 
 const tg = window.Telegram.WebApp;
@@ -34,7 +34,6 @@ window.triggerHaptic = triggerHaptic;
 
 window.showAdminTab = (t) => {
     uiShowAdminTab(t);
-    // Логіка для KPI
     if (t === 'kpi') {
         const now = new Date();
         const mStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -43,7 +42,6 @@ window.showAdminTab = (t) => {
         if(inp1 && !inp1.value) inp1.value = mStr;
         if(inp2 && !inp2.value) inp2.value = mStr;
     }
-    // 🔥 Логіка для Global Admin
     if (t === 'global') {
         loadStores();
     }
@@ -60,7 +58,6 @@ window.updateFileName = updateFileName;
 
 window.login = login;
 window.logout = logout;
-// Реєстрація
 window.toggleAuthMode = toggleAuthMode;
 window.registerUser = registerUser;
 
@@ -78,7 +75,6 @@ window.bulkImport = bulkImport;
 window.publishNews = publishNews;
 window.loadLogs = loadLogs;
 
-// 🔥 НОВІ ФУНКЦІЇ В WINDOW
 window.createStore = createStore;
 window.loadStores = loadStores;
 window.deleteStore = deleteStore;
@@ -106,7 +102,6 @@ window.toggleNoteType = toggleNoteType;
 window.saveNote = saveNote;
 window.deleteNote = deleteNote;
 
-// 🔥 НОВІ ЕКСПОРТИ ТРАНСФЕРУ
 window.openTransferModal = openTransferModal;
 
 window.openTaskProxy = (id) => {
@@ -118,6 +113,54 @@ window.closeTaskDetailsModal = closeTaskDetailsModal;
 window.contextMenuProxy = (e, type, id) => {
     showContextMenu(e, type, id);
 };
+
+window.changeStoreFilter = (storeId) => {
+    triggerHaptic();
+    state.selectedStoreFilter = storeId;
+    renderAll();
+};
+
+async function initGlobalAdminFilter() {
+    if (!state.currentUser || state.currentUser.role !== 'admin') return;
+    if (document.getElementById('globalStoreFilterWrapper')) return;
+
+    try {
+        const stores = await fetchJson('/api/stores');
+        state.stores = stores; // 🔥 Зберігаємо магазини в state
+        const container = document.querySelector('.container');
+        const filterBtn = document.querySelector('button[onclick="openFilterModal()"]');
+
+        if (!container || !filterBtn) return;
+
+        if (!state.selectedStoreFilter) {
+            state.selectedStoreFilter = state.currentUser.storeId || 'all';
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.id = 'globalStoreFilterWrapper';
+        wrapper.className = 'ios-card w-full px-4 py-4 mb-4 flex justify-between items-center glass-panel active:scale-[0.98] transition-transform animate-slide-up';
+        
+        let optionsHtml = `<option value="all" ${state.selectedStoreFilter === 'all' ? 'selected' : ''}>🌍 Всі магазини</option>`;
+        stores.forEach(s => {
+            const isSelected = state.selectedStoreFilter === s._id ? 'selected' : '';
+            optionsHtml += `<option value="${s._id}" ${isSelected}>🏪 ${s.name}</option>`;
+        });
+
+        wrapper.innerHTML = `
+            <span class="text-sm font-semibold text-gray-500">Магазин (Admin)</span>
+            <div class="flex items-center gap-2">
+                <select onchange="changeStoreFilter(this.value)" dir="rtl" class="bg-transparent font-bold text-sm text-blue-500 outline-none appearance-none cursor-pointer">
+                    ${optionsHtml}
+                </select>
+                <span class="text-gray-300 text-xs pointer-events-none">▼</span>
+            </div>
+        `;
+
+        container.insertBefore(wrapper, filterBtn);
+    } catch (e) {
+        console.error("Failed to load stores for filter", e);
+    }
+}
 
 // --- GLOBAL UI LOGIC ---
 
@@ -157,13 +200,17 @@ function setMode(m) {
     kpiDiv.classList.add('hidden');
     
     const filterBtn = document.querySelector('button[onclick="openFilterModal()"]');
+    const globalFilterWrapper = document.getElementById('globalStoreFilterWrapper');
+
     if (filterBtn) {
         if (m === 'list') {
             filterBtn.classList.remove('hidden');
             filterBtn.classList.add('flex');
+            if (globalFilterWrapper) globalFilterWrapper.classList.remove('hidden');
         } else {
             filterBtn.classList.add('hidden');
             filterBtn.classList.remove('flex');
+            if (globalFilterWrapper) globalFilterWrapper.classList.add('hidden');
         }
     }
     
@@ -211,12 +258,11 @@ async function toggleAuthMode(mode) {
         loginContainer.classList.add('hidden');
         registerContainer.classList.remove('hidden');
         
-        // Завантаження магазинів
         const storeSelect = document.getElementById('regStore');
         if (storeSelect.options.length <= 1) { 
             try {
-                // Тут URL правильний (/api/stores), бо на бекенді ми прибрали дубль
                 const stores = await fetchJson('/api/stores');
+                state.stores = stores;
                 storeSelect.innerHTML = '<option value="" disabled selected>Оберіть магазин</option>';
                 stores.forEach(s => {
                     storeSelect.innerHTML += `<option value="${s.code}">${s.name}</option>`;
@@ -359,6 +405,6 @@ function initContextMenuListeners() {
     }
 }
 
-// 🔥 ОНОВЛЮЄМО НАЗВУ МАГАЗИНУ ПРИ СТАРТІ
-setInterval(updateStoreDisplay, 5000); // Оновлюємо кожні 5 сек (або можна 1 раз при loadData)
-setTimeout(updateStoreDisplay, 1000); // І один раз через секунду після старту
+setInterval(updateStoreDisplay, 5000); 
+setTimeout(updateStoreDisplay, 1000); 
+setInterval(initGlobalAdminFilter, 1500);

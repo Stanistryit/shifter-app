@@ -11,6 +11,10 @@ export function renderAll() {
 function getUsersForView(viewMonthStr) {
     let users = state.users;
     
+    if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
+        users = users.filter(u => String(u.storeId) === String(state.selectedStoreFilter));
+    }
+
     if (state.filter !== 'all') {
         users = users.filter(u => u.name === state.filter);
     }
@@ -132,7 +136,6 @@ export function renderTimeline() {
 
             const blockedStyle = user.status === 'blocked' ? 'opacity-60 grayscale' : '';
 
-            // 🔥 ВИПРАВЛЕНО: Збираємо HTML задач універсально для всіх станів
             let tasksHtml = ''; let badges = '';
             userTasks.forEach(task => {
                 if(task.isFullDay) {
@@ -153,7 +156,6 @@ export function renderTimeline() {
                 const ctxAttr = canEdit ? `oncontextmenu="window.contextMenuProxy(event, 'shift', '${shift._id}');"` : '';
                 
                 if (shift.start === 'Відпустка') {
-                    // Якщо відпустка - теж виводимо бейдж задачі (раптом SM призначив щось важливе)
                     html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-teal-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-teal-500 font-mono">Відпустка</span> ${badges}</div><div class="timeline-track" ${ctxAttr}><div class="shift-segment vacation-segment">ВІДПУСТКА 🌴</div></div></div>`;
                 } else {
                     const [sH, sM] = shift.start.split(':').map(Number);
@@ -164,7 +166,6 @@ export function renderTimeline() {
                     html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" ${ctxAttr} style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
                 }
             } else if (userTasks.length > 0) {
-                 // 🔥 ВИПРАВЛЕНО: Тепер badges будуть виводитись поруч з текстом "Тільки задача"
                  html += `<div class="opacity-80 ${blockedStyle}"><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span> ${badges}</div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;
             } else {
                 html += `<div class="opacity-40 ${blockedStyle}"><div class="flex items-center justify-between text-xs mb-1 text-gray-400"><div>${avatarHtml} <span>${shortName}</span> ${hoursBadges}</div> <span>Вихідний</span></div><div class="h-[1px] bg-gray-200 dark:bg-gray-800 rounded w-full mt-3 mb-4"></div></div>`;
@@ -298,6 +299,27 @@ window.openEditUserProxy = (userId) => {
         return allowed.map(g => `<option value="${g}" ${g === selectedGrade ? 'selected' : ''}>${g}</option>`).join('');
     };
 
+    // 🔥 НОВЕ: Селект для зміни магазину (тільки для Admin)
+    let storeSelectHtml = '';
+    if (state.currentUser.role === 'admin') {
+        let options = `<option value="null" ${!user.storeId ? 'selected' : ''}>Без магазину (Null)</option>`;
+        if (state.stores) {
+            state.stores.forEach(s => {
+                const isSelected = String(user.storeId) === String(s._id) ? 'selected' : '';
+                options += `<option value="${s._id}" ${isSelected}>🏪 ${s.name}</option>`;
+            });
+        }
+        
+        storeSelectHtml = `
+            <div class="mt-3 p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl">
+                <label class="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">Прив'язка до магазину</label>
+                <select id="edit_storeId" class="w-full p-2 bg-white dark:bg-[#1C1C1E] border border-blue-200 dark:border-blue-800 rounded-lg outline-none text-sm">
+                    ${options}
+                </select>
+            </div>
+        `;
+    }
+
     const modalHtml = `
     <div id="editUserModal" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center pointer-events-none">
         <div class="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onclick="document.getElementById('editUserModal').remove()"></div>
@@ -346,10 +368,13 @@ window.openEditUserProxy = (userId) => {
                         <option value="SE" ${user.role==='SE'?'selected':''}>SE</option>
                         <option value="SSE" ${user.role==='SSE'?'selected':''}>SSE</option>
                         <option value="SM" ${user.role==='SM'?'selected':''}>SM</option>
+                        ${state.currentUser.role === 'admin' ? `<option value="admin" ${user.role==='admin'?'selected':''}>Global Admin</option>` : ''}
                     </select>
                 </div>
+                
+                ${storeSelectHtml}
 
-                <button onclick="saveUserChanges('${user._id}')" class="w-full py-3.5 bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 active:scale-95 transition-transform">💾 Зберегти зміни</button>
+                <button onclick="saveUserChanges('${user._id}')" class="w-full py-3.5 bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 active:scale-95 transition-transform mt-2">💾 Зберегти зміни</button>
                 
                 ${user.status !== 'blocked' ? 
                     `<button onclick="window.blockUser('${user._id}')" class="w-full py-3 text-red-500 font-bold bg-red-50 dark:bg-red-900/10 rounded-xl hover:bg-red-100 transition-colors mt-2">🚫 Звільнити співробітника</button>` 
@@ -396,6 +421,12 @@ window.saveUserChanges = async (id, overrideData = null) => {
             grade: document.getElementById('edit_grade').value,
             role: document.getElementById('edit_role').value
         };
+        
+        // 🔥 НОВЕ: Збираємо вибраний магазин (Тільки для Admin)
+        const storeSelect = document.getElementById('edit_storeId');
+        if (storeSelect) {
+            data.storeId = storeSelect.value;
+        }
     }
 
     const btn = document.querySelector('#editUserModal button[onclick^="save"]');
@@ -417,6 +448,8 @@ window.saveUserChanges = async (id, overrideData = null) => {
             if (idx !== -1) {
                 state.users[idx] = { ...state.users[idx], ...data };
                 if(data.grade) state.users[idx].grade = Number(data.grade);
+                // Оновлюємо збережений storeId локально
+                if(data.storeId) state.users[idx].storeId = data.storeId === 'null' ? null : data.storeId;
             }
             
             if(data.status === 'blocked' || data.status === 'active') triggerHaptic();
@@ -466,6 +499,13 @@ export function renderKpi() {
 
     const totalData = kpi.find(k => k.name === 'TOTAL');
     let usersData = kpi.filter(k => k.name !== 'TOTAL');
+
+    if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
+        usersData = usersData.filter(k => {
+            const u = state.users.find(user => user.name === k.name);
+            return u && String(u.storeId) === String(state.selectedStoreFilter);
+        });
+    }
 
     usersData.sort((a, b) => {
         if (a.name === state.currentUser.name) return -1;

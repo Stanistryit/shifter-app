@@ -101,7 +101,7 @@ exports.updateUser = async (req, res) => {
     }
 
     try {
-        const { id, fullName, email, phone, position, grade, role, status } = req.body;
+        const { id, fullName, email, phone, position, grade, role, status, storeId } = req.body;
         const userToEdit = await User.findById(id);
         if (!userToEdit) return res.json({ success: false, message: "Користувача не знайдено" });
 
@@ -115,6 +115,11 @@ exports.updateUser = async (req, res) => {
         if (position !== undefined) userToEdit.position = position;
         if (grade !== undefined) userToEdit.grade = Number(grade);
         if (role !== undefined) userToEdit.role = role;
+        
+        // 🔥 НОВЕ: Глобальний адмін може змінювати магазин співробітника
+        if (admin.role === 'admin' && storeId !== undefined) {
+            userToEdit.storeId = storeId === 'null' ? null : storeId;
+        }
         
         if (status !== undefined) {
             userToEdit.status = status;
@@ -178,7 +183,6 @@ exports.getUsers = async (req, res) => {
     const currentUser = await User.findById(req.session.userId);
     let query = {};
     
-    // 🔥 ВИПРАВЛЕНО: Тепер фільтрує для ВСІХ юзерів, крім глобального адміна
     if (currentUser.role !== 'admin') { 
         query.storeId = currentUser.storeId; 
     }
