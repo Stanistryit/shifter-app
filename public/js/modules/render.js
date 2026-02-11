@@ -8,7 +8,6 @@ export function renderAll() {
     renderTable();
 }
 
-// Хелпер для фільтрації та розумного сортування
 function getUsersForView(viewMonthStr) {
     let users = state.users;
     
@@ -30,7 +29,6 @@ function getUsersForView(viewMonthStr) {
     });
 }
 
-// 🔥 НОВЕ: Хелпер для форматування імені ("Іванов Іван", посада SE -> "Іван І. SE")
 function getDisplayName(user) {
     if (!user) return 'Анонім';
     const nameToParse = user.fullName || user.name || '';
@@ -38,11 +36,9 @@ function getDisplayName(user) {
     
     let displayName = parts[0];
     if (parts.length > 1) {
-        // Беремо ім'я (друге слово) + першу літеру прізвища (першого слова)
         displayName = `${parts[1]} ${parts[0][0]}.`;
     }
     
-    // Додаємо посаду, якщо вона вказана
     if (user.position && user.position !== 'None' && user.position !== 'Guest') {
         displayName += ` ${user.position}`;
     }
@@ -128,7 +124,6 @@ export function renderTimeline() {
             const shift = state.shifts.find(s => s.date === dateStr && s.name === user.name);
             const userTasks = state.tasks.filter(t => t.date === dateStr && t.name === user.name);
             
-            // 🔥 ВИКОРИСТОВУЄМО НОВИЙ ФОРМАТ ІМЕНІ
             const shortName = getDisplayName(user);
             
             const hoursBadges = ` <span class="text-[9px] text-gray-400 font-normal">(${userHours[user.name]} год.)</span>`;
@@ -137,42 +132,40 @@ export function renderTimeline() {
 
             const blockedStyle = user.status === 'blocked' ? 'opacity-60 grayscale' : '';
 
+            // 🔥 ВИПРАВЛЕНО: Збираємо HTML задач універсально для всіх станів
+            let tasksHtml = ''; let badges = '';
+            userTasks.forEach(task => {
+                if(task.isFullDay) {
+                    const clickAttr = `onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();"`;
+                    badges += `<span ${clickAttr} class="ml-2 text-[10px] text-purple-600 font-bold border border-purple-200 bg-purple-50 px-1 rounded cursor-pointer active:scale-95">★ ${task.title}</span>`;
+                } else if (task.start && task.end && (!shift || shift.start !== 'Відпустка')) {
+                    const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number);
+                    const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60;
+                    let tLeft = ((tStartD - dayStart) / totalHours) * 100; let tWidth = ((tEndD - tStartD) / totalHours) * 100;
+                    if(tLeft < 0) { tWidth += tLeft; tLeft = 0; } if(tLeft + tWidth > 100) tWidth = 100 - tLeft;
+                    tasksHtml += `<div class="task-segment flex items-center justify-center text-[10px]" style="left:${tLeft}%; width:${tWidth}%;" onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();">📌</div>`;
+                }
+            });
+
             if (shift) {
                 const isMe = shift.name === state.currentUser.name;
                 const canEdit = ['admin','SM','SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP';
                 const ctxAttr = canEdit ? `oncontextmenu="window.contextMenuProxy(event, 'shift', '${shift._id}');"` : '';
+                
                 if (shift.start === 'Відпустка') {
-                    html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-teal-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-teal-500 font-mono">Відпустка</span></div><div class="timeline-track" ${ctxAttr}><div class="shift-segment vacation-segment">ВІДПУСТКА 🌴</div></div></div>`;
+                    // Якщо відпустка - теж виводимо бейдж задачі (раптом SM призначив щось важливе)
+                    html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-teal-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-teal-500 font-mono">Відпустка</span> ${badges}</div><div class="timeline-track" ${ctxAttr}><div class="shift-segment vacation-segment">ВІДПУСТКА 🌴</div></div></div>`;
                 } else {
                     const [sH, sM] = shift.start.split(':').map(Number);
                     const [eH, eM] = shift.end.split(':').map(Number);
                     const startDecimal = sH + sM/60; const endDecimal = eH + eM/60;
                     let left = ((startDecimal - dayStart) / totalHours) * 100; let width = ((endDecimal - startDecimal) / totalHours) * 100;
                     if(left < 0) { width += left; left = 0; } if(left + width > 100) width = 100 - left; if(width < 0) width = 0;
-                    let tasksHtml = ''; let badges = '';
-                    userTasks.forEach(task => {
-                        if(task.isFullDay) {
-                            const clickAttr = `onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();"`;
-                            badges += `<span ${clickAttr} class="ml-2 text-[10px] text-purple-600 font-bold border border-purple-200 bg-purple-50 px-1 rounded cursor-pointer active:scale-95">★ ${task.title}</span>`;
-                        } else {
-                            const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number);
-                            const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60;
-                            let tLeft = ((tStartD - dayStart) / totalHours) * 100; let tWidth = ((tEndD - tStartD) / totalHours) * 100;
-                            if(tLeft < 0) { tWidth += tLeft; tLeft = 0; } if(tLeft + tWidth > 100) tWidth = 100 - tLeft;
-                            tasksHtml += `<div class="task-segment flex items-center justify-center text-[10px]" style="left:${tLeft}%; width:${tWidth}%;" onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();">📌</div>`;
-                        }
-                    });
                     html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe?'text-blue-600 font-bold':'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe?'my-shift':''}" ${ctxAttr} style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
                 }
             } else if (userTasks.length > 0) {
-                 let tasksHtml = ''; userTasks.forEach(task => { if(!task.isFullDay) { 
-                        const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number);
-                        const tStartD = tS_h + tS_m/60; const tEndD = tE_h + tE_m/60;
-                        let tLeft = ((tStartD - dayStart) / totalHours) * 100; let tWidth = ((tEndD - tStartD) / totalHours) * 100;
-                        if(tLeft < 0) { tWidth += tLeft; tLeft = 0; } if(tLeft + tWidth > 100) tWidth = 100 - tLeft;
-                        tasksHtml += `<div class="task-segment flex items-center justify-center text-[10px]" style="left:${tLeft}%; width:${tWidth}%;" onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();">📌</div>`; 
-                 }});
-                 html += `<div class="opacity-80 ${blockedStyle}"><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span></div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;
+                 // 🔥 ВИПРАВЛЕНО: Тепер badges будуть виводитись поруч з текстом "Тільки задача"
+                 html += `<div class="opacity-80 ${blockedStyle}"><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span> ${badges}</div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;
             } else {
                 html += `<div class="opacity-40 ${blockedStyle}"><div class="flex items-center justify-between text-xs mb-1 text-gray-400"><div>${avatarHtml} <span>${shortName}</span> ${hoursBadges}</div> <span>Вихідний</span></div><div class="h-[1px] bg-gray-200 dark:bg-gray-800 rounded w-full mt-3 mb-4"></div></div>`;
             }
@@ -247,7 +240,6 @@ export function renderTable() {
     const canEditUser = ['SM', 'admin'].includes(state.currentUser.role);
 
     usersToShow.forEach(user => {
-        // 🔥 ВИКОРИСТОВУЄМО НОВИЙ ФОРМАТ ІМЕНІ
         const shortName = getDisplayName(user);
         
         const editAttr = canEditUser ? `onclick="window.openEditUserProxy('${user._id}')" class="cursor-pointer hover:text-blue-500"` : '';
@@ -542,7 +534,6 @@ export function renderKpi() {
 
         const userObj = state.users.find(usr => usr.name === u.name);
         
-        // 🔥 ВИКОРИСТОВУЄМО НОВИЙ ФОРМАТ ІМЕНІ ДЛЯ KPI
         const displayName = getDisplayName(userObj) || u.name;
         const initial = displayName.substring(0, 2);
         
