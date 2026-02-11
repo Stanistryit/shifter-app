@@ -3,7 +3,17 @@ const { logAction, handlePermission } = require('../utils');
 const { notifyUser, sendRequestToSM } = require('../bot');
 
 exports.getTasks = async (req, res) => {
-    const t = await Task.find();
+    if (!req.session.userId) return res.status(403).json([]);
+    
+    const currentUser = await User.findById(req.session.userId);
+    let query = {};
+
+    // 🔥 ВИПРАВЛЕНО: Фільтруємо задачі по магазину, щоб не бачити чужі
+    if (currentUser && currentUser.role !== 'admin') {
+        query.storeId = currentUser.storeId;
+    }
+
+    const t = await Task.find(query);
     res.json(t);
 };
 
@@ -27,15 +37,37 @@ exports.addTask = async (req, res) => {
     };
 
     if (req.body.name === 'all') {
-        const users = await User.find({ role: { $nin: ['admin', 'RRP'] } });
-        const tasksToCreate = users.map(u => ({ ...req.body, name: u.name }));
+        let userQuery = { role: { $nin: ['admin', 'RRP'] } };
+        
+        // 🔥 ВИПРАВЛЕНО: Якщо це не Global Admin, беремо людей ТІЛЬКИ з його магазину
+        if (perm.user.role !== 'admin') {
+            userQuery.storeId = perm.user.storeId;
+        }
+
+        const users = await User.find(userQuery);
+        const tasksToCreate = users.map(u => ({ 
+            ...req.body, 
+            name: u.name,
+            storeId: u.storeId // Зберігаємо прив'язку задачі до магазину
+        }));
+
         if (tasksToCreate.length > 0) {
             await Task.insertMany(tasksToCreate);
             users.forEach(u => sendTaskNotification(u.name, req.body.title, req.body.date, req.body.start, req.body.end, req.body.isFullDay, req.body.description));
             logAction(perm.user.name, 'add_task_all', req.body.title);
         }
     } else {
-        await Task.create(req.body);
+        // 🔥 ВИПРАВЛЕНО: Для індивідуальної задачі теж проставляємо магазин
+        const targetUser = await User.findOne({ name: req.body.name });
+        const taskData = { ...req.body };
+        
+        if (targetUser && targetUser.storeId) {
+            taskData.storeId = targetUser.storeId;
+        } else if (perm.user.storeId) {
+            taskData.storeId = perm.user.storeId;
+        }
+
+        await Task.create(taskData);
         sendTaskNotification(req.body.name, req.body.title, req.body.date, req.body.start, req.body.end, req.body.isFullDay, req.body.description);
         logAction(perm.user.name, 'add_task', req.body.title);
     }
