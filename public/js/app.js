@@ -2,7 +2,8 @@ import { state } from './modules/state.js';
 import { fetchJson, postJson } from './modules/api.js';
 import { 
     initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab as uiShowAdminTab, formatText, updateFileName,
-    openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext 
+    openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext,
+    updateFabIcon 
 } from './modules/ui.js';
 import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } from './modules/render.js';
 import { checkAuth, login, logout } from './modules/auth.js';
@@ -34,6 +35,11 @@ initTheme();
 checkAuth();
 initContextMenuListeners();
 initEditor(); 
+
+// 🔥 FIX: Відновлюємо останню активну вкладку при завантаженні
+// Це синхронізує візуальну частину (Таблиця/Список) з логікою кнопки "Олівець"
+const savedMode = localStorage.getItem('shifter_viewMode') || 'list';
+setMode(savedMode);
 
 // --- EXPOSE TO HTML (WINDOW) ---
 window.toggleTheme = toggleTheme;
@@ -133,11 +139,9 @@ window.contextMenuProxy = (e, type, id) => {
 window.changeStoreFilter = (storeId) => {
     triggerHaptic();
     state.selectedStoreFilter = storeId;
-    localStorage.setItem('shifter_storeFilter', storeId); // 🔥 Зберігаємо вибір фільтру
+    localStorage.setItem('shifter_storeFilter', storeId); 
     
-    // Оновлюємо дані KPI при зміні магазину
     loadKpiData().then(() => {
-        // Якщо ми в режимі KPI або Grid - ререндеримо їх
         const kpiDiv = document.getElementById('kpiViewContainer');
         const gridDiv = document.getElementById('gridViewContainer');
         
@@ -192,26 +196,44 @@ async function initGlobalAdminFilter() {
     }
 }
 
-// 🔥 ОНОВЛЕНО: Тепер керує FAB кнопкою, а не старою кнопкою в шапці
 function checkEditorButtonVisibility() {
-    const fab = document.getElementById('fabEditBtn'); // Нова кнопка
+    const fab = document.getElementById('fabEditBtn');
     const upBtn = document.getElementById('backToTopBtn');
+    
+    // Перевіряємо, чи ми в режимі таблиці
+    const isGridMode = localStorage.getItem('shifter_viewMode') === 'grid';
 
     if (fab && state.currentUser) {
-        if (['admin', 'SM', 'SSE'].includes(state.currentUser.role)) {
+        // Кнопка доступна, якщо:
+        // 1. Користувач має права (Admin, SM, SSE)
+        // 2. Увімкнено режим "Таблиця" (grid)
+        if (['admin', 'SM', 'SSE'].includes(state.currentUser.role) && isGridMode) {
             fab.classList.remove('hidden');
-            // Якщо є кнопка редагування, піднімаємо кнопку "Вгору" вище
-            if (upBtn) upBtn.classList.replace('bottom-6', 'bottom-24');
+            
+            // Якщо кнопка редагування видима, піднімаємо кнопку "Вгору" вище
+            if (upBtn) {
+                upBtn.classList.remove('bottom-6');
+                upBtn.classList.add('bottom-24');
+            }
         } else {
             fab.classList.add('hidden');
-            if (upBtn) upBtn.classList.replace('bottom-24', 'bottom-6');
+            document.getElementById('adminPanel').classList.add('hidden'); // Закриваємо панель
+            updateFabIcon(false); // Скидаємо іконку
+            
+            // Опускаємо кнопку "Вгору" на місце
+            if (upBtn) {
+                upBtn.classList.remove('bottom-24');
+                upBtn.classList.add('bottom-6');
+            }
         }
     }
 }
 
 function toggleEditMode() { 
     triggerHaptic(); 
-    document.getElementById('adminPanel').classList.toggle('hidden'); 
+    const panel = document.getElementById('adminPanel');
+    panel.classList.toggle('hidden'); 
+    updateFabIcon(!panel.classList.contains('hidden'));
 }
 
 function toggleArchive() { 
@@ -240,7 +262,7 @@ async function changeMonth(d) {
 
 async function setMode(m) {
     triggerHaptic();
-    localStorage.setItem('shifter_viewMode', m); // 🔥 Зберігаємо вибір режиму
+    localStorage.setItem('shifter_viewMode', m); 
     
     const listDiv = document.getElementById('listViewContainer');
     const calDiv = document.getElementById('calendarViewContainer');
@@ -254,7 +276,6 @@ async function setMode(m) {
     
     const filterBtn = document.querySelector('button[onclick="openFilterModal()"]');
     const globalFilterWrapper = document.getElementById('globalStoreFilterWrapper');
-    const fabBtn = document.getElementById('fabEditBtn'); // Кнопка редагування
 
     if (filterBtn) {
         if (m === 'list') {
@@ -265,15 +286,6 @@ async function setMode(m) {
             filterBtn.classList.add('hidden');
             filterBtn.classList.remove('flex');
             if (globalFilterWrapper) globalFilterWrapper.classList.add('hidden');
-        }
-    }
-    
-    // Показуємо кнопку редагування ТІЛЬКИ в режимі Grid (Таблиця)
-    if (fabBtn) {
-        if (m === 'grid' && ['admin', 'SM', 'SSE'].includes(state.currentUser?.role)) {
-            fabBtn.classList.remove('hidden');
-        } else {
-            fabBtn.classList.add('hidden');
         }
     }
     
@@ -311,6 +323,9 @@ async function setMode(m) {
         await loadKpiData();
         renderKpi();
     }
+    
+    // Перевіряємо видимість кнопки
+    checkEditorButtonVisibility();
 }
 
 async function toggleAuthMode(mode) {
