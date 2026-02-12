@@ -87,6 +87,14 @@ export async function updateStoreDisplay() {
 
     try {
         const stores = await fetchJson('/api/stores');
+        
+        // 🔥 FIX: Додана перевірка, чи прийшов масив
+        if (!Array.isArray(stores)) {
+            // Можна додати лог, якщо хочеш бачити помилки в консолі
+            // console.warn("Failed to fetch stores or invalid format", stores);
+            return; 
+        }
+
         const myStore = stores.find(s => s._id === me.storeId || s.code === me.storeId);
 
         if (myStore) {
@@ -113,6 +121,8 @@ export async function openTransferModal() {
     let stores = [];
     try {
         stores = await fetchJson('/api/stores');
+        // 🔥 FIX: Тут теж додаємо перевірку, щоб не ламало модалку
+        if (!Array.isArray(stores)) throw new Error("Invalid stores data");
     } catch (e) {
         return showToast("Не вдалося завантажити список магазинів", 'error');
     }
@@ -235,7 +245,6 @@ export function openAvatarModal() {
         container.insertBefore(btn, lastDiv);
     }
     
-    // 🔥 ДОДАЄМО КНОПКУ НАЛАШТУВАНЬ МАГАЗИНУ (Тільки для SM/Admin)
     if (!document.getElementById('btnStoreSettings') && (state.currentUser.role === 'SM' || state.currentUser.role === 'admin')) {
         const btn = document.createElement('button');
         btn.id = 'btnStoreSettings';
