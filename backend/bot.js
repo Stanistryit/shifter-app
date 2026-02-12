@@ -1,12 +1,12 @@
 process.env.NTBA_FIX_350 = 1;
-const axios = require('axios'); // Для запитів до свого ж API
+const axios = require('axios'); 
 const TelegramBot = require('node-telegram-bot-api');
 const { User, Shift, Request, NewsPost, Task, AuditLog, PendingNotification, Store } = require('./models');
 
 let bot = null;
-let APP_URL = ''; // Збережемо URL додатку
+let APP_URL = ''; 
 
-// --- 1. QUIET HOURS LOGIC (Черга повідомлень) ---
+// --- 1. QUIET HOURS LOGIC ---
 const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
     if (!bot) return;
     const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
@@ -30,7 +30,7 @@ const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
 const initBot = (token, appUrl) => { 
     if (!token) return null;
     
-    APP_URL = appUrl; // Зберігаємо URL для внутрішніх запитів
+    APP_URL = appUrl;
     bot = new TelegramBot(token, { polling: false });
 
     bot.setWebHook(`${appUrl}/bot${token}`)
@@ -43,17 +43,21 @@ const initBot = (token, appUrl) => {
         { command: '/shifts', description: '📋 Мої зміни' },
         { command: '/login', description: '🔐 Авторизація' },
         { command: '/settings', description: '⚙️ Налаштування' },
-        { command: '/set_time', description: '⏰ Час звіту (для SM)' } // 🔥 НОВЕ
+        { command: '/my_id', description: '🆔 Мій Telegram ID' }
     ];
     bot.setMyCommands(commands).catch(e => {});
 
+    // --- ОБРОБНИКИ КОМАНД ---
     bot.onText(/\/start/, (msg) => handleStart(msg, appUrl));
     bot.onText(/\/login (.+) (.+)/, handleLogin);
-    bot.onText(/\/link_store (.+)/, handleLinkStore);
-    bot.onText(/\/link_news (.+)/, (msg, match) => handleLinkTopic(msg, match, 'news'));
-    bot.onText(/\/link_evening (.+)/, (msg, match) => handleLinkTopic(msg, match, 'evening'));
     
-    // 🔥 НОВЕ: Команда для зміни часу звіту
+    // 🔥 НОВІ КОМАНДИ ДЛЯ ГРУП
+    bot.onText(/\/link_store (.+)/, handleLinkStore); // Прив'язка групи до магазину
+    bot.onText(/\/set_news/, handleSetNews);         // Встановити топік новин
+    bot.onText(/\/set_evening/, handleSetEvening);   // Встановити топік звітів
+    
+    // Допоміжна команда
+    bot.onText(/\/my_id/, (msg) => bot.sendMessage(msg.chat.id, `Ваш ID: <code>${msg.from.id}</code>`, {parse_mode:'HTML'}));
     bot.onText(/\/set_time (.+)/, handleSetReportTime);
 
     bot.on('message', handleMessage);
@@ -95,6 +99,8 @@ const handleLogin = async (msg, match) => {
     } catch (e) { bot.sendMessage(msg.chat.id, "❌ Помилка сервера"); }
 };
 
+// --- 🔥 ЛОГІКА ПРИВ'ЯЗКИ ГРУП ---
+
 const handleLinkStore = async (msg, match) => {
     const code = match[1].trim();
     const chatId = msg.chat.id;
@@ -104,62 +110,52 @@ const handleLinkStore = async (msg, match) => {
         
         store.telegram.chatId = chatId;
         await store.save();
-        bot.sendMessage(chatId, `✅ <b>Основний чат прив'язано!</b>\nМагазин: <b>${store.name}</b>\n\nТепер налаштуйте гілки командами:\n/link_news ${code}\n/link_evening ${code}`, {parse_mode: 'HTML'});
+        bot.sendMessage(chatId, `✅ <b>Чат прив'язано до магазину: ${store.name}</b>\n\nТепер зайдіть у відповідні гілки (Topics) і напишіть:\n/set_news — для новин\n/set_evening — для звітів`, {parse_mode: 'HTML'});
     } catch (e) { console.error(e); }
 };
 
-const handleLinkTopic = async (msg, match, type) => {
-    const code = match[1].trim();
+const handleSetNews = async (msg) => {
     const chatId = msg.chat.id;
-    const topicId = msg.message_thread_id;
-    if (!topicId) return bot.sendMessage(chatId, "⚠️ Цю команду треба писати всередині гілки (Topic).");
+    const threadId = msg.message_thread_id;
+    
+    const store = await Store.findOne({ 'telegram.chatId': chatId });
+    if (!store) return bot.sendMessage(chatId, '❌ Спочатку прив\'яжіть магазин командою /link_store КОД', { message_thread_id: threadId });
 
-    try {
-        const store = await Store.findOne({ code });
-        if (!store) return bot.sendMessage(chatId, `❌ Магазин <b>${code}</b> не знайдено.`, {message_thread_id: topicId});
-        
-        store.telegram.chatId = chatId; 
-        if (type === 'news') store.telegram.newsTopicId = topicId;
-        if (type === 'evening') store.telegram.eveningTopicId = topicId;
-        
-        await store.save();
-        const label = type === 'news' ? 'Новин' : 'Вечірніх звітів';
-        bot.sendMessage(chatId, `📢 <b>Гілку ${label} налаштовано!</b>`, {parse_mode: 'HTML', message_thread_id: topicId});
-    } catch (e) { console.error(e); }
+    store.telegram.newsTopicId = threadId;
+    await store.save();
+    
+    bot.sendMessage(chatId, `📢 Цей топік встановлено для <b>Новин</b>.`, { parse_mode: 'HTML', message_thread_id: threadId });
 };
 
-// 🔥 НОВА ФУНКЦІЯ: Налаштування часу звіту через бота
+const handleSetEvening = async (msg) => {
+    const chatId = msg.chat.id;
+    const threadId = msg.message_thread_id;
+    
+    const store = await Store.findOne({ 'telegram.chatId': chatId });
+    if (!store) return bot.sendMessage(chatId, '❌ Спочатку прив\'яжіть магазин командою /link_store КОД', { message_thread_id: threadId });
+
+    store.telegram.eveningTopicId = threadId;
+    await store.save();
+    
+    bot.sendMessage(chatId, `🌙 Цей топік встановлено для <b>Звітів</b>.`, { parse_mode: 'HTML', message_thread_id: threadId });
+};
+
 const handleSetReportTime = async (msg, match) => {
     const chatId = msg.chat.id;
-    const timeStr = match[1].trim(); // Очікуємо формат "21:00"
-
-    // 1. Валідація часу
+    const timeStr = match[1].trim();
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    if (!timeRegex.test(timeStr)) {
-        return bot.sendMessage(chatId, "⚠️ Невірний формат. Використовуйте ГГ:ХХ (наприклад: <code>/set_time 21:30</code>)", {parse_mode:'HTML'});
-    }
+    if (!timeRegex.test(timeStr)) return bot.sendMessage(chatId, "⚠️ Формат: ГГ:ХХ (напр. 21:30)");
 
-    // 2. Перевірка прав (тільки SM або Admin)
     const user = await User.findOne({ telegramChatId: chatId });
-    if (!user || (user.role !== 'SM' && user.role !== 'admin')) {
-        return bot.sendMessage(chatId, "⛔️ Ця команда доступна тільки для SM та Admin.");
-    }
+    if (!user || (user.role !== 'SM' && user.role !== 'admin')) return bot.sendMessage(chatId, "⛔️ Тільки SM/Admin");
+    if (!user.storeId) return bot.sendMessage(chatId, "❌ Немає магазину");
 
-    if (!user.storeId) return bot.sendMessage(chatId, "❌ Ви не прив'язані до жодного магазину.");
-
-    // 3. Збереження в базу
     try {
         const store = await Store.findById(user.storeId);
-        if (!store) return bot.sendMessage(chatId, "❌ Магазин не знайдено.");
-
         store.telegram.reportTime = timeStr;
         await store.save();
-
-        bot.sendMessage(chatId, `✅ <b>Час звіту змінено!</b>\n\nМагазин: <b>${store.name}</b>\nНовий час: <b>${timeStr}</b>\n\nЗвіт буде приходити автоматично у цей час.`, {parse_mode:'HTML'});
-    } catch (e) {
-        console.error(e);
-        bot.sendMessage(chatId, "❌ Помилка збереження.");
-    }
+        bot.sendMessage(chatId, `✅ Час звіту: <b>${timeStr}</b>`, {parse_mode:'HTML'});
+    } catch (e) { bot.sendMessage(chatId, "❌ Помилка"); }
 };
 
 const handleMessage = async (msg) => {
@@ -226,7 +222,6 @@ const handleCallback = async (q) => {
     const uid = q.from.id;
     const data = q.data;
 
-    // 1. Підтвердження новин
     if (data === 'read_news') {
         const u = await User.findOne({telegramChatId:uid});
         let name = u ? u.name : q.from.first_name;
@@ -250,18 +245,15 @@ const handleCallback = async (q) => {
         } catch(e) {}
         bot.answerCallbackQuery(q.id, {text:`Дякую, ${shortName}! ✅`});
     }
-    // 2. Налаштування нагадувань
     else if (data.startsWith('set_remind_')) {
         const val = data.replace('set_remind_','');
         let dbVal = val === '20' ? '20:00' : val;
         const u = await User.findOne({telegramChatId:uid});
         if(u){ u.reminderTime = dbVal; await u.save(); bot.answerCallbackQuery(q.id, {text: 'Збережено ✅'}); bot.sendMessage(q.message.chat.id, `✅ Режим сповіщень змінено.`); }
     }
-    // 3. Трансфери (переведення)
     else if (data.startsWith('transfer_')) {
         await handleTransferLogic(bot, q, uid, data);
     }
-    // 4. Апрув/Відхилення (Користувачі та Запити)
     else if (data.startsWith('approve_') || data.startsWith('reject_')) {
         await handleApprovalLogic(bot, q, uid, data);
     }
@@ -278,9 +270,7 @@ const handleTransferLogic = async (bot, q, uid, data) => {
 
     try {
         const request = await Request.findById(requestId);
-        if (!request) {
-            return bot.editMessageText(`⚠️ Запит вже не актуальний.`, {chat_id: q.message.chat.id, message_id: q.message.message_id});
-        }
+        if (!request) return bot.editMessageText(`⚠️ Запит вже не актуальний.`, {chat_id: q.message.chat.id, message_id: q.message.message_id});
 
         if (action === 'approve') {
             const targetUser = await User.findById(request.data.userId);
@@ -302,10 +292,8 @@ const handleTransferLogic = async (bot, q, uid, data) => {
         } else {
             bot.editMessageText(`❌ <b>Відхилено</b> (SM: ${admin.name})`, {chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML'});
         }
-
         await Request.findByIdAndDelete(requestId);
         bot.answerCallbackQuery(q.id, {text: 'Готово'});
-
     } catch (e) {
         console.error(e);
         bot.answerCallbackQuery(q.id, {text: 'Помилка', show_alert: true});
@@ -358,6 +346,8 @@ const handleApprovalLogic = async (bot, q, uid, data) => {
     bot.answerCallbackQuery(q.id, {text: 'Готово'});
 };
 
+// --- HELPERS ---
+
 const notifyUser = async (name, msg) => { 
     if(!bot) return; 
     try { 
@@ -366,47 +356,55 @@ const notifyUser = async (name, msg) => {
     } catch(e){} 
 };
 
-const notifyRole = async (role, msg, storeId = null) => { 
+// 🔥 Оновлено: Відправляє новини в топіки магазинів, якщо налаштовано
+const notifyAll = async (msg) => { 
     if(!bot) return; 
     try { 
-        const query = { role };
-        if (storeId) query.storeId = storeId;
-        const us = await User.find(query); 
-        for(const u of us) if(u.telegramChatId) await sendMessageWithQuietHours(u.telegramChatId, msg, {parse_mode:'HTML'}); 
+        const stores = await Store.find({ 'telegram.chatId': { $ne: null } });
+        for(const store of stores) {
+            const opts = { parse_mode: 'HTML' };
+            if (store.telegram.newsTopicId) opts.message_thread_id = store.telegram.newsTopicId;
+            await sendMessageWithQuietHours(store.telegram.chatId, msg, opts);
+        }
     } catch(e){} 
 };
 
-const notifyAll = async (msg, storeId = null) => { 
-    if(!bot) return; 
-    try { 
-        const query = { telegramChatId: { $ne: null } };
-        if (storeId) query.storeId = storeId;
-        const us = await User.find(query); 
-        for(const u of us) await sendMessageWithQuietHours(u.telegramChatId, msg, {parse_mode:'HTML'}); 
-    } catch(e){} 
-};
-
+// 🔥 Оновлено: Запит летить ТІЛЬКИ SM конкретного магазину
 const sendRequestToSM = async (requestDoc) => {
     if(!bot) return;
-    const creator = await User.findOne({ name: requestDoc.createdBy });
-    const storeId = creator ? creator.storeId : null;
-    const query = { role: { $in: ['SM', 'admin'] } };
-    if (storeId) query.storeId = storeId;
-    const sms = await User.find(query);
+    try {
+        let storeId = null;
+        if (requestDoc.data && requestDoc.data.storeId) {
+             storeId = requestDoc.data.storeId;
+        } else {
+             const creator = await User.findOne({ name: requestDoc.createdBy });
+             if (creator) storeId = creator.storeId;
+        }
 
-    let details = "";
-    if (requestDoc.type === 'add_shift') details = `📅 Зміна: ${requestDoc.data.date}\n⏰ ${requestDoc.data.start}-${requestDoc.data.end}`;
-    if (requestDoc.type === 'del_shift') details = `❌ Видалення зміни: ${requestDoc.data.date}`;
-    if (requestDoc.type === 'add_task') {
-        details = `📌 Задача: ${requestDoc.data.title}`;
-        if (requestDoc.data.description) details += `\nℹ️ ${requestDoc.data.description}`;
-    }
-    const txt = `🔔 <b>Новий запит</b>\n👤 <b>Від:</b> ${requestDoc.createdBy}\nℹ️ <b>Тип:</b> ${requestDoc.type}\n\n${details}`;
-    const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[ { text: "✅ Дозволити", callback_data: `approve_req_${requestDoc._id}` }, { text: "❌ Відхилити", callback_data: `reject_req_${requestDoc._id}` } ]] } };
-    for(const sm of sms) { 
-        if(sm.telegramChatId) await sendMessageWithQuietHours(sm.telegramChatId, txt, opts); 
+        if (!storeId) return console.log("⚠️ Магазин не визначено для запиту");
+
+        // Шукаємо SM цього магазину
+        const smUser = await User.findOne({ storeId: storeId, role: 'SM' });
+        
+        if (!smUser || !smUser.telegramChatId) return console.log(`⚠️ SM не знайдено або у нього немає Telegram ID (Store: ${storeId})`);
+
+        let details = "";
+        if (requestDoc.type === 'add_shift') details = `📅 Зміна: ${requestDoc.data.date}\n⏰ ${requestDoc.data.start}-${requestDoc.data.end}`;
+        if (requestDoc.type === 'del_shift') details = `❌ Видалення зміни: ${requestDoc.data.date}`;
+        if (requestDoc.type === 'add_task') {
+            details = `📌 Задача: ${requestDoc.data.title}`;
+            if (requestDoc.data.description) details += `\nℹ️ ${requestDoc.data.description}`;
+        }
+
+        const txt = `🔔 <b>Новий запит</b>\n👤 <b>Від:</b> ${requestDoc.createdBy}\nℹ️ <b>Тип:</b> ${requestDoc.type}\n\n${details}`;
+        const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[ { text: "✅ Дозволити", callback_data: `approve_req_${requestDoc._id}` }, { text: "❌ Відхилити", callback_data: `reject_req_${requestDoc._id}` } ]] } };
+        
+        await sendMessageWithQuietHours(smUser.telegramChatId, txt, opts); 
+
+    } catch (e) {
+        console.error("Error sending request to SM:", e.message);
     }
 };
 
 const getBot = () => bot;
-module.exports = { initBot, notifyUser, notifyRole, notifyAll, sendRequestToSM, getBot };
+module.exports = { initBot, notifyUser, notifyAll, sendRequestToSM, getBot };
