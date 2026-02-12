@@ -43,18 +43,14 @@ exports.deleteStore = async (req, res) => {
     }
 };
 
-// 🔥 НОВЕ: Збереження налаштувань магазину (час звіту)
 exports.updateStoreSettings = async (req, res) => {
     const u = await User.findById(req.session.userId);
-    // Тільки SM або Admin (але в межах свого магазину)
     if (!u || (u.role !== 'SM' && u.role !== 'admin')) {
         return res.status(403).json({ success: false, message: "Тільки для SM" });
     }
 
     try {
         const { reportTime } = req.body;
-        
-        // Валідація формату часу (HH:MM)
         const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
         if (!reportTime || !timeRegex.test(reportTime)) {
             return res.json({ success: false, message: "Невірний формат часу (HH:MM)" });
@@ -63,7 +59,6 @@ exports.updateStoreSettings = async (req, res) => {
         const store = await Store.findById(u.storeId);
         if (!store) return res.json({ success: false, message: "Магазин не знайдено" });
 
-        // Зберігаємо час
         store.telegram.reportTime = reportTime;
         await store.save();
 
@@ -79,7 +74,10 @@ exports.updateStoreSettings = async (req, res) => {
 // --- LOGS ---
 exports.getLogs = async (req, res) => {
     const u = await User.findById(req.session.userId);
-    if (u?.role !== 'SM' && u?.role !== 'admin') return res.json([]);
+    
+    // 🔥 ЗМІНЕНО: Тепер тільки Global Admin бачить логи
+    if (u?.role !== 'admin') return res.json([]); 
+    
     const l = await AuditLog.find().sort({ timestamp: -1 }).limit(50);
     res.json(l);
 };
@@ -88,59 +86,101 @@ exports.getLogs = async (req, res) => {
 exports.getRequests = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u?.role !== 'SM' && u?.role !== 'admin') return res.json([]);
-    const r = await Request.find().sort({ createdAt: -1 });
+    
+    let r = await Request.find().sort({ createdAt: -1 });
+    
+    if (u.role !== 'admin') {
+        const storeUsers = await User.find({ storeId: u.storeId }, 'name');
+        const storeUserNames = storeUsers.map(user => user.name);
+        r = r.filter(req => storeUserNames.includes(req.createdBy));
+    }
+    
     res.json(r);
 };
 
 exports.handleRequestAction = async (req, res) => {
+    const u = await User.findById(req.session.userId);
     const { id, action } = req.body;
     const r = await Request.findById(id);
     if (!r) return res.json({ success: false });
 
+    const creator = await User.findOne({ name: r.createdBy });
+    const storeId = creator ? creator.storeId : (u ? u.storeId : null);
+
     if (action === 'approve') {
-        if (r.type === 'add_shift') { await Shift.deleteOne({ date: r.data.date, name: r.data.name }); await Shift.create(r.data); }
+        if (r.type === 'add_shift') { 
+            await Shift.deleteOne({ date: r.data.date, name: r.data.name }); 
+            r.data.storeId = storeId;
+            await Shift.create(r.data); 
+        }
         if (r.type === 'del_shift') await Shift.findByIdAndDelete(r.data.id);
         if (r.type === 'del_task') await Task.findByIdAndDelete(r.data.id);
         if (r.type === 'add_task') {
             if (r.data.name === 'all') {
-                const users = await User.find({ role: { $nin: ['admin', 'RRP'] } });
-                const tasksToCreate = users.map(u => ({ ...r.data, name: u.name }));
+                const users = await User.find({ role: { $nin: ['admin', 'RRP'] }, storeId: storeId });
+                const tasksToCreate = users.map(userObj => ({ ...r.data, name: userObj.name, storeId: userObj.storeId }));
                 await Task.insertMany(tasksToCreate);
-                users.forEach(u => notifyUser(u.name, `✅ Задача схвалена: ${r.data.title}`));
-            } else { await Task.create(r.data); notifyUser(r.data.name, `✅ Задача схвалена: ${r.data.title}`); }
+                users.forEach(userObj => notifyUser(userObj.name, `✅ Задача схвалена: ${r.data.title}`));
+            } else { 
+                const targetUser = await User.findOne({ name: r.data.name });
+                r.data.storeId = targetUser ? targetUser.storeId : storeId;
+                await Task.create(r.data); 
+                notifyUser(r.data.name, `✅ Задача схвалена: ${r.data.title}`); 
+            }
         }
         notifyUser(r.createdBy, `✅ Ваш запит (${r.type}) схвалено`);
-    } else { notifyUser(r.createdBy, `❌ Ваш запит (${r.type}) відхилено`); }
+    } else { 
+        notifyUser(r.createdBy, `❌ Ваш запит (${r.type}) відхилено`); 
+    }
     await Request.findByIdAndDelete(id);
     res.json({ success: true });
 };
 
 exports.approveAllRequests = async (req, res) => {
-    const rs = await Request.find();
+    const u = await User.findById(req.session.userId);
+    let rs = await Request.find();
+    
+    if (u.role !== 'admin') {
+        const storeUsers = await User.find({ storeId: u.storeId }, 'name');
+        const storeUserNames = storeUsers.map(user => user.name);
+        rs = rs.filter(req => storeUserNames.includes(req.createdBy));
+    }
+
     for (const r of rs) {
-        if (r.type === 'add_shift') { await Shift.deleteOne({ date: r.data.date, name: r.data.name }); await Shift.create(r.data); }
+        const creator = await User.findOne({ name: r.createdBy });
+        const storeId = creator ? creator.storeId : (u ? u.storeId : null);
+
+        if (r.type === 'add_shift') { 
+            await Shift.deleteOne({ date: r.data.date, name: r.data.name }); 
+            r.data.storeId = storeId;
+            await Shift.create(r.data); 
+        }
         if (r.type === 'del_shift') await Shift.findByIdAndDelete(r.data.id);
         if (r.type === 'del_task') await Task.findByIdAndDelete(r.data.id);
         if (r.type === 'add_task') {
             if (r.data.name === 'all') {
-                const users = await User.find({ role: { $nin: ['admin', 'RRP'] } });
-                const tasksToCreate = users.map(u => ({ ...r.data, name: u.name }));
+                const users = await User.find({ role: { $nin: ['admin', 'RRP'] }, storeId: storeId });
+                const tasksToCreate = users.map(userObj => ({ ...r.data, name: userObj.name, storeId: userObj.storeId }));
                 await Task.insertMany(tasksToCreate);
-            } else { await Task.create(r.data); }
+            } else { 
+                const targetUser = await User.findOne({ name: r.data.name });
+                r.data.storeId = targetUser ? targetUser.storeId : storeId;
+                await Task.create(r.data); 
+            }
         }
         await Request.findByIdAndDelete(r._id);
     }
-    notifyRole('SSE', '✅ Всі запити схвалено');
+    
+    notifyRole('SSE', '✅ Всі запити схвалено', u.role === 'admin' ? null : u.storeId);
     res.json({ success: true });
 };
 
-// --- NEWS (UPDATED) ---
 exports.publishNews = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({});
     
     const bot = getBot();
-    const { text, requestRead } = req.body; // 🔥 Отримуємо стан чекбокса
+    const { text, requestRead } = req.body; 
     const files = req.files || [];
     
     const store = await Store.findById(u.storeId);
@@ -153,8 +193,7 @@ exports.publishNews = async (req, res) => {
     const opts = { parse_mode: 'HTML' };
     if (topicId) opts.message_thread_id = topicId;
 
-    // 🔥 Логіка кнопки
-    const shouldRequestRead = requestRead === 'true'; // FormData передає boolean як рядок
+    const shouldRequestRead = requestRead === 'true'; 
     const btn = { inline_keyboard: [[{ text: "✅ Ознайомлений", callback_data: 'read_news' }]] };
     const replyMarkup = shouldRequestRead ? btn : undefined;
     
@@ -181,11 +220,9 @@ exports.publishNews = async (req, res) => {
             }));
             const msgs = await bot.sendMediaGroup(chatId, media, opts);
             
-            // Якщо потрібне підтвердження - відправляємо окреме повідомлення з кнопкою
             if (shouldRequestRead) {
                 sentMsg = await bot.sendMessage(chatId, "👇 Підтвердити:", { ...opts, reply_to_message_id: msgs[0].message_id, reply_markup: btn });
             } else {
-                // Якщо ні - просто зберігаємо ID першого повідомлення альбому
                 sentMsg = msgs[0];
             }
         }

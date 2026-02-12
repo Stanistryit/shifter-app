@@ -11,7 +11,6 @@ const storeSchema = new mongoose.Schema({
         newsTopicId: { type: Number, default: null },  
         requestsTopicId: { type: Number, default: null }, 
         eveningTopicId: { type: Number, default: null },
-        // 🔥 Час вечірнього звіту (за замовчуванням 20:00)
         reportTime: { type: String, default: "20:00" } 
     },
     createdAt: { type: Date, default: Date.now }
@@ -83,12 +82,13 @@ const requestSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-// 6. Схема Нотаток
+// 6. Схема Нотаток (🔥 ОНОВЛЕНО: додано storeId)
 const noteSchema = new mongoose.Schema({
     date: { type: String, required: true },
     text: { type: String, required: true },
     author: { type: String, required: true },
-    type: { type: String, enum: ['private', 'public'], default: 'private' }
+    type: { type: String, enum: ['private', 'public'], default: 'private' },
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null } 
 });
 
 // 7. Схема Логів
@@ -145,7 +145,6 @@ const pendingNotificationSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-// 🔥 БЕЗПЕЧНА РЕЄСТРАЦІЯ МОДЕЛЕЙ (Фікс помилки OverwriteModelError)
 const Store = mongoose.models.Store || mongoose.model('Store', storeSchema);
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 const Shift = mongoose.models.Shift || mongoose.model('Shift', shiftSchema);
