@@ -30,7 +30,6 @@ const runMigrationIfNeeded = async () => {
 
 exports.getShifts = async (req, res) => {
     if (!req.session.userId) return res.status(403).json({});
-    
     await runMigrationIfNeeded();
 
     const currentUser = await User.findById(req.session.userId);
@@ -50,7 +49,6 @@ exports.addShift = async (req, res) => {
     const { user, status } = perm;
 
     if (status === 'pending') {
-        // Додаємо storeId до запиту, щоб SM бачив, з якого магазину
         const targetUser = await User.findOne({ name: req.body.name });
         const storeId = targetUser ? targetUser.storeId : user.storeId;
         
@@ -84,28 +82,25 @@ exports.addShift = async (req, res) => {
     res.json({ success: true });
 };
 
-// 🔥 ОНОВЛЕНО: Масове збереження графіку (з підтримкою Requests для SSE)
+// 🔥 ОНОВЛЕНО: Масове збереження графіку
 exports.saveSchedule = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (!u || (u.role !== 'SM' && u.role !== 'admin' && u.role !== 'SSE')) {
         return res.status(403).json({ success: false, message: "Немає прав" });
     }
 
-    const updates = req.body.updates || []; // Масив [{ date, name, start, end }]
+    const updates = req.body.updates || []; 
     if (updates.length === 0) return res.json({ success: true });
 
     try {
-        // --- 1. ЛОГІКА ДЛЯ SSE (СТВОРЮЄМО ЗАПИТИ) ---
         if (u.role === 'SSE') {
             let reqCount = 0;
             
             for (const item of updates) {
-                // Знаходимо target user щоб взяти storeId
                 const targetUser = await User.findOne({ name: item.name });
                 const storeId = targetUser ? targetUser.storeId : u.storeId;
 
                 if (item.start === 'DELETE') {
-                    // Для видалення нам потрібен ID існуючої зміни
                     const s = await Shift.findOne({ date: item.date, name: item.name });
                     if (s) {
                         await Request.create({
@@ -116,7 +111,6 @@ exports.saveSchedule = async (req, res) => {
                         reqCount++;
                     }
                 } else {
-                    // Додавання/Редагування
                     await Request.create({
                         type: 'add_shift',
                         data: { ...item, storeId },
@@ -126,23 +120,18 @@ exports.saveSchedule = async (req, res) => {
                 }
             }
 
-            // Сповіщаємо SM/Admin про пакет запитів
-            const bot = getBot();
-            if (bot && u.storeId) {
+            // 🔥 ВИПРАВЛЕНО: Використовуємо notifyUser для сповіщення SM
+            if (u.storeId) {
                 const managers = await User.find({ storeId: u.storeId, role: { $in: ['SM', 'admin'] } });
                 managers.forEach(m => {
-                    if (m.telegramChatId) {
-                         bot.sendMessage(m.telegramChatId, `✏️ <b>Редактор Графіку</b>\n👤 ${u.name} надіслав зміни (${reqCount} шт.) на підтвердження.`, { parse_mode: 'HTML' });
-                    }
+                    notifyUser(m.name, `✏️ <b>Редактор Графіку</b>\n👤 ${u.name} надіслав зміни (${reqCount} шт.) на підтвердження.`);
                 });
             }
 
             return res.json({ success: true, isRequest: true, count: reqCount });
         }
 
-        // --- 2. ЛОГІКА ДЛЯ ADMIN/SM (ПРЯМЕ ЗБЕРЕЖЕННЯ) ---
-        
-        // Кешуємо storeId користувачів
+        // --- ЛОГІКА ДЛЯ ADMIN/SM ---
         const names = [...new Set(updates.map(x => x.name))];
         const users = await User.find({ name: { $in: names } }, 'name storeId');
         const userStoreMap = {};
@@ -153,17 +142,14 @@ exports.saveSchedule = async (req, res) => {
         for (const upd of updates) {
             const targetStoreId = userStoreMap[upd.name] || u.storeId;
 
-            // Безпека: SM не редагує чужий магазин
             if (u.role !== 'admin' && String(targetStoreId) !== String(u.storeId)) {
                 continue; 
             }
 
-            // Видаляємо стару (щоб уникнути дублів або якщо це DELETE)
             bulkOps.push({
                 deleteOne: { filter: { date: upd.date, name: upd.name } }
             });
 
-            // Якщо не DELETE - додаємо нову
             if (upd.start && upd.end && upd.start !== 'DELETE') {
                 bulkOps.push({
                     insertOne: {

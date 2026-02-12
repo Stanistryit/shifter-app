@@ -1,0 +1,88 @@
+const { User, Store } = require('../models');
+
+// Головне меню
+const handleStart = (bot, msg, appUrl) => {
+    const mainMenu = {
+        keyboard: [
+            [{ text: "📅 Відкрити Графік", web_app: { url: appUrl } }],
+            [{ text: "📋 Мої зміни" }, { text: "🌴 Мої віхідні" }],
+            [{ text: "👀 Зараз на зміні" }, { text: "⚙️ Налаштування" }]
+        ],
+        resize_keyboard: true
+    };
+    const txt = `👋 <b>Привіт! Це бот Shifter.</b>\n\nТут ти можеш:\n📅 Дивитись графік роботи\n👀 Бачити, хто зараз працює\n🔔 Отримувати нагадування про зміни\n\n🔐 <b>Доступ:</b>\nЩоб користуватися кнопками, треба авторизуватися:\n<code>/login логін пароль</code>`;
+    bot.sendMessage(msg.chat.id, txt, { reply_markup: mainMenu, parse_mode: 'HTML' });
+};
+
+// Авторизація
+const handleLogin = async (bot, msg, match) => {
+    try {
+        const u = await User.findOne({ username: match[1] }); 
+        if (u && (await u.comparePassword(match[2]))) { 
+            u.telegramChatId = msg.chat.id; 
+            await u.save(); 
+            bot.sendMessage(msg.chat.id, `✅ Привіт, ${u.name}! Тепер ти можеш користуватися кнопками.`); 
+        } else {
+            bot.sendMessage(msg.chat.id, "❌ Невірний логін або пароль"); 
+        }
+    } catch (e) { bot.sendMessage(msg.chat.id, "❌ Помилка сервера"); }
+};
+
+// Прив'язка магазину
+const handleLinkStore = async (bot, msg, match) => {
+    const code = match[1].trim();
+    const chatId = msg.chat.id;
+    try {
+        const store = await Store.findOne({ code });
+        if (!store) return bot.sendMessage(chatId, `❌ Магазин з кодом <b>${code}</b> не знайдено.`, {parse_mode: 'HTML'});
+        
+        store.telegram.chatId = chatId;
+        await store.save();
+        bot.sendMessage(chatId, `✅ <b>Чат прив'язано до магазину: ${store.name}</b>\n\nТепер зайдіть у відповідні гілки (Topics) і напишіть:\n/set_news — для новин\n/set_evening — для звітів`, {parse_mode: 'HTML'});
+    } catch (e) { console.error(e); }
+};
+
+// Топік новин
+const handleSetNews = async (bot, msg) => {
+    const chatId = msg.chat.id;
+    const threadId = msg.message_thread_id;
+    const store = await Store.findOne({ 'telegram.chatId': chatId });
+    if (!store) return bot.sendMessage(chatId, '❌ Спочатку прив\'яжіть магазин командою /link_store КОД', { message_thread_id: threadId });
+
+    store.telegram.newsTopicId = threadId;
+    await store.save();
+    bot.sendMessage(chatId, `📢 Цей топік встановлено для <b>Новин</b>.`, { parse_mode: 'HTML', message_thread_id: threadId });
+};
+
+// Топік звітів
+const handleSetEvening = async (bot, msg) => {
+    const chatId = msg.chat.id;
+    const threadId = msg.message_thread_id;
+    const store = await Store.findOne({ 'telegram.chatId': chatId });
+    if (!store) return bot.sendMessage(chatId, '❌ Спочатку прив\'яжіть магазин командою /link_store КОД', { message_thread_id: threadId });
+
+    store.telegram.eveningTopicId = threadId;
+    await store.save();
+    bot.sendMessage(chatId, `🌙 Цей топік встановлено для <b>Звітів</b>.`, { parse_mode: 'HTML', message_thread_id: threadId });
+};
+
+// Час звіту
+const handleSetReportTime = async (bot, msg, match) => {
+    const chatId = msg.chat.id;
+    const timeStr = match[1].trim();
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(timeStr)) return bot.sendMessage(chatId, "⚠️ Формат: ГГ:ХХ (напр. 21:30)");
+
+    const user = await User.findOne({ telegramChatId: chatId });
+    if (!user || (user.role !== 'SM' && user.role !== 'admin')) return bot.sendMessage(chatId, "⛔️ Тільки SM/Admin");
+    if (!user.storeId) return bot.sendMessage(chatId, "❌ Немає магазину");
+
+    try {
+        const store = await Store.findById(user.storeId);
+        store.telegram.reportTime = timeStr;
+        await store.save();
+        bot.sendMessage(chatId, `✅ Час звіту: <b>${timeStr}</b>`, {parse_mode:'HTML'});
+    } catch (e) { bot.sendMessage(chatId, "❌ Помилка"); }
+};
+
+module.exports = { handleStart, handleLogin, handleLinkStore, handleSetNews, handleSetEvening, handleSetReportTime };
