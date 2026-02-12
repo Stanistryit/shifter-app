@@ -119,10 +119,11 @@ const eventSchema = new mongoose.Schema({
     date: { type: String, required: true }
 });
 
-// 10. Схема KPI
+// 10. Схема KPI (🔥 ОНОВЛЕНО: додано storeId)
 const kpiSchema = new mongoose.Schema({
     month: { type: String, required: true }, 
-    name: { type: String, required: true },  
+    name: { type: String, required: true },
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }, // 👈 Додано
     updatedAt: { type: Date, default: Date.now },
     stats: {
         orders: { type: Number, default: 0 },        
@@ -140,10 +141,11 @@ const kpiSchema = new mongoose.Schema({
     }
 });
 
-// 11. Схема Налаштувань Місяця
+// 11. Схема Налаштувань Місяця (🔥 ОНОВЛЕНО: додано storeId, прибрано unique)
 const monthSettingsSchema = new mongoose.Schema({
-    month: { type: String, required: true, unique: true }, 
-    normHours: { type: Number, required: true }
+    month: { type: String, required: true }, // 👈 Прибрав unique: true, бо місяці повторюються для різних магазинів
+    normHours: { type: Number, required: true },
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null } // 👈 Додано
 });
 
 // 12. Схема Відкладених Сповіщень
