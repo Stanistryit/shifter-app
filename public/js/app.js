@@ -1,30 +1,32 @@
-import { state } from './modules/state.js';
-import { fetchJson, postJson } from './modules/api.js';
+import { state } from './state.js';
+import { fetchJson, postJson } from './api.js';
 import { 
     initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab as uiShowAdminTab, formatText, updateFileName,
     openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext 
-} from './modules/ui.js';
-import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } from './modules/render.js';
-import { checkAuth, login, logout } from './modules/auth.js';
+} from './ui.js';
+import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } from './render.js';
+import { checkAuth, login, logout } from './auth.js';
 import { 
     addShift, delS, clearDay, clearMonth, toggleShiftTimeInputs, 
     addTask, deleteTask, toggleTaskTimeInputs, bulkImport, publishNews,
     createStore, loadStores, deleteStore 
-} from './modules/admin.js';
-import { loadRequests, handleRequest, approveAllRequests } from './modules/requests.js';
-import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
+} from './admin.js';
+import { loadRequests, handleRequest, approveAllRequests } from './requests.js';
+import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './notes.js';
 import { 
     openFilterModal, closeFilterModal, applyFilter, 
     openAvatarModal, closeAvatarModal, handleAvatarSelect, uploadAvatar, 
     openChangePasswordModal, closeChangePasswordModal, submitChangePassword, loadLogs,
-    openTransferModal, updateStoreDisplay 
-} from './modules/settings.js';
+    openTransferModal, updateStoreDisplay,
+    // 🔥 НОВЕ: Налаштування магазину
+    openStoreSettingsModal, saveStoreSettings 
+} from './settings.js';
 
 // 🔥 НОВЕ: Імпорт Редактора Графіку
 import { 
     initEditor, toggleEditor, editorSelectTool, 
     editorConfigTemplates, saveEditorChanges 
-} from './modules/editor.js';
+} from './editor.js';
 
 const tg = window.Telegram.WebApp;
 if(tg) { tg.ready(); if(tg.platform && tg.platform!=='unknown') try{tg.expand()}catch(e){} }
@@ -33,7 +35,7 @@ if(tg) { tg.ready(); if(tg.platform && tg.platform!=='unknown') try{tg.expand()}
 initTheme();
 checkAuth();
 initContextMenuListeners();
-initEditor(); // 🔥 Запускаємо слухачів редактора
+initEditor(); 
 
 // --- EXPOSE TO HTML (WINDOW) ---
 window.toggleTheme = toggleTheme;
@@ -62,6 +64,10 @@ window.toggleEditor = toggleEditor;
 window.editorSelectTool = editorSelectTool;
 window.editorConfigTemplates = editorConfigTemplates;
 window.saveEditorChanges = saveEditorChanges;
+
+// 🔥 НОВЕ: Функції налаштування магазину
+window.openStoreSettingsModal = openStoreSettingsModal;
+window.saveStoreSettings = saveStoreSettings;
 
 window.toggleArchive = toggleArchive;
 window.setMode = setMode;
@@ -179,11 +185,9 @@ async function initGlobalAdminFilter() {
     }
 }
 
-// Перевіряємо права і показуємо кнопку редактора
 function checkEditorButtonVisibility() {
     const btn = document.getElementById('editorToggleBtn');
     if (btn && state.currentUser) {
-        // Тільки Admin, SM або SSE можуть бачити кнопку редагування
         if (['admin', 'SM', 'SSE'].includes(state.currentUser.role)) {
             btn.classList.remove('hidden');
         } else {
@@ -275,8 +279,6 @@ function setMode(m) {
         loadKpiData().then(() => renderKpi());
     }
 }
-
-// --- REGISTRATION & AUTH UTILS ---
 
 async function toggleAuthMode(mode) {
     const loginContainer = document.getElementById('loginContainer');
@@ -433,8 +435,7 @@ function initContextMenuListeners() {
     }
 }
 
-// Періодичні задачі
 setInterval(updateStoreDisplay, 5000); 
 setTimeout(updateStoreDisplay, 1000); 
 setInterval(initGlobalAdminFilter, 1500);
-setInterval(checkEditorButtonVisibility, 1000); // 🔥 Перевірка видимості кнопки редактора
+setInterval(checkEditorButtonVisibility, 1000);
