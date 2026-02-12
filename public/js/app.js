@@ -18,11 +18,9 @@ import {
     openAvatarModal, closeAvatarModal, handleAvatarSelect, uploadAvatar, 
     openChangePasswordModal, closeChangePasswordModal, submitChangePassword, loadLogs,
     openTransferModal, updateStoreDisplay,
-    // 🔥 НОВЕ: Налаштування магазину (графік, час звіту)
     openStoreSettingsModal, saveStoreSettings 
 } from './modules/settings.js';
 
-// 🔥 НОВЕ: Імпорт Редактора Графіку
 import { 
     initEditor, toggleEditor, editorSelectTool, 
     editorConfigTemplates, saveEditorChanges 
@@ -56,16 +54,13 @@ window.showAdminTab = (t) => {
     }
 };
 
-// Admin Panel Toggle
 window.toggleEditMode = toggleEditMode; 
 
-// 🔥 Shift Editor Functions
 window.toggleEditor = toggleEditor;
 window.editorSelectTool = editorSelectTool;
 window.editorConfigTemplates = editorConfigTemplates;
 window.saveEditorChanges = saveEditorChanges;
 
-// 🔥 НОВЕ: Функції налаштування магазину
 window.openStoreSettingsModal = openStoreSettingsModal;
 window.saveStoreSettings = saveStoreSettings;
 
@@ -138,6 +133,18 @@ window.contextMenuProxy = (e, type, id) => {
 window.changeStoreFilter = (storeId) => {
     triggerHaptic();
     state.selectedStoreFilter = storeId;
+    localStorage.setItem('shifter_storeFilter', storeId); // 🔥 Зберігаємо вибір фільтру
+    
+    // Оновлюємо дані KPI при зміні магазину
+    loadKpiData().then(() => {
+        // Якщо ми в режимі KPI або Grid - ререндеримо їх
+        const kpiDiv = document.getElementById('kpiViewContainer');
+        const gridDiv = document.getElementById('gridViewContainer');
+        
+        if (kpiDiv && !kpiDiv.classList.contains('hidden')) renderKpi();
+        if (gridDiv && !gridDiv.classList.contains('hidden')) renderTable();
+    });
+
     renderAll();
 };
 
@@ -185,7 +192,6 @@ async function initGlobalAdminFilter() {
     }
 }
 
-// Перевіряємо права і показуємо кнопку редактора
 function checkEditorButtonVisibility() {
     const btn = document.getElementById('editorToggleBtn');
     if (btn && state.currentUser) {
@@ -212,16 +218,24 @@ async function changeMonth(d) {
     state.currentDate.setMonth(state.currentDate.getMonth() + d); 
     
     const kpiContainer = document.getElementById('kpiViewContainer');
-    if (kpiContainer && !kpiContainer.classList.contains('hidden')) {
+    const gridContainer = document.getElementById('gridViewContainer');
+
+    if ((kpiContainer && !kpiContainer.classList.contains('hidden')) || 
+        (gridContainer && !gridContainer.classList.contains('hidden'))) {
         await loadKpiData();
+    }
+    
+    if (kpiContainer && !kpiContainer.classList.contains('hidden')) {
         renderKpi();
     } else {
         renderAll(); 
     }
 }
 
-function setMode(m) {
+async function setMode(m) {
     triggerHaptic();
+    localStorage.setItem('shifter_viewMode', m); // 🔥 Зберігаємо вибір режиму
+    
     const listDiv = document.getElementById('listViewContainer');
     const calDiv = document.getElementById('calendarViewContainer');
     const gridDiv = document.getElementById('gridViewContainer');
@@ -272,12 +286,14 @@ function setMode(m) {
         gridDiv.classList.remove('hidden');
         gridDiv.classList.add('animate-slide-up');
         btnGrid.className = activeClass;
+        await loadKpiData(); 
         renderTable();
     } else if (m === 'kpi') {
         kpiDiv.classList.remove('hidden');
         kpiDiv.classList.add('animate-slide-up');
         btnKpi.className = activeClass;
-        loadKpiData().then(() => renderKpi());
+        await loadKpiData();
+        renderKpi();
     }
 }
 
@@ -381,7 +397,14 @@ async function loadKpiData() {
     const y = state.currentDate.getFullYear();
     const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
     const month = `${y}-${m}`;
-    state.kpiData = await fetchJson(`/api/kpi?month=${month}`);
+    
+    // 🔥 Якщо Адмін обрав фільтр, додаємо storeId до запиту
+    let query = `?month=${month}`;
+    if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
+        query += `&storeId=${state.selectedStoreFilter}`;
+    }
+
+    state.kpiData = await fetchJson(`/api/kpi${query}`);
 }
 
 window.addEventListener('scroll', () => {
@@ -436,8 +459,7 @@ function initContextMenuListeners() {
     }
 }
 
-// Періодичні задачі
 setInterval(updateStoreDisplay, 5000); 
 setTimeout(updateStoreDisplay, 1000); 
 setInterval(initGlobalAdminFilter, 1500);
-setInterval(checkEditorButtonVisibility, 1000); // 🔥 Перевірка видимості кнопки редактора
+setInterval(checkEditorButtonVisibility, 1000);

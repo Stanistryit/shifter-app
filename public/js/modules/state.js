@@ -10,9 +10,11 @@ export const state = {
     stores: [],
     kpiData: null,
     
-    // Фільтри та навігація
-    filter: 'all',
-    selectedStoreFilter: 'all',
+    // Фільтри та навігація (🔥 ОНОВЛЕНО: читаємо з LocalStorage)
+    filter: localStorage.getItem('shifter_filter') || 'all',
+    selectedStoreFilter: localStorage.getItem('shifter_storeFilter') || 'all',
+    viewMode: localStorage.getItem('shifter_viewMode') || 'list', // Зберігаємо режим (list/calendar/grid/kpi)
+    
     currentDate: new Date(),
     
     // Стан UI

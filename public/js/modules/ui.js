@@ -1,13 +1,27 @@
 const tg = window.Telegram.WebApp;
 
 export function initTheme() {
-    if ((tg?.colorScheme === 'dark') || localStorage.theme === 'dark') {
+    // 🔥 ОНОВЛЕНО: Пріоритет на збережені налаштування (Sticky State)
+    const storedTheme = localStorage.getItem('theme');
+    let isDark = false;
+
+    if (storedTheme) {
+        // Якщо користувач вже обрав тему раніше - використовуємо її
+        isDark = storedTheme === 'dark';
+    } else {
+        // Якщо це перший запуск - беремо налаштування Telegram/Системи
+        isDark = (tg?.colorScheme === 'dark');
+    }
+
+    if (isDark) {
         document.documentElement.classList.add('dark');
-        document.getElementById('themeIcon').innerText = '☀️';
+        const icon = document.getElementById('themeIcon');
+        if(icon) icon.innerText = '☀️';
         if(tg?.setHeaderColor) { tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000'); }
     } else {
         document.documentElement.classList.remove('dark');
-        document.getElementById('themeIcon').innerText = '🌙';
+        const icon = document.getElementById('themeIcon');
+        if(icon) icon.innerText = '🌙';
         if(tg?.setHeaderColor) { tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7'); }
     }
 }
@@ -15,14 +29,15 @@ export function initTheme() {
 export function toggleTheme() {
     if(window.triggerHaptic) window.triggerHaptic();
     const html = document.documentElement;
+    
     if (html.classList.contains('dark')) {
         html.classList.remove('dark');
-        localStorage.theme = 'light';
+        localStorage.setItem('theme', 'light'); // 🔥 Зберігаємо вибір
         document.getElementById('themeIcon').innerText = '🌙';
         if(tg?.setHeaderColor) { tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7'); }
     } else {
         html.classList.add('dark');
-        localStorage.theme = 'dark';
+        localStorage.setItem('theme', 'dark'); // 🔥 Зберігаємо вибір
         document.getElementById('themeIcon').innerText = '☀️';
         if(tg?.setHeaderColor) { tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000'); }
     }
@@ -58,45 +73,27 @@ export function triggerHaptic() {
 export function showAdminTab(t) {
     if(window.triggerHaptic) window.triggerHaptic();
     
-    // 🔥 ДОДАНО: 'global' у список вкладок
     const tabs = ['shifts','tasks','requests','import','news','logs', 'kpi', 'global'];
     
-    // Ховаємо всі
     tabs.forEach(x => {
-        // ID контенту (adminTabShifts, adminTabGlobal...)
         const contentId = 'adminTab' + x.charAt(0).toUpperCase() + x.slice(1);
         const content = document.getElementById(contentId);
         if(content) content.classList.add('hidden');
         
-        // ID кнопки (btnTabShifts, btnTabGlobal...)
         const btnId = 'btnTab' + x.charAt(0).toUpperCase() + x.slice(1);
         const btn = document.getElementById(btnId);
-        // Скидаємо стиль кнопки (неактивна)
         if(btn) {
             btn.className = "flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500 opacity-70 hover:opacity-100";
-            // Якщо кнопка була прихована (hidden), ми не чіпаємо цей клас.
-            // Але якщо вона видима (flex), то клас flex має залишитись.
-            // Тому краще керувати hidden/flex окремо, а тут тільки кольорами.
-            // Щоб спростити, просто додамо базові класи, а hidden керується в auth.js
         }
     });
 
-    // Показуємо активну
     const activeContentId = 'adminTab' + t.charAt(0).toUpperCase() + t.slice(1);
     const activeContent = document.getElementById(activeContentId);
     if(activeContent) activeContent.classList.remove('hidden');
     
-    // Підсвічуємо активну кнопку
     const activeBtnId = 'btnTab' + t.charAt(0).toUpperCase() + t.slice(1);
     const activeBtn = document.getElementById(activeBtnId);
     if(activeBtn) {
-        // Видаляємо старі класи кольору і додаємо активні
-        // Важливо: зберігаємо 'hidden' або 'flex' якщо вони там були, 
-        // але в нашому випадку ми просто переписуємо className, 
-        // тому треба переконатися, що кнопка має display:flex (через клас flex або в CSS).
-        // В index.html кнопки мають `hidden flex-col...` або `flex flex-col...`
-        // Тому краще маніпулювати classList.
-        
         activeBtn.classList.remove('bg-gray-100', 'dark:bg-[#2C2C2E]', 'text-gray-500', 'opacity-70');
         activeBtn.classList.add('bg-white', 'dark:bg-[#3A3A3C]', 'shadow-md', 'text-blue-500', 'ring-2', 'ring-blue-500', 'scale-105');
     }

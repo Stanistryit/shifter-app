@@ -4,12 +4,32 @@ const { notifyAll } = require('../bot');
 
 exports.getKpi = async (req, res) => {
     if (!req.session.userId) return res.status(403).json({});
-    const { month } = req.query;
+    
+    const u = await User.findById(req.session.userId);
+    if (!u) return res.status(403).json({});
+
+    const { month, storeId } = req.query; // Додав підтримку storeId у запиті
     if (!month) return res.json({ kpi: [], settings: null, hours: {} });
 
-    const kpiData = await KPI.find({ month });
-    const settings = await MonthSettings.findOne({ month });
-    const shifts = await Shift.find({ date: { $regex: `^${month}` } });
+    // 🔥 ІЗОЛЯЦІЯ ДАНИХ
+    let query = { month };
+    let shiftQuery = { date: { $regex: `^${month}` } };
+
+    if (u.role !== 'admin') {
+        // Якщо не адмін — жорстко фільтруємо по його магазину
+        query.storeId = u.storeId;
+        shiftQuery.storeId = u.storeId;
+    } else {
+        // Якщо адмін і обрав конкретний магазин у фільтрі
+        if (storeId && storeId !== 'all') {
+            query.storeId = storeId;
+            shiftQuery.storeId = storeId;
+        }
+    }
+
+    const kpiData = await KPI.find(query);
+    const settings = await MonthSettings.findOne(query);
+    const shifts = await Shift.find(shiftQuery);
     const hoursMap = {};
 
     shifts.forEach(s => {
@@ -21,14 +41,23 @@ exports.getKpi = async (req, res) => {
     });
 
     for (const name in hoursMap) hoursMap[name] = parseFloat(hoursMap[name].toFixed(1));
+    
     res.json({ kpi: kpiData, settings: settings || { normHours: 0 }, hours: hoursMap });
 };
 
 exports.saveSettings = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ message: "Тільки SM" });
+    
     const { month, normHours } = req.body;
-    await MonthSettings.findOneAndUpdate({ month }, { month, normHours: Number(normHours) }, { upsert: true });
+    
+    // 🔥 Зберігаємо налаштування для КОНКРЕТНОГО магазину
+    await MonthSettings.findOneAndUpdate(
+        { month, storeId: u.storeId }, 
+        { month, normHours: Number(normHours), storeId: u.storeId }, 
+        { upsert: true }
+    );
+    
     logAction(u.name, 'update_kpi_settings', `${month}: ${normHours}h`);
     res.json({ success: true });
 };
@@ -36,11 +65,15 @@ exports.saveSettings = async (req, res) => {
 exports.importKpi = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ message: "Тільки SM" });
+    
     const { text, month } = req.body;
     if (!text || !month) return res.json({ success: false, message: "Немає даних" });
 
     const lines = text.trim().split('\n');
-    const users = await User.find();
+    
+    // 🔥 Шукаємо співробітників ТІЛЬКИ цього магазину, щоб уникнути плутанини імен
+    const users = await User.find({ storeId: u.storeId });
+    
     let importedCount = 0;
 
     for (const line of lines) {
@@ -68,12 +101,22 @@ exports.importKpi = async (req, res) => {
                 devicePercent: parseNum(parts[7]), upt: parseNum(parts[9]), uptTarget: parseNum(parts[10]),
                 uptPercent: parseNum(parts[11]), nps: parseNum(parts[12]), nba: parseNum(parts[13])
             };
-            await KPI.findOneAndUpdate({ month, name: kpiName }, { month, name: kpiName, stats, updatedAt: new Date() }, { upsert: true, new: true });
+            
+            // 🔥 Записуємо storeId в KPI документ
+            await KPI.findOneAndUpdate(
+                { month, name: kpiName, storeId: u.storeId }, 
+                { month, name: kpiName, stats, updatedAt: new Date(), storeId: u.storeId }, 
+                { upsert: true, new: true }
+            );
             importedCount++;
         }
     }
 
     logAction(u.name, 'import_kpi', `${month}: ${importedCount} records`);
+    
+    // Сповіщення можна надсилати тільки співробітникам цього магазину (якщо notifyAll підтримує фільтр)
+    // Поки що залишаємо notifyAll, але в майбутньому варто додати фільтр і туди.
     if (importedCount > 0) notifyAll(`📊 <b>KPI оновлено!</b>\n\nОпубліковано дані за: <b>${month}</b> 🏆`);
+    
     res.json({ success: true, count: importedCount });
 };
