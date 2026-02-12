@@ -1,15 +1,12 @@
 const tg = window.Telegram.WebApp;
 
 export function initTheme() {
-    // 🔥 ОНОВЛЕНО: Пріоритет на збережені налаштування (Sticky State)
     const storedTheme = localStorage.getItem('theme');
     let isDark = false;
 
     if (storedTheme) {
-        // Якщо користувач вже обрав тему раніше - використовуємо її
         isDark = storedTheme === 'dark';
     } else {
-        // Якщо це перший запуск - беремо налаштування Telegram/Системи
         isDark = (tg?.colorScheme === 'dark');
     }
 
@@ -32,12 +29,12 @@ export function toggleTheme() {
     
     if (html.classList.contains('dark')) {
         html.classList.remove('dark');
-        localStorage.setItem('theme', 'light'); // 🔥 Зберігаємо вибір
+        localStorage.setItem('theme', 'light');
         document.getElementById('themeIcon').innerText = '🌙';
         if(tg?.setHeaderColor) { tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7'); }
     } else {
         html.classList.add('dark');
-        localStorage.setItem('theme', 'dark'); // 🔥 Зберігаємо вибір
+        localStorage.setItem('theme', 'dark');
         document.getElementById('themeIcon').innerText = '☀️';
         if(tg?.setHeaderColor) { tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000'); }
     }
@@ -200,4 +197,23 @@ export function showContextMenu(e, type, id, data = null) {
         document.removeEventListener('click', closeMenu);
     };
     setTimeout(() => document.addEventListener('click', closeMenu), 50);
+}
+
+// 🔥 НОВЕ: Функція для зміни іконки FAB кнопки
+export function updateFabIcon(isOpen) {
+    const icon = document.getElementById('fabIcon');
+    const btn = document.getElementById('fabEditBtn');
+    if (!icon || !btn) return;
+
+    if (isOpen) {
+        icon.innerText = '✕'; // Хрестик
+        // Змінюємо колір на сірий/чорний
+        btn.classList.remove('bg-blue-600', 'shadow-blue-600/40');
+        btn.classList.add('bg-gray-700', 'shadow-gray-700/40');
+    } else {
+        icon.innerText = '✏️'; // Олівець
+        // Повертаємо синій колір
+        btn.classList.remove('bg-gray-700', 'shadow-gray-700/40');
+        btn.classList.add('bg-blue-600', 'shadow-blue-600/40');
+    }
 }

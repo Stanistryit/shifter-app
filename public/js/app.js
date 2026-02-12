@@ -192,13 +192,19 @@ async function initGlobalAdminFilter() {
     }
 }
 
+// 🔥 ОНОВЛЕНО: Тепер керує FAB кнопкою, а не старою кнопкою в шапці
 function checkEditorButtonVisibility() {
-    const btn = document.getElementById('editorToggleBtn');
-    if (btn && state.currentUser) {
+    const fab = document.getElementById('fabEditBtn'); // Нова кнопка
+    const upBtn = document.getElementById('backToTopBtn');
+
+    if (fab && state.currentUser) {
         if (['admin', 'SM', 'SSE'].includes(state.currentUser.role)) {
-            btn.classList.remove('hidden');
+            fab.classList.remove('hidden');
+            // Якщо є кнопка редагування, піднімаємо кнопку "Вгору" вище
+            if (upBtn) upBtn.classList.replace('bottom-6', 'bottom-24');
         } else {
-            btn.classList.add('hidden');
+            fab.classList.add('hidden');
+            if (upBtn) upBtn.classList.replace('bottom-24', 'bottom-6');
         }
     }
 }
@@ -248,6 +254,7 @@ async function setMode(m) {
     
     const filterBtn = document.querySelector('button[onclick="openFilterModal()"]');
     const globalFilterWrapper = document.getElementById('globalStoreFilterWrapper');
+    const fabBtn = document.getElementById('fabEditBtn'); // Кнопка редагування
 
     if (filterBtn) {
         if (m === 'list') {
@@ -258,6 +265,15 @@ async function setMode(m) {
             filterBtn.classList.add('hidden');
             filterBtn.classList.remove('flex');
             if (globalFilterWrapper) globalFilterWrapper.classList.add('hidden');
+        }
+    }
+    
+    // Показуємо кнопку редагування ТІЛЬКИ в режимі Grid (Таблиця)
+    if (fabBtn) {
+        if (m === 'grid' && ['admin', 'SM', 'SSE'].includes(state.currentUser?.role)) {
+            fabBtn.classList.remove('hidden');
+        } else {
+            fabBtn.classList.add('hidden');
         }
     }
     

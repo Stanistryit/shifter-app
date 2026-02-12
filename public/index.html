@@ -250,8 +250,7 @@
                     <button onclick="changeMonth(-1)" class="text-blue-500 text-2xl font-bold p-2">‹</button>
                     <div class="flex items-center gap-2">
                         <h2 id="gridTitle" class="font-bold text-xl capitalize"></h2>
-                        <button id="editorToggleBtn" onclick="toggleEditor()" class="hidden ml-2 p-2 bg-blue-500 text-white rounded-lg shadow-md shadow-blue-500/30 text-sm font-bold active:scale-95 transition-transform">✏️ Редагувати</button>
-                    </div>
+                        </div>
                     <button onclick="changeMonth(1)" class="text-blue-500 text-2xl font-bold p-2">›</button>
                 </div>
                 <div class="overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide" id="gridViewTable">
@@ -274,7 +273,8 @@
 
         </div>
 
-        <button id="backToTopBtn" onclick="scrollToTop()" class="fixed bottom-6 right-6 w-12 h-12 bg-blue-500 text-white rounded-full shadow-lg shadow-blue-500/40 flex items-center justify-center text-2xl z-50 transition-opacity duration-300 opacity-0 hidden hover:scale-110 active:scale-95">↑</button>
+        <button id="backToTopBtn" onclick="scrollToTop()" class="fixed bottom-24 right-6 w-12 h-12 bg-blue-500 text-white rounded-full shadow-lg shadow-blue-500/40 flex items-center justify-center text-2xl z-50 transition-all duration-300 opacity-0 hidden hover:scale-110 active:scale-95">↑</button>
+        <button id="fabEditBtn" onclick="toggleEditor()" class="hidden fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center text-2xl z-50 transition-all hover:scale-110 active:scale-90 animate-slide-up"><span id="fabIcon">✏️</span></button>
 
         <div id="filterModal" class="hidden fixed inset-0 z-50"><div class="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity" onclick="closeFilterModal()"></div><div class="absolute bottom-0 left-0 right-0 glass-modal rounded-t-[24px] max-h-[70vh] overflow-y-auto p-4 animate-slide-up shadow-2xl"><div class="flex justify-between items-center mb-4 px-2"><h3 class="font-bold text-lg">Фільтр</h3><button onclick="closeFilterModal()" class="w-8 h-8 bg-gray-100 dark:bg-[#2C2C2E] rounded-full text-gray-500 text-sm font-bold">✕</button></div><div id="filterList" class="space-y-2"></div></div></div>
         <div id="avatarModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeAvatarModal()"></div><div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 text-center animate-slide-up"><h3 class="font-bold text-xl mb-4">Ваше фото</h3><div class="avatar-preview-container mb-6 shadow-xl"><img id="avatarPreview" class="avatar-preview-img hidden"><div id="avatarPlaceholder" class="w-full h-full flex items-center justify-center text-4xl text-gray-400">📷</div></div><label class="btn-primary block mb-3 cursor-pointer shadow-lg shadow-blue-500/30">Обрати нове фото<input type="file" id="avatarInput" accept="image/*" class="hidden" onchange="handleAvatarSelect(this)"></label><div id="avatarActions" class="hidden space-y-2"><button onclick="uploadAvatar()" class="btn-primary bg-green-500 shadow-green-500/30">Зберегти</button><button onclick="closeAvatarModal()" class="w-full py-3 text-red-500 font-medium">Скасувати</button></div><div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800"><button onclick="openChangePasswordModal()" class="w-full py-2 text-blue-500 font-medium text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">🔐 Змінити пароль</button></div></div></div>
