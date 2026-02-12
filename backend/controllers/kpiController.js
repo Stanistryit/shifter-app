@@ -8,7 +8,7 @@ exports.getKpi = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (!u) return res.status(403).json({});
 
-    const { month, storeId } = req.query; // Додав підтримку storeId у запиті
+    const { month, storeId } = req.query; 
     if (!month) return res.json({ kpi: [], settings: null, hours: {} });
 
     // 🔥 ІЗОЛЯЦІЯ ДАНИХ
@@ -16,11 +16,9 @@ exports.getKpi = async (req, res) => {
     let shiftQuery = { date: { $regex: `^${month}` } };
 
     if (u.role !== 'admin') {
-        // Якщо не адмін — жорстко фільтруємо по його магазину
         query.storeId = u.storeId;
         shiftQuery.storeId = u.storeId;
     } else {
-        // Якщо адмін і обрав конкретний магазин у фільтрі
         if (storeId && storeId !== 'all') {
             query.storeId = storeId;
             shiftQuery.storeId = storeId;
@@ -50,13 +48,36 @@ exports.saveSettings = async (req, res) => {
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ message: "Тільки SM" });
     
     const { month, normHours } = req.body;
+    const updateData = { month, normHours: Number(normHours), storeId: u.storeId };
     
-    // 🔥 Зберігаємо налаштування для КОНКРЕТНОГО магазину
-    await MonthSettings.findOneAndUpdate(
-        { month, storeId: u.storeId }, 
-        { month, normHours: Number(normHours), storeId: u.storeId }, 
-        { upsert: true }
-    );
+    try {
+        // 🔥 Зберігаємо налаштування
+        await MonthSettings.findOneAndUpdate(
+            { month, storeId: u.storeId }, 
+            updateData, 
+            { upsert: true }
+        );
+    } catch (e) {
+        // 🔥 AUTO-FIX: Якщо база скаржиться на старий унікальний індекс (E11000)
+        if (e.code === 11000) {
+            console.log("⚠️ Виявлено старий індекс 'month_1'. Видаляємо...");
+            try {
+                await MonthSettings.collection.dropIndex('month_1');
+                // Пробуємо ще раз після видалення
+                await MonthSettings.findOneAndUpdate(
+                    { month, storeId: u.storeId }, 
+                    updateData, 
+                    { upsert: true }
+                );
+            } catch (retryError) {
+                console.error("Migration failed:", retryError);
+                return res.status(500).json({ success: false, message: "DB Error (Index): " + retryError.message });
+            }
+        } else {
+            console.error(e);
+            return res.status(500).json({ success: false, message: e.message });
+        }
+    }
     
     logAction(u.name, 'update_kpi_settings', `${month}: ${normHours}h`);
     res.json({ success: true });
@@ -71,7 +92,7 @@ exports.importKpi = async (req, res) => {
 
     const lines = text.trim().split('\n');
     
-    // 🔥 Шукаємо співробітників ТІЛЬКИ цього магазину, щоб уникнути плутанини імен
+    // Шукаємо співробітників ТІЛЬКИ цього магазину
     const users = await User.find({ storeId: u.storeId });
     
     let importedCount = 0;
@@ -102,7 +123,6 @@ exports.importKpi = async (req, res) => {
                 uptPercent: parseNum(parts[11]), nps: parseNum(parts[12]), nba: parseNum(parts[13])
             };
             
-            // 🔥 Записуємо storeId в KPI документ
             await KPI.findOneAndUpdate(
                 { month, name: kpiName, storeId: u.storeId }, 
                 { month, name: kpiName, stats, updatedAt: new Date(), storeId: u.storeId }, 
@@ -113,9 +133,6 @@ exports.importKpi = async (req, res) => {
     }
 
     logAction(u.name, 'import_kpi', `${month}: ${importedCount} records`);
-    
-    // Сповіщення можна надсилати тільки співробітникам цього магазину (якщо notifyAll підтримує фільтр)
-    // Поки що залишаємо notifyAll, але в майбутньому варто додати фільтр і туди.
     if (importedCount > 0) notifyAll(`📊 <b>KPI оновлено!</b>\n\nОпубліковано дані за: <b>${month}</b> 🏆`);
     
     res.json({ success: true, count: importedCount });
