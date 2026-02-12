@@ -1,6 +1,6 @@
-const { Shift, User, Request } = require('../models');
+const { Shift, User, Request, Store } = require('../models');
 const { logAction, handlePermission } = require('../utils');
-const { notifyUser, sendRequestToSM } = require('../bot');
+const { notifyUser, sendRequestToSM, getBot } = require('../bot');
 
 const runMigrationIfNeeded = async () => {
     const count = await Shift.countDocuments({ storeId: null });
@@ -50,7 +50,15 @@ exports.addShift = async (req, res) => {
     const { user, status } = perm;
 
     if (status === 'pending') {
-        const reqDoc = await Request.create({ type: 'add_shift', data: req.body, createdBy: user.name });
+        // Додаємо storeId до запиту, щоб SM бачив, з якого магазину
+        const targetUser = await User.findOne({ name: req.body.name });
+        const storeId = targetUser ? targetUser.storeId : user.storeId;
+        
+        const reqDoc = await Request.create({ 
+            type: 'add_shift', 
+            data: { ...req.body, storeId }, 
+            createdBy: user.name 
+        });
         sendRequestToSM(reqDoc);
         return res.json({ success: true, pending: true });
     }
@@ -76,62 +84,112 @@ exports.addShift = async (req, res) => {
     res.json({ success: true });
 };
 
-// 🔥 НОВЕ: Масове збереження графіку (для редактора)
+// 🔥 ОНОВЛЕНО: Масове збереження графіку (з підтримкою Requests для SSE)
 exports.saveSchedule = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (!u || (u.role !== 'SM' && u.role !== 'admin' && u.role !== 'SSE')) {
         return res.status(403).json({ success: false, message: "Немає прав" });
     }
 
-    const updates = req.body.updates || []; // Очікуємо масив [{ date, name, start, end }]
+    const updates = req.body.updates || []; // Масив [{ date, name, start, end }]
     if (updates.length === 0) return res.json({ success: true });
 
-    // Кешуємо storeId користувачів, щоб правильно прив'язати зміни
-    const names = [...new Set(updates.map(x => x.name))];
-    const users = await User.find({ name: { $in: names } }, 'name storeId');
-    const userStoreMap = {};
-    users.forEach(us => userStoreMap[us.name] = us.storeId);
+    try {
+        // --- 1. ЛОГІКА ДЛЯ SSE (СТВОРЮЄМО ЗАПИТИ) ---
+        if (u.role === 'SSE') {
+            let reqCount = 0;
+            
+            for (const item of updates) {
+                // Знаходимо target user щоб взяти storeId
+                const targetUser = await User.findOne({ name: item.name });
+                const storeId = targetUser ? targetUser.storeId : u.storeId;
 
-    const bulkOps = [];
-
-    for (const upd of updates) {
-        // Визначаємо магазин: або з юзера, або з того, хто редагує
-        const targetStoreId = userStoreMap[upd.name] || u.storeId;
-
-        // Перевірка безпеки: SM не може редагувати чужий магазин
-        if (u.role !== 'admin' && String(targetStoreId) !== String(u.storeId)) {
-            continue; 
-        }
-
-        // 1. Спочатку видаляємо стару зміну на цей день (щоб не було дублів)
-        bulkOps.push({
-            deleteOne: {
-                filter: { date: upd.date, name: upd.name }
-            }
-        });
-
-        // 2. Якщо це не "гумка" (start !== null/DELETE), додаємо нову зміну
-        if (upd.start && upd.end && upd.start !== 'DELETE') {
-            bulkOps.push({
-                insertOne: {
-                    document: {
-                        date: upd.date,
-                        name: upd.name,
-                        start: upd.start,
-                        end: upd.end,
-                        storeId: targetStoreId
+                if (item.start === 'DELETE') {
+                    // Для видалення нам потрібен ID існуючої зміни
+                    const s = await Shift.findOne({ date: item.date, name: item.name });
+                    if (s) {
+                        await Request.create({
+                            type: 'del_shift',
+                            data: { id: s._id, date: s.date, name: s.name },
+                            createdBy: u.name
+                        });
+                        reqCount++;
                     }
+                } else {
+                    // Додавання/Редагування
+                    await Request.create({
+                        type: 'add_shift',
+                        data: { ...item, storeId },
+                        createdBy: u.name
+                    });
+                    reqCount++;
                 }
-            });
+            }
+
+            // Сповіщаємо SM/Admin про пакет запитів
+            const bot = getBot();
+            if (bot && u.storeId) {
+                const managers = await User.find({ storeId: u.storeId, role: { $in: ['SM', 'admin'] } });
+                managers.forEach(m => {
+                    if (m.telegramChatId) {
+                         bot.sendMessage(m.telegramChatId, `✏️ <b>Редактор Графіку</b>\n👤 ${u.name} надіслав зміни (${reqCount} шт.) на підтвердження.`, { parse_mode: 'HTML' });
+                    }
+                });
+            }
+
+            return res.json({ success: true, isRequest: true, count: reqCount });
         }
-    }
 
-    if (bulkOps.length > 0) {
-        await Shift.bulkWrite(bulkOps);
-    }
+        // --- 2. ЛОГІКА ДЛЯ ADMIN/SM (ПРЯМЕ ЗБЕРЕЖЕННЯ) ---
+        
+        // Кешуємо storeId користувачів
+        const names = [...new Set(updates.map(x => x.name))];
+        const users = await User.find({ name: { $in: names } }, 'name storeId');
+        const userStoreMap = {};
+        users.forEach(us => userStoreMap[us.name] = us.storeId);
 
-    logAction(u.name, 'bulk_save', `Updated ${updates.length} items via Editor`);
-    res.json({ success: true });
+        const bulkOps = [];
+
+        for (const upd of updates) {
+            const targetStoreId = userStoreMap[upd.name] || u.storeId;
+
+            // Безпека: SM не редагує чужий магазин
+            if (u.role !== 'admin' && String(targetStoreId) !== String(u.storeId)) {
+                continue; 
+            }
+
+            // Видаляємо стару (щоб уникнути дублів або якщо це DELETE)
+            bulkOps.push({
+                deleteOne: { filter: { date: upd.date, name: upd.name } }
+            });
+
+            // Якщо не DELETE - додаємо нову
+            if (upd.start && upd.end && upd.start !== 'DELETE') {
+                bulkOps.push({
+                    insertOne: {
+                        document: {
+                            date: upd.date,
+                            name: upd.name,
+                            start: upd.start,
+                            end: upd.end,
+                            storeId: targetStoreId
+                        }
+                    }
+                });
+            }
+        }
+
+        if (bulkOps.length > 0) {
+            await Shift.bulkWrite(bulkOps);
+        }
+
+        logAction(u.name, 'bulk_save', `Updated ${updates.length} items via Editor`);
+        res.json({ success: true, count: updates.length });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: e.message });
+    }
 };
 
 exports.deleteShift = async (req, res) => {
@@ -156,6 +214,7 @@ exports.deleteShift = async (req, res) => {
 
 exports.bulkImport = async (req, res) => {
     const u = await User.findById(req.session.userId);
+    if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({});
     
     if (req.body.shifts?.length) {
         const shiftsToImport = [];

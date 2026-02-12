@@ -6,13 +6,11 @@ import { showToast, triggerHaptic } from './ui.js';
 // --- INITIALIZATION ---
 
 export function initEditor() {
-    // Делегування подій кліку по таблиці
     const gridContainer = document.getElementById('gridViewTable');
     if (gridContainer) {
         gridContainer.addEventListener('click', handleGridClick);
     }
     
-    // Завантажуємо шаблони з пам'яті телефону (якщо є)
     const savedTemplates = localStorage.getItem('shiftTemplates');
     if (savedTemplates) {
         try { state.shiftTemplates = JSON.parse(savedTemplates); } catch(e){}
@@ -28,24 +26,22 @@ export function toggleEditor() {
     const toolbar = document.getElementById('editorToolbar');
     
     if (state.isEditMode) {
-        // Вмикаємо
         renderToolbar();
         toolbar.classList.remove('hidden', 'translate-y-full');
         showToast('✏️ Режим редактора: Оберіть інструмент і малюйте', 'info');
     } else {
-        // Вимикаємо
         if (Object.keys(state.pendingChanges).length > 0) {
             if(!confirm('У вас є незбережені зміни. Вийти без збереження?')) {
                 state.isEditMode = true;
                 return;
             }
         }
-        discardChanges(); // Очистити чернетки
+        discardChanges();
         toolbar.classList.add('translate-y-full');
         setTimeout(() => toolbar.classList.add('hidden'), 300);
     }
     
-    renderTable(); // Оновити вигляд таблиці (прибрати/показати чернетки)
+    renderTable(); 
 }
 
 // --- TOOLBAR UI ---
@@ -53,7 +49,6 @@ export function toggleEditor() {
 function renderToolbar() {
     let toolbar = document.getElementById('editorToolbar');
     
-    // Якщо тулбара ще немає в DOM - створюємо його
     if (!toolbar) {
         toolbar = document.createElement('div');
         toolbar.id = 'editorToolbar';
@@ -61,13 +56,11 @@ function renderToolbar() {
         document.body.appendChild(toolbar);
     }
 
-    // Рендер кнопок
     const activeStyle = "bg-blue-500 text-white shadow-md transform scale-105 ring-2 ring-blue-300 dark:ring-blue-700";
     const inactiveStyle = "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700";
     
     let toolsHtml = '';
     
-    // 1. Стандартні шаблони
     state.shiftTemplates.forEach((tpl, idx) => {
         const isActive = state.activeTool && state.activeTool.label === tpl.label;
         const style = isActive ? activeStyle : inactiveStyle;
@@ -79,7 +72,6 @@ function renderToolbar() {
         `;
     });
 
-    // 2. Спец інструменти
     const isCustom = state.activeTool && state.activeTool.type === 'custom';
     const customLabel = isCustom && state.activeTool.start ? `${state.activeTool.start}-${state.activeTool.end}` : 'Своя';
     
@@ -122,8 +114,6 @@ function renderToolbar() {
 
 // --- ACTIONS ---
 
-// 🔥 БУЛО: window.editorSelectTool = ...
-// 🔥 СТАЛО: export function ...
 export function editorSelectTool(type, index) {
     triggerHaptic();
     
@@ -134,7 +124,6 @@ export function editorSelectTool(type, index) {
     } else if (type === 'eraser') {
         state.activeTool = { type: 'eraser', start: 'DELETE', end: 'DELETE' };
     } else if (type === 'custom') {
-        // Якщо час вже заданий, просто вибираємо його. Якщо ні (або клік повторний) - питаємо.
         if (state.activeTool?.type === 'custom' && state.activeTool.start) {
             const newTime = prompt("Введіть час зміни (напр. 10:00-15:30):", `${state.activeTool.start}-${state.activeTool.end}`);
             if (newTime && newTime.includes('-')) {
@@ -142,7 +131,6 @@ export function editorSelectTool(type, index) {
                  state.activeTool = { type: 'custom', start: s, end: e };
             }
         } else {
-            // Перший вибір - просимо ввести
              const newTime = prompt("Введіть час для своєї зміни (напр. 09:00-14:00):", "09:00-14:00");
              if (newTime && newTime.includes('-')) {
                  const [s, e] = newTime.split('-').map(x => x.trim());
@@ -159,15 +147,13 @@ export function editorSelectTool(type, index) {
 function handleGridClick(e) {
     if (!state.isEditMode) return;
 
-    // Шукаємо клітинку
     const cell = e.target.closest('td');
     if (!cell) return;
 
-    // Отримуємо дані з атрибутів (які ми додали в render_table.js)
     const date = cell.getAttribute('data-date');
     const name = cell.getAttribute('data-name');
 
-    if (!date || !name) return; // Це не клітинка зміни
+    if (!date || !name) return; 
 
     if (!state.activeTool) {
         showToast('👆 Спочатку оберіть інструмент знизу', 'info');
@@ -176,16 +162,13 @@ function handleGridClick(e) {
 
     triggerHaptic();
 
-    // Записуємо в чернетку
     const key = `${date}_${name}`;
     
-    // Якщо клікаємо тим же інструментом по вже зміненій клітинці - скасовуємо зміну (toggle)
     if (state.pendingChanges[key] && 
         state.pendingChanges[key].start === state.activeTool.start && 
         state.pendingChanges[key].end === state.activeTool.end) {
         delete state.pendingChanges[key];
     } else {
-        // Записуємо нову зміну
         state.pendingChanges[key] = {
             date: date,
             name: name,
@@ -194,14 +177,12 @@ function handleGridClick(e) {
         };
     }
 
-    renderTable(); // Перемальовуємо, щоб показати жовті клітинки
-    renderToolbar(); // Оновлюємо лічильник на кнопці "Зберегти"
+    renderTable(); 
+    renderToolbar(); 
 }
 
 // --- SAVING ---
 
-// 🔥 БУЛО: window.saveEditorChanges = ...
-// 🔥 СТАЛО: export async function ...
 export async function saveEditorChanges() {
     const changes = Object.values(state.pendingChanges);
     if (changes.length === 0) {
@@ -216,15 +197,19 @@ export async function saveEditorChanges() {
     try {
         const res = await postJson('/api/shifts/save', { updates: changes });
         if (res.success) {
-            showToast(`✅ Збережено ${changes.length} змін`);
-            state.pendingChanges = {}; // Очищаємо чернетку
-            
-            // Оновлюємо локальні дані (перезавантажуємо)
+            // 🔥 ОНОВЛЕНО: Перевірка на Запит
+            if (res.isRequest) {
+                showToast(`📩 Відправлено ${res.count} змін на підтвердження SM`, 'info');
+            } else {
+                showToast(`✅ Збережено ${changes.length} змін`);
+            }
+
+            state.pendingChanges = {}; 
             const shifts = await fetchJson('/api/shifts');
             state.shifts = shifts;
             
-            window.toggleEditor(); // Виходимо з режиму
-            renderTable(); // Фінальний рендер
+            window.toggleEditor(); 
+            renderTable(); 
         } else {
             showToast('❌ Помилка: ' + res.message, 'error');
             btn.innerText = oldText;
@@ -242,10 +227,7 @@ function discardChanges() {
 
 // --- SETTINGS (Templates) ---
 
-// 🔥 БУЛО: window.editorConfigTemplates = ...
-// 🔥 СТАЛО: export function ...
 export function editorConfigTemplates() {
-    // Простий промпт для редагування JSON шаблонів
     if(confirm("Скинути шаблони до стандартних?")) {
         localStorage.removeItem('shiftTemplates');
         state.shiftTemplates = [
