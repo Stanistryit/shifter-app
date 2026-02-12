@@ -1,6 +1,7 @@
 const { User, Request, Shift, Task, NewsPost, AuditLog, Store } = require('../models');
 const { logAction } = require('../utils');
-const { notifyUser, notifyRole, getBot } = require('../bot');
+// 👇 Видалив notifyRole з імпорту, бо його немає в експорті bot.js
+const { notifyUser, getBot } = require('../bot');
 
 // --- STORES (Global Admin) ---
 exports.createStore = async (req, res) => {
@@ -50,15 +51,13 @@ exports.updateStoreSettings = async (req, res) => {
     }
 
     try {
-        const { reportTime, openTime, closeTime } = req.body; // Отримуємо нові параметри
+        const { reportTime, openTime, closeTime } = req.body; 
         const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
-        // Валідація часу звіту
         if (reportTime && !timeRegex.test(reportTime)) {
             return res.json({ success: false, message: "Невірний формат часу звіту (HH:MM)" });
         }
 
-        // Валідація часу відкриття/закриття
         if ((openTime && !timeRegex.test(openTime)) || (closeTime && !timeRegex.test(closeTime))) {
             return res.json({ success: false, message: "Невірний формат часу роботи (HH:MM)" });
         }
@@ -84,10 +83,7 @@ exports.updateStoreSettings = async (req, res) => {
 // --- LOGS ---
 exports.getLogs = async (req, res) => {
     const u = await User.findById(req.session.userId);
-    
-    // Тільки Global Admin бачить логи
     if (u?.role !== 'admin') return res.json([]); 
-    
     const l = await AuditLog.find().sort({ timestamp: -1 }).limit(50);
     res.json(l);
 };
@@ -181,7 +177,13 @@ exports.approveAllRequests = async (req, res) => {
         await Request.findByIdAndDelete(r._id);
     }
     
-    notifyRole('SSE', '✅ Всі запити схвалено', u.role === 'admin' ? null : u.storeId);
+    // 🔥 ВИПРАВЛЕНО: Замість notifyRole вручну шукаємо SSE і відправляємо повідомлення
+    const query = { role: 'SSE' };
+    if (u.role !== 'admin') query.storeId = u.storeId;
+    
+    const sses = await User.find(query);
+    sses.forEach(sse => notifyUser(sse.name, '✅ Всі запити схвалено'));
+    
     res.json({ success: true });
 };
 
