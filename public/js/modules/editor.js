@@ -26,7 +26,6 @@ export function toggleEditor() {
     state.isEditMode = !state.isEditMode;
     
     const toolbar = document.getElementById('editorToolbar');
-    const fab = document.getElementById('editorFab'); // Плаваюча кнопка (якщо ми її додамо)
     
     if (state.isEditMode) {
         // Вмикаємо
@@ -123,7 +122,9 @@ function renderToolbar() {
 
 // --- ACTIONS ---
 
-window.editorSelectTool = (type, index) => {
+// 🔥 БУЛО: window.editorSelectTool = ...
+// 🔥 СТАЛО: export function ...
+export function editorSelectTool(type, index) {
     triggerHaptic();
     
     if (type === 'template') {
@@ -199,7 +200,9 @@ function handleGridClick(e) {
 
 // --- SAVING ---
 
-window.saveEditorChanges = async () => {
+// 🔥 БУЛО: window.saveEditorChanges = ...
+// 🔥 СТАЛО: export async function ...
+export async function saveEditorChanges() {
     const changes = Object.values(state.pendingChanges);
     if (changes.length === 0) {
         window.toggleEditor();
@@ -216,9 +219,7 @@ window.saveEditorChanges = async () => {
             showToast(`✅ Збережено ${changes.length} змін`);
             state.pendingChanges = {}; // Очищаємо чернетку
             
-            // Оновлюємо локальні дані
-            // (В ідеалі - перезавантажити з сервера, але для швидкості можна і локально патчити)
-            // Давай краще перезавантажимо для надійності
+            // Оновлюємо локальні дані (перезавантажуємо)
             const shifts = await fetchJson('/api/shifts');
             state.shifts = shifts;
             
@@ -241,11 +242,10 @@ function discardChanges() {
 
 // --- SETTINGS (Templates) ---
 
-window.editorConfigTemplates = () => {
-    // Простий промпт для редагування JSON шаблонів (поки що)
-    // У версії 2.0 можна зробити гарну модалку
-    const currentJSON = JSON.stringify(state.shiftTemplates, null, 2);
-    // Для простоти, просто покажемо повідомлення, що функція в розробці, або дамо скинути
+// 🔥 БУЛО: window.editorConfigTemplates = ...
+// 🔥 СТАЛО: export function ...
+export function editorConfigTemplates() {
+    // Простий промпт для редагування JSON шаблонів
     if(confirm("Скинути шаблони до стандартних?")) {
         localStorage.removeItem('shiftTemplates');
         state.shiftTemplates = [
