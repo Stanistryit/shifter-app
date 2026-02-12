@@ -1,32 +1,32 @@
-import { state } from './state.js';
-import { fetchJson, postJson } from './api.js';
+import { state } from './modules/state.js';
+import { fetchJson, postJson } from './modules/api.js';
 import { 
     initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab as uiShowAdminTab, formatText, updateFileName,
     openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext 
-} from './ui.js';
-import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } from './render.js';
-import { checkAuth, login, logout } from './auth.js';
+} from './modules/ui.js';
+import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } from './modules/render.js';
+import { checkAuth, login, logout } from './modules/auth.js';
 import { 
     addShift, delS, clearDay, clearMonth, toggleShiftTimeInputs, 
     addTask, deleteTask, toggleTaskTimeInputs, bulkImport, publishNews,
     createStore, loadStores, deleteStore 
-} from './admin.js';
-import { loadRequests, handleRequest, approveAllRequests } from './requests.js';
-import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './notes.js';
+} from './modules/admin.js';
+import { loadRequests, handleRequest, approveAllRequests } from './modules/requests.js';
+import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
 import { 
     openFilterModal, closeFilterModal, applyFilter, 
     openAvatarModal, closeAvatarModal, handleAvatarSelect, uploadAvatar, 
     openChangePasswordModal, closeChangePasswordModal, submitChangePassword, loadLogs,
     openTransferModal, updateStoreDisplay,
-    // 🔥 НОВЕ: Налаштування магазину
+    // 🔥 НОВЕ: Налаштування магазину (графік, час звіту)
     openStoreSettingsModal, saveStoreSettings 
-} from './settings.js';
+} from './modules/settings.js';
 
 // 🔥 НОВЕ: Імпорт Редактора Графіку
 import { 
     initEditor, toggleEditor, editorSelectTool, 
     editorConfigTemplates, saveEditorChanges 
-} from './editor.js';
+} from './modules/editor.js';
 
 const tg = window.Telegram.WebApp;
 if(tg) { tg.ready(); if(tg.platform && tg.platform!=='unknown') try{tg.expand()}catch(e){} }
@@ -185,6 +185,7 @@ async function initGlobalAdminFilter() {
     }
 }
 
+// Перевіряємо права і показуємо кнопку редактора
 function checkEditorButtonVisibility() {
     const btn = document.getElementById('editorToggleBtn');
     if (btn && state.currentUser) {
@@ -435,7 +436,8 @@ function initContextMenuListeners() {
     }
 }
 
+// Періодичні задачі
 setInterval(updateStoreDisplay, 5000); 
 setTimeout(updateStoreDisplay, 1000); 
 setInterval(initGlobalAdminFilter, 1500);
-setInterval(checkEditorButtonVisibility, 1000);
+setInterval(checkEditorButtonVisibility, 1000); // 🔥 Перевірка видимості кнопки редактора
