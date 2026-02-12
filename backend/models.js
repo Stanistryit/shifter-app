@@ -6,6 +6,11 @@ const storeSchema = new mongoose.Schema({
     name: { type: String, required: true }, 
     type: { type: String, enum: ['expansion', 'top', 'kiev', 'standard'], default: 'standard' }, 
     code: { type: String, unique: true, required: true }, 
+    
+    // 🔥 НОВЕ: Графік роботи магазину (для таймлайну)
+    openTime: { type: String, default: '10:00' },
+    closeTime: { type: String, default: '22:00' },
+
     telegram: {
         chatId: { type: Number, default: null },       
         newsTopicId: { type: Number, default: null },  
@@ -35,6 +40,9 @@ const userSchema = new mongoose.Schema({
     grade: { type: Number, default: 0 }, 
     status: { type: String, enum: ['pending', 'active', 'blocked'], default: 'active' }, 
     
+    // 🔥 НОВЕ: Порядок сортування (чим менше число, тим вище у списку)
+    sortOrder: { type: Number, default: 999 },
+
     reminderTime: { type: String, default: 'none' },
     tSalesCookie: { type: String, default: null }
 });
@@ -82,7 +90,7 @@ const requestSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-// 6. Схема Нотаток (🔥 ОНОВЛЕНО: додано storeId)
+// 6. Схема Нотаток
 const noteSchema = new mongoose.Schema({
     date: { type: String, required: true },
     text: { type: String, required: true },

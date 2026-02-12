@@ -33,7 +33,7 @@ router.post('/admin/stores/create', adminController.createStore);
 router.get('/admin/stores', adminController.getAllStores);
 router.post('/admin/stores/delete', adminController.deleteStore);
 
-// 🔥 НОВЕ: Збереження налаштувань магазину (час звіту)
+// 🔥 Збереження налаштувань магазину (час звіту)
 router.post('/admin/store/settings', adminController.updateStoreSettings); 
 
 // --- SHIFTS ---
@@ -43,6 +43,9 @@ router.post('/delete-shift', shiftController.deleteShift);
 router.post('/shifts/bulk', shiftController.bulkImport);
 router.post('/shifts/clear-day', shiftController.clearDay);
 router.post('/shifts/clear-month', shiftController.clearMonth);
+
+// 🔥 НОВЕ: Масове збереження графіку (для Редактора)
+router.post('/shifts/save', shiftController.saveSchedule);
 
 // --- TASKS ---
 router.get('/tasks', taskController.getTasks);

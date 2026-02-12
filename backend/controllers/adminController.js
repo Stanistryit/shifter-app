@@ -50,19 +50,29 @@ exports.updateStoreSettings = async (req, res) => {
     }
 
     try {
-        const { reportTime } = req.body;
+        const { reportTime, openTime, closeTime } = req.body; // Отримуємо нові параметри
         const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-        if (!reportTime || !timeRegex.test(reportTime)) {
-            return res.json({ success: false, message: "Невірний формат часу (HH:MM)" });
+
+        // Валідація часу звіту
+        if (reportTime && !timeRegex.test(reportTime)) {
+            return res.json({ success: false, message: "Невірний формат часу звіту (HH:MM)" });
+        }
+
+        // Валідація часу відкриття/закриття
+        if ((openTime && !timeRegex.test(openTime)) || (closeTime && !timeRegex.test(closeTime))) {
+            return res.json({ success: false, message: "Невірний формат часу роботи (HH:MM)" });
         }
 
         const store = await Store.findById(u.storeId);
         if (!store) return res.json({ success: false, message: "Магазин не знайдено" });
 
-        store.telegram.reportTime = reportTime;
+        if (reportTime) store.telegram.reportTime = reportTime;
+        if (openTime) store.openTime = openTime;
+        if (closeTime) store.closeTime = closeTime;
+
         await store.save();
 
-        logAction(u.name, 'update_settings', `Report Time changed to ${reportTime}`);
+        logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}`);
         res.json({ success: true });
 
     } catch (e) {
@@ -75,7 +85,7 @@ exports.updateStoreSettings = async (req, res) => {
 exports.getLogs = async (req, res) => {
     const u = await User.findById(req.session.userId);
     
-    // 🔥 ЗМІНЕНО: Тепер тільки Global Admin бачить логи
+    // Тільки Global Admin бачить логи
     if (u?.role !== 'admin') return res.json([]); 
     
     const l = await AuditLog.find().sort({ timestamp: -1 }).limit(50);

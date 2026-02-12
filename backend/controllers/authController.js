@@ -85,7 +85,8 @@ exports.login = async (req, res) => {
             }
             req.session.userId = user._id;
             logAction(user.name, 'login', 'Web Login');
-            req.session.save(() => res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar, status: user.status } }));
+            // Підтягуємо деталі магазину одразу при логіні, якщо треба
+            res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar, status: user.status } });
         } else {
             res.json({ success: false, message: "Невірний логін або пароль" });
         }
@@ -101,7 +102,8 @@ exports.updateUser = async (req, res) => {
     }
 
     try {
-        const { id, fullName, email, phone, position, grade, role, status, storeId } = req.body;
+        // 🔥 НОВЕ: отримуємо sortOrder
+        const { id, fullName, email, phone, position, grade, role, status, storeId, sortOrder } = req.body;
         const userToEdit = await User.findById(id);
         if (!userToEdit) return res.json({ success: false, message: "Користувача не знайдено" });
 
@@ -116,7 +118,9 @@ exports.updateUser = async (req, res) => {
         if (grade !== undefined) userToEdit.grade = Number(grade);
         if (role !== undefined) userToEdit.role = role;
         
-        // 🔥 НОВЕ: Глобальний адмін може змінювати магазин співробітника
+        // 🔥 НОВЕ: Оновлення порядку сортування
+        if (sortOrder !== undefined) userToEdit.sortOrder = Number(sortOrder);
+
         if (admin.role === 'admin' && storeId !== undefined) {
             userToEdit.storeId = storeId === 'null' ? null : storeId;
         }
@@ -169,7 +173,7 @@ exports.loginTelegram = async (req, res) => {
     if (user) {
         req.session.userId = user._id;
         logAction(user.name, 'login', 'Tg Login');
-        req.session.save(() => res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar } }));
+        res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar } });
     } else res.json({ success: false });
 };
 
@@ -187,14 +191,36 @@ exports.getUsers = async (req, res) => {
         query.storeId = currentUser.storeId; 
     }
     
-    const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId');
+    // 🔥 НОВЕ: Додав sortOrder у вибірку
+    const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId sortOrder');
     res.json(users);
 };
 
 exports.getMe = async (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
-    const user = await User.findById(req.session.userId);
-    res.json({ loggedIn: !!user, user: user ? { name: user.name, role: user.role, avatar: user.avatar, status: user.status } : null });
+    // 🔥 НОВЕ: populate storeId щоб отримати графік роботи магазину
+    const user = await User.findById(req.session.userId).populate('storeId');
+    
+    let userData = null;
+    if (user) {
+        userData = { 
+            _id: user._id, // Додали ID для надійності
+            name: user.name, 
+            role: user.role, 
+            avatar: user.avatar, 
+            status: user.status,
+            storeId: user.storeId?._id || user.storeId,
+            
+            // Передаємо дані магазину (якщо є)
+            store: user.storeId ? {
+                openTime: user.storeId.openTime,
+                closeTime: user.storeId.closeTime,
+                reportTime: user.storeId.telegram?.reportTime
+            } : null
+        };
+    }
+
+    res.json({ loggedIn: !!user, user: userData });
 };
 
 exports.uploadAvatar = async (req, res) => {

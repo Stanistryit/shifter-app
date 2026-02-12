@@ -3,27 +3,97 @@ import { fetchJson, postJson } from './api.js';
 import { showToast, triggerHaptic } from './ui.js';
 import { renderAll } from './render.js';
 
-// --- STORE DISPLAY & TRANSFER (🔥 НОВЕ) ---
+// --- STORE SETTINGS (🔥 НОВЕ: Графік роботи) ---
 
-// Функція для відображення назви магазину в шапці
+export function openStoreSettingsModal() {
+    triggerHaptic();
+    // Беремо поточні налаштування зі стейту (або дефолтні)
+    const s = state.currentUser.store || {};
+    const reportTime = s.reportTime || "20:00";
+    const openTime = s.openTime || "10:00";
+    const closeTime = s.closeTime || "22:00";
+
+    const modalHtml = `
+    <div id="storeSettingsModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="document.getElementById('storeSettingsModal').remove()"></div>
+        <div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up">
+            <h3 class="font-bold text-xl mb-4">⚙️ Налаштування Магазину</h3>
+            
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1">Час відправки звіту (Telegram)</label>
+                    <input type="time" id="set_reportTime" value="${reportTime}" class="ios-input w-full">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1">Відкриття</label>
+                        <input type="time" id="set_openTime" value="${openTime}" class="ios-input w-full">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1">Закриття</label>
+                        <input type="time" id="set_closeTime" value="${closeTime}" class="ios-input w-full">
+                    </div>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-2">Цей час впливає на відображення графіку (Timeline).</p>
+            </div>
+
+            <button onclick="window.saveStoreSettings()" class="btn-primary bg-blue-600 shadow-lg shadow-blue-500/30 mb-2">💾 Зберегти</button>
+            <button onclick="document.getElementById('storeSettingsModal').remove()" class="w-full py-3 text-gray-500 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">Скасувати</button>
+        </div>
+    </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+export async function saveStoreSettings() {
+    const reportTime = document.getElementById('set_reportTime').value;
+    const openTime = document.getElementById('set_openTime').value;
+    const closeTime = document.getElementById('set_closeTime').value;
+
+    const btn = document.querySelector('#storeSettingsModal .btn-primary');
+    const oldText = btn.innerText;
+    btn.innerText = "⏳ ...";
+
+    try {
+        const res = await postJson('/api/admin/store/settings', { reportTime, openTime, closeTime });
+        if (res.success) {
+            showToast("Налаштування збережено! ✅");
+            
+            // Оновлюємо локальний стейт, щоб графік перемалювався одразу
+            if (state.currentUser.store) {
+                state.currentUser.store.reportTime = reportTime;
+                state.currentUser.store.openTime = openTime;
+                state.currentUser.store.closeTime = closeTime;
+            }
+            
+            document.getElementById('storeSettingsModal').remove();
+            renderAll(); // Перемальовуємо графік з новими межами
+        } else {
+            showToast(res.message || "Помилка", 'error');
+            btn.innerText = oldText;
+        }
+    } catch (e) {
+        showToast("Помилка мережі", 'error');
+        btn.innerText = oldText;
+    }
+}
+
+// --- STORE DISPLAY & TRANSFER ---
+
 export async function updateStoreDisplay() {
-    // Шукаємо повні дані про себе в списку юзерів (бо в state.currentUser може не бути storeId)
     const me = state.users.find(u => u.name === state.currentUser?.name);
     if (!me || !me.storeId) return;
 
     try {
-        // Отримуємо список магазинів, щоб знайти назву за ID
-        const stores = await fetchJson('/api/stores'); // Це кешований запит, швидко
-        const myStore = stores.find(s => s._id === me.storeId || s.code === me.storeId); // На всяк випадок
+        const stores = await fetchJson('/api/stores');
+        const myStore = stores.find(s => s._id === me.storeId || s.code === me.storeId);
 
         if (myStore) {
             const nameContainer = document.querySelector('#userNameDisplay').parentNode;
-            
-            // Видаляємо старий лейбл якщо є
             const oldLabel = document.getElementById('storeNameLabel');
             if (oldLabel) oldLabel.remove();
 
-            // Додаємо назву магазину
             const label = document.createElement('div');
             label.id = 'storeNameLabel';
             label.className = "text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5";
@@ -34,14 +104,12 @@ export async function updateStoreDisplay() {
 }
 
 export async function openTransferModal() {
-    closeAvatarModal(); // Закриваємо попереднє вікно
+    closeAvatarModal();
     triggerHaptic();
 
-    // Знаходимо свій поточний магазин
     const me = state.users.find(u => u.name === state.currentUser?.name);
     const currentStoreId = me ? me.storeId : null;
 
-    // Завантажуємо магазини
     let stores = [];
     try {
         stores = await fetchJson('/api/stores');
@@ -49,10 +117,8 @@ export async function openTransferModal() {
         return showToast("Не вдалося завантажити список магазинів", 'error');
     }
 
-    // Фільтруємо: прибираємо поточний
     const availableStores = stores.filter(s => s._id !== currentStoreId);
 
-    // Створюємо HTML модального вікна динамічно
     const modalHtml = `
         <div id="transferModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="document.getElementById('transferModal').remove()"></div>
@@ -80,7 +146,6 @@ export async function openTransferModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-// Функція відправки (має бути глобальною, щоб HTML її бачив)
 window.submitTransferRequest = async function() {
     const select = document.getElementById('transferStoreSelect');
     const targetStoreCode = select.value;
@@ -110,7 +175,6 @@ window.submitTransferRequest = async function() {
     }
 };
 
-
 // --- FILTER ---
 
 export function openFilterModal() {
@@ -126,14 +190,12 @@ export function closeFilterModal() {
 export function renderFilterList() {
     const list = document.getElementById('filterList');
     
-    // Кнопка "Всі співробітники"
     let html = `
         <button onclick="window.applyFilter('all')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${state.filter === 'all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}">
             <span class="font-medium">Всі співробітники</span>
             ${state.filter === 'all' ? '<span>✓</span>' : ''}
         </button>`;
 
-    // Список юзерів
     state.users.forEach(u => {
         const isSelected = state.filter === u.name;
         html += `
@@ -149,10 +211,8 @@ export function renderFilterList() {
 export function applyFilter(val) {
     triggerHaptic();
     state.filter = val;
-    
     const label = val === 'all' ? 'Всі співробітники' : (val.split(' ')[1] || val);
     document.getElementById('currentFilterLabel').innerText = label;
-    
     closeFilterModal();
     renderAll();
 }
@@ -164,17 +224,24 @@ export function openAvatarModal() {
     const modal = document.getElementById('avatarModal');
     modal.classList.remove('hidden');
 
-    // 🔥 ДОДАЄМО КНОПКУ ТРАНСФЕРУ, ЯКЩО ЇЇ ЩЕ НЕМАЄ
     const container = modal.querySelector('.glass-modal');
-    // Перевіряємо, щоб не дублювати
     if (!document.getElementById('btnOpenTransfer') && state.currentUser.role !== 'Guest') {
         const btn = document.createElement('button');
         btn.id = 'btnOpenTransfer';
         btn.className = "w-full py-2 text-blue-500 font-medium text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors border-t border-gray-100 dark:border-gray-800 mt-2 flex items-center justify-center gap-2";
         btn.innerHTML = "🔄 Змінити Магазин";
         btn.onclick = openTransferModal;
-        
-        // Вставляємо перед блоком зміни паролю (він останній)
+        const lastDiv = container.lastElementChild; 
+        container.insertBefore(btn, lastDiv);
+    }
+    
+    // 🔥 ДОДАЄМО КНОПКУ НАЛАШТУВАНЬ МАГАЗИНУ (Тільки для SM/Admin)
+    if (!document.getElementById('btnStoreSettings') && (state.currentUser.role === 'SM' || state.currentUser.role === 'admin')) {
+        const btn = document.createElement('button');
+        btn.id = 'btnStoreSettings';
+        btn.className = "w-full py-2 text-gray-500 font-medium text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center gap-2";
+        btn.innerHTML = "⚙️ Налаштування Магазину";
+        btn.onclick = () => { closeAvatarModal(); openStoreSettingsModal(); };
         const lastDiv = container.lastElementChild; 
         container.insertBefore(btn, lastDiv);
     }
@@ -200,33 +267,26 @@ export function handleAvatarSelect(input) {
 
 export function uploadAvatar() {
     const imgElement = document.getElementById('avatarPreview');
-    
-    // Використовуємо Canvas для стиснення зображення
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const size = 200; // Розмір квадрата
+    const size = 200;
     
     canvas.width = size;
     canvas.height = size;
     
     const img = new Image();
     img.onload = function() {
-        // Центрування та обрізка (Crop)
         const minSide = Math.min(img.width, img.height);
         const sx = (img.width - minSide) / 2;
         const sy = (img.height - minSide) / 2;
-        
         ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
-        
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // Якість 70%
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
         
         postJson('/api/user/avatar', { avatar: dataUrl }).then(data => {
             if (data.success) {
-                // Оновлюємо аватарку в шапці
                 document.getElementById('userAvatarImg').src = dataUrl;
                 document.getElementById('userAvatarImg').classList.remove('hidden');
                 document.getElementById('userAvatarPlaceholder').classList.add('hidden');
-                
                 closeAvatarModal();
                 showToast("Аватар оновлено");
             } else {

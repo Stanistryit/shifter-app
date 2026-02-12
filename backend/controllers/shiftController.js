@@ -36,7 +36,6 @@ exports.getShifts = async (req, res) => {
     const currentUser = await User.findById(req.session.userId);
     let query = {};
 
-    // 🔥 ВИПРАВЛЕНО: Зміни віддаються ТІЛЬКИ по магазину юзера (якщо він не admin)
     if (currentUser.role !== 'admin') {
         query.storeId = currentUser.storeId;
     } 
@@ -74,6 +73,64 @@ exports.addShift = async (req, res) => {
         const typeInfo = req.body.start === 'Відпустка' ? '🌴 <b>Відпустка</b>' : `⏰ Час: <b>${req.body.start} - ${req.body.end}</b>`;
         notifyUser(req.body.name, `📅 <b>Графік оновлено!</b>\n\n📆 Дата: <b>${req.body.date}</b>\n${typeInfo}`);
     }
+    res.json({ success: true });
+};
+
+// 🔥 НОВЕ: Масове збереження графіку (для редактора)
+exports.saveSchedule = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (!u || (u.role !== 'SM' && u.role !== 'admin' && u.role !== 'SSE')) {
+        return res.status(403).json({ success: false, message: "Немає прав" });
+    }
+
+    const updates = req.body.updates || []; // Очікуємо масив [{ date, name, start, end }]
+    if (updates.length === 0) return res.json({ success: true });
+
+    // Кешуємо storeId користувачів, щоб правильно прив'язати зміни
+    const names = [...new Set(updates.map(x => x.name))];
+    const users = await User.find({ name: { $in: names } }, 'name storeId');
+    const userStoreMap = {};
+    users.forEach(us => userStoreMap[us.name] = us.storeId);
+
+    const bulkOps = [];
+
+    for (const upd of updates) {
+        // Визначаємо магазин: або з юзера, або з того, хто редагує
+        const targetStoreId = userStoreMap[upd.name] || u.storeId;
+
+        // Перевірка безпеки: SM не може редагувати чужий магазин
+        if (u.role !== 'admin' && String(targetStoreId) !== String(u.storeId)) {
+            continue; 
+        }
+
+        // 1. Спочатку видаляємо стару зміну на цей день (щоб не було дублів)
+        bulkOps.push({
+            deleteOne: {
+                filter: { date: upd.date, name: upd.name }
+            }
+        });
+
+        // 2. Якщо це не "гумка" (start !== null/DELETE), додаємо нову зміну
+        if (upd.start && upd.end && upd.start !== 'DELETE') {
+            bulkOps.push({
+                insertOne: {
+                    document: {
+                        date: upd.date,
+                        name: upd.name,
+                        start: upd.start,
+                        end: upd.end,
+                        storeId: targetStoreId
+                    }
+                }
+            });
+        }
+    }
+
+    if (bulkOps.length > 0) {
+        await Shift.bulkWrite(bulkOps);
+    }
+
+    logAction(u.name, 'bulk_save', `Updated ${updates.length} items via Editor`);
     res.json({ success: true });
 };
 
@@ -127,7 +184,6 @@ exports.clearDay = async (req, res) => {
     const u = await User.findById(req.session.userId);
     
     let query = { date: req.body.date };
-    // 🔥 ВИПРАВЛЕНО
     if (u.role !== 'admin') {
         query.storeId = u.storeId;
     }
@@ -142,7 +198,6 @@ exports.clearMonth = async (req, res) => {
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({});
     
     let query = { date: { $regex: `^${req.body.month}` } };
-    // 🔥 ВИПРАВЛЕНО
     if (u.role !== 'admin') {
         query.storeId = u.storeId;
     }
