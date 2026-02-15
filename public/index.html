@@ -62,14 +62,17 @@
             <div id="registerContainer" class="hidden transition-opacity duration-300">
                 <p class="text-gray-400 mb-4 text-sm">Створення нового акаунту</p>
                 <div class="space-y-3 text-left">
+                    
                     <div>
                         <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">ПІП</label>
                         <input type="text" id="regFullName" placeholder="Іванов Іван Іванович" class="ios-input">
                     </div>
+
                     <div>
                         <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Логін</label>
                         <input type="text" id="regLogin" placeholder="Придумайте логін" class="ios-input">
                     </div>
+
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Пароль</label>
@@ -80,14 +83,17 @@
                             <input type="password" id="regPassConfirm" placeholder="******" class="ios-input">
                         </div>
                     </div>
+
                     <div>
                         <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Телефон</label>
                         <input type="tel" id="regPhone" placeholder="+380ХХХХХХХХХ" class="ios-input">
                     </div>
+
                     <div>
                         <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Email</label>
                         <input type="email" id="regEmail" placeholder="example@mail.com" class="ios-input">
                     </div>
+                    
                     <div class="relative">
                         <label class="text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1 block">Магазин</label>
                         <div class="relative">
@@ -97,7 +103,9 @@
                             <div class="absolute right-3 top-3.5 text-gray-400 pointer-events-none">▼</div>
                         </div>
                     </div>
+
                     <button onclick="registerUser()" class="btn-primary mt-4 bg-green-500 shadow-lg shadow-green-500/30">Створити акаунт</button>
+                    
                     <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
                         <button onclick="toggleAuthMode('login')" class="text-sm text-gray-500 hover:text-black dark:hover:text-white transition-colors">← Повернутися до входу</button>
                     </div>
@@ -128,13 +136,17 @@
             
             <div id="dashboardCard" class="hidden ios-card bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 animate-slide-up relative overflow-hidden">
                 <div class="absolute -top-6 -right-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                
                 <div class="p-4 relative z-10">
                     <div class="flex justify-between items-start">
                         <div>
-                            <div id="dashNextShiftTitle" class="text-xs font-bold text-blue-100 uppercase tracking-wider mb-1 flex items-center gap-1">📅 НАСТУПНА ЗМІНА</div>
+                            <div id="dashNextShiftTitle" class="text-xs font-bold text-blue-100 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                📅 НАСТУПНА ЗМІНА
+                            </div>
                             <div id="dashNextShiftTime" class="text-2xl font-bold leading-none mb-1">--:--</div>
                             <div id="dashNextShiftDate" class="text-sm text-blue-100 font-medium">Завантаження...</div>
                         </div>
+
                         <div class="text-right">
                             <div class="flex items-center justify-end gap-1 mb-1">
                                 <span class="text-xs font-bold text-blue-100 uppercase tracking-wider">Цей місяць</span>
@@ -144,16 +156,18 @@
                             <div id="dashHoursLabel" class="text-[10px] text-blue-200">годин</div>
                         </div>
                     </div>
+
                     <div class="mt-4 bg-black/20 rounded-full h-1.5 w-full overflow-hidden">
                         <div id="dashProgressFill" class="bg-white h-full rounded-full transition-all duration-1000" style="width: 0%"></div>
                     </div>
                 </div>
+
                 <div id="dashLiveStatus" class="bg-black/20 backdrop-blur-sm px-4 py-2 text-[10px] font-medium flex items-center gap-2 border-t border-white/10">
                     <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                     <span class="opacity-80">Завантаження статусу магазину...</span>
                 </div>
             </div>
-
+            
             <div class="flex justify-between items-center ios-card p-1.5 glass-panel">
                 <div class="flex bg-[#E5E5EA] dark:bg-[#2C2C2E] rounded-[12px] p-1 w-full overflow-x-auto">
                     <button onclick="setMode('list')" id="btnModeList" class="flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all whitespace-nowrap px-2">Список</button>
@@ -175,40 +189,40 @@
                 <h2 class="text-xl font-bold mb-4">Панель управління</h2>
                 
                 <div id="adminMenu" class="grid grid-cols-2 gap-3 mb-4">
-                    <button id="btnTabShifts" onclick="showAdminTab('shifts')" class="col-span-2 relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-2xl shadow-lg shadow-blue-500/30 text-left transition-transform active:scale-95 group">
-                        <div class="absolute top-0 right-0 p-4 opacity-20 text-6xl group-hover:scale-110 transition-transform">📅</div>
+                    <button id="btnTabShifts" onclick="showAdminTab('shifts')" class="col-span-2 relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 bg-blue-500 text-white p-5 rounded-2xl shadow-lg shadow-blue-500/30 text-left transition-transform active:scale-95 group min-h-[100px]">
+                        <div class="absolute -bottom-4 -right-4 p-0 opacity-20 text-7xl group-hover:scale-110 transition-transform transform rotate-12 pointer-events-none">📅</div>
                         <div class="relative z-10">
-                            <div class="text-lg font-bold">Графік роботи</div>
-                            <div class="text-xs text-blue-100 mt-1 opacity-80">Зміни, Відпустки, Лікарняні</div>
+                            <div class="text-lg font-bold text-white">Графік роботи</div>
+                            <div class="text-xs text-white/80 mt-1 font-medium">Зміни, Відпустки, Лікарняні</div>
                         </div>
                     </button>
 
-                    <button id="btnTabTasks" onclick="showAdminTab('tasks')" class="relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 text-white p-4 rounded-2xl shadow-lg shadow-purple-500/30 text-left transition-transform active:scale-95 flex flex-col justify-between h-28 group">
-                        <div class="absolute -bottom-2 -right-2 text-5xl opacity-20 group-hover:rotate-12 transition-transform">📌</div>
-                        <div class="font-bold text-md">Задачі</div>
-                        <div class="text-[10px] text-purple-100 opacity-80">Призначити завдання</div>
+                    <button id="btnTabTasks" onclick="showAdminTab('tasks')" class="relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 bg-purple-500 text-white p-4 rounded-2xl shadow-lg shadow-purple-500/30 text-left transition-transform active:scale-95 flex flex-col justify-between h-28 group">
+                        <div class="absolute -bottom-2 -right-2 text-6xl opacity-20 group-hover:rotate-12 transition-transform pointer-events-none">📌</div>
+                        <div class="font-bold text-md text-white relative z-10">Задачі</div>
+                        <div class="text-[10px] text-white/80 font-medium relative z-10">Призначити завдання</div>
                     </button>
 
-                    <button id="btnTabNews" onclick="showAdminTab('news')" class="relative overflow-hidden bg-gradient-to-br from-pink-500 to-rose-500 text-white p-4 rounded-2xl shadow-lg shadow-pink-500/30 text-left transition-transform active:scale-95 flex flex-col justify-between h-28 group">
-                        <div class="absolute -bottom-2 -right-2 text-5xl opacity-20 group-hover:rotate-12 transition-transform">📢</div>
-                        <div class="font-bold text-md">Новини</div>
-                        <div class="text-[10px] text-pink-100 opacity-80">Створити оголошення</div>
+                    <button id="btnTabNews" onclick="showAdminTab('news')" class="relative overflow-hidden bg-gradient-to-br from-pink-500 to-rose-500 bg-pink-500 text-white p-4 rounded-2xl shadow-lg shadow-pink-500/30 text-left transition-transform active:scale-95 flex flex-col justify-between h-28 group">
+                        <div class="absolute -bottom-2 -right-2 text-6xl opacity-20 group-hover:rotate-12 transition-transform pointer-events-none">📢</div>
+                        <div class="font-bold text-md text-white relative z-10">Новини</div>
+                        <div class="text-[10px] text-white/80 font-medium relative z-10">Створити оголошення</div>
                     </button>
 
-                    <button id="btnTabKpi" onclick="showAdminTab('kpi')" class="col-span-2 relative overflow-hidden bg-gradient-to-br from-emerald-500 to-green-600 text-white p-4 rounded-2xl shadow-lg shadow-green-500/30 text-left transition-transform active:scale-95 flex items-center justify-between group">
-                        <div>
-                            <div class="font-bold text-md">KPI та Аналітика</div>
-                            <div class="text-[10px] text-green-100 opacity-80">Встановлення планів і норм</div>
+                    <button id="btnTabKpi" onclick="showAdminTab('kpi')" class="col-span-2 relative overflow-hidden bg-gradient-to-br from-emerald-500 to-green-600 bg-green-500 text-white p-4 rounded-2xl shadow-lg shadow-green-500/30 text-left transition-transform active:scale-95 flex items-center justify-between group min-h-[80px]">
+                        <div class="relative z-10">
+                            <div class="font-bold text-md text-white">KPI та Аналітика</div>
+                            <div class="text-[10px] text-white/80 font-medium">Встановлення планів і норм</div>
                         </div>
-                        <div class="text-3xl opacity-30 group-hover:scale-110 transition-transform">📈</div>
+                        <div class="text-4xl opacity-30 group-hover:scale-110 transition-transform pointer-events-none">📈</div>
                     </button>
 
-                    <button id="btnTabGlobal" onclick="showAdminTab('global')" class="hidden col-span-2 bg-gray-100 dark:bg-gray-800 text-gray-500 p-3 rounded-xl text-xs font-bold items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                    <button id="btnTabGlobal" onclick="showAdminTab('global')" class="hidden col-span-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 p-3 rounded-xl text-xs font-bold items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
                         🌍 Глобальні налаштування (Admin)
                     </button>
                 </div>
                 
-                <div id="adminTabShifts" class="hidden space-y-4">
+                <div id="adminTabShifts" class="hidden space-y-4 animate-slide-up">
                     <div class="flex items-center justify-between mb-2">
                         <h3 class="font-bold text-lg">✏️ Редагування зміни</h3>
                         <button onclick="document.getElementById('adminTabShifts').classList.add('hidden'); document.getElementById('adminMenu').classList.remove('hidden');" class="text-xs text-blue-500 font-bold bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">← Назад</button>
@@ -253,7 +267,7 @@
                     </div>
                 </div>
 
-                <div id="adminTabTasks" class="hidden space-y-3">
+                <div id="adminTabTasks" class="hidden space-y-3 animate-slide-up">
                     <div class="flex items-center justify-between mb-2">
                         <h3 class="font-bold text-lg">📌 Нова задача</h3>
                         <button onclick="document.getElementById('adminTabTasks').classList.add('hidden'); document.getElementById('adminMenu').classList.remove('hidden');" class="text-xs text-blue-500 font-bold bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">← Назад</button>
@@ -275,7 +289,7 @@
                     <button onclick="addTask()" class="btn-primary bg-purple-500 shadow-purple-500/30">Призначити</button>
                 </div>
 
-                <div id="adminTabNews" class="hidden space-y-3">
+                <div id="adminTabNews" class="hidden space-y-3 animate-slide-up">
                     <div class="flex items-center justify-between mb-2">
                         <h3 class="font-bold text-lg">📢 Опублікувати новину</h3>
                         <button onclick="document.getElementById('adminTabNews').classList.add('hidden'); document.getElementById('adminMenu').classList.remove('hidden');" class="text-xs text-blue-500 font-bold bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">← Назад</button>
@@ -300,7 +314,7 @@
                     <button onclick="publishNews()" class="btn-primary bg-pink-500 mt-2 shadow-pink-500/30">Опублікувати</button>
                 </div>
                 
-                <div id="adminTabKpi" class="hidden space-y-4">
+                <div id="adminTabKpi" class="hidden space-y-4 animate-slide-up">
                     <div class="flex items-center justify-between mb-2">
                         <h3 class="font-bold text-lg">📈 KPI Налаштування</h3>
                         <button onclick="document.getElementById('adminTabKpi').classList.add('hidden'); document.getElementById('adminMenu').classList.remove('hidden');" class="text-xs text-blue-500 font-bold bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">← Назад</button>
@@ -331,7 +345,7 @@
                     </div>
                 </div>
 
-                <div id="adminTabGlobal" class="hidden space-y-4">
+                <div id="adminTabGlobal" class="hidden space-y-4 animate-slide-up">
                     <div class="flex items-center justify-between mb-2">
                         <h3 class="font-bold text-lg">🌍 Глобальні</h3>
                         <button onclick="document.getElementById('adminTabGlobal').classList.add('hidden'); document.getElementById('adminMenu').classList.remove('hidden');" class="text-xs text-blue-500 font-bold bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">← Назад</button>
