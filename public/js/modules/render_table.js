@@ -3,9 +3,30 @@ import { getUsersForView, getDisplayName } from './render_utils.js';
 
 // Допоміжна функція: переведення часу "10:30" -> 10.5
 function timeToDec(t) {
-    if (!t || t === 'Відпустка' || t === 'DELETE') return 0;
+    // 🔥 Додано 'Лікарняний' в ігнор-лист для розрахунку годин
+    if (!t || t === 'Відпустка' || t === 'Лікарняний' || t === 'DELETE') return 0;
     const [h, m] = t.split(':').map(Number);
     return h + (m / 60);
+}
+
+// 🔥 НОВЕ: Кольорове кодування змін залежно від часу початку
+function getShiftColor(start) {
+    if (!start) return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200';
+    
+    const h = parseInt(start.split(':')[0], 10);
+    
+    // 🌅 Ранок (до 11:00) -> Помаранчевий
+    if (h < 11) {
+        return 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-800';
+    } 
+    // ☀️ День (11:00 - 15:00) -> Блакитний
+    else if (h < 15) {
+        return 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800';
+    } 
+    // 🌆 Вечір (після 15:00) -> Фіолетовий
+    else {
+        return 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800';
+    }
 }
 
 export function renderTable() {
@@ -85,7 +106,7 @@ export function renderTable() {
     for(let d=1; d<=daysInMonth; d++) {
         const dStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         
-        const dayShifts = state.shifts.filter(s => s.date === dStr && s.start !== 'Відпустка');
+        const dayShifts = state.shifts.filter(s => s.date === dStr && s.start !== 'Відпустка' && s.start !== 'Лікарняний');
         const dayDrafts = state.pendingChanges ? Object.values(state.pendingChanges).filter(p => p.date === dStr) : [];
         
         const finalShifts = [];
@@ -93,7 +114,7 @@ export function renderTable() {
 
         dayDrafts.forEach(draft => {
             processedUsers.add(draft.name);
-            if (draft.start !== 'DELETE' && draft.start !== 'Відпустка') {
+            if (draft.start !== 'DELETE' && draft.start !== 'Відпустка' && draft.start !== 'Лікарняний') {
                 finalShifts.push(draft);
             }
         });
@@ -143,19 +164,18 @@ export function renderTable() {
     usersToShow.forEach(user => {
         const shortName = getDisplayName(user);
         
-        // 🔥 ВИПРАВЛЕННЯ: Розділяємо onclick і class, щоб уникнути дублювання атрибуту class
+        // Розділяємо onclick і class
         const editAction = canEditUser ? `onclick="window.openEditUserProxy('${user._id}')"` : '';
         const editClasses = canEditUser ? "cursor-pointer hover:text-blue-500" : "";
         const editIcon = canEditUser ? ' <span class="text-[9px] opacity-30">✏️</span>' : '';
         const blockedClass = user.status === 'blocked' ? 'opacity-50 grayscale' : '';
         
         const isMe = user.name === state.currentUser.name;
-        // 🔥 ВИПРАВЛЕННЯ: Використовуємо СУЦІЛЬНИЙ колір (без opacity) для sticky колонок
+        // Суцільний колір для sticky
         const meStyleSticky = isMe ? 'bg-[#F0F9FF] dark:bg-[#1A2F4B] text-blue-600 dark:text-blue-400' : 'bg-white dark:bg-[#1C1C1E]'; 
 
         html += `<tr class="h-10 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors ${blockedClass}">`;
         
-        // 🔥 Тут тепер тільки один атрибут class
         html += `<td ${editAction} class="sticky left-0 z-10 ${meStyleSticky} ${editClasses} px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[120px] shadow-sm">${shortName}${editIcon}</td>`;
         
         let totalHours = 0;
@@ -171,9 +191,9 @@ export function renderTable() {
             
             let sStart, sEnd;
             if (draft) {
-                 if (draft.start !== 'DELETE' && draft.start !== 'Відпустка') { sStart = draft.start; sEnd = draft.end; }
+                 if (draft.start !== 'DELETE' && draft.start !== 'Відпустка' && draft.start !== 'Лікарняний') { sStart = draft.start; sEnd = draft.end; }
             } else if (shift) {
-                 if (shift.start !== 'Відпустка') { sStart = shift.start; sEnd = shift.end; }
+                 if (shift.start !== 'Відпустка' && shift.start !== 'Лікарняний') { sStart = shift.start; sEnd = shift.end; }
             }
 
             if (sStart && sEnd) {
@@ -193,15 +213,23 @@ export function renderTable() {
                     content = '<span class="text-red-400 font-bold opacity-50">✕</span>'; 
                 } else if (draft.start === 'Відпустка') {
                     content = '<span class="text-lg">🌴</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>';
+                } else if (draft.start === 'Лікарняний') { 
+                    // 🔥 Чернетка Лікарняного (червона крапка)
+                    content = '<span class="text-lg">💊</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>';
                 } else {
                     content = `<div class="text-[10px] font-mono leading-tight bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 border border-yellow-300 dark:border-yellow-600 shadow-sm transform scale-105">${draft.start}<br>${draft.end}</div>`;
                 }
             } else if (shift) {
                 if (shift.start === 'Відпустка') { 
                     content = '<span class="text-lg">🌴</span>'; 
+                } else if (shift.start === 'Лікарняний') { 
+                    // 🔥 Підтверджений Лікарняний
+                    content = '<span class="text-lg">💊</span>';
                 } else { 
-                    const opacity = isPast ? 'opacity-50' : ''; 
-                    content = `<div class="text-[10px] font-mono leading-tight bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 ${opacity}">${shift.start}<br>${shift.end}</div>`; 
+                    const opacity = isPast ? 'opacity-50 grayscale' : ''; 
+                    // Використовуємо кольорове кодування
+                    const colorClass = getShiftColor(shift.start);
+                    content = `<div class="text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity}">${shift.start}<br>${shift.end}</div>`; 
                 }
             }
 
@@ -223,7 +251,7 @@ export function renderTable() {
              hoursHtml = `<div class="font-bold text-gray-500">${totalHours}</div>`;
         }
 
-        // 🔥 ВИПРАВЛЕННЯ: Фон для останньої колонки теж суцільний
+        // Суцільний фон для правої колонки
         html += `<td class="sticky right-0 z-10 ${meStyleSticky} border-l border-gray-200 dark:border-gray-700 text-center px-1 shadow-sm">${hoursHtml}</td>`;
         html += '</tr>';
     });

@@ -6,25 +6,38 @@ import { renderAll } from './render.js';
 // --- SHIFTS ---
 
 export function toggleShiftTimeInputs() {
-    const c = document.getElementById('shiftVacation').checked;
-    document.getElementById('shiftTimeInputs').className = c ? 'hidden' : 'flex gap-3';
+    const isVacation = document.getElementById('shiftVacation').checked;
+    const isSick = document.getElementById('shiftSick').checked;
+    
+    // Якщо увімкнено будь-який спец. статус — ховаємо час
+    document.getElementById('shiftTimeInputs').className = (isVacation || isSick) ? 'hidden' : 'flex gap-3';
 }
 
 export async function addShift() {
     const date = document.getElementById('shiftDate').value;
     const name = document.getElementById('employeeSelect').value;
     const isVacation = document.getElementById('shiftVacation').checked;
+    const isSick = document.getElementById('shiftSick').checked;
     let start, end;
 
     if (isVacation) {
         start = 'Відпустка';
         end = 'Відпустка';
+    } else if (isSick) {
+        start = 'Лікарняний';
+        end = 'Лікарняний';
     } else {
         start = document.getElementById('startTime').value;
         end = document.getElementById('endTime').value;
     }
 
     if (!date || !name) return showToast("Заповніть всі дані", 'error');
+
+    // Якщо раптом обрано обидва чекбокси, пріоритет у Відпустки (код вище це враховує),
+    // але краще вручну скинути інший, щоб не плутати.
+    if (isVacation && isSick) {
+        document.getElementById('shiftSick').checked = false;
+    }
 
     const d = await postJson('/api/shifts', { date, name, start, end });
     if (d.success) {
@@ -130,6 +143,9 @@ export async function bulkImport() {
         if (lastEl.includes('відпустка') || lastEl.includes('vacation')) {
             const name = parts.slice(1, parts.length - 1).join(' ');
             shifts.push({ date, name, start: 'Відпустка', end: 'Відпустка' });
+        } else if (lastEl.includes('лікарняний') || lastEl.includes('sick')) { // Додано імпорт лікарняних
+            const name = parts.slice(1, parts.length - 1).join(' ');
+            shifts.push({ date, name, start: 'Лікарняний', end: 'Лікарняний' });
         } else if (parts.length >= 4) {
             const start = parts[parts.length - 2];
             const end = parts[parts.length - 1];
@@ -154,14 +170,12 @@ export async function bulkImport() {
 export async function publishNews() {
     const text = document.getElementById('newsText').value;
     const files = document.getElementById('newsFile').files;
-    // 🔥 Зчитуємо стан чекбокса
     const requestRead = document.getElementById('newsRequestRead').checked;
     
     if (!text && files.length === 0) return showToast("Введіть текст або файл", 'error');
     
     const formData = new FormData();
     formData.append('text', text);
-    // 🔥 Додаємо параметр до запиту
     formData.append('requestRead', requestRead);
 
     for (let i = 0; i < files.length; i++) {
@@ -178,7 +192,6 @@ export async function publishNews() {
             showToast("✅ Опубліковано!");
             document.getElementById('newsText').value = '';
             document.getElementById('newsFile').value = '';
-            // Скидаємо чекбокс на "увімкнено" за замовчуванням
             document.getElementById('newsRequestRead').checked = true;
             updateFileName();
         } else showToast("Помилка публікації", 'error');
@@ -233,7 +246,7 @@ export async function loadStores() {
                     <div class="font-bold text-sm">${s.name}</div>
                     <div class="text-[10px] text-gray-500">${s.code} <span class="bg-blue-100 text-blue-800 px-1 rounded">${s.type}</span></div>
                 </div>
-                <button onclick="deleteStore('${s._id}')" class="text-red-500 text-lg hover:scale-110 transition-transform">🗑</button>
+                <button onclick=\"deleteStore('${s._id}')\" class=\"text-red-500 text-lg hover:scale-110 transition-transform\">🗑</button>
             `;
             list.appendChild(item);
         });

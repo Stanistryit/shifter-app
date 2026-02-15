@@ -70,7 +70,15 @@ const sendRequestToSM = async (requestDoc) => {
 
         if (requestDoc.type === 'add_shift') {
             typeIcon = "➕";
-            details = `📅 <b>Зміна:</b> ${requestDoc.data.date}\n⏰ <b>Час:</b> ${requestDoc.data.start} - ${requestDoc.data.end}`;
+            
+            // 🔥 ОНОВЛЕНО: Обробка Лікарняного та Відпустки
+            if (requestDoc.data.start === 'Лікарняний') {
+                details = `📅 <b>Дата:</b> ${requestDoc.data.date}\n💊 <b>Статус:</b> Лікарняний`;
+            } else if (requestDoc.data.start === 'Відпустка') {
+                details = `📅 <b>Дата:</b> ${requestDoc.data.date}\n🌴 <b>Статус:</b> Відпустка`;
+            } else {
+                details = `📅 <b>Зміна:</b> ${requestDoc.data.date}\n⏰ <b>Час:</b> ${requestDoc.data.start} - ${requestDoc.data.end}`;
+            }
         }
         if (requestDoc.type === 'del_shift') {
             typeIcon = "🗑";
