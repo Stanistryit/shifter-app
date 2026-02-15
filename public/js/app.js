@@ -37,8 +37,8 @@ initContextMenuListeners();
 initEditor(); 
 
 // 🔥 FIX: Відновлюємо останню активну вкладку при завантаженні
-// Це синхронізує візуальну частину (Таблиця/Список) з логікою кнопки "Олівець"
 const savedMode = localStorage.getItem('shifter_viewMode') || 'list';
+// Передаємо savedMode, але перевірка RRP відбудеться всередині setMode
 setMode(savedMode);
 
 // --- EXPOSE TO HTML (WINDOW) ---
@@ -141,12 +141,18 @@ window.changeStoreFilter = (storeId) => {
     state.selectedStoreFilter = storeId;
     localStorage.setItem('shifter_storeFilter', storeId); 
     
+    // Показуємо лоадер при зміні фільтру
+    document.getElementById('skeletonLoader').classList.remove('hidden');
+
     loadKpiData().then(() => {
         const kpiDiv = document.getElementById('kpiViewContainer');
         const gridDiv = document.getElementById('gridViewContainer');
         
         if (kpiDiv && !kpiDiv.classList.contains('hidden')) renderKpi();
         if (gridDiv && !gridDiv.classList.contains('hidden')) renderTable();
+        
+        // Ховаємо лоадер
+        setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
     });
 
     renderAll();
@@ -200,6 +206,20 @@ function checkEditorButtonVisibility() {
     const fab = document.getElementById('fabEditBtn');
     const upBtn = document.getElementById('backToTopBtn');
     
+    // 🔥 RRP RESTRICTION: Приховуємо кнопки Календаря та KPI для RRP
+    if (state.currentUser && state.currentUser.role === 'RRP') {
+        const btnCal = document.getElementById('btnModeCalendar');
+        const btnKpi = document.getElementById('btnModeKpi');
+        if (btnCal) btnCal.classList.add('hidden');
+        if (btnKpi) btnKpi.classList.add('hidden');
+    } else {
+        // Якщо раптом роль змінилась (або це не RRP), показуємо
+        const btnCal = document.getElementById('btnModeCalendar');
+        const btnKpi = document.getElementById('btnModeKpi');
+        if (btnCal) btnCal.classList.remove('hidden');
+        if (btnKpi) btnKpi.classList.remove('hidden');
+    }
+
     // Перевіряємо, чи ми в режимі таблиці
     const isGridMode = localStorage.getItem('shifter_viewMode') === 'grid';
 
@@ -243,11 +263,16 @@ function toggleArchive() {
 
 async function changeMonth(d) { 
     triggerHaptic(); 
+    
+    // 🔥 SHOW SKELETON
+    document.getElementById('skeletonLoader').classList.remove('hidden');
+
     state.currentDate.setMonth(state.currentDate.getMonth() + d); 
     
     const kpiContainer = document.getElementById('kpiViewContainer');
     const gridContainer = document.getElementById('gridViewContainer');
 
+    // Чекаємо завантаження даних
     if ((kpiContainer && !kpiContainer.classList.contains('hidden')) || 
         (gridContainer && !gridContainer.classList.contains('hidden'))) {
         await loadKpiData();
@@ -258,10 +283,21 @@ async function changeMonth(d) {
     } else {
         renderAll(); 
     }
+
+    // 🔥 HIDE SKELETON
+    setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
 }
 
 async function setMode(m) {
     triggerHaptic();
+
+    // 🔥 RRP PROTECTION: Якщо RRP намагається зайти в Calendar або KPI - кидаємо на список
+    if (state.currentUser && state.currentUser.role === 'RRP') {
+        if (m === 'calendar' || m === 'kpi') {
+            m = 'list';
+        }
+    }
+
     localStorage.setItem('shifter_viewMode', m); 
     
     const listDiv = document.getElementById('listViewContainer');
@@ -269,6 +305,11 @@ async function setMode(m) {
     const gridDiv = document.getElementById('gridViewContainer');
     const kpiDiv = document.getElementById('kpiViewContainer'); 
     
+    // 🔥 SHOW SKELETON (якщо це важкий режим: Таблиця, KPI або Календар)
+    if (m === 'grid' || m === 'kpi' || m === 'calendar') {
+        document.getElementById('skeletonLoader').classList.remove('hidden');
+    }
+
     listDiv.classList.add('hidden');
     calDiv.classList.add('hidden');
     gridDiv.classList.add('hidden');
@@ -326,6 +367,9 @@ async function setMode(m) {
     
     // Перевіряємо видимість кнопки
     checkEditorButtonVisibility();
+
+    // 🔥 HIDE SKELETON
+    setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
 }
 
 async function toggleAuthMode(mode) {
@@ -429,7 +473,6 @@ async function loadKpiData() {
     const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
     const month = `${y}-${m}`;
     
-    // 🔥 Якщо Адмін обрав фільтр, додаємо storeId до запиту
     let query = `?month=${month}`;
     if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
         query += `&storeId=${state.selectedStoreFilter}`;
