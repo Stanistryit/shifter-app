@@ -199,10 +199,10 @@ export function renderTable() {
                 totalHours += duration;
             }
 
-            // 🔥 Створюємо бейдж з годинами, якщо є тривалість
+            // 🔥 Бейдж з годинами
             let badgeHtml = '';
             if (duration > 0) {
-                const durStr = parseFloat(duration.toFixed(1)); // 12.0 -> 12, 12.5 -> 12.5
+                const durStr = parseFloat(duration.toFixed(1)); 
                 badgeHtml = `<div class="absolute -top-1.5 -right-1.5 z-10 bg-white dark:bg-[#3A3A3C] text-black dark:text-white text-[8px] font-bold px-1 rounded-full shadow-sm border border-gray-200 dark:border-gray-600 flex items-center justify-center min-w-[14px] h-[14px] leading-none">${durStr}</div>`;
             }
 
@@ -222,7 +222,7 @@ export function renderTable() {
                 } else if (draft.start === 'Лікарняний') { 
                     content = '<span class="text-lg">💊</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>';
                 } else {
-                    // 🔥 Draft + Badge
+                    // Draft + Badge
                     content = `<div class="relative text-[10px] font-mono leading-tight bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 border border-yellow-300 dark:border-yellow-600 shadow-sm transform scale-105">
                         ${draft.start}<br>${draft.end}
                         ${badgeHtml}
@@ -236,7 +236,7 @@ export function renderTable() {
                 } else { 
                     const opacity = isPast ? 'opacity-50 grayscale' : ''; 
                     const colorClass = getShiftColor(shift.start);
-                    // 🔥 Shift + Badge
+                    // Shift + Badge
                     content = `<div class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity}">
                         ${shift.start}<br>${shift.end}
                         ${badgeHtml}
@@ -269,8 +269,12 @@ export function renderTable() {
     tableDiv.innerHTML = html;
     
     setTimeout(() => {
-        const el = document.getElementById('todayColumn'); 
-        if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        if (container) container.classList.remove('animate-slide-up');
+        // 🔥 FIX: Скролимо до "сьогодні" тільки якщо це вхід в режим (є анімація)
+        // При звичайному оновленні (редагуванні) скрол не чіпаємо.
+        if (container && container.classList.contains('animate-slide-up')) {
+            const el = document.getElementById('todayColumn'); 
+            if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            container.classList.remove('animate-slide-up');
+        }
     }, 600);
 }

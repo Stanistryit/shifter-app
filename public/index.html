@@ -60,23 +60,48 @@
             </div>
 
             <div id="registerContainer" class="hidden transition-opacity duration-300">
-                <p class="text-gray-400 mb-6 text-sm">Створення нового акаунту</p>
+                <p class="text-gray-400 mb-4 text-sm">Створення нового акаунту</p>
                 <div class="space-y-3 text-left">
-                    <input type="text" id="regFullName" placeholder="ПІП (напр. Іванов Іван)" class="ios-input">
-                    <input type="text" id="regLogin" placeholder="Придумайте Логін" class="ios-input">
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="password" id="regPass" placeholder="Пароль" class="ios-input">
-                        <input type="password" id="regPassConfirm" placeholder="Повторіть" class="ios-input">
+                    
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">ПІП</label>
+                        <input type="text" id="regFullName" placeholder="Іванов Іван Іванович" class="ios-input">
                     </div>
-                    <input type="tel" id="regPhone" placeholder="Телефон" class="ios-input">
-                    <input type="email" id="regEmail" placeholder="Email" class="ios-input">
+
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Логін</label>
+                        <input type="text" id="regLogin" placeholder="Придумайте логін" class="ios-input">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Пароль</label>
+                            <input type="password" id="regPass" placeholder="******" class="ios-input">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Ще раз</label>
+                            <input type="password" id="regPassConfirm" placeholder="******" class="ios-input">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Телефон</label>
+                        <input type="tel" id="regPhone" placeholder="+380ХХХХХХХХХ" class="ios-input">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Email</label>
+                        <input type="email" id="regEmail" placeholder="example@mail.com" class="ios-input">
+                    </div>
                     
                     <div class="relative">
-                        <label class="text-[10px] uppercase font-bold text-gray-400 ml-2">Магазин</label>
-                        <select id="regStore" class="ios-input bg-transparent appearance-none">
-                            <option value="" disabled selected>Завантаження списку...</option>
-                        </select>
-                        <div class="absolute right-3 bottom-3 text-gray-400 pointer-events-none">▼</div>
+                        <label class="text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1 block">Магазин</label>
+                        <div class="relative">
+                            <select id="regStore" class="ios-input bg-transparent appearance-none w-full">
+                                <option value="" disabled selected>Завантаження списку...</option>
+                            </select>
+                            <div class="absolute right-3 top-3.5 text-gray-400 pointer-events-none">▼</div>
+                        </div>
                     </div>
 
                     <button onclick="registerUser()" class="btn-primary mt-4 bg-green-500 shadow-lg shadow-green-500/30">Створити акаунт</button>
