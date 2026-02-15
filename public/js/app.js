@@ -237,8 +237,8 @@ function checkEditorButtonVisibility() {
             }
         } else {
             fab.classList.add('hidden');
-            document.getElementById('adminPanel').classList.add('hidden'); // Закриваємо панель
-            updateFabIcon(false); // Скидаємо іконку
+            // 🔥 FIX: Прибрано примусове приховування панелі. Тепер вона слухається лише перемикача.
+            // document.getElementById('adminPanel').classList.add('hidden'); <-- Цей рядок створював проблему
             
             // Опускаємо кнопку "Вгору" на місце
             if (upBtn) {
