@@ -3,13 +3,12 @@ import { getUsersForView, getDisplayName } from './render_utils.js';
 
 // Допоміжна функція: переведення часу "10:30" -> 10.5
 function timeToDec(t) {
-    // 🔥 Додано 'Лікарняний' в ігнор-лист для розрахунку годин
     if (!t || t === 'Відпустка' || t === 'Лікарняний' || t === 'DELETE') return 0;
     const [h, m] = t.split(':').map(Number);
     return h + (m / 60);
 }
 
-// 🔥 НОВЕ: Кольорове кодування змін залежно від часу початку
+// 🔥 Кольорове кодування змін залежно від часу початку
 function getShiftColor(start) {
     if (!start) return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200';
     
@@ -164,14 +163,12 @@ export function renderTable() {
     usersToShow.forEach(user => {
         const shortName = getDisplayName(user);
         
-        // Розділяємо onclick і class
         const editAction = canEditUser ? `onclick="window.openEditUserProxy('${user._id}')"` : '';
         const editClasses = canEditUser ? "cursor-pointer hover:text-blue-500" : "";
         const editIcon = canEditUser ? ' <span class="text-[9px] opacity-30">✏️</span>' : '';
         const blockedClass = user.status === 'blocked' ? 'opacity-50 grayscale' : '';
         
         const isMe = user.name === state.currentUser.name;
-        // Суцільний колір для sticky
         const meStyleSticky = isMe ? 'bg-[#F0F9FF] dark:bg-[#1A2F4B] text-blue-600 dark:text-blue-400' : 'bg-white dark:bg-[#1C1C1E]'; 
 
         html += `<tr class="h-10 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors ${blockedClass}">`;
@@ -196,8 +193,17 @@ export function renderTable() {
                  if (shift.start !== 'Відпустка' && shift.start !== 'Лікарняний') { sStart = shift.start; sEnd = shift.end; }
             }
 
+            let duration = 0;
             if (sStart && sEnd) {
-                totalHours += (timeToDec(sEnd) - timeToDec(sStart));
+                duration = timeToDec(sEnd) - timeToDec(sStart);
+                totalHours += duration;
+            }
+
+            // 🔥 Створюємо бейдж з годинами, якщо є тривалість
+            let badgeHtml = '';
+            if (duration > 0) {
+                const durStr = parseFloat(duration.toFixed(1)); // 12.0 -> 12, 12.5 -> 12.5
+                badgeHtml = `<div class="absolute -top-1.5 -right-1.5 z-10 bg-white dark:bg-[#3A3A3C] text-black dark:text-white text-[8px] font-bold px-1 rounded-full shadow-sm border border-gray-200 dark:border-gray-600 flex items-center justify-center min-w-[14px] h-[14px] leading-none">${durStr}</div>`;
             }
 
             let cellClass = '';
@@ -214,22 +220,27 @@ export function renderTable() {
                 } else if (draft.start === 'Відпустка') {
                     content = '<span class="text-lg">🌴</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>';
                 } else if (draft.start === 'Лікарняний') { 
-                    // 🔥 Чернетка Лікарняного (червона крапка)
                     content = '<span class="text-lg">💊</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>';
                 } else {
-                    content = `<div class="text-[10px] font-mono leading-tight bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 border border-yellow-300 dark:border-yellow-600 shadow-sm transform scale-105">${draft.start}<br>${draft.end}</div>`;
+                    // 🔥 Draft + Badge
+                    content = `<div class="relative text-[10px] font-mono leading-tight bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 border border-yellow-300 dark:border-yellow-600 shadow-sm transform scale-105">
+                        ${draft.start}<br>${draft.end}
+                        ${badgeHtml}
+                    </div>`;
                 }
             } else if (shift) {
                 if (shift.start === 'Відпустка') { 
                     content = '<span class="text-lg">🌴</span>'; 
                 } else if (shift.start === 'Лікарняний') { 
-                    // 🔥 Підтверджений Лікарняний
                     content = '<span class="text-lg">💊</span>';
                 } else { 
                     const opacity = isPast ? 'opacity-50 grayscale' : ''; 
-                    // Використовуємо кольорове кодування
                     const colorClass = getShiftColor(shift.start);
-                    content = `<div class="text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity}">${shift.start}<br>${shift.end}</div>`; 
+                    // 🔥 Shift + Badge
+                    content = `<div class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity}">
+                        ${shift.start}<br>${shift.end}
+                        ${badgeHtml}
+                    </div>`; 
                 }
             }
 
@@ -251,7 +262,6 @@ export function renderTable() {
              hoursHtml = `<div class="font-bold text-gray-500">${totalHours}</div>`;
         }
 
-        // Суцільний фон для правої колонки
         html += `<td class="sticky right-0 z-10 ${meStyleSticky} border-l border-gray-200 dark:border-gray-700 text-center px-1 shadow-sm">${hoursHtml}</td>`;
         html += '</tr>';
     });
