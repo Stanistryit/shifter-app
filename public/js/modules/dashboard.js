@@ -1,7 +1,8 @@
 import { state } from './state.js';
-import { triggerHaptic, showToast, openNotesModal } from './ui.js';
+import { triggerHaptic, showToast } from './ui.js';
+import { openNotesModal } from './notes.js'; // 🔥 ВИПРАВЛЕНО: Імпорт з правильного файлу
 
-// Експортуємо функцію для HTML (для onclick по іконці нотатки)
+// Експортуємо функцію для HTML
 window.openTodayNote = (e) => {
     e.stopPropagation();
     triggerHaptic();
@@ -23,7 +24,7 @@ export function initDashboardInteractions() {
         };
     }
 
-    // 2. Клік на праву частину -> Перемикання режимів (Години/Гроші)
+    // 2. Клік на праву частину -> Перемикання режимів
     const rightPart = card.querySelector('.text-right');
     if (rightPart) {
         rightPart.onclick = (e) => {
@@ -36,13 +37,11 @@ export function initDashboardInteractions() {
 function toggleDashMode() {
     triggerHaptic();
     
-    // Циклічне перемикання режимів
     if (dashMode === 'hours') dashMode = 'shifts';
     else if (dashMode === 'shifts') dashMode = 'percent';
     else if (dashMode === 'percent') dashMode = 'money';
     else dashMode = 'hours';
 
-    // Якщо обрали гроші, але ставка ще не збережена -> питаємо
     if (dashMode === 'money') {
         const rate = localStorage.getItem('shifter_hourlyRate');
         if (!rate) {
@@ -79,7 +78,6 @@ export function updateDashboard() {
     const card = document.getElementById('dashboardCard');
     if (!card) return;
 
-    // 🔥 ХОВАЄМО ДАШБОРД, ЯКЩО RRP АБО GUEST
     if (!state.currentUser || state.currentUser.role === 'Guest' || state.currentUser.role === 'RRP') {
         card.classList.add('hidden');
         return;
@@ -92,31 +90,24 @@ export function updateDashboard() {
     }
 
     const me = state.currentUser;
-    // Беремо зміни тільки цього користувача
     const myShifts = state.shifts.filter(s => s.name === me.name);
     
-    // ---------------------------------------------------------
-    // 1. НАСТУПНА ЗМІНА (Next Shift)
-    // ---------------------------------------------------------
+    // --- 1. NEXT SHIFT ---
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     
-    // Сортуємо зміни
     const sortedShifts = myShifts.sort((a, b) => a.date.localeCompare(b.date));
-    // Шукаємо першу майбутню (або сьогоднішню)
     let nextShift = sortedShifts.find(s => s.date >= todayStr && s.start !== 'DELETE');
 
     const nextTimeEl = document.getElementById('dashNextShiftTime');
     const nextDateEl = document.getElementById('dashNextShiftDate');
     const titleEl = document.getElementById('dashNextShiftTitle');
 
-    // Створюємо контейнер для колег (список), якщо його немає
     let collContainer = document.getElementById('dashColleagues');
     if (!collContainer) {
         collContainer = document.createElement('div');
         collContainer.id = 'dashColleagues';
         collContainer.className = "hidden mt-3 pt-3 border-t border-white/20 text-sm animate-slide-up";
-        // Вставляємо перед футером live status (в кінець padding-блоку)
         card.querySelector('.p-4').appendChild(collContainer);
     }
 
@@ -145,7 +136,6 @@ export function updateDashboard() {
 
         titleEl.innerHTML = '📅 НАСТУПНА ЗМІНА <span class="opacity-50 text-[10px]">▼</span>';
 
-        // --- КОЛЕГИ НА ЦЮ ЗМІНУ ---
         const colleagues = state.shifts.filter(s => 
             s.date === nextShift.date && 
             s.name !== me.name && 
@@ -155,7 +145,6 @@ export function updateDashboard() {
         if (colleagues.length > 0) {
             const names = colleagues.map(c => {
                 const parts = c.name.trim().split(/\s+/);
-                // Формат: "Ім'я П." (беремо друге слово як ім'я, перше як прізвище)
                 if (parts.length >= 2) return `${parts[1]} ${parts[0][0]}.`; 
                 return parts[0];
             }).join(', ');
@@ -171,13 +160,10 @@ export function updateDashboard() {
         collContainer.innerHTML = '';
     }
 
-    // ---------------------------------------------------------
-    // 2. ПРОГРЕС І ЗАРПЛАТА
-    // ---------------------------------------------------------
+    // --- 2. PROGRESS ---
     const viewYear = state.currentDate.getFullYear();
     const viewMonth = state.currentDate.getMonth();
     
-    // Зміни за поточний місяць перегляду
     const monthlyShifts = myShifts.filter(s => {
         const [y, m, d] = s.date.split('-').map(Number);
         return y === viewYear && (m - 1) === viewMonth;
@@ -224,12 +210,9 @@ export function updateDashboard() {
         'bg-green-400 h-full rounded-full transition-all duration-1000' : 
         'bg-white h-full rounded-full transition-all duration-1000';
 
-    // ---------------------------------------------------------
-    // 3. LIVE STORE STATUS (Хто зараз працює)
-    // ---------------------------------------------------------
+    // --- 3. LIVE STATUS ---
     const liveStatusEl = document.getElementById('dashLiveStatus');
     
-    // Всі зміни на сьогодні (не тільки мої)
     const todayShifts = state.shifts.filter(s => 
         s.date === todayStr && 
         s.start !== 'DELETE' && 
@@ -259,12 +242,9 @@ export function updateDashboard() {
         liveStatusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-400"></span> <span class="opacity-80">Магазин зачинено</span>`;
     }
 
-    // ---------------------------------------------------------
-    // 4. НОТАТКИ (Alert)
-    // ---------------------------------------------------------
+    // --- 4. NOTES ALERT ---
     const noteIcon = document.getElementById('dashNoteIcon');
     if (noteIcon) {
-        // Перевіряємо, чи є нотатки на сьогодні у стейті
         const hasNote = state.notes && state.notes.some(n => n.date === todayStr);
         if (hasNote) {
             noteIcon.classList.remove('hidden');
@@ -273,8 +253,6 @@ export function updateDashboard() {
         }
     }
 }
-
-// --- HELPERS ---
 
 function getDuration(start, end) {
     if (!start || !end || start === 'Відпустка' || start === 'Лікарняний' || start === 'DELETE') return 0;
