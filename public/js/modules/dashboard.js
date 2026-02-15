@@ -1,13 +1,20 @@
 import { state } from './state.js';
-import { triggerHaptic } from './ui.js';
+import { triggerHaptic, showToast, openNotesModal } from './ui.js';
 
-let dashMode = 'hours'; // 'hours' | 'shifts' | 'percent'
+// Експортуємо функцію для HTML (для onclick по іконці нотатки)
+window.openTodayNote = (e) => {
+    e.stopPropagation();
+    triggerHaptic();
+    openNotesModal();
+};
+
+let dashMode = 'hours'; // 'hours' | 'shifts' | 'percent' | 'money'
 
 export function initDashboardInteractions() {
     const card = document.getElementById('dashboardCard');
     if (!card) return;
 
-    // 1. Клік на ліву частину (Наступна зміна) -> Показати колег
+    // 1. Клік на ліву частину -> Показати колег
     const leftPart = card.querySelector('.flex > div:first-child');
     if (leftPart) {
         leftPart.onclick = (e) => {
@@ -16,7 +23,7 @@ export function initDashboardInteractions() {
         };
     }
 
-    // 2. Клік на праву частину (Прогрес) -> Перемикання режимів
+    // 2. Клік на праву частину -> Перемикання режимів (Години/Гроші)
     const rightPart = card.querySelector('.text-right');
     if (rightPart) {
         rightPart.onclick = (e) => {
@@ -28,11 +35,36 @@ export function initDashboardInteractions() {
 
 function toggleDashMode() {
     triggerHaptic();
+    
+    // Циклічне перемикання режимів
     if (dashMode === 'hours') dashMode = 'shifts';
     else if (dashMode === 'shifts') dashMode = 'percent';
+    else if (dashMode === 'percent') dashMode = 'money';
     else dashMode = 'hours';
+
+    // Якщо обрали гроші, але ставка ще не збережена -> питаємо
+    if (dashMode === 'money') {
+        const rate = localStorage.getItem('shifter_hourlyRate');
+        if (!rate) {
+            askHourlyRate();
+            return; 
+        }
+    }
     
-    updateDashboard(); // Перемальовуємо з новим режимом
+    updateDashboard(); 
+}
+
+function askHourlyRate() {
+    const rate = prompt("Вкажіть вашу ставку за годину (грн):", "100");
+    if (rate && !isNaN(rate)) {
+        localStorage.setItem('shifter_hourlyRate', rate);
+        showToast(`Ставка ${rate} грн/год збережена`);
+        dashMode = 'money';
+        updateDashboard();
+    } else {
+        dashMode = 'hours';
+        updateDashboard();
+    }
 }
 
 function toggleColleagues() {
@@ -47,52 +79,55 @@ export function updateDashboard() {
     const card = document.getElementById('dashboardCard');
     if (!card) return;
 
-    // Ховаємо, якщо гість
-    if (!state.currentUser || state.currentUser.role === 'Guest') {
+    // 🔥 ХОВАЄМО ДАШБОРД, ЯКЩО RRP АБО GUEST
+    if (!state.currentUser || state.currentUser.role === 'Guest' || state.currentUser.role === 'RRP') {
         card.classList.add('hidden');
         return;
     }
     card.classList.remove('hidden');
 
-    // Ініціалізуємо кліки (один раз)
     if (!card.dataset.init) {
         initDashboardInteractions();
         card.dataset.init = "true";
     }
 
     const me = state.currentUser;
+    // Беремо зміни тільки цього користувача
     const myShifts = state.shifts.filter(s => s.name === me.name);
     
-    // --- 1. NEXT SHIFT ---
+    // ---------------------------------------------------------
+    // 1. НАСТУПНА ЗМІНА (Next Shift)
+    // ---------------------------------------------------------
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     
-    // Сортуємо
+    // Сортуємо зміни
     const sortedShifts = myShifts.sort((a, b) => a.date.localeCompare(b.date));
+    // Шукаємо першу майбутню (або сьогоднішню)
     let nextShift = sortedShifts.find(s => s.date >= todayStr && s.start !== 'DELETE');
 
     const nextTimeEl = document.getElementById('dashNextShiftTime');
     const nextDateEl = document.getElementById('dashNextShiftDate');
     const titleEl = document.getElementById('dashNextShiftTitle');
 
-    // Контейнер для колег (створюємо, якщо немає)
+    // Створюємо контейнер для колег (список), якщо його немає
     let collContainer = document.getElementById('dashColleagues');
     if (!collContainer) {
         collContainer = document.createElement('div');
         collContainer.id = 'dashColleagues';
         collContainer.className = "hidden mt-3 pt-3 border-t border-white/20 text-sm animate-slide-up";
-        card.appendChild(collContainer);
+        // Вставляємо перед футером live status (в кінець padding-блоку)
+        card.querySelector('.p-4').appendChild(collContainer);
     }
 
     if (nextShift) {
-        // Дата
         const dateObj = new Date(nextShift.date);
         const dayName = dateObj.toLocaleDateString('uk-UA', { weekday: 'long' });
         
         let dateLabel = `${nextShift.date.slice(5).replace('-','.')} (${dayName})`;
         
-        // Логіка "Завтра/Сьогодні"
-        const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrow = new Date(now); 
+        tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
         if (nextShift.date === todayStr) dateLabel = "СЬОГОДНІ 🔥";
@@ -100,40 +135,35 @@ export function updateDashboard() {
 
         nextDateEl.innerText = dateLabel;
         
-        // Час
-        if (nextShift.start === 'Відпустка') nextTimeEl.innerText = 'Відпустка 🌴';
-        else if (nextShift.start === 'Лікарняний') nextTimeEl.innerText = 'Лікарняний 💊';
-        else nextTimeEl.innerText = `${nextShift.start} - ${nextShift.end}`;
+        if (nextShift.start === 'Відпустка') {
+            nextTimeEl.innerText = 'Відпустка 🌴';
+        } else if (nextShift.start === 'Лікарняний') {
+            nextTimeEl.innerText = 'Лікарняний 💊';
+        } else {
+            nextTimeEl.innerText = `${nextShift.start} - ${nextShift.end}`;
+        }
 
-        // Підказка про клік
         titleEl.innerHTML = '📅 НАСТУПНА ЗМІНА <span class="opacity-50 text-[10px]">▼</span>';
 
-        // --- ЛОГІКА КОЛЕГ ---
-        // Шукаємо, хто ще працює в цей день
+        // --- КОЛЕГИ НА ЦЮ ЗМІНУ ---
         const colleagues = state.shifts.filter(s => 
             s.date === nextShift.date && 
             s.name !== me.name && 
-            s.start !== 'DELETE' &&
-            s.start !== 'Відпустка' &&
-            s.start !== 'Лікарняний'
+            s.start !== 'DELETE' && s.start !== 'Відпустка' && s.start !== 'Лікарняний'
         );
         
         if (colleagues.length > 0) {
-            // 🔥 ВИПРАВЛЕННЯ: Форматуємо ім'я як "Ім'я П."
             const names = colleagues.map(c => {
-                const parts = c.name.trim().split(/\s+/); // Розбиваємо по пробілах
-                if (parts.length >= 2) {
-                    // Якщо є "Прізвище Ім'я", беремо друге слово + першу букву першого
-                    return `${parts[1]} ${parts[0][0]}.`; 
-                }
-                return parts[0]; // Якщо одне слово, повертаємо як є
+                const parts = c.name.trim().split(/\s+/);
+                // Формат: "Ім'я П." (беремо друге слово як ім'я, перше як прізвище)
+                if (parts.length >= 2) return `${parts[1]} ${parts[0][0]}.`; 
+                return parts[0];
             }).join(', ');
             
             collContainer.innerHTML = `<span class="opacity-70">Разом з:</span> <b>${names}</b>`;
         } else {
             collContainer.innerHTML = `<span class="opacity-70">Працюєш сам(а) 🦸‍♂️</span>`;
         }
-
     } else {
         nextTimeEl.innerText = "--:--";
         nextDateEl.innerText = "Немає змін";
@@ -141,10 +171,13 @@ export function updateDashboard() {
         collContainer.innerHTML = '';
     }
 
-    // --- 2. PROGRESS ---
+    // ---------------------------------------------------------
+    // 2. ПРОГРЕС І ЗАРПЛАТА
+    // ---------------------------------------------------------
     const viewYear = state.currentDate.getFullYear();
     const viewMonth = state.currentDate.getMonth();
     
+    // Зміни за поточний місяць перегляду
     const monthlyShifts = myShifts.filter(s => {
         const [y, m, d] = s.date.split('-').map(Number);
         return y === viewYear && (m - 1) === viewMonth;
@@ -166,9 +199,8 @@ export function updateDashboard() {
 
     const percentVal = Math.min(100, (totalHours / norm) * 100);
     
-    // Відображення залежно від режиму
     const hoursTextEl = document.getElementById('dashHoursText');
-    const subtitleEl = hoursTextEl.nextElementSibling; // div з текстом "годин"
+    const subtitleEl = document.getElementById('dashHoursLabel');
 
     if (dashMode === 'hours') {
         hoursTextEl.innerText = `${parseFloat(totalHours.toFixed(1))} / ${norm}`;
@@ -176,25 +208,83 @@ export function updateDashboard() {
     } else if (dashMode === 'shifts') {
         hoursTextEl.innerText = `${totalShifts}`;
         subtitleEl.innerText = 'змін (tap)';
-    } else {
+    } else if (dashMode === 'percent') {
         hoursTextEl.innerText = `${Math.round(percentVal)}%`;
         subtitleEl.innerText = 'від норми (tap)';
+    } else if (dashMode === 'money') {
+        const rate = localStorage.getItem('shifter_hourlyRate') || 0;
+        const salary = Math.round(totalHours * rate);
+        hoursTextEl.innerText = `${salary.toLocaleString()} ₴`;
+        subtitleEl.innerText = `≈ зарплата (${rate} грн/год)`;
     }
 
     const bar = document.getElementById('dashProgressFill');
     bar.style.width = `${percentVal}%`;
+    bar.className = (totalHours >= norm) ? 
+        'bg-green-400 h-full rounded-full transition-all duration-1000' : 
+        'bg-white h-full rounded-full transition-all duration-1000';
+
+    // ---------------------------------------------------------
+    // 3. LIVE STORE STATUS (Хто зараз працює)
+    // ---------------------------------------------------------
+    const liveStatusEl = document.getElementById('dashLiveStatus');
     
-    if (totalHours >= norm) {
-        bar.className = 'bg-green-400 h-full rounded-full transition-all duration-1000';
+    // Всі зміни на сьогодні (не тільки мої)
+    const todayShifts = state.shifts.filter(s => 
+        s.date === todayStr && 
+        s.start !== 'DELETE' && 
+        s.start !== 'Відпустка' && 
+        s.start !== 'Лікарняний'
+    );
+    
+    const currentHour = now.getHours();
+    const currentMin = now.getMinutes();
+    const currentTimeVal = currentHour + currentMin/60;
+
+    const workingNow = todayShifts.filter(s => {
+        const startVal = timeToVal(s.start);
+        const endVal = timeToVal(s.end);
+        return currentTimeVal >= startVal && currentTimeVal < endVal;
+    });
+
+    if (workingNow.length > 0) {
+        const names = workingNow.map(c => {
+            const parts = c.name.trim().split(/\s+/);
+            if (parts.length >= 2) return `${parts[1]} ${parts[0][0]}.`; 
+            return parts[0];
+        }).join(', ');
+        
+        liveStatusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> <span class="opacity-80 truncate">Зараз: <b>${names}</b></span>`;
     } else {
-        bar.className = 'bg-white h-full rounded-full transition-all duration-1000';
+        liveStatusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-400"></span> <span class="opacity-80">Магазин зачинено</span>`;
+    }
+
+    // ---------------------------------------------------------
+    // 4. НОТАТКИ (Alert)
+    // ---------------------------------------------------------
+    const noteIcon = document.getElementById('dashNoteIcon');
+    if (noteIcon) {
+        // Перевіряємо, чи є нотатки на сьогодні у стейті
+        const hasNote = state.notes && state.notes.some(n => n.date === todayStr);
+        if (hasNote) {
+            noteIcon.classList.remove('hidden');
+        } else {
+            noteIcon.classList.add('hidden');
+        }
     }
 }
 
+// --- HELPERS ---
+
 function getDuration(start, end) {
     if (!start || !end || start === 'Відпустка' || start === 'Лікарняний' || start === 'DELETE') return 0;
-    const [h1, m1] = start.split(':').map(Number);
-    const [h2, m2] = end.split(':').map(Number);
-    const d = (h2 + m2/60) - (h1 + m1/60);
-    return d > 0 ? d : 0;
+    const s = timeToVal(start);
+    const e = timeToVal(end);
+    return (e - s) > 0 ? (e - s) : 0;
+}
+
+function timeToVal(t) {
+    if(!t) return 0;
+    const [h, m] = t.split(':').map(Number);
+    return h + (m/60);
 }
