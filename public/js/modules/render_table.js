@@ -30,16 +30,13 @@ export function renderTable() {
     const todayStr = now.toISOString().split('T')[0];
     const viewMonthStr = `${y}-${String(m + 1).padStart(2, '0')}`;
 
-    // 🔥 1. ОТРИМУЄМО НАЛАШТУВАННЯ МАГАЗИНУ (Час роботи)
     let openTime = "10:00";
     let closeTime = "22:00";
 
-    // Спроба 1: З об'єкта користувача (якщо populated)
     if (state.currentUser.store && state.currentUser.store.openTime) {
         openTime = state.currentUser.store.openTime;
         closeTime = state.currentUser.store.closeTime;
     } 
-    // Спроба 2: Зі списку магазинів (state.stores), якщо він завантажений
     else if (state.stores && state.currentUser.storeId) {
         const foundStore = state.stores.find(s => s._id === state.currentUser.storeId || s.code === state.currentUser.storeId);
         if (foundStore) {
@@ -48,17 +45,14 @@ export function renderTable() {
         }
     }
 
-    // 🔥 2. ОТРИМУЄМО НОРМУ ГОДИН З KPI
     const monthNorm = state.kpiData?.settings?.normHours || 0;
 
     let html = '<table class="w-full text-xs border-collapse select-none">'; 
     
     // ================= HEADER =================
     html += '<thead>';
-    
-    // --- Рядок 1: Дні тижня ---
     html += '<tr class="h-10 border-b border-gray-100 dark:border-gray-800">';
-    html += '<th class="sticky left-0 z-20 bg-gray-50 dark:bg-[#2C2C2E] px-2 text-left font-bold min-w-[120px] border-r border-gray-200 dark:border-gray-700 shadow-sm">Співробітник</th>';
+    html += '<th class="sticky left-0 z-20 bg-[#F2F2F7] dark:bg-[#1C1C1E] px-2 text-left font-bold min-w-[120px] border-r border-gray-200 dark:border-gray-700 shadow-sm">Співробітник</th>';
     
     for(let d=1; d<=daysInMonth; d++) {
         const isToday = isCurrentMonth && d === todayDate;
@@ -81,25 +75,22 @@ export function renderTable() {
         </th>`;
     }
     
-    // Заголовок колонки "Години"
-    html += '<th class="sticky right-0 z-20 bg-gray-50 dark:bg-[#2C2C2E] px-2 text-center font-bold min-w-[80px] border-l border-gray-200 dark:border-gray-700 shadow-sm">Години</th>';
+    html += '<th class="sticky right-0 z-20 bg-[#F2F2F7] dark:bg-[#1C1C1E] px-2 text-center font-bold min-w-[80px] border-l border-gray-200 dark:border-gray-700 shadow-sm">Години</th>';
     html += '</tr>';
 
-    // --- Рядок 2: Кількість людей (Перевірка покриття) ---
+    // --- Рядок 2: Кількість людей ---
     html += '<tr class="h-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#202022]">';
-    html += '<td class="sticky left-0 z-20 bg-gray-50 dark:bg-[#2C2C2E] px-2 text-[10px] text-gray-400 font-bold border-r border-gray-200 dark:border-gray-700 text-right">Людей:</td>';
+    html += '<td class="sticky left-0 z-20 bg-[#F2F2F7] dark:bg-[#1C1C1E] px-2 text-[10px] text-gray-400 font-bold border-r border-gray-200 dark:border-gray-700 text-right">Людей:</td>';
 
     for(let d=1; d<=daysInMonth; d++) {
         const dStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         
-        // Збираємо зміни на цей день (враховуючи чернетки)
         const dayShifts = state.shifts.filter(s => s.date === dStr && s.start !== 'Відпустка');
         const dayDrafts = state.pendingChanges ? Object.values(state.pendingChanges).filter(p => p.date === dStr) : [];
         
         const finalShifts = [];
         const processedUsers = new Set();
 
-        // 1. Чернетки мають пріоритет
         dayDrafts.forEach(draft => {
             processedUsers.add(draft.name);
             if (draft.start !== 'DELETE' && draft.start !== 'Відпустка') {
@@ -107,14 +98,12 @@ export function renderTable() {
             }
         });
         
-        // 2. Реальні зміни (якщо не перекриті чернеткою)
         dayShifts.forEach(shift => {
             if (!processedUsers.has(shift.name)) {
                 finalShifts.push(shift);
             }
         });
 
-        // Фільтруємо по поточному магазину/фільтру (щоб не рахувати людей з інших магазинів, якщо ми адмін)
         let relevantShifts = finalShifts;
         if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
             relevantShifts = finalShifts.filter(s => {
@@ -124,15 +113,12 @@ export function renderTable() {
         }
 
         const count = relevantShifts.length;
-        
-        // 🔥 ВАЛІДАЦІЯ: Мінімум 2 людини на відкритті (openTime) і закритті (closeTime)
         const openers = relevantShifts.filter(s => s.start === openTime).length;
         const closers = relevantShifts.filter(s => s.end === closeTime).length;
 
         let badgeClass = "text-gray-500";
         let contentHtml = count > 0 ? count : '-';
 
-        // Якщо є люди, але недостатньо для відкриття/закриття
         if (count > 0 && (openers < 2 || closers < 2)) {
             badgeClass = "bg-red-100 text-red-600 font-bold";
             contentHtml = `<div class="flex items-center justify-center gap-0.5"><span>${count}</span><span class="text-[8px]">⚠️</span></div>`;
@@ -144,7 +130,7 @@ export function renderTable() {
             ${contentHtml}
         </td>`;
     }
-    html += '<td class="sticky right-0 bg-gray-50 dark:bg-[#2C2C2E] border-l border-gray-200 dark:border-gray-700"></td>'; 
+    html += '<td class="sticky right-0 bg-[#F2F2F7] dark:bg-[#1C1C1E] border-l border-gray-200 dark:border-gray-700"></td>'; 
     html += '</tr>';
     html += '</thead>';
 
@@ -157,15 +143,20 @@ export function renderTable() {
     usersToShow.forEach(user => {
         const shortName = getDisplayName(user);
         
-        const editAttr = canEditUser ? `onclick="window.openEditUserProxy('${user._id}')" class="cursor-pointer hover:text-blue-500"` : '';
+        // 🔥 ВИПРАВЛЕННЯ: Розділяємо onclick і class, щоб уникнути дублювання атрибуту class
+        const editAction = canEditUser ? `onclick="window.openEditUserProxy('${user._id}')"` : '';
+        const editClasses = canEditUser ? "cursor-pointer hover:text-blue-500" : "";
         const editIcon = canEditUser ? ' <span class="text-[9px] opacity-30">✏️</span>' : '';
         const blockedClass = user.status === 'blocked' ? 'opacity-50 grayscale' : '';
         
         const isMe = user.name === state.currentUser.name;
-        const meStyle = isMe ? 'bg-blue-50/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'bg-white dark:bg-[#1C1C1E]';
+        // 🔥 ВИПРАВЛЕННЯ: Використовуємо СУЦІЛЬНИЙ колір (без opacity) для sticky колонок
+        const meStyleSticky = isMe ? 'bg-[#F0F9FF] dark:bg-[#1A2F4B] text-blue-600 dark:text-blue-400' : 'bg-white dark:bg-[#1C1C1E]'; 
 
         html += `<tr class="h-10 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors ${blockedClass}">`;
-        html += `<td ${editAttr} class="sticky left-0 z-10 ${meStyle} px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[120px] shadow-sm">${shortName}${editIcon}</td>`;
+        
+        // 🔥 Тут тепер тільки один атрибут class
+        html += `<td ${editAction} class="sticky left-0 z-10 ${meStyleSticky} ${editClasses} px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[120px] shadow-sm">${shortName}${editIcon}</td>`;
         
         let totalHours = 0;
 
@@ -217,7 +208,6 @@ export function renderTable() {
             html += `<td ${dataAttrs} class="shift-cell text-center p-0.5 border-r border-gray-100 dark:border-gray-800 ${cellClass} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">${content}</td>`;
         }
 
-        // 🔥 КОЛОНКА "ГОДИНИ" (Факт / Норма)
         let hoursHtml = `<div class="font-bold">${totalHours}</div>`;
         if (monthNorm > 0) {
             const diff = parseFloat((totalHours - monthNorm).toFixed(1));
@@ -233,7 +223,8 @@ export function renderTable() {
              hoursHtml = `<div class="font-bold text-gray-500">${totalHours}</div>`;
         }
 
-        html += `<td class="sticky right-0 z-10 ${meStyle} border-l border-gray-200 dark:border-gray-700 text-center px-1 shadow-sm">${hoursHtml}</td>`;
+        // 🔥 ВИПРАВЛЕННЯ: Фон для останньої колонки теж суцільний
+        html += `<td class="sticky right-0 z-10 ${meStyleSticky} border-l border-gray-200 dark:border-gray-700 text-center px-1 shadow-sm">${hoursHtml}</td>`;
         html += '</tr>';
     });
     html += '</tbody></table>';

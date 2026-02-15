@@ -90,8 +90,6 @@ export async function updateStoreDisplay() {
         
         // 🔥 FIX: Додана перевірка, чи прийшов масив
         if (!Array.isArray(stores)) {
-            // Можна додати лог, якщо хочеш бачити помилки в консолі
-            // console.warn("Failed to fetch stores or invalid format", stores);
             return; 
         }
 
@@ -200,13 +198,20 @@ export function closeFilterModal() {
 export function renderFilterList() {
     const list = document.getElementById('filterList');
     
+    // 🔥 ОНОВЛЕНО: Фільтруємо список користувачів, якщо обрано магазин (для Global Admin)
+    let usersToShow = state.users;
+    if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
+        usersToShow = state.users.filter(u => String(u.storeId) === String(state.selectedStoreFilter));
+    }
+
     let html = `
         <button onclick="window.applyFilter('all')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${state.filter === 'all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}">
             <span class="font-medium">Всі співробітники</span>
             ${state.filter === 'all' ? '<span>✓</span>' : ''}
         </button>`;
 
-    state.users.forEach(u => {
+    // Використовуємо відфільтрований список usersToShow
+    usersToShow.forEach(u => {
         const isSelected = state.filter === u.name;
         html += `
             <button onclick="window.applyFilter('${u.name}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}">
