@@ -27,6 +27,9 @@ import {
     editorConfigTemplates, saveEditorChanges 
 } from './modules/editor.js';
 
+// 🔥 НОВЕ: Імпорт модуля дашборду
+import { updateDashboard } from './modules/dashboard.js';
+
 const tg = window.Telegram.WebApp;
 if(tg) { tg.ready(); if(tg.platform && tg.platform!=='unknown') try{tg.expand()}catch(e){} }
 
@@ -151,6 +154,8 @@ window.changeStoreFilter = (storeId) => {
         if (kpiDiv && !kpiDiv.classList.contains('hidden')) renderKpi();
         if (gridDiv && !gridDiv.classList.contains('hidden')) renderTable();
         
+        updateDashboard(); // 🔥 ОНОВЛЕННЯ ДАШБОРДУ
+        
         // Ховаємо лоадер
         setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
     });
@@ -238,7 +243,6 @@ function checkEditorButtonVisibility() {
         } else {
             fab.classList.add('hidden');
             // 🔥 FIX: Прибрано примусове приховування панелі. Тепер вона слухається лише перемикача.
-            // document.getElementById('adminPanel').classList.add('hidden'); <-- Цей рядок створював проблему
             
             // Опускаємо кнопку "Вгору" на місце
             if (upBtn) {
@@ -283,6 +287,8 @@ async function changeMonth(d) {
     } else {
         renderAll(); 
     }
+    
+    updateDashboard(); // 🔥 ОНОВЛЕННЯ ДАШБОРДУ
 
     // 🔥 HIDE SKELETON
     setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
@@ -367,6 +373,8 @@ async function setMode(m) {
     
     // Перевіряємо видимість кнопки
     checkEditorButtonVisibility();
+    
+    updateDashboard(); // 🔥 ОНОВЛЕННЯ ДАШБОРДУ
 
     // 🔥 HIDE SKELETON
     setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
@@ -537,3 +545,6 @@ setInterval(updateStoreDisplay, 5000);
 setTimeout(updateStoreDisplay, 1000); 
 setInterval(initGlobalAdminFilter, 1500);
 setInterval(checkEditorButtonVisibility, 1000);
+
+// 🔥 Перший запуск дашборду через секунду після завантаження сторінки
+setTimeout(updateDashboard, 1500);

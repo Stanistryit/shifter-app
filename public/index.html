@@ -134,6 +134,29 @@
 
         <div class="container mx-auto p-4 max-w-[95%] lg:max-w-4xl space-y-4">
             
+            <div id="dashboardCard" class="hidden ios-card p-4 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 animate-slide-up relative overflow-hidden">
+                <div class="absolute -top-6 -right-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                
+                <div class="flex justify-between items-start relative z-10">
+                    <div>
+                        <div id="dashNextShiftTitle" class="text-xs font-bold text-blue-100 uppercase tracking-wider mb-1 flex items-center gap-1">
+                            📅 НАСТУПНА ЗМІНА
+                        </div>
+                        <div id="dashNextShiftTime" class="text-2xl font-bold leading-none mb-1">--:--</div>
+                        <div id="dashNextShiftDate" class="text-sm text-blue-100 font-medium">Завантаження...</div>
+                    </div>
+
+                    <div class="text-right">
+                        <div class="text-xs font-bold text-blue-100 uppercase tracking-wider mb-1">Цей місяць</div>
+                        <div id="dashHoursText" class="text-lg font-bold leading-none mb-1">0 / 0</div>
+                        <div class="text-[10px] text-blue-200">годин</div>
+                    </div>
+                </div>
+
+                <div class="mt-4 bg-black/20 rounded-full h-1.5 w-full overflow-hidden">
+                    <div id="dashProgressFill" class="bg-white h-full rounded-full transition-all duration-1000" style="width: 0%"></div>
+                </div>
+            </div>
             <div class="flex justify-between items-center ios-card p-1.5 glass-panel">
                 <div class="flex bg-[#E5E5EA] dark:bg-[#2C2C2E] rounded-[12px] p-1 w-full overflow-x-auto">
                     <button onclick="setMode('list')" id="btnModeList" class="flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all whitespace-nowrap px-2">Список</button>
