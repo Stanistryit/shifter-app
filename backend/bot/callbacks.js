@@ -21,11 +21,10 @@ const handleCallback = async (bot, q) => {
         try {
             const baseText = p.text || "";
             const newContent = q.message.reply_to_message && p.type === 'file' ? "👇 Підтвердити:" + readList : baseText + readList;
-            if (q.message.caption !== undefined) {
-                await bot.editMessageCaption(newContent, { chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML', reply_markup: q.message.reply_markup });
-            } else {
-                await bot.editMessageText(newContent, { chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML', reply_markup: q.message.reply_markup });
-            }
+            const opts = { chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML', reply_markup: q.message.reply_markup };
+            
+            if (q.message.caption !== undefined) await bot.editMessageCaption(newContent, opts);
+            else await bot.editMessageText(newContent, opts);
         } catch(e) {}
         bot.answerCallbackQuery(q.id, {text:`Дякую, ${shortName}! ✅`});
     }
@@ -42,11 +41,78 @@ const handleCallback = async (bot, q) => {
     else if (data.startsWith('transfer_')) {
         await handleTransferLogic(bot, q, uid, data);
     }
+
+    // 🔥 4. МАСОВЕ ПІДТВЕРДЖЕННЯ (SSE -> SM)
+    else if (data === 'approve_all_requests') {
+        await handleApproveAll(bot, q, uid);
+    }
     
-    // 4. Підтвердження запитів (Зміни, Задачі)
+    // 5. Одиночне підтвердження
     else if (data.startsWith('approve_') || data.startsWith('reject_')) {
         await handleApprovalLogic(bot, q, uid, data);
     }
+};
+
+// 🔥 ЛОГІКА МАСОВОГО ПІДТВЕРДЖЕННЯ
+const handleApproveAll = async (bot, q, uid) => {
+    const admin = await User.findOne({telegramChatId: uid});
+    if (!admin || (admin.role !== 'SM' && admin.role !== 'admin')) {
+        return bot.answerCallbackQuery(q.id, {text: '⛔️ Тільки для SM', show_alert: true});
+    }
+
+    // Шукаємо запити для магазину цього SM
+    let query = {};
+    if (admin.role !== 'admin') {
+        query = { 'data.storeId': admin.storeId };
+    }
+
+    const requests = await Request.find(query);
+    
+    if (requests.length === 0) {
+        return bot.editMessageText(`⚠️ Актуальних запитів немає (вже оброблено).`, {chat_id: q.message.chat.id, message_id: q.message.message_id});
+    }
+
+    let count = 0;
+    const creators = new Set(); // Щоб сповістити авторів (SSE)
+
+    for (const req of requests) {
+        try {
+            if (req.type === 'add_shift') {
+                // Видаляємо стару зміну на цю дату, якщо є, щоб не було дублів
+                await Shift.deleteOne({ date: req.data.date, name: req.data.name });
+                await Shift.create(req.data);
+            } 
+            else if (req.type === 'del_shift') {
+                await Shift.findByIdAndDelete(req.data.id);
+            }
+            
+            count++;
+            if (req.createdBy) creators.add(req.createdBy);
+            
+            await Request.findByIdAndDelete(req._id);
+        } catch (e) {
+            console.error(`Error processing req ${req._id}:`, e);
+        }
+    }
+
+    // Сповіщаємо авторів (SSE)
+    creators.forEach(name => {
+        notifyUser(name, `✅ <b>Чудові новини!</b>\nSM ${admin.name} підтвердив усі ваші зміни (${count} шт.).`);
+    });
+
+    await AuditLog.create({ 
+        performer: admin.name, 
+        action: 'approve_all_requests', 
+        details: `Approved ${count} shifts via Bot` 
+    });
+
+    bot.editMessageText(`✅ <b>Всі зміни прийнято!</b> (${count} шт.)\n\n👮‍♂️ SM: ${admin.name}`, {
+        chat_id: q.message.chat.id, 
+        message_id: q.message.message_id, 
+        parse_mode: 'HTML'
+    });
+    
+    bot.answerCallbackQuery(q.id, {text: `Опрацьовано ${count} запитів`});
 };
 
 const handleTransferLogic = async (bot, q, uid, data) => {
@@ -101,14 +167,17 @@ const handleApprovalLogic = async (bot, q, uid, data) => {
     }
 
     if (type === 'user') {
-        // ... (Стара логіка для юзерів, якщо вона ще використовується)
+        // ...
     } 
     else if (type === 'req') {
         const request = await Request.findById(targetId);
         if (!request) return bot.editMessageText(`⚠️ Запит вже оброблено.`, {chat_id: q.message.chat.id, message_id: q.message.message_id});
 
         if (action === 'approve') {
-            if(request.type === 'add_shift') await Shift.create(request.data);
+            if(request.type === 'add_shift') {
+                await Shift.deleteOne({ date: request.data.date, name: request.data.name }); // Anti-duplicate
+                await Shift.create(request.data);
+            }
             if(request.type === 'del_shift') await Shift.findByIdAndDelete(request.data.id);
             if(request.type === 'add_task') await Task.create(request.data);
             

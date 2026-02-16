@@ -82,7 +82,7 @@ exports.addShift = async (req, res) => {
     res.json({ success: true });
 };
 
-// 🔥 ОНОВЛЕНО: Масове збереження графіку
+// 🔥 ОНОВЛЕНО: Масове збереження графіку (Додано кнопки)
 exports.saveSchedule = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (!u || (u.role !== 'SM' && u.role !== 'admin' && u.role !== 'SSE')) {
@@ -120,11 +120,23 @@ exports.saveSchedule = async (req, res) => {
                 }
             }
 
-            // 🔥 ВИПРАВЛЕНО: Використовуємо notifyUser для сповіщення SM
+            // 🔥 FIX: Додаємо кнопки до повідомлення
             if (u.storeId) {
                 const managers = await User.find({ storeId: u.storeId, role: { $in: ['SM', 'admin'] } });
+                
+                const buttons = {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: "✅ Підтвердити Всі", callback_data: "approve_all_requests" },
+                                // { text: "❌ Відхилити", callback_data: "reject_all_requests" } // Можна розкоментувати, якщо треба
+                            ]
+                        ]
+                    }
+                };
+
                 managers.forEach(m => {
-                    notifyUser(m.name, `✏️ <b>Редактор Графіку</b>\n👤 ${u.name} надіслав зміни (${reqCount} шт.) на підтвердження.`);
+                    notifyUser(m.name, `✏️ <b>Редактор Графіку</b>\n👤 ${u.name} надіслав зміни (${reqCount} шт.) на підтвердження.`, buttons);
                 });
             }
 

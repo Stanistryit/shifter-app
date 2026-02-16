@@ -13,7 +13,9 @@ const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
     // Тиха година: з 22:00 до 08:00
     const isQuietHour = hours >= 22 || hours < 8;
 
-    if (isQuietHour) {
+    // 🔥 FIX: Якщо є кнопки (reply_markup) — відправляємо одразу, ігноруючи тиху годину.
+    // Інакше кнопки загубляться в базі відкладених повідомлень.
+    if (isQuietHour && !options.reply_markup) {
         await PendingNotification.create({ chatId, text });
         console.log(`zzz Повідомлення відкладено для ${chatId} (Тиха година)`);
     } else {
@@ -25,13 +27,20 @@ const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
     }
 };
 
-// Сповіщення користувачу
-const notifyUser = async (name, msg) => { 
+// 🔥 ОНОВЛЕНО: Тепер приймає options для кнопок
+const notifyUser = async (name, msg, options = {}) => { 
     if(!botInstance) return; 
     try { 
         const u = await User.findOne({name}); 
-        if(u?.telegramChatId) await sendMessageWithQuietHours(u.telegramChatId, msg, {parse_mode:'HTML'}); 
-    } catch(e){} 
+        // Об'єднуємо дефолтні налаштування з переданими
+        const finalOptions = { parse_mode: 'HTML', ...options };
+        
+        if(u?.telegramChatId) {
+            await sendMessageWithQuietHours(u.telegramChatId, msg, finalOptions); 
+        }
+    } catch(e) {
+        console.error("NotifyUser Error:", e.message);
+    } 
 };
 
 // Сповіщення в новини магазинів
@@ -47,7 +56,7 @@ const notifyAll = async (msg) => {
     } catch(e){} 
 };
 
-// 🔥 ВІДПРАВКА ЗАПИТУ SM (З КНОПКАМИ)
+// ВІДПРАВКА ЗАПИТУ SM
 const sendRequestToSM = async (requestDoc) => {
     if(!botInstance) return;
     try {
@@ -70,8 +79,6 @@ const sendRequestToSM = async (requestDoc) => {
 
         if (requestDoc.type === 'add_shift') {
             typeIcon = "➕";
-            
-            // 🔥 ОНОВЛЕНО: Обробка Лікарняного та Відпустки
             if (requestDoc.data.start === 'Лікарняний') {
                 details = `📅 <b>Дата:</b> ${requestDoc.data.date}\n💊 <b>Статус:</b> Лікарняний`;
             } else if (requestDoc.data.start === 'Відпустка') {
@@ -92,7 +99,6 @@ const sendRequestToSM = async (requestDoc) => {
 
         const txt = `${typeIcon} <b>Новий запит</b>\n\n👤 <b>Від:</b> ${requestDoc.createdBy}\n${details}`;
         
-        // Кнопки з емодзі для візуального кольору
         const opts = { 
             parse_mode: 'HTML', 
             reply_markup: { 
