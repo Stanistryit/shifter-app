@@ -1,8 +1,6 @@
 import { state } from './state.js';
-import { triggerHaptic, showToast } from './ui.js';
-import { openNotesModal } from './notes.js'; // 🔥 ВИПРАВЛЕНО: Імпорт з правильного файлу
+import { triggerHaptic, showToast, openNotesModal } from './ui.js';
 
-// Експортуємо функцію для HTML
 window.openTodayNote = (e) => {
     e.stopPropagation();
     triggerHaptic();
@@ -10,6 +8,8 @@ window.openTodayNote = (e) => {
 };
 
 let dashMode = 'hours'; // 'hours' | 'shifts' | 'percent' | 'money'
+let tempOverride = false; // Перемикач для 5-секундного показу статистики
+let overrideTimeout = null;
 
 export function initDashboardInteractions() {
     const card = document.getElementById('dashboardCard');
@@ -24,19 +24,39 @@ export function initDashboardInteractions() {
         };
     }
 
-    // 2. Клік на праву частину -> Перемикання режимів
+    // 2. Клік на праву частину -> Розумне перемикання
     const rightPart = card.querySelector('.text-right');
     if (rightPart) {
         rightPart.onclick = (e) => {
             e.stopPropagation();
-            toggleDashMode();
+            triggerHaptic();
+
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            const me = state.currentUser;
+            const myShifts = state.shifts.filter(s => s.name === me?.name);
+            const todayShift = myShifts.find(s => s.date === todayStr && !['DELETE', 'Відпустка', 'Лікарняний'].includes(s.start));
+
+            if (todayShift && !tempOverride) {
+                // Якщо ми на зміні і зараз бачимо таймер -> вмикаємо статистику на 5 сек
+                tempOverride = true;
+                if (overrideTimeout) clearTimeout(overrideTimeout);
+                overrideTimeout = setTimeout(() => { tempOverride = false; updateDashboard(); }, 5000);
+            } else {
+                // Якщо ми вихідні або вже дивимось статистику -> просто перемикаємо режим
+                cycleDashMode();
+                if (todayShift) {
+                    // Якщо на зміні, продовжуємо таймер ще на 5 сек
+                    if (overrideTimeout) clearTimeout(overrideTimeout);
+                    overrideTimeout = setTimeout(() => { tempOverride = false; updateDashboard(); }, 5000);
+                }
+            }
+            updateDashboard();
         };
     }
 }
 
-function toggleDashMode() {
-    triggerHaptic();
-    
+function cycleDashMode() {
     if (dashMode === 'hours') dashMode = 'shifts';
     else if (dashMode === 'shifts') dashMode = 'percent';
     else if (dashMode === 'percent') dashMode = 'money';
@@ -45,33 +65,21 @@ function toggleDashMode() {
     if (dashMode === 'money') {
         const rate = localStorage.getItem('shifter_hourlyRate');
         if (!rate) {
-            askHourlyRate();
-            return; 
+            const newRate = prompt("Вкажіть вашу ставку за годину (грн):", "100");
+            if (newRate && !isNaN(newRate)) {
+                localStorage.setItem('shifter_hourlyRate', newRate);
+                showToast(`Ставка ${newRate} грн/год збережена`);
+            } else {
+                dashMode = 'hours';
+            }
         }
-    }
-    
-    updateDashboard(); 
-}
-
-function askHourlyRate() {
-    const rate = prompt("Вкажіть вашу ставку за годину (грн):", "100");
-    if (rate && !isNaN(rate)) {
-        localStorage.setItem('shifter_hourlyRate', rate);
-        showToast(`Ставка ${rate} грн/год збережена`);
-        dashMode = 'money';
-        updateDashboard();
-    } else {
-        dashMode = 'hours';
-        updateDashboard();
     }
 }
 
 function toggleColleagues() {
     triggerHaptic();
     const details = document.getElementById('dashColleagues');
-    if (details) {
-        details.classList.toggle('hidden');
-    }
+    if (details) details.classList.toggle('hidden');
 }
 
 export function updateDashboard() {
@@ -92,12 +100,15 @@ export function updateDashboard() {
     const me = state.currentUser;
     const myShifts = state.shifts.filter(s => s.name === me.name);
     
-    // --- 1. NEXT SHIFT ---
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
-    
     const sortedShifts = myShifts.sort((a, b) => a.date.localeCompare(b.date));
-    let nextShift = sortedShifts.find(s => s.date >= todayStr && s.start !== 'DELETE');
+
+    // =========================================================
+    // 1. НАСТУПНА ЗМІНА (Строго після сьогодні)
+    // =========================================================
+    // 🔥 Змінено умову на строго більше (>)
+    let nextShift = sortedShifts.find(s => s.date > todayStr && s.start !== 'DELETE');
 
     const nextTimeEl = document.getElementById('dashNextShiftTime');
     const nextDateEl = document.getElementById('dashNextShiftDate');
@@ -114,41 +125,31 @@ export function updateDashboard() {
     if (nextShift) {
         const dateObj = new Date(nextShift.date);
         const dayName = dateObj.toLocaleDateString('uk-UA', { weekday: 'long' });
-        
         let dateLabel = `${nextShift.date.slice(5).replace('-','.')} (${dayName})`;
         
         const tomorrow = new Date(now); 
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-        if (nextShift.date === todayStr) dateLabel = "СЬОГОДНІ 🔥";
-        else if (nextShift.date === tomorrowStr) dateLabel = "ЗАВТРА";
+        if (nextShift.date === tomorrowStr) dateLabel = "ЗАВТРА";
 
         nextDateEl.innerText = dateLabel;
         
-        if (nextShift.start === 'Відпустка') {
-            nextTimeEl.innerText = 'Відпустка 🌴';
-        } else if (nextShift.start === 'Лікарняний') {
-            nextTimeEl.innerText = 'Лікарняний 💊';
-        } else {
-            nextTimeEl.innerText = `${nextShift.start} - ${nextShift.end}`;
-        }
+        if (nextShift.start === 'Відпустка') nextTimeEl.innerText = 'Відпустка 🌴';
+        else if (nextShift.start === 'Лікарняний') nextTimeEl.innerText = 'Лікарняний 💊';
+        else nextTimeEl.innerText = `${nextShift.start} - ${nextShift.end}`;
 
         titleEl.innerHTML = '📅 НАСТУПНА ЗМІНА <span class="opacity-50 text-[10px]">▼</span>';
 
         const colleagues = state.shifts.filter(s => 
-            s.date === nextShift.date && 
-            s.name !== me.name && 
-            s.start !== 'DELETE' && s.start !== 'Відпустка' && s.start !== 'Лікарняний'
+            s.date === nextShift.date && s.name !== me.name && s.start !== 'DELETE' && s.start !== 'Відпустка' && s.start !== 'Лікарняний'
         );
         
         if (colleagues.length > 0) {
             const names = colleagues.map(c => {
                 const parts = c.name.trim().split(/\s+/);
-                if (parts.length >= 2) return `${parts[1]} ${parts[0][0]}.`; 
-                return parts[0];
+                return parts.length >= 2 ? `${parts[1]} ${parts[0][0]}.` : parts[0];
             }).join(', ');
-            
             collContainer.innerHTML = `<span class="opacity-70">Разом з:</span> <b>${names}</b>`;
         } else {
             collContainer.innerHTML = `<span class="opacity-70">Працюєш сам(а) 🦸‍♂️</span>`;
@@ -156,75 +157,103 @@ export function updateDashboard() {
     } else {
         nextTimeEl.innerText = "--:--";
         nextDateEl.innerText = "Немає змін";
-        titleEl.innerText = '📅 НАСТУПНА ЗМІНА';
+        titleEl.innerHTML = '📅 НАСТУПНА ЗМІНА';
         collContainer.innerHTML = '';
     }
 
-    // --- 2. PROGRESS ---
-    const viewYear = state.currentDate.getFullYear();
-    const viewMonth = state.currentDate.getMonth();
-    
-    const monthlyShifts = myShifts.filter(s => {
-        const [y, m, d] = s.date.split('-').map(Number);
-        return y === viewYear && (m - 1) === viewMonth;
-    });
-
-    let totalHours = 0;
-    let totalShifts = 0;
-    
-    monthlyShifts.forEach(s => {
-        const dur = getDuration(s.start, s.end);
-        if (dur > 0) {
-            totalHours += dur;
-            totalShifts++;
-        }
-    });
-
-    let norm = 160;
-    if (state.kpiData?.settings?.normHours) norm = parseInt(state.kpiData.settings.normHours);
-
-    const percentVal = Math.min(100, (totalHours / norm) * 100);
-    
+    // =========================================================
+    // 2. ПРАВА ШКАЛА: ТАЙМЕР ЗМІНИ АБО СТАТИСТИКА
+    // =========================================================
     const hoursTextEl = document.getElementById('dashHoursText');
     const subtitleEl = document.getElementById('dashHoursLabel');
+    const bar = document.getElementById('dashProgressFill');
 
-    if (dashMode === 'hours') {
-        hoursTextEl.innerText = `${parseFloat(totalHours.toFixed(1))} / ${norm}`;
-        subtitleEl.innerText = 'годин (tap)';
-    } else if (dashMode === 'shifts') {
-        hoursTextEl.innerText = `${totalShifts}`;
-        subtitleEl.innerText = 'змін (tap)';
-    } else if (dashMode === 'percent') {
-        hoursTextEl.innerText = `${Math.round(percentVal)}%`;
-        subtitleEl.innerText = 'від норми (tap)';
-    } else if (dashMode === 'money') {
-        const rate = localStorage.getItem('shifter_hourlyRate') || 0;
-        const salary = Math.round(totalHours * rate);
-        hoursTextEl.innerText = `${salary.toLocaleString()} ₴`;
-        subtitleEl.innerText = `≈ зарплата (${rate} грн/год)`;
+    // Перевіряємо, чи є сьогодні зміна
+    const todayShift = myShifts.find(s => s.date === todayStr && !['DELETE', 'Відпустка', 'Лікарняний'].includes(s.start));
+
+    // Якщо ми на зміні і не тиснули "Показати статистику"
+    if (todayShift && !tempOverride) {
+        const [sH, sM] = todayShift.start.split(':').map(Number);
+        const [eH, eM] = todayShift.end.split(':').map(Number);
+        const startMins = sH * 60 + sM;
+        const endMins = eH * 60 + eM;
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+
+        if (currentMins < startMins) {
+            // Ще не почалась
+            const diff = startMins - currentMins;
+            hoursTextEl.innerText = `${Math.floor(diff/60)}г ${diff%60}хв`;
+            subtitleEl.innerText = 'до початку зміни (tap)';
+            bar.style.width = '0%';
+            bar.className = 'bg-white/30 h-full rounded-full transition-all duration-1000';
+        } else if (currentMins >= startMins && currentMins < endMins) {
+            // Йде зміна
+            const diff = endMins - currentMins;
+            const total = endMins - startMins;
+            const passed = currentMins - startMins;
+            const pct = Math.min(100, (passed / total) * 100);
+            
+            hoursTextEl.innerText = `${Math.floor(diff/60)}г ${diff%60}хв`;
+            subtitleEl.innerText = 'залишилось працювати (tap)';
+            bar.style.width = `${pct}%`;
+            bar.className = 'bg-yellow-400 h-full rounded-full transition-all duration-1000';
+        } else {
+            // Зміна закінчилась
+            hoursTextEl.innerText = `Ура!`;
+            subtitleEl.innerText = 'зміну завершено (tap)';
+            bar.style.width = '100%';
+            bar.className = 'bg-green-400 h-full rounded-full transition-all duration-1000';
+        }
+    } else {
+        // РЕЖИМ СТАТИСТИКИ (Вихідний або ми натиснули на таймер)
+        const viewYear = state.currentDate.getFullYear();
+        const viewMonth = state.currentDate.getMonth();
+        const monthlyShifts = myShifts.filter(s => {
+            const [y, m, d] = s.date.split('-').map(Number);
+            return y === viewYear && (m - 1) === viewMonth;
+        });
+
+        let totalHours = 0, totalShifts = 0;
+        monthlyShifts.forEach(s => {
+            const dur = getDuration(s.start, s.end);
+            if (dur > 0) { totalHours += dur; totalShifts++; }
+        });
+
+        let norm = parseInt(state.kpiData?.settings?.normHours || 160);
+        const percentVal = Math.min(100, (totalHours / norm) * 100);
+
+        if (dashMode === 'hours') {
+            hoursTextEl.innerText = `${parseFloat(totalHours.toFixed(1))} / ${norm}`;
+            subtitleEl.innerText = 'годин за місяць';
+        } else if (dashMode === 'shifts') {
+            hoursTextEl.innerText = `${totalShifts}`;
+            subtitleEl.innerText = 'змін за місяць';
+        } else if (dashMode === 'percent') {
+            hoursTextEl.innerText = `${Math.round(percentVal)}%`;
+            subtitleEl.innerText = 'від норми';
+        } else if (dashMode === 'money') {
+            const rate = localStorage.getItem('shifter_hourlyRate') || 0;
+            hoursTextEl.innerText = `${Math.round(totalHours * rate).toLocaleString()} ₴`;
+            subtitleEl.innerText = `≈ зарплата`;
+        }
+
+        bar.style.width = `${percentVal}%`;
+        bar.className = (totalHours >= norm) ? 
+            'bg-green-400 h-full rounded-full transition-all duration-1000' : 
+            'bg-white h-full rounded-full transition-all duration-1000';
+            
+        // Підказка, що це тимчасовий режим
+        if (tempOverride) subtitleEl.innerText += ' ⏱'; 
     }
 
-    const bar = document.getElementById('dashProgressFill');
-    bar.style.width = `${percentVal}%`;
-    bar.className = (totalHours >= norm) ? 
-        'bg-green-400 h-full rounded-full transition-all duration-1000' : 
-        'bg-white h-full rounded-full transition-all duration-1000';
-
-    // --- 3. LIVE STATUS ---
+    // =========================================================
+    // 3. LIVE STORE STATUS & NOTES
+    // =========================================================
     const liveStatusEl = document.getElementById('dashLiveStatus');
-    
-    const todayShifts = state.shifts.filter(s => 
-        s.date === todayStr && 
-        s.start !== 'DELETE' && 
-        s.start !== 'Відпустка' && 
-        s.start !== 'Лікарняний'
-    );
-    
-    const currentHour = now.getHours();
-    const currentMin = now.getMinutes();
-    const currentTimeVal = currentHour + currentMin/60;
+    const todayShiftsGlobal = state.shifts.filter(s => s.date === todayStr && s.start !== 'DELETE' && s.start !== 'Відпустка' && s.start !== 'Лікарняний');
+    const currentTimeVal = now.getHours() + now.getMinutes()/60;
 
-    const workingNow = todayShifts.filter(s => {
+    const workingNow = todayShiftsGlobal.filter(s => {
         const startVal = timeToVal(s.start);
         const endVal = timeToVal(s.end);
         return currentTimeVal >= startVal && currentTimeVal < endVal;
@@ -233,27 +262,22 @@ export function updateDashboard() {
     if (workingNow.length > 0) {
         const names = workingNow.map(c => {
             const parts = c.name.trim().split(/\s+/);
-            if (parts.length >= 2) return `${parts[1]} ${parts[0][0]}.`; 
-            return parts[0];
+            return parts.length >= 2 ? `${parts[1]} ${parts[0][0]}.` : parts[0];
         }).join(', ');
-        
         liveStatusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> <span class="opacity-80 truncate">Зараз: <b>${names}</b></span>`;
     } else {
         liveStatusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-400"></span> <span class="opacity-80">Магазин зачинено</span>`;
     }
 
-    // --- 4. NOTES ALERT ---
     const noteIcon = document.getElementById('dashNoteIcon');
     if (noteIcon) {
-        const hasNote = state.notes && state.notes.some(n => n.date === todayStr);
-        if (hasNote) {
-            noteIcon.classList.remove('hidden');
-        } else {
-            noteIcon.classList.add('hidden');
-        }
+        const hasNote = state.notes?.some(n => n.date === todayStr);
+        if (hasNote) noteIcon.classList.remove('hidden');
+        else noteIcon.classList.add('hidden');
     }
 }
 
+// Helpers
 function getDuration(start, end) {
     if (!start || !end || start === 'Відпустка' || start === 'Лікарняний' || start === 'DELETE') return 0;
     const s = timeToVal(start);
@@ -266,3 +290,12 @@ function timeToVal(t) {
     const [h, m] = t.split(':').map(Number);
     return h + (m/60);
 }
+
+// 🔥 АВТООНОВЛЕННЯ ТАЙМЕРІВ ЩОХВИЛИНИ
+setInterval(() => {
+    const card = document.getElementById('dashboardCard');
+    // Оновлюємо, тільки якщо дашборд зараз видимий
+    if (card && !card.classList.contains('hidden')) {
+        updateDashboard();
+    }
+}, 60000);
