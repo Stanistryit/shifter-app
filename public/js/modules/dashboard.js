@@ -1,5 +1,6 @@
 import { state } from './state.js';
-import { triggerHaptic, showToast, openNotesModal } from './ui.js';
+import { triggerHaptic, showToast } from './ui.js';
+import { openNotesModal } from './notes.js'; // 🔥 ВИПРАВЛЕНО: Правильний імпорт
 
 window.openTodayNote = (e) => {
     e.stopPropagation();
@@ -107,7 +108,6 @@ export function updateDashboard() {
     // =========================================================
     // 1. НАСТУПНА ЗМІНА (Строго після сьогодні)
     // =========================================================
-    // 🔥 Змінено умову на строго більше (>)
     let nextShift = sortedShifts.find(s => s.date > todayStr && s.start !== 'DELETE');
 
     const nextTimeEl = document.getElementById('dashNextShiftTime');
@@ -168,10 +168,8 @@ export function updateDashboard() {
     const subtitleEl = document.getElementById('dashHoursLabel');
     const bar = document.getElementById('dashProgressFill');
 
-    // Перевіряємо, чи є сьогодні зміна
     const todayShift = myShifts.find(s => s.date === todayStr && !['DELETE', 'Відпустка', 'Лікарняний'].includes(s.start));
 
-    // Якщо ми на зміні і не тиснули "Показати статистику"
     if (todayShift && !tempOverride) {
         const [sH, sM] = todayShift.start.split(':').map(Number);
         const [eH, eM] = todayShift.end.split(':').map(Number);
@@ -180,14 +178,12 @@ export function updateDashboard() {
         const currentMins = now.getHours() * 60 + now.getMinutes();
 
         if (currentMins < startMins) {
-            // Ще не почалась
             const diff = startMins - currentMins;
             hoursTextEl.innerText = `${Math.floor(diff/60)}г ${diff%60}хв`;
             subtitleEl.innerText = 'до початку зміни (tap)';
             bar.style.width = '0%';
             bar.className = 'bg-white/30 h-full rounded-full transition-all duration-1000';
         } else if (currentMins >= startMins && currentMins < endMins) {
-            // Йде зміна
             const diff = endMins - currentMins;
             const total = endMins - startMins;
             const passed = currentMins - startMins;
@@ -198,14 +194,12 @@ export function updateDashboard() {
             bar.style.width = `${pct}%`;
             bar.className = 'bg-yellow-400 h-full rounded-full transition-all duration-1000';
         } else {
-            // Зміна закінчилась
             hoursTextEl.innerText = `Ура!`;
             subtitleEl.innerText = 'зміну завершено (tap)';
             bar.style.width = '100%';
             bar.className = 'bg-green-400 h-full rounded-full transition-all duration-1000';
         }
     } else {
-        // РЕЖИМ СТАТИСТИКИ (Вихідний або ми натиснули на таймер)
         const viewYear = state.currentDate.getFullYear();
         const viewMonth = state.currentDate.getMonth();
         const monthlyShifts = myShifts.filter(s => {
@@ -242,7 +236,6 @@ export function updateDashboard() {
             'bg-green-400 h-full rounded-full transition-all duration-1000' : 
             'bg-white h-full rounded-full transition-all duration-1000';
             
-        // Підказка, що це тимчасовий режим
         if (tempOverride) subtitleEl.innerText += ' ⏱'; 
     }
 
@@ -291,10 +284,8 @@ function timeToVal(t) {
     return h + (m/60);
 }
 
-// 🔥 АВТООНОВЛЕННЯ ТАЙМЕРІВ ЩОХВИЛИНИ
 setInterval(() => {
     const card = document.getElementById('dashboardCard');
-    // Оновлюємо, тільки якщо дашборд зараз видимий
     if (card && !card.classList.contains('hidden')) {
         updateDashboard();
     }
