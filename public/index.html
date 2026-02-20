@@ -297,6 +297,25 @@
                         <h3 class="font-bold text-lg">🌍 Глобальні</h3>
                         <button onclick="document.getElementById('adminTabGlobal').classList.add('hidden'); document.getElementById('adminMenu').classList.remove('hidden');" class="text-xs text-blue-500 font-bold bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">← Назад</button>
                     </div>
+                    
+                    <div class="bg-white dark:bg-[#2C2C2E] p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                        <h3 class="text-xs font-bold mb-2 uppercase text-gray-500">💰 Базові ставки (Матриця)</h3>
+                        <div class="space-y-3">
+                            <select id="salaryStoreType" class="ios-input font-bold text-blue-500 bg-transparent" onchange="renderSalaryMatrix()">
+                                <option value="top">🔥 ТОП</option>
+                                <option value="kiev">🏙️ Київ</option>
+                                <option value="expansion">🚀 Експансія</option>
+                                <option value="standard">🏠 Стандарт</option>
+                            </select>
+                            
+                            <div id="salaryMatrixContainer" class="space-y-2 max-h-64 overflow-y-auto pr-1">
+                                <div class="text-center text-gray-400 text-xs py-2">Оберіть тип магазину...</div>
+                            </div>
+                            
+                            <button onclick="saveSalaryMatrixBtn()" class="btn-primary bg-emerald-500 shadow-emerald-500/30">💾 Зберегти ставки</button>
+                        </div>
+                    </div>
+
                     <div class="bg-white dark:bg-[#2C2C2E] p-3 rounded-xl border border-gray-100 dark:border-gray-700">
                         <h3 class="text-xs font-bold mb-2 uppercase text-gray-500">Додати магазин</h3>
                         <div class="space-y-2">

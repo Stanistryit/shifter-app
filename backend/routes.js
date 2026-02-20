@@ -11,6 +11,7 @@ const kpiController = require('./controllers/kpiController');
 const adminController = require('./controllers/adminController');
 const noteController = require('./controllers/noteController');
 const userController = require('./controllers/userController'); 
+const salaryController = require('./controllers/salaryController'); // 🔥 Підключили фінансовий контролер
 
 // --- AUTH & USER ---
 router.get('/stores', authController.getStores);
@@ -33,8 +34,12 @@ router.post('/admin/stores/create', adminController.createStore);
 router.get('/admin/stores', adminController.getAllStores);
 router.post('/admin/stores/delete', adminController.deleteStore);
 
-// 🔥 Збереження налаштувань магазину (час звіту)
+// Збереження налаштувань магазину (час звіту)
 router.post('/admin/store/settings', adminController.updateStoreSettings); 
+
+// SALARY MATRIX (Global Admin)
+router.get('/admin/salary-matrix', adminController.getSalaryMatrix);
+router.post('/admin/salary-matrix', adminController.saveSalaryMatrix);
 
 // --- SHIFTS ---
 router.get('/shifts', shiftController.getShifts);
@@ -44,7 +49,7 @@ router.post('/shifts/bulk', shiftController.bulkImport);
 router.post('/shifts/clear-day', shiftController.clearDay);
 router.post('/shifts/clear-month', shiftController.clearMonth);
 
-// 🔥 НОВЕ: Масове збереження графіку (для Редактора)
+// Масове збереження графіку (для Редактора)
 router.post('/shifts/save', shiftController.saveSchedule);
 
 // --- TASKS ---
@@ -68,5 +73,8 @@ router.post('/news/publish', upload.array('media', 10), adminController.publishN
 router.get('/notes', noteController.getNotes);
 router.post('/notes', noteController.addNote);
 router.post('/notes/delete', noteController.deleteNote);
+
+// --- SALARY (PaySlips) ---
+router.get('/salary', salaryController.getUserSalary); // 🔥 Маршрут для отримання зарплати
 
 module.exports = router;

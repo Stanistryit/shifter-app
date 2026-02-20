@@ -7,7 +7,7 @@ const storeSchema = new mongoose.Schema({
     type: { type: String, enum: ['expansion', 'top', 'kiev', 'standard'], default: 'standard' }, 
     code: { type: String, unique: true, required: true }, 
     
-    // 🔥 НОВЕ: Графік роботи магазину (для таймлайну)
+    // Графік роботи магазину (для таймлайну)
     openTime: { type: String, default: '10:00' },
     closeTime: { type: String, default: '22:00' },
 
@@ -40,7 +40,7 @@ const userSchema = new mongoose.Schema({
     grade: { type: Number, default: 0 }, 
     status: { type: String, enum: ['pending', 'active', 'blocked'], default: 'active' }, 
     
-    // 🔥 НОВЕ: Порядок сортування (чим менше число, тим вище у списку)
+    // Порядок сортування (чим менше число, тим вище у списку)
     sortOrder: { type: Number, default: 999 },
 
     reminderTime: { type: String, default: 'none' },
@@ -119,11 +119,11 @@ const eventSchema = new mongoose.Schema({
     date: { type: String, required: true }
 });
 
-// 10. Схема KPI (🔥 ОНОВЛЕНО: додано storeId)
+// 10. Схема KPI 
 const kpiSchema = new mongoose.Schema({
     month: { type: String, required: true }, 
     name: { type: String, required: true },
-    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }, // 👈 Додано
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
     updatedAt: { type: Date, default: Date.now },
     stats: {
         orders: { type: Number, default: 0 },        
@@ -141,11 +141,11 @@ const kpiSchema = new mongoose.Schema({
     }
 });
 
-// 11. Схема Налаштувань Місяця (🔥 ОНОВЛЕНО: додано storeId, прибрано unique)
+// 11. Схема Налаштувань Місяця 
 const monthSettingsSchema = new mongoose.Schema({
-    month: { type: String, required: true }, // 👈 Прибрав unique: true, бо місяці повторюються для різних магазинів
+    month: { type: String, required: true }, 
     normHours: { type: Number, required: true },
-    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null } // 👈 Додано
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null } 
 });
 
 // 12. Схема Відкладених Сповіщень
@@ -154,6 +154,18 @@ const pendingNotificationSchema = new mongoose.Schema({
     text: { type: String, required: true },
     createdAt: { type: Date, default: Date.now }
 });
+
+// 🔥 13. Схема Матриці Зарплат (Salary Matrix)
+const salaryMatrixSchema = new mongoose.Schema({
+    storeType: { type: String, enum: ['expansion', 'top', 'kiev', 'standard'], required: true },
+    position: { type: String, enum: ['SM', 'SSE', 'SE', 'RRP', 'None'], required: true },
+    grade: { type: Number, required: true },
+    rate: { type: Number, required: true, default: 0 }, // Базова ставка за норму годин
+    updatedAt: { type: Date, default: Date.now }
+});
+
+// Індекс для уникнення дублів (один запис на кожну комбінацію: тип магазину + посада + грейд)
+salaryMatrixSchema.index({ storeType: 1, position: 1, grade: 1 }, { unique: true });
 
 const Store = mongoose.models.Store || mongoose.model('Store', storeSchema);
 const User = mongoose.models.User || mongoose.model('User', userSchema);
@@ -168,5 +180,6 @@ const Event = mongoose.models.Event || mongoose.model('Event', eventSchema);
 const KPI = mongoose.models.KPI || mongoose.model('KPI', kpiSchema);
 const MonthSettings = mongoose.models.MonthSettings || mongoose.model('MonthSettings', monthSettingsSchema);
 const PendingNotification = mongoose.models.PendingNotification || mongoose.model('PendingNotification', pendingNotificationSchema);
+const SalaryMatrix = mongoose.models.SalaryMatrix || mongoose.model('SalaryMatrix', salaryMatrixSchema);
 
-module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event, KPI, MonthSettings, PendingNotification };
+module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event, KPI, MonthSettings, PendingNotification, SalaryMatrix };

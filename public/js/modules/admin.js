@@ -94,7 +94,7 @@ export async function publishNews() {
     }
 }
 
-// --- GLOBAL ADMIN (STORES) ---
+// --- GLOBAL ADMIN (STORES & SALARY) ---
 
 export async function createStore() {
     const name = document.getElementById('newStoreName').value.trim();
@@ -108,7 +108,7 @@ export async function createStore() {
         showToast("Магазин створено ✅");
         document.getElementById('newStoreName').value = '';
         document.getElementById('newStoreCode').value = '';
-        loadStores(); // Оновити список
+        loadStores(); 
     } else {
         showToast(res.message || "Помилка", 'error');
     }
@@ -154,5 +154,86 @@ export async function deleteStore(id) {
         loadStores();
     } else {
         showToast(res.message, 'error');
+    }
+}
+
+// 🔥 ВІДМАЛЬОВКА ТА ЗБЕРЕЖЕННЯ ЗАРПЛАТНОЇ МАТРИЦІ
+export async function renderSalaryMatrix() {
+    const container = document.getElementById('salaryMatrixContainer');
+    const storeType = document.getElementById('salaryStoreType').value;
+    if (!container) return;
+
+    container.innerHTML = '<div class="text-center text-gray-400 text-xs py-2">Завантаження...</div>';
+
+    try {
+        const matrixData = await fetchJson('/api/admin/salary-matrix');
+        container.innerHTML = '';
+
+        // Структура посад і можливих грейдів (можеш розширити за потреби)
+        const matrixStructure = [
+            { pos: 'SM', grades: [1, 2, 3] },
+            { pos: 'SSE', grades: [1, 2, 3] },
+            { pos: 'SE', grades: [1, 2, 3, 4] },
+            { pos: 'RRP', grades: [1, 2] }
+        ];
+
+        matrixStructure.forEach(group => {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'mb-3 bg-gray-50 dark:bg-[#1C1C1E] p-3 rounded-lg border border-gray-200 dark:border-gray-600';
+            groupDiv.innerHTML = `<div class="font-bold text-sm mb-2 text-indigo-500">${group.pos}</div>`;
+            
+            group.grades.forEach(grade => {
+                const existing = matrixData.find(m => m.storeType === storeType && m.position === group.pos && m.grade === grade);
+                const rateValue = existing ? existing.rate : 0;
+
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between mb-2 last:mb-0';
+                row.innerHTML = `
+                    <span class="text-xs font-medium text-gray-500 w-16">Grade ${grade}</span>
+                    <div class="relative flex-1 ml-2">
+                        <input type="number" data-pos="${group.pos}" data-grade="${grade}" value="${rateValue}" class="salary-rate-input ios-input w-full text-right pr-6 h-8 text-sm font-bold" placeholder="0">
+                        <span class="absolute right-2 top-1.5 text-xs text-gray-400">₴</span>
+                    </div>
+                `;
+                groupDiv.appendChild(row);
+            });
+            container.appendChild(groupDiv);
+        });
+
+    } catch (e) {
+        container.innerHTML = '<div class="text-center text-red-400 text-xs">Помилка завантаження</div>';
+    }
+}
+
+export async function saveSalaryMatrixBtn() {
+    const storeType = document.getElementById('salaryStoreType').value;
+    const inputs = document.querySelectorAll('.salary-rate-input');
+    const matrix = [];
+
+    inputs.forEach(inp => {
+        const position = inp.getAttribute('data-pos');
+        const grade = parseInt(inp.getAttribute('data-grade'));
+        const rate = parseFloat(inp.value) || 0;
+        
+        matrix.push({ storeType, position, grade, rate });
+    });
+
+    const btn = document.querySelector('button[onclick="saveSalaryMatrixBtn()"]');
+    const origText = btn.innerText;
+    btn.innerText = '⏳ Збереження...';
+    btn.disabled = true;
+
+    try {
+        const res = await postJson('/api/admin/salary-matrix', { matrix });
+        if (res.success) {
+            showToast("Ставки успішно збережено! ✅");
+        } else {
+            showToast(res.message || "Помилка збереження", 'error');
+        }
+    } catch (e) {
+        showToast("Помилка мережі", 'error');
+    } finally {
+        btn.innerText = origText;
+        btn.disabled = false;
     }
 }

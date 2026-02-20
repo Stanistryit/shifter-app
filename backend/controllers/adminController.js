@@ -1,4 +1,4 @@
-const { User, Request, Shift, Task, NewsPost, AuditLog, Store } = require('../models');
+const { User, Request, Shift, Task, NewsPost, AuditLog, Store, SalaryMatrix } = require('../models');
 const { logAction } = require('../utils');
 // 👇 Видалив notifyRole з імпорту, бо його немає в експорті bot.js
 const { notifyUser, getBot } = require('../bot');
@@ -74,6 +74,47 @@ exports.updateStoreSettings = async (req, res) => {
         logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}`);
         res.json({ success: true });
 
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
+// --- SALARY MATRIX (Global Admin) ---
+exports.getSalaryMatrix = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (u?.role !== 'admin') return res.status(403).json([]);
+    
+    try {
+        const matrix = await SalaryMatrix.find();
+        res.json(matrix);
+    } catch (e) {
+        res.status(500).json([]);
+    }
+};
+
+exports.saveSalaryMatrix = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (u?.role !== 'admin') return res.status(403).json({ success: false, message: "Тільки для Global Admin" });
+
+    try {
+        const { matrix } = req.body; 
+        if (!matrix || !Array.isArray(matrix)) return res.json({ success: false, message: "Невірний формат даних" });
+
+        const bulkOps = matrix.map(item => ({
+            updateOne: {
+                filter: { storeType: item.storeType, position: item.position, grade: item.grade },
+                update: { $set: { rate: item.rate, updatedAt: Date.now() } },
+                upsert: true
+            }
+        }));
+
+        if (bulkOps.length > 0) {
+            await SalaryMatrix.bulkWrite(bulkOps);
+        }
+
+        logAction(u.name, 'update_salary_matrix', `Updated ${bulkOps.length} rates`);
+        res.json({ success: true });
     } catch (e) {
         console.error(e);
         res.status(500).json({ success: false, message: e.message });

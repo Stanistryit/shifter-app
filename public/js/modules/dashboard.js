@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { triggerHaptic, showToast } from './ui.js';
-import { openNotesModal } from './notes.js'; // 🔥 ВИПРАВЛЕНО: Правильний імпорт
+import { openNotesModal } from './notes.js';
+import { fetchJson } from './api.js'; // 🔥 Додано для безпечних запитів на сервер
 
 window.openTodayNote = (e) => {
     e.stopPropagation();
@@ -9,8 +10,9 @@ window.openTodayNote = (e) => {
 };
 
 let dashMode = 'hours'; // 'hours' | 'shifts' | 'percent' | 'money'
-let tempOverride = false; // Перемикач для 5-секундного показу статистики
+let tempOverride = false; 
 let overrideTimeout = null;
+let isFetchingSalary = false; // 🔥 Запобіжник для спаму запитами
 
 export function initDashboardInteractions() {
     const card = document.getElementById('dashboardCard');
@@ -62,19 +64,8 @@ function cycleDashMode() {
     else if (dashMode === 'shifts') dashMode = 'percent';
     else if (dashMode === 'percent') dashMode = 'money';
     else dashMode = 'hours';
-
-    if (dashMode === 'money') {
-        const rate = localStorage.getItem('shifter_hourlyRate');
-        if (!rate) {
-            const newRate = prompt("Вкажіть вашу ставку за годину (грн):", "100");
-            if (newRate && !isNaN(newRate)) {
-                localStorage.setItem('shifter_hourlyRate', newRate);
-                showToast(`Ставка ${newRate} грн/год збережена`);
-            } else {
-                dashMode = 'hours';
-            }
-        }
-    }
+    
+    // Старий код з prompt() та localStorage видалено ✂️
 }
 
 function toggleColleagues() {
@@ -106,7 +97,7 @@ export function updateDashboard() {
     const sortedShifts = myShifts.sort((a, b) => a.date.localeCompare(b.date));
 
     // =========================================================
-    // 1. НАСТУПНА ЗМІНА (Строго після сьогодні)
+    // 1. НАСТУПНА ЗМІНА
     // =========================================================
     let nextShift = sortedShifts.find(s => s.date > todayStr && s.start !== 'DELETE');
 
@@ -226,9 +217,41 @@ export function updateDashboard() {
             hoursTextEl.innerText = `${Math.round(percentVal)}%`;
             subtitleEl.innerText = 'від норми';
         } else if (dashMode === 'money') {
-            const rate = localStorage.getItem('shifter_hourlyRate') || 0;
-            hoursTextEl.innerText = `${Math.round(totalHours * rate).toLocaleString()} ₴`;
-            subtitleEl.innerText = `≈ зарплата`;
+            // 🔥 НОВЕ: Розумне завантаження ЗП з сервера
+            const y = state.currentDate.getFullYear();
+            const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
+            const targetMonth = `${y}-${m}`;
+
+            // Якщо дані вже завантажені і вони за цей місяць — показуємо
+            if (state.paySlip && state.paySlip.month === targetMonth) {
+                if (state.paySlip.baseRate > 0) {
+                    hoursTextEl.innerText = `${state.paySlip.totalSalary.toLocaleString()} ₴`;
+                    subtitleEl.innerText = `≈ зп (${state.paySlip.hourlyRate} ₴/год)`;
+                } else {
+                    hoursTextEl.innerText = `0 ₴`;
+                    subtitleEl.innerText = `ставку не налаштовано`;
+                }
+            } else {
+                // Якщо даних ще немає — показуємо лоадер і робимо запит
+                hoursTextEl.innerText = `...`;
+                subtitleEl.innerText = `рахуємо...`;
+                
+                if (!isFetchingSalary) {
+                    isFetchingSalary = true;
+                    fetchJson(`/api/salary?month=${targetMonth}`).then(res => {
+                        isFetchingSalary = false;
+                        if (res.success) {
+                            state.paySlip = res.data;
+                        } else {
+                            state.paySlip = { month: targetMonth, baseRate: 0, totalSalary: 0, hourlyRate: 0 };
+                        }
+                        // Оновлюємо UI, тільки якщо юзер ще не переключив режим
+                        if (dashMode === 'money') updateDashboard();
+                    }).catch(() => {
+                        isFetchingSalary = false;
+                    });
+                }
+            }
         }
 
         bar.style.width = `${percentVal}%`;

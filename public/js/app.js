@@ -10,7 +10,8 @@ import { checkAuth, login, logout } from './modules/auth.js';
 import { 
     delS, 
     addTask, deleteTask, toggleTaskTimeInputs, publishNews,
-    createStore, loadStores, deleteStore 
+    createStore, loadStores, deleteStore,
+    renderSalaryMatrix, saveSalaryMatrixBtn // 🔥 Імпортували нові функції
 } from './modules/admin.js';
 import { loadRequests, handleRequest, approveAllRequests } from './modules/requests.js';
 import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
@@ -57,6 +58,7 @@ window.showAdminTab = (t) => {
     }
     if (t === 'global') {
         loadStores();
+        renderSalaryMatrix(); // 🔥 Автоматично малюємо матрицю при відкритті вкладки
     }
 };
 
@@ -95,6 +97,10 @@ window.loadLogs = loadLogs;
 window.createStore = createStore;
 window.loadStores = loadStores;
 window.deleteStore = deleteStore;
+
+// 🔥 Робимо доступними для HTML
+window.renderSalaryMatrix = renderSalaryMatrix;
+window.saveSalaryMatrixBtn = saveSalaryMatrixBtn;
 
 window.importKpi = importKpi;
 window.saveKpiSettings = saveKpiSettings;
