@@ -158,7 +158,8 @@ const pendingNotificationSchema = new mongoose.Schema({
 // 🔥 13. Схема Матриці Зарплат (Salary Matrix)
 const salaryMatrixSchema = new mongoose.Schema({
     storeType: { type: String, enum: ['expansion', 'top', 'kiev', 'standard'], required: true },
-    position: { type: String, enum: ['SM', 'SSE', 'SE', 'RRP', 'None'], required: true },
+    // Прибрали RRP і None, щоб уникнути помилок при налаштуванні матриці
+    position: { type: String, enum: ['SM', 'SSE', 'SE'], required: true },
     grade: { type: Number, required: true },
     rate: { type: Number, required: true, default: 0 }, // Базова ставка за норму годин
     updatedAt: { type: Date, default: Date.now }

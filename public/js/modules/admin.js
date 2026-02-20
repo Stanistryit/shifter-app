@@ -169,12 +169,11 @@ export async function renderSalaryMatrix() {
         const matrixData = await fetchJson('/api/admin/salary-matrix');
         container.innerHTML = '';
 
-        // Структура посад і можливих грейдів (можеш розширити за потреби)
+        // 🔥 ВИПРАВЛЕНО: Правильні наскрізні грейди для кожної посади + прибрали RRP
         const matrixStructure = [
-            { pos: 'SM', grades: [1, 2, 3] },
-            { pos: 'SSE', grades: [1, 2, 3] },
-            { pos: 'SE', grades: [1, 2, 3, 4] },
-            { pos: 'RRP', grades: [1, 2] }
+            { pos: 'SM', grades: [7, 8, 9] },
+            { pos: 'SSE', grades: [5, 6] },
+            { pos: 'SE', grades: [2, 3, 4] }
         ];
 
         matrixStructure.forEach(group => {
