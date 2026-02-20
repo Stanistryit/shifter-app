@@ -189,32 +189,24 @@
                 <h2 class="text-xl font-bold mb-4">Панель управління</h2>
                 
                 <div id="adminMenu" class="grid grid-cols-2 gap-3 mb-4">
-                    <button id="btnTabShifts" onclick="showAdminTab('shifts')" class="col-span-2 relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 bg-blue-500 text-white p-5 rounded-2xl shadow-lg shadow-blue-500/30 text-left transition-transform active:scale-95 group min-h-[100px]">
-                        <div class="absolute -bottom-4 -right-4 p-0 opacity-20 text-7xl group-hover:scale-110 transition-transform transform rotate-12 pointer-events-none">📅</div>
+                    <button id="btnTabTasks" onclick="showAdminTab('tasks')" class="relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 bg-purple-500 text-white p-4 rounded-2xl shadow-lg shadow-purple-500/30 text-left transition-transform active:scale-95 flex flex-col justify-between h-32 group">
+                        <div class="absolute -bottom-4 -right-2 text-7xl opacity-20 group-hover:rotate-12 transition-transform pointer-events-none">📌</div>
+                        <div class="font-bold text-lg text-white relative z-10">Задачі</div>
+                        <div class="text-xs text-white/80 font-medium relative z-10 mt-1">Призначити завдання</div>
+                    </button>
+
+                    <button id="btnTabNews" onclick="showAdminTab('news')" class="relative overflow-hidden bg-gradient-to-br from-pink-500 to-rose-500 bg-pink-500 text-white p-4 rounded-2xl shadow-lg shadow-pink-500/30 text-left transition-transform active:scale-95 flex flex-col justify-between h-32 group">
+                        <div class="absolute -bottom-4 -right-2 text-7xl opacity-20 group-hover:rotate-12 transition-transform pointer-events-none">📢</div>
+                        <div class="font-bold text-lg text-white relative z-10">Новини</div>
+                        <div class="text-xs text-white/80 font-medium relative z-10 mt-1">Створити оголошення</div>
+                    </button>
+
+                    <button id="btnTabKpi" onclick="showAdminTab('kpi')" class="col-span-2 relative overflow-hidden bg-gradient-to-br from-emerald-500 to-green-600 bg-green-500 text-white p-5 rounded-2xl shadow-lg shadow-green-500/30 text-left transition-transform active:scale-95 flex items-center justify-between group min-h-[90px]">
                         <div class="relative z-10">
-                            <div class="text-lg font-bold text-white">Графік роботи</div>
-                            <div class="text-xs text-white/80 mt-1 font-medium">Зміни, Відпустки, Лікарняні</div>
+                            <div class="font-bold text-lg text-white">KPI та Аналітика</div>
+                            <div class="text-xs text-white/80 font-medium mt-1">Встановлення планів і норм</div>
                         </div>
-                    </button>
-
-                    <button id="btnTabTasks" onclick="showAdminTab('tasks')" class="relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 bg-purple-500 text-white p-4 rounded-2xl shadow-lg shadow-purple-500/30 text-left transition-transform active:scale-95 flex flex-col justify-between h-28 group">
-                        <div class="absolute -bottom-2 -right-2 text-6xl opacity-20 group-hover:rotate-12 transition-transform pointer-events-none">📌</div>
-                        <div class="font-bold text-md text-white relative z-10">Задачі</div>
-                        <div class="text-[10px] text-white/80 font-medium relative z-10">Призначити завдання</div>
-                    </button>
-
-                    <button id="btnTabNews" onclick="showAdminTab('news')" class="relative overflow-hidden bg-gradient-to-br from-pink-500 to-rose-500 bg-pink-500 text-white p-4 rounded-2xl shadow-lg shadow-pink-500/30 text-left transition-transform active:scale-95 flex flex-col justify-between h-28 group">
-                        <div class="absolute -bottom-2 -right-2 text-6xl opacity-20 group-hover:rotate-12 transition-transform pointer-events-none">📢</div>
-                        <div class="font-bold text-md text-white relative z-10">Новини</div>
-                        <div class="text-[10px] text-white/80 font-medium relative z-10">Створити оголошення</div>
-                    </button>
-
-                    <button id="btnTabKpi" onclick="showAdminTab('kpi')" class="col-span-2 relative overflow-hidden bg-gradient-to-br from-emerald-500 to-green-600 bg-green-500 text-white p-4 rounded-2xl shadow-lg shadow-green-500/30 text-left transition-transform active:scale-95 flex items-center justify-between group min-h-[80px]">
-                        <div class="relative z-10">
-                            <div class="font-bold text-md text-white">KPI та Аналітика</div>
-                            <div class="text-[10px] text-white/80 font-medium">Встановлення планів і норм</div>
-                        </div>
-                        <div class="text-4xl opacity-30 group-hover:scale-110 transition-transform pointer-events-none">📈</div>
+                        <div class="absolute -bottom-6 -right-2 text-8xl opacity-20 group-hover:scale-110 transition-transform pointer-events-none">📈</div>
                     </button>
 
                     <button id="btnTabGlobal" onclick="showAdminTab('global')" class="hidden col-span-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 p-3 rounded-xl text-xs font-bold items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
@@ -222,51 +214,6 @@
                     </button>
                 </div>
                 
-                <div id="adminTabShifts" class="hidden space-y-4 animate-slide-up">
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="font-bold text-lg">✏️ Редагування зміни</h3>
-                        <button onclick="document.getElementById('adminTabShifts').classList.add('hidden'); document.getElementById('adminMenu').classList.remove('hidden');" class="text-xs text-blue-500 font-bold bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">← Назад</button>
-                    </div>
-
-                    <div class="bg-gray-100 dark:bg-[#2C2C2E] p-1 rounded-xl flex text-xs font-bold">
-                        <label class="flex-1 text-center py-2 rounded-lg bg-white dark:bg-[#636366] shadow-sm cursor-pointer transition-all has-[:checked]:text-blue-500">
-                            <input type="radio" name="shiftType" value="shift" class="hidden" checked onchange="toggleShiftTimeInputs()">
-                            Зміна
-                        </label>
-                        <label class="flex-1 text-center py-2 rounded-lg cursor-pointer transition-all has-[:checked]:bg-white dark:has-[:checked]:bg-[#636366] has-[:checked]:shadow-sm has-[:checked]:text-green-500 text-gray-400">
-                            <input type="radio" name="shiftType" value="vacation" class="hidden" onchange="toggleShiftTimeInputs()">
-                            🌴 Відп.
-                        </label>
-                        <label class="flex-1 text-center py-2 rounded-lg cursor-pointer transition-all has-[:checked]:bg-white dark:has-[:checked]:bg-[#636366] has-[:checked]:shadow-sm has-[:checked]:text-red-500 text-gray-400">
-                            <input type="radio" name="shiftType" value="sick" class="hidden" onchange="toggleShiftTimeInputs()">
-                            💊 Лік.
-                        </label>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="date" id="shiftDate" class="ios-input font-bold">
-                        <select id="employeeSelect" class="ios-input bg-transparent"><option disabled selected>Співробітник</option></select>
-                    </div>
-                    
-                    <div id="shiftTimeInputs" class="flex gap-3 animate-slide-up">
-                        <div class="flex-1">
-                            <label class="text-[10px] text-gray-400 font-bold ml-1">Початок</label>
-                            <input type="time" id="startTime" class="ios-input text-center font-mono" value="10:00">
-                        </div>
-                        <div class="flex-1">
-                            <label class="text-[10px] text-gray-400 font-bold ml-1">Кінець</label>
-                            <input type="time" id="endTime" class="ios-input text-center font-mono" value="22:00">
-                        </div>
-                    </div>
-
-                    <button onclick="addShift()" class="btn-primary bg-blue-500 shadow-blue-500/30">Зберегти</button>
-                    
-                    <div class="flex gap-2 mt-2 pt-4 border-t border-gray-100 dark:border-gray-800">
-                        <button onclick="clearDay()" class="flex-1 py-2 text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl">Очистити день</button>
-                        <button onclick="clearMonth()" class="flex-1 py-2 text-xs font-bold text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-xl">🗑 Місяць</button>
-                    </div>
-                </div>
-
                 <div id="adminTabTasks" class="hidden space-y-3 animate-slide-up">
                     <div class="flex items-center justify-between mb-2">
                         <h3 class="font-bold text-lg">📌 Нова задача</h3>
@@ -291,7 +238,7 @@
 
                 <div id="adminTabNews" class="hidden space-y-3 animate-slide-up">
                     <div class="flex items-center justify-between mb-2">
-                        <h3 class="font-bold text-lg">📢 Опублікувати новину</h3>
+                        <h3 class="font-bold text-lg">📢 Створити новину</h3>
                         <button onclick="document.getElementById('adminTabNews').classList.add('hidden'); document.getElementById('adminMenu').classList.remove('hidden');" class="text-xs text-blue-500 font-bold bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">← Назад</button>
                     </div>
                     <div class="flex gap-2 mb-1 overflow-x-auto pb-1">
