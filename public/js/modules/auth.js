@@ -84,7 +84,7 @@ async function showApp(user) {
             if (window.loadRequests) window.loadRequests();
         }
 
-        // 🔥 НОВЕ: Кнопка Глобал тільки для Admin
+        // Кнопка Глобал тільки для Admin
         if (user.role === 'admin') {
             const btnGlobal = document.getElementById('btnTabGlobal');
             if (btnGlobal) {
@@ -98,7 +98,7 @@ async function showApp(user) {
             document.getElementById('noteTypeToggle').classList.add('flex');
         }
         
-        showAdminTab('shifts');
+        // 🔥 ВИПРАВЛЕНО: Прибрали автоматичне відкриття вкладки shifts, щоб показувало Bento-меню
     }
     
     // Завантаження всіх даних
@@ -116,28 +116,23 @@ export async function loadData() {
         fetchJson('/api/notes')
     ]);
 
-    // 🔥 ВИПРАВЛЕНО: Тепер ми не ховаємо адмінів, тільки RRP
-    // Раніше було: u.role !== 'admin' && u.role !== 'RRP'
     state.users = users.filter(u => u.role !== 'RRP');
     
     state.shifts = shifts;
     state.tasks = tasks;
     state.notes = notes;
     
-    const s1 = document.getElementById('employeeSelect');
+    // 🔥 ВИПРАВЛЕНО: Залишили тільки список для Задач (s2)
     const s2 = document.getElementById('taskEmployee');
     
-    const s1Val = s1.value;
-    const s2Val = s2.value;
+    if (s2) {
+        const s2Val = s2.value;
+        s2.innerHTML = '<option disabled selected>Кому?</option><option value="all">📢 Всім</option>';
+        
+        state.users.forEach(x => {
+            s2.innerHTML += `<option value="${x.name}">${x.name}</option>`;
+        });
 
-    s1.innerHTML = '<option disabled selected>Хто?</option>';
-    s2.innerHTML = '<option disabled selected>Кому?</option><option value="all">📢 Всім</option>';
-    
-    state.users.forEach(x => {
-        s1.innerHTML += `<option value="${x.name}">${x.name}</option>`;
-        s2.innerHTML += `<option value="${x.name}">${x.name}</option>`;
-    });
-
-    if (s1Val && s1Val !== 'Хто?') s1.value = s1Val;
-    if (s2Val && s2Val !== 'Кому?') s2.value = s2Val;
+        if (s2Val && s2Val !== 'Кому?') s2.value = s2Val;
+    }
 }
