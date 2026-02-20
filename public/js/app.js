@@ -8,8 +8,8 @@ import {
 import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } from './modules/render.js';
 import { checkAuth, login, logout } from './modules/auth.js';
 import { 
-    addShift, delS, clearDay, clearMonth, toggleShiftTimeInputs, 
-    addTask, deleteTask, toggleTaskTimeInputs, bulkImport, publishNews,
+    delS, 
+    addTask, deleteTask, toggleTaskTimeInputs, publishNews,
     createStore, loadStores, deleteStore 
 } from './modules/admin.js';
 import { loadRequests, handleRequest, approveAllRequests } from './modules/requests.js';
@@ -27,7 +27,6 @@ import {
     editorConfigTemplates, saveEditorChanges 
 } from './modules/editor.js';
 
-// 🔥 НОВЕ: Імпорт модуля дашборду
 import { updateDashboard } from './modules/dashboard.js';
 
 const tg = window.Telegram.WebApp;
@@ -39,9 +38,7 @@ checkAuth();
 initContextMenuListeners();
 initEditor(); 
 
-// 🔥 FIX: Відновлюємо останню активну вкладку при завантаженні
 const savedMode = localStorage.getItem('shifter_viewMode') || 'list';
-// Передаємо savedMode, але перевірка RRP відбудеться всередині setMode
 setMode(savedMode);
 
 // --- EXPOSE TO HTML (WINDOW) ---
@@ -86,17 +83,12 @@ window.logout = logout;
 window.toggleAuthMode = toggleAuthMode;
 window.registerUser = registerUser;
 
-window.addShift = addShift;
 window.delS = delS;
-window.clearDay = clearDay;
-window.clearMonth = clearMonth;
-window.toggleShiftTimeInputs = toggleShiftTimeInputs;
 
 window.addTask = addTask;
 window.deleteTask = deleteTask;
 window.toggleTaskTimeInputs = toggleTaskTimeInputs;
 
-window.bulkImport = bulkImport;
 window.publishNews = publishNews;
 window.loadLogs = loadLogs;
 
@@ -144,7 +136,6 @@ window.changeStoreFilter = (storeId) => {
     state.selectedStoreFilter = storeId;
     localStorage.setItem('shifter_storeFilter', storeId); 
     
-    // Показуємо лоадер при зміні фільтру
     document.getElementById('skeletonLoader').classList.remove('hidden');
 
     loadKpiData().then(() => {
@@ -154,9 +145,8 @@ window.changeStoreFilter = (storeId) => {
         if (kpiDiv && !kpiDiv.classList.contains('hidden')) renderKpi();
         if (gridDiv && !gridDiv.classList.contains('hidden')) renderTable();
         
-        updateDashboard(); // 🔥 ОНОВЛЕННЯ ДАШБОРДУ
+        updateDashboard(); 
         
-        // Ховаємо лоадер
         setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
     });
 
@@ -211,40 +201,29 @@ function checkEditorButtonVisibility() {
     const fab = document.getElementById('fabEditBtn');
     const upBtn = document.getElementById('backToTopBtn');
     
-    // 🔥 RRP RESTRICTION: Приховуємо кнопки Календаря та KPI для RRP
     if (state.currentUser && state.currentUser.role === 'RRP') {
         const btnCal = document.getElementById('btnModeCalendar');
         const btnKpi = document.getElementById('btnModeKpi');
         if (btnCal) btnCal.classList.add('hidden');
         if (btnKpi) btnKpi.classList.add('hidden');
     } else {
-        // Якщо раптом роль змінилась (або це не RRP), показуємо
         const btnCal = document.getElementById('btnModeCalendar');
         const btnKpi = document.getElementById('btnModeKpi');
         if (btnCal) btnCal.classList.remove('hidden');
         if (btnKpi) btnKpi.classList.remove('hidden');
     }
 
-    // Перевіряємо, чи ми в режимі таблиці
     const isGridMode = localStorage.getItem('shifter_viewMode') === 'grid';
 
     if (fab && state.currentUser) {
-        // Кнопка доступна, якщо:
-        // 1. Користувач має права (Admin, SM, SSE)
-        // 2. Увімкнено режим "Таблиця" (grid)
         if (['admin', 'SM', 'SSE'].includes(state.currentUser.role) && isGridMode) {
             fab.classList.remove('hidden');
-            
-            // Якщо кнопка редагування видима, піднімаємо кнопку "Вгору" вище
             if (upBtn) {
                 upBtn.classList.remove('bottom-6');
                 upBtn.classList.add('bottom-24');
             }
         } else {
             fab.classList.add('hidden');
-            // 🔥 FIX: Прибрано примусове приховування панелі. Тепер вона слухається лише перемикача.
-            
-            // Опускаємо кнопку "Вгору" на місце
             if (upBtn) {
                 upBtn.classList.remove('bottom-24');
                 upBtn.classList.add('bottom-6');
@@ -268,7 +247,6 @@ function toggleArchive() {
 async function changeMonth(d) { 
     triggerHaptic(); 
     
-    // 🔥 SHOW SKELETON
     document.getElementById('skeletonLoader').classList.remove('hidden');
 
     state.currentDate.setMonth(state.currentDate.getMonth() + d); 
@@ -276,7 +254,6 @@ async function changeMonth(d) {
     const kpiContainer = document.getElementById('kpiViewContainer');
     const gridContainer = document.getElementById('gridViewContainer');
 
-    // Чекаємо завантаження даних
     if ((kpiContainer && !kpiContainer.classList.contains('hidden')) || 
         (gridContainer && !gridContainer.classList.contains('hidden'))) {
         await loadKpiData();
@@ -288,16 +265,14 @@ async function changeMonth(d) {
         renderAll(); 
     }
     
-    updateDashboard(); // 🔥 ОНОВЛЕННЯ ДАШБОРДУ
+    updateDashboard();
 
-    // 🔥 HIDE SKELETON
     setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
 }
 
 async function setMode(m) {
     triggerHaptic();
 
-    // 🔥 RRP PROTECTION: Якщо RRP намагається зайти в Calendar або KPI - кидаємо на список
     if (state.currentUser && state.currentUser.role === 'RRP') {
         if (m === 'calendar' || m === 'kpi') {
             m = 'list';
@@ -311,7 +286,6 @@ async function setMode(m) {
     const gridDiv = document.getElementById('gridViewContainer');
     const kpiDiv = document.getElementById('kpiViewContainer'); 
     
-    // 🔥 SHOW SKELETON (якщо це важкий режим: Таблиця, KPI або Календар)
     if (m === 'grid' || m === 'kpi' || m === 'calendar') {
         document.getElementById('skeletonLoader').classList.remove('hidden');
     }
@@ -371,12 +345,9 @@ async function setMode(m) {
         renderKpi();
     }
     
-    // Перевіряємо видимість кнопки
     checkEditorButtonVisibility();
-    
-    updateDashboard(); // 🔥 ОНОВЛЕННЯ ДАШБОРДУ
+    updateDashboard(); 
 
-    // 🔥 HIDE SKELETON
     setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
 }
 
@@ -498,27 +469,16 @@ window.addEventListener('scroll', () => {
 });
 
 function initContextMenuListeners() {
+    // 🔥 Оновлено логіку редагування, щоб не ламалось
     const btnEdit = document.getElementById('ctxEdit');
     if (btnEdit) {
         btnEdit.onclick = () => {
             const menu = document.getElementById('contextMenu');
             menu.classList.add('hidden');
-            if (activeContext.type === 'shift') {
-                const s = state.shifts.find(x => x._id === activeContext.id);
-                if (s) {
-                    document.getElementById('shiftDate').value = s.date;
-                    document.getElementById('employeeSelect').value = s.name;
-                    if (s.start === 'Відпустка') { document.getElementById('shiftVacation').checked = true; } 
-                    else { document.getElementById('shiftVacation').checked = false; document.getElementById('startTime').value = s.start; document.getElementById('endTime').value = s.end; }
-                    toggleShiftTimeInputs();
-                    document.getElementById('adminPanel').classList.remove('hidden');
-                    window.showAdminTab('shifts');
-                    showToast('Дані заповнено. Відредагуйте та натисніть "Додати"', 'info');
-                    document.getElementById('adminPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }
+            showToast('Редагування тепер доступне лише через Режим "Таблиця" 📊', 'info');
         };
     }
+    
     const btnCopy = document.getElementById('ctxCopy');
     if (btnCopy) {
         btnCopy.onclick = () => {
@@ -532,6 +492,7 @@ function initContextMenuListeners() {
             }
         };
     }
+    
     const btnDelete = document.getElementById('ctxDelete');
     if (btnDelete) {
         btnDelete.onclick = () => {
@@ -546,5 +507,4 @@ setTimeout(updateStoreDisplay, 1000);
 setInterval(initGlobalAdminFilter, 1500);
 setInterval(checkEditorButtonVisibility, 1000);
 
-// 🔥 Перший запуск дашборду через секунду після завантаження сторінки
 setTimeout(updateDashboard, 1500);
