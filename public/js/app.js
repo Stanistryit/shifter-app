@@ -11,7 +11,8 @@ import {
     delS,
     addTask, deleteTask, toggleTaskTimeInputs, publishNews,
     createStore, loadStores, deleteStore,
-    renderSalaryMatrix, saveSalaryMatrixBtn // 🔥 Імпортували нові функції
+    renderSalaryMatrix, saveSalaryMatrixBtn, // 🔥 Імпортували нові функції
+    toggleTaskExecution
 } from './modules/admin.js';
 import { loadRequests, handleRequest, approveAllRequests } from './modules/requests.js';
 import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
@@ -25,7 +26,8 @@ import {
 
 import {
     initEditor, toggleEditor, editorSelectTool,
-    editorConfigTemplates, saveEditorChanges
+    editorConfigTemplates, saveEditorChanges,
+    closeCustomShiftModal, applyCustomShiftTime
 } from './modules/editor.js';
 
 import { updateDashboard } from './modules/dashboard.js';
@@ -68,6 +70,8 @@ window.toggleEditor = toggleEditor;
 window.editorSelectTool = editorSelectTool;
 window.editorConfigTemplates = editorConfigTemplates;
 window.saveEditorChanges = saveEditorChanges;
+window.closeCustomShiftModal = closeCustomShiftModal;
+window.applyCustomShiftTime = applyCustomShiftTime;
 
 window.openStoreSettingsModal = openStoreSettingsModal;
 window.saveStoreSettings = saveStoreSettings;
@@ -92,6 +96,7 @@ window.delS = delS;
 window.addTask = addTask;
 window.deleteTask = deleteTask;
 window.toggleTaskTimeInputs = toggleTaskTimeInputs;
+window.toggleTaskExecution = toggleTaskExecution;
 
 window.publishNews = publishNews;
 window.loadLogs = loadLogs;

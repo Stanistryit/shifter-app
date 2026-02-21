@@ -27,17 +27,17 @@ export async function addTask() {
     const title = document.getElementById('taskTitle').value;
     const date = document.getElementById('taskDate').value;
     const name = document.getElementById('taskEmployee').value;
-    const description = document.getElementById('taskDescription').value; 
+    const description = document.getElementById('taskDescription').value;
     const isFullDay = document.getElementById('taskFullDay').checked;
     const start = document.getElementById('taskStart').value;
     const end = document.getElementById('taskEnd').value;
 
     if (!title || !date || !name) return showToast("Заповніть дані", 'error');
-    
+
     await postJson('/api/tasks', { title, date, name, description, isFullDay, start, end });
-    
+
     showToast("Задачу призначено");
-    
+
     document.getElementById('taskTitle').value = '';
     document.getElementById('taskDescription').value = '';
 
@@ -56,15 +56,36 @@ export async function deleteTask(id) {
     }
 }
 
+export async function toggleTaskExecution(id) {
+    triggerHaptic();
+    const d = await postJson('/api/tasks/toggle', { id });
+    if (d.success) {
+        // Оновлюємо локальний стейт
+        const task = state.tasks.find(t => t._id === id);
+        if (task) {
+            task.status = d.status;
+            renderAll();
+
+            // Якщо модалка задачі відкрита - оновимо її теж
+            const modal = document.getElementById('taskDetailsModal');
+            if (modal && !modal.classList.contains('hidden')) {
+                window.openTaskProxy(id);
+            }
+        }
+    } else {
+        showToast("Помилка", 'error');
+    }
+}
+
 // --- NEWS ---
 
 export async function publishNews() {
     const text = document.getElementById('newsText').value;
     const files = document.getElementById('newsFile').files;
     const requestRead = document.getElementById('newsRequestRead').checked;
-    
+
     if (!text && files.length === 0) return showToast("Введіть текст або файл", 'error');
-    
+
     const formData = new FormData();
     formData.append('text', text);
     formData.append('requestRead', requestRead);
@@ -72,11 +93,11 @@ export async function publishNews() {
     for (let i = 0; i < files.length; i++) {
         formData.append('media', files[i]);
     }
-    
+
     const btn = document.querySelector('#adminTabNews button:last-child');
     btn.innerText = "⏳ Публікую...";
     btn.disabled = true;
-    
+
     try {
         const res = await fetch('/api/news/publish', { method: 'POST', body: formData });
         if (res.ok) {
@@ -108,7 +129,7 @@ export async function createStore() {
         showToast("Магазин створено ✅");
         document.getElementById('newStoreName').value = '';
         document.getElementById('newStoreCode').value = '';
-        loadStores(); 
+        loadStores();
     } else {
         showToast(res.message || "Помилка", 'error');
     }
@@ -147,9 +168,9 @@ export async function loadStores() {
 }
 
 export async function deleteStore(id) {
-    if(!confirm("Видалити цей магазин?")) return;
+    if (!confirm("Видалити цей магазин?")) return;
     const res = await postJson('/api/admin/stores/delete', { id });
-    if(res.success) {
+    if (res.success) {
         showToast("Видалено");
         loadStores();
     } else {
@@ -180,7 +201,7 @@ export async function renderSalaryMatrix() {
             const groupDiv = document.createElement('div');
             groupDiv.className = 'mb-3 bg-gray-50 dark:bg-[#1C1C1E] p-3 rounded-lg border border-gray-200 dark:border-gray-600';
             groupDiv.innerHTML = `<div class="font-bold text-sm mb-2 text-indigo-500">${group.pos}</div>`;
-            
+
             group.grades.forEach(grade => {
                 const existing = matrixData.find(m => m.storeType === storeType && m.position === group.pos && m.grade === grade);
                 const rateValue = existing ? existing.rate : 0;
@@ -213,7 +234,7 @@ export async function saveSalaryMatrixBtn() {
         const position = inp.getAttribute('data-pos');
         const grade = parseInt(inp.getAttribute('data-grade'));
         const rate = parseFloat(inp.value) || 0;
-        
+
         matrix.push({ storeType, position, grade, rate });
     });
 

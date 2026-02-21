@@ -60,6 +60,7 @@ router.post('/shifts/save', validate(schemas.saveSchedule), catchAsync(shiftCont
 router.get('/tasks', catchAsync(taskController.getTasks));
 router.post('/tasks', validate(schemas.addTask), catchAsync(taskController.addTask));
 router.post('/tasks/delete', catchAsync(taskController.deleteTask));
+router.post('/tasks/toggle', catchAsync(taskController.toggleTaskStatus));
 
 // --- KPI ---
 router.get('/kpi', catchAsync(kpiController.getKpi));

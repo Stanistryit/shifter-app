@@ -73,7 +73,8 @@ const taskSchema = new mongoose.Schema({
     isFullDay: { type: Boolean, default: false },
     start: { type: String, default: '' },
     end: { type: String, default: '' },
-    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
+    status: { type: String, enum: ['pending', 'completed'], default: 'pending' }
 });
 
 // 4. Схема Новин

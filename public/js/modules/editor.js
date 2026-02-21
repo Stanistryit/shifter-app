@@ -166,23 +166,49 @@ export function editorSelectTool(type, index) {
     } else if (type === 'eraser') {
         state.activeTool = { type: 'eraser', start: 'DELETE', end: 'DELETE' };
     } else if (type === 'custom') {
-        // Якщо вже обрано custom, даємо змінити час
-        let defaultTime = "09:00-14:00";
+        let defaultS = "10:00";
+        let defaultE = "19:00";
         if (state.activeTool?.type === 'custom' && state.activeTool.start) {
-            defaultTime = `${state.activeTool.start}-${state.activeTool.end}`;
+            defaultS = state.activeTool.start;
+            defaultE = state.activeTool.end;
         }
 
-        const newTime = prompt("Введіть час зміни (напр. 10:00-15:30):", defaultTime);
-        if (newTime && newTime.includes('-')) {
-            const [s, e] = newTime.split('-').map(x => x.trim());
-            state.activeTool = { type: 'custom', start: s, end: e };
-        } else if (!state.activeTool || state.activeTool.type !== 'custom') {
-            return; // Якщо скасував і до цього не було custom - нічого не робимо
-        }
+        const m = document.getElementById('customShiftModal');
+        const content = m.querySelector('.ios-card');
+        document.getElementById('customShiftStart').value = defaultS;
+        document.getElementById('customShiftEnd').value = defaultE;
+
+        m.classList.remove('hidden');
+        setTimeout(() => {
+            m.classList.remove('opacity-0');
+            content.classList.remove('scale-95');
+        }, 10);
+        return; // Don't render toolbar yet, wait for apply
     }
 
     renderToolbar();
 };
+
+export function closeCustomShiftModal() {
+    triggerHaptic();
+    const m = document.getElementById('customShiftModal');
+    const content = m.querySelector('.ios-card');
+    m.classList.add('opacity-0');
+    content.classList.add('scale-95');
+    setTimeout(() => m.classList.add('hidden'), 300);
+}
+
+export function applyCustomShiftTime() {
+    triggerHaptic();
+    const s = document.getElementById('customShiftStart').value;
+    const e = document.getElementById('customShiftEnd').value;
+
+    if (s && e) {
+        state.activeTool = { type: 'custom', start: s, end: e };
+        renderToolbar();
+    }
+    closeCustomShiftModal();
+}
 
 function handleGridClick(e) {
     if (!state.isEditMode) return;

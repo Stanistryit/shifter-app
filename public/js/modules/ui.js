@@ -148,6 +148,19 @@ export function openTaskDetailsModal(task) {
         descText.innerHTML = '';
     }
 
+    const btnToggle = document.getElementById('btnToggleTaskStatus');
+    if (task.status === 'completed') {
+        btnToggle.innerHTML = '⏳ Повернути в роботу';
+        btnToggle.className = 'w-full py-3 text-white font-bold bg-orange-500 rounded-xl active:scale-95 transition-transform mb-2';
+    } else {
+        btnToggle.innerHTML = '✅ Відмітити як виконану';
+        btnToggle.className = 'w-full py-3 text-white font-bold bg-green-500 rounded-xl active:scale-95 transition-transform mb-2';
+    }
+
+    btnToggle.onclick = () => {
+        if (window.toggleTaskExecution) window.toggleTaskExecution(task._id);
+    };
+
     const btn = document.getElementById('btnDeleteTask');
     btn.onclick = () => {
         closeTaskDetailsModal();

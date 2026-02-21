@@ -4,7 +4,7 @@ const { notifyUser, sendRequestToSM } = require('../bot');
 
 exports.getTasks = async (req, res) => {
     if (!req.session.userId) return res.status(403).json([]);
-    
+
     const currentUser = await User.findById(req.session.userId);
     let query = {};
 
@@ -38,15 +38,15 @@ exports.addTask = async (req, res) => {
 
     if (req.body.name === 'all') {
         let userQuery = { role: { $nin: ['admin', 'RRP'] } };
-        
+
         // 🔥 ВИПРАВЛЕНО: Якщо це не Global Admin, беремо людей ТІЛЬКИ з його магазину
         if (perm.user.role !== 'admin') {
             userQuery.storeId = perm.user.storeId;
         }
 
         const users = await User.find(userQuery);
-        const tasksToCreate = users.map(u => ({ 
-            ...req.body, 
+        const tasksToCreate = users.map(u => ({
+            ...req.body,
             name: u.name,
             storeId: u.storeId // Зберігаємо прив'язку задачі до магазину
         }));
@@ -60,7 +60,7 @@ exports.addTask = async (req, res) => {
         // 🔥 ВИПРАВЛЕНО: Для індивідуальної задачі теж проставляємо магазин
         const targetUser = await User.findOne({ name: req.body.name });
         const taskData = { ...req.body };
-        
+
         if (targetUser && targetUser.storeId) {
             taskData.storeId = targetUser.storeId;
         } else if (perm.user.storeId) {
@@ -85,4 +85,14 @@ exports.deleteTask = async (req, res) => {
     }
     await Task.findByIdAndDelete(req.body.id);
     res.json({ success: true });
+};
+
+exports.toggleTaskStatus = async (req, res) => {
+    const t = await Task.findById(req.body.id);
+    if (!t) return res.json({ success: false, message: "Task not found" });
+
+    t.status = t.status === 'completed' ? 'pending' : 'completed';
+    await t.save();
+
+    res.json({ success: true, status: t.status });
 };
