@@ -7,11 +7,20 @@ const notifications = require('./notifications');
 
 let bot = null;
 
-const initBot = (token, appUrl) => { 
+// Функція для ініціалізації бота на Worker Service (БЕЗ webhook та слухачів)
+const initBotClient = (token) => {
     if (!token) return null;
-    
     bot = new TelegramBot(token, { polling: false });
-    
+    notifications.setBot(bot);
+    console.log("🤖 Telegram Bot Client: Initialized for Worker");
+    return bot;
+};
+
+const initBot = (token, appUrl) => {
+    if (!token) return null;
+
+    bot = new TelegramBot(token, { polling: false });
+
     // Передаємо інстанс бота в модуль нотифікацій
     notifications.setBot(bot);
 
@@ -27,10 +36,10 @@ const initBot = (token, appUrl) => {
         { command: '/settings', description: '⚙️ Налаштування' },
         { command: '/my_id', description: '🆔 Мій Telegram ID' }
     ];
-    bot.setMyCommands(botCommands).catch(e => {});
+    bot.setMyCommands(botCommands).catch(e => { });
 
     // --- РОУТИНГ ПОДІЙ ---
-    
+
     // Команди
     bot.onText(/\/start/, (msg) => commands.handleStart(bot, msg, appUrl));
     bot.onText(/\/login (.+) (.+)/, (msg, match) => commands.handleLogin(bot, msg, match));
@@ -38,7 +47,7 @@ const initBot = (token, appUrl) => {
     bot.onText(/\/set_news/, (msg) => commands.handleSetNews(bot, msg));
     bot.onText(/\/set_evening/, (msg) => commands.handleSetEvening(bot, msg));
     bot.onText(/\/set_time (.+)/, (msg, match) => commands.handleSetReportTime(bot, msg, match));
-    bot.onText(/\/my_id/, (msg) => bot.sendMessage(msg.chat.id, `Ваш ID: <code>${msg.from.id}</code>`, {parse_mode:'HTML'}));
+    bot.onText(/\/my_id/, (msg) => bot.sendMessage(msg.chat.id, `Ваш ID: <code>${msg.from.id}</code>`, { parse_mode: 'HTML' }));
 
     // Повідомлення (меню)
     bot.on('message', (msg) => messages.handleMessage(bot, msg));
@@ -55,10 +64,11 @@ const initBot = (token, appUrl) => {
 };
 
 // Експортуємо functions, щоб їх могли використовувати контролери
-module.exports = { 
-    initBot, 
-    notifyUser: notifications.notifyUser, 
-    notifyAll: notifications.notifyAll, 
+module.exports = {
+    initBot,
+    initBotClient,
+    notifyUser: notifications.notifyUser,
+    notifyAll: notifications.notifyAll,
     sendRequestToSM: notifications.sendRequestToSM,
-    getBot: () => bot 
+    getBot: () => bot
 };

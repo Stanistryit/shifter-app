@@ -46,6 +46,16 @@ app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => {
     res.sendStatus(200);
 });
 
+// Глобальний обробник помилок (повинен бути останнім middleware)
+app.use((err, req, res, next) => {
+    console.error("🔥 Global Error Handler:", err.stack);
+    res.status(500).json({
+        success: false,
+        message: "Internal Server Error",
+        error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+    });
+});
+
 // Database & Bot & Scheduler Init
 mongoose.connect(process.env.MONGO_URI)
     .then(() => {
@@ -53,12 +63,11 @@ mongoose.connect(process.env.MONGO_URI)
 
         initDB();
 
-        // 1. Запускаємо Бота
+        // 1. Запускаємо Бота (з Webhook та обробкою команд)
         initBot(process.env.TELEGRAM_TOKEN, 'https://shifter-app.onrender.com', TG_CONFIG);
 
-        // 2. Запускаємо Планувальник (Cron / Agenda)
-        // Вся логіка часу (18:00 звіт і т.д.) тепер всередині цієї функції
-        initScheduler(TG_CONFIG).catch(err => console.error("⏰ Agenda Scheduler Error:", err));
+        // ⚠️ Планувальник (Cron/Agenda) ТУТ НЕ ЗАПУСКАЄТЬСЯ.
+        // Він винесений в окремий процес worker.js для масштабування!
     })
     .catch(console.error);
 

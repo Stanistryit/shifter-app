@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
+const { validate, schemas } = require('./middleware/validator');
+const catchAsync = require('./middleware/catchAsync');
 
 // Імпорт контролерів
 const authController = require('./controllers/authController');
@@ -10,71 +12,71 @@ const taskController = require('./controllers/taskController');
 const kpiController = require('./controllers/kpiController');
 const adminController = require('./controllers/adminController');
 const noteController = require('./controllers/noteController');
-const userController = require('./controllers/userController'); 
-const salaryController = require('./controllers/salaryController'); // 🔥 Підключили фінансовий контролер
+const userController = require('./controllers/userController');
+const salaryController = require('./controllers/salaryController');
 
 // --- AUTH & USER ---
-router.get('/stores', authController.getStores);
-router.post('/register', authController.register);
-router.post('/login', authController.login);
-router.post('/user/update', authController.updateUser);
-router.post('/user/change-password', authController.changePassword);
-router.post('/login-telegram', authController.loginTelegram);
-router.post('/logout', authController.logout);
-router.get('/users', authController.getUsers);
-router.get('/me', authController.getMe);
-router.post('/user/avatar', authController.uploadAvatar);
+router.get('/stores', catchAsync(authController.getStores));
+router.post('/register', catchAsync(authController.register));
+router.post('/login', validate(schemas.login), catchAsync(authController.login));
+router.post('/user/update', catchAsync(authController.updateUser));
+router.post('/user/change-password', catchAsync(authController.changePassword));
+router.post('/login-telegram', catchAsync(authController.loginTelegram));
+router.post('/logout', catchAsync(authController.logout));
+router.get('/users', catchAsync(authController.getUsers));
+router.get('/me', catchAsync(authController.getMe));
+router.post('/user/avatar', catchAsync(authController.uploadAvatar));
 
 // --- USER TRANSFERS ---
-router.post('/user/transfer/request', userController.requestTransfer);
-router.post('/user/transfer/respond', userController.respondTransfer);
+router.post('/user/transfer/request', catchAsync(userController.requestTransfer));
+router.post('/user/transfer/respond', catchAsync(userController.respondTransfer));
 
 // --- STORES (Global Admin) ---
-router.post('/admin/stores/create', adminController.createStore);
-router.get('/admin/stores', adminController.getAllStores);
-router.post('/admin/stores/delete', adminController.deleteStore);
+router.post('/admin/stores/create', catchAsync(adminController.createStore));
+router.get('/admin/stores', catchAsync(adminController.getAllStores));
+router.post('/admin/stores/delete', catchAsync(adminController.deleteStore));
 
 // Збереження налаштувань магазину (час звіту)
-router.post('/admin/store/settings', adminController.updateStoreSettings); 
+router.post('/admin/store/settings', catchAsync(adminController.updateStoreSettings));
 
 // SALARY MATRIX (Global Admin)
-router.get('/admin/salary-matrix', adminController.getSalaryMatrix);
-router.post('/admin/salary-matrix', adminController.saveSalaryMatrix);
+router.get('/admin/salary-matrix', catchAsync(adminController.getSalaryMatrix));
+router.post('/admin/salary-matrix', catchAsync(adminController.saveSalaryMatrix));
 
 // --- SHIFTS ---
-router.get('/shifts', shiftController.getShifts);
-router.post('/shifts', shiftController.addShift);
-router.post('/delete-shift', shiftController.deleteShift);
-router.post('/shifts/bulk', shiftController.bulkImport);
-router.post('/shifts/clear-day', shiftController.clearDay);
-router.post('/shifts/clear-month', shiftController.clearMonth);
+router.get('/shifts', catchAsync(shiftController.getShifts));
+router.post('/shifts', validate(schemas.addShift), catchAsync(shiftController.addShift));
+router.post('/delete-shift', catchAsync(shiftController.deleteShift));
+router.post('/shifts/bulk', catchAsync(shiftController.bulkImport));
+router.post('/shifts/clear-day', catchAsync(shiftController.clearDay));
+router.post('/shifts/clear-month', catchAsync(shiftController.clearMonth));
 
 // Масове збереження графіку (для Редактора)
-router.post('/shifts/save', shiftController.saveSchedule);
+router.post('/shifts/save', validate(schemas.saveSchedule), catchAsync(shiftController.saveSchedule));
 
 // --- TASKS ---
-router.get('/tasks', taskController.getTasks);
-router.post('/tasks', taskController.addTask);
-router.post('/tasks/delete', taskController.deleteTask);
+router.get('/tasks', catchAsync(taskController.getTasks));
+router.post('/tasks', validate(schemas.addTask), catchAsync(taskController.addTask));
+router.post('/tasks/delete', catchAsync(taskController.deleteTask));
 
 // --- KPI ---
-router.get('/kpi', kpiController.getKpi);
-router.post('/kpi/settings', kpiController.saveSettings);
-router.post('/kpi/import', kpiController.importKpi);
+router.get('/kpi', catchAsync(kpiController.getKpi));
+router.post('/kpi/settings', catchAsync(kpiController.saveSettings));
+router.post('/kpi/import', catchAsync(kpiController.importKpi));
 
 // --- ADMIN (Logs, Requests, News) ---
-router.get('/logs', adminController.getLogs);
-router.get('/requests', adminController.getRequests);
-router.post('/requests/action', adminController.handleRequestAction);
-router.post('/requests/approve-all', adminController.approveAllRequests);
-router.post('/news/publish', upload.array('media', 10), adminController.publishNews);
+router.get('/logs', catchAsync(adminController.getLogs));
+router.get('/requests', catchAsync(adminController.getRequests));
+router.post('/requests/action', catchAsync(adminController.handleRequestAction));
+router.post('/requests/approve-all', catchAsync(adminController.approveAllRequests));
+router.post('/news/publish', upload.array('media', 10), catchAsync(adminController.publishNews));
 
 // --- NOTES ---
-router.get('/notes', noteController.getNotes);
-router.post('/notes', noteController.addNote);
-router.post('/notes/delete', noteController.deleteNote);
+router.get('/notes', catchAsync(noteController.getNotes));
+router.post('/notes', catchAsync(noteController.addNote));
+router.post('/notes/delete', catchAsync(noteController.deleteNote));
 
 // --- SALARY (PaySlips) ---
-router.get('/salary', salaryController.getUserSalary); // 🔥 Маршрут для отримання зарплати
+router.get('/salary', catchAsync(salaryController.getUserSalary));
 
 module.exports = router;
