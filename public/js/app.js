@@ -206,8 +206,7 @@ async function initGlobalAdminFilter() {
 }
 
 function checkEditorButtonVisibility() {
-    const fab = document.getElementById('fabEditBtn');
-    const upBtn = document.getElementById('backToTopBtn');
+    const inlineEditBtn = document.getElementById('inlineEditBtn');
 
     if (state.currentUser && state.currentUser.role === 'RRP') {
         const btnCal = document.getElementById('tabModeCalendar');
@@ -223,19 +222,11 @@ function checkEditorButtonVisibility() {
 
     const isGridMode = localStorage.getItem('shifter_viewMode') === 'grid';
 
-    if (fab && state.currentUser) {
+    if (inlineEditBtn && state.currentUser) {
         if (['admin', 'SM', 'SSE'].includes(state.currentUser.role) && isGridMode) {
-            fab.classList.remove('hidden');
-            if (upBtn) {
-                upBtn.classList.remove('bottom-6');
-                upBtn.classList.add('bottom-24');
-            }
+            inlineEditBtn.classList.remove('hidden');
         } else {
-            fab.classList.add('hidden');
-            if (upBtn) {
-                upBtn.classList.remove('bottom-24');
-                upBtn.classList.add('bottom-6');
-            }
+            inlineEditBtn.classList.add('hidden');
         }
     }
 }

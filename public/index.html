@@ -532,12 +532,17 @@
             </div>
 
             <div id="gridViewContainer" class="hidden ios-card p-4 overflow-hidden">
-                <div class="flex justify-between items-center mb-4">
-                    <button onclick="changeMonth(-1)" class="text-blue-500 text-2xl font-bold p-2">‹</button>
-                    <div class="flex items-center gap-2">
-                        <h2 id="gridTitle" class="font-bold text-xl capitalize"></h2>
+                <div class="flex items-center justify-between mb-4 relative min-h-[50px]">
+                    <button onclick="changeMonth(-1)"
+                        class="absolute left-0 top-1/2 -translate-y-1/2 text-blue-500 text-3xl font-bold p-2 active:scale-90 transition-transform">‹</button>
+                    <div class="flex flex-col items-center justify-center w-full">
+                        <h2 id="gridTitle" class="font-bold text-xl capitalize leading-tight"></h2>
+                        <button id="inlineEditBtn" onclick="toggleEditor()"
+                            class="hidden bg-blue-50 text-blue-500 font-bold text-[10px] uppercase px-3 py-1 rounded-full border border-blue-200 mt-1 active:scale-95 transition-transform shadow-sm">🖍
+                            Редагувати графік</button>
                     </div>
-                    <button onclick="changeMonth(1)" class="text-blue-500 text-2xl font-bold p-2">›</button>
+                    <button onclick="changeMonth(1)"
+                        class="absolute right-0 top-1/2 -translate-y-1/2 text-blue-500 text-3xl font-bold p-2 active:scale-90 transition-transform">›</button>
                 </div>
                 <div class="overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide" id="gridViewTable">
                 </div>
@@ -590,9 +595,6 @@
 
         <button id="backToTopBtn" onclick="scrollToTop()"
             class="fixed bottom-24 right-6 w-12 h-12 bg-blue-500 text-white rounded-full shadow-lg shadow-blue-500/40 flex items-center justify-center text-2xl z-50 transition-all duration-300 opacity-0 hidden hover:scale-110 active:scale-95">↑</button>
-        <button id="fabEditBtn" onclick="toggleEditor()"
-            class="hidden fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center text-2xl z-50 transition-all hover:scale-110 active:scale-90 animate-slide-up"><span
-                id="fabIcon">✏️</span></button>
 
         <div id="filterModal" class="hidden fixed inset-0 z-50">
             <div class="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity" onclick="closeFilterModal()">

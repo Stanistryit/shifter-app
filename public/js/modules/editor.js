@@ -10,13 +10,13 @@ export function initEditor() {
     if (gridContainer) {
         gridContainer.addEventListener('click', handleGridClick);
     }
-    
+
     // Завантажуємо шаблони або ставимо дефолтні
     const savedTemplates = localStorage.getItem('shiftTemplates');
     if (savedTemplates) {
-        try { 
-            state.shiftTemplates = JSON.parse(savedTemplates); 
-        } catch(e) {
+        try {
+            state.shiftTemplates = JSON.parse(savedTemplates);
+        } catch (e) {
             setDefaultTemplates();
         }
     } else {
@@ -42,33 +42,36 @@ function setDefaultTemplates() {
 export function toggleEditor() {
     triggerHaptic();
     state.isEditMode = !state.isEditMode;
-    
+
     const toolbar = document.getElementById('editorToolbar');
-    
+    const bottomTab = document.getElementById('bottomTabBar');
+
     if (state.isEditMode) {
         renderToolbar();
         toolbar.classList.remove('hidden', 'translate-y-full');
+        if (bottomTab) bottomTab.classList.add('translate-y-full'); // Можна сховати анімацією
         showToast('✏️ Режим редактора: Оберіть інструмент', 'info');
     } else {
         if (Object.keys(state.pendingChanges).length > 0) {
-            if(!confirm('У вас є незбережені зміни. Вийти без збереження?')) {
+            if (!confirm('У вас є незбережені зміни. Вийти без збереження?')) {
                 state.isEditMode = true;
                 return;
             }
         }
         discardChanges();
         toolbar.classList.add('translate-y-full');
+        if (bottomTab) bottomTab.classList.remove('translate-y-full');
         setTimeout(() => toolbar.classList.add('hidden'), 300);
     }
-    
-    renderTable(); 
+
+    renderTable();
 }
 
 // --- TOOLBAR UI (GRID 5x5) ---
 
 function renderToolbar() {
     let toolbar = document.getElementById('editorToolbar');
-    
+
     if (!toolbar) {
         toolbar = document.createElement('div');
         toolbar.id = 'editorToolbar';
@@ -79,16 +82,16 @@ function renderToolbar() {
 
     const activeStyle = "bg-blue-500 text-white shadow-md ring-2 ring-blue-300 dark:ring-blue-700 transform scale-105 z-10";
     const inactiveStyle = "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700";
-    
+
     let toolsHtml = '';
-    
+
     // 1. Шаблони
     state.shiftTemplates.forEach((tpl, idx) => {
         const isActive = state.activeTool && state.activeTool.label === tpl.label;
         const style = isActive ? activeStyle : inactiveStyle;
         toolsHtml += `
             <button onclick="window.editorSelectTool('template', ${idx})" 
-                class="flex flex-col items-center justify-center p-1 rounded-xl text-[10px] font-bold h-10 w-full transition-all active:scale-95 ${style}">
+                class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${style}">
                 <span>${tpl.label}</span>
             </button>
         `;
@@ -97,15 +100,15 @@ function renderToolbar() {
     // 2. Спеціальні інструменти
     const isCustom = state.activeTool && state.activeTool.type === 'custom';
     const customLabel = isCustom && state.activeTool.start ? `${state.activeTool.start}` : 'Своя';
-    
+
     const isEraser = state.activeTool && state.activeTool.type === 'eraser';
     const isVacation = state.activeTool && state.activeTool.type === 'vacation';
-    const isSick = state.activeTool && state.activeTool.type === 'sick'; // Додав і сюди на майбутнє
+    const isSick = state.activeTool && state.activeTool.type === 'sick';
 
     // Кнопка "Своя"
     toolsHtml += `
         <button onclick="window.editorSelectTool('custom')" 
-            class="flex flex-col items-center justify-center p-1 rounded-xl text-[10px] font-bold h-10 w-full transition-all active:scale-95 ${isCustom ? 'bg-purple-500 text-white ring-2 ring-purple-300' : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-300'}">
+            class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isCustom ? 'bg-purple-500 text-white ring-2 ring-purple-300' : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-300'}">
             <span>✨ ${customLabel}</span>
         </button>
     `;
@@ -113,7 +116,7 @@ function renderToolbar() {
     // Кнопка "Відпустка"
     toolsHtml += `
         <button onclick="window.editorSelectTool('vacation')" 
-            class="flex flex-col items-center justify-center p-1 rounded-xl text-[10px] font-bold h-10 w-full transition-all active:scale-95 ${isVacation ? 'bg-green-500 text-white' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300'}">
+            class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isVacation ? 'bg-green-500 text-white' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300'}">
             <span>🌴 Відп.</span>
         </button>
     `;
@@ -121,7 +124,7 @@ function renderToolbar() {
     // Кнопка "Лікарняний"
     toolsHtml += `
         <button onclick="window.editorSelectTool('sick')" 
-            class="flex flex-col items-center justify-center p-1 rounded-xl text-[10px] font-bold h-10 w-full transition-all active:scale-95 ${isSick ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300'}">
+            class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isSick ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300'}">
             <span>💊 Лік.</span>
         </button>
     `;
@@ -129,12 +132,12 @@ function renderToolbar() {
     // Кнопка "Гумка"
     toolsHtml += `
         <button onclick="window.editorSelectTool('eraser')" 
-            class="flex flex-col items-center justify-center p-1 rounded-xl text-[10px] font-bold h-10 w-full transition-all active:scale-95 ${isEraser ? 'bg-gray-500 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}">
+            class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isEraser ? 'bg-gray-500 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}">
             <span>🧹 Гумка</span>
         </button>
     `;
 
-    // 🔥 Заголовок + Сітка 5x5
+    // 🔥 Заголовок + Стрічка
     toolbar.innerHTML = `
         <div class="flex justify-between items-center px-4 py-3 border-b border-gray-100 dark:border-gray-800">
             <button onclick="window.editorConfigTemplates()" class="p-2 -ml-2 text-gray-400 hover:text-blue-500 active:scale-95 transition-transform"><span class="text-lg">⚙️</span></button>
@@ -143,7 +146,7 @@ function renderToolbar() {
                 <button onclick="window.saveEditorChanges()" class="px-4 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-bold shadow-lg shadow-blue-500/30 active:scale-95">Зберегти (${Object.keys(state.pendingChanges).length})</button>
             </div>
         </div>
-        <div class="grid grid-cols-5 gap-2 p-3 pb-safe max-h-[40vh] overflow-y-auto">
+        <div class="flex overflow-x-auto gap-2 p-3 pb-safe scrollbar-hide snap-x relative z-10 w-full" style="scrollbar-width: none; -ms-overflow-style: none;">
             ${toolsHtml}
         </div>
     `;
@@ -153,7 +156,7 @@ function renderToolbar() {
 
 export function editorSelectTool(type, index) {
     triggerHaptic();
-    
+
     if (type === 'template') {
         state.activeTool = { type: 'template', ...state.shiftTemplates[index] };
     } else if (type === 'vacation') {
@@ -168,16 +171,16 @@ export function editorSelectTool(type, index) {
         if (state.activeTool?.type === 'custom' && state.activeTool.start) {
             defaultTime = `${state.activeTool.start}-${state.activeTool.end}`;
         }
-        
+
         const newTime = prompt("Введіть час зміни (напр. 10:00-15:30):", defaultTime);
         if (newTime && newTime.includes('-')) {
-             const [s, e] = newTime.split('-').map(x => x.trim());
-             state.activeTool = { type: 'custom', start: s, end: e };
+            const [s, e] = newTime.split('-').map(x => x.trim());
+            state.activeTool = { type: 'custom', start: s, end: e };
         } else if (!state.activeTool || state.activeTool.type !== 'custom') {
-             return; // Якщо скасував і до цього не було custom - нічого не робимо
+            return; // Якщо скасував і до цього не було custom - нічого не робимо
         }
     }
-    
+
     renderToolbar();
 };
 
@@ -190,7 +193,7 @@ function handleGridClick(e) {
     const date = cell.getAttribute('data-date');
     const name = cell.getAttribute('data-name');
 
-    if (!date || !name) return; 
+    if (!date || !name) return;
 
     if (!state.activeTool) {
         showToast('👆 Спочатку оберіть інструмент знизу', 'info');
@@ -200,10 +203,10 @@ function handleGridClick(e) {
     triggerHaptic();
 
     const key = `${date}_${name}`;
-    
+
     // Якщо клікаємо тим самим інструментом по тій самій зміні - скасовуємо (toggle)
-    if (state.pendingChanges[key] && 
-        state.pendingChanges[key].start === state.activeTool.start && 
+    if (state.pendingChanges[key] &&
+        state.pendingChanges[key].start === state.activeTool.start &&
         state.pendingChanges[key].end === state.activeTool.end) {
         delete state.pendingChanges[key];
     } else {
@@ -215,7 +218,7 @@ function handleGridClick(e) {
         };
     }
 
-    renderTable(); 
+    renderTable();
     // renderToolbar(); // Можна не перемальовувати тулбар щоразу, це економить ресурси
 }
 
@@ -231,7 +234,7 @@ export async function saveEditorChanges() {
     const btn = document.querySelector('#editorToolbar button[onclick="window.saveEditorChanges()"]');
     const oldText = btn.innerText;
     btn.innerText = '⏳';
-    
+
     try {
         const res = await postJson('/api/shifts/save', { updates: changes });
         if (res.success) {
@@ -241,12 +244,12 @@ export async function saveEditorChanges() {
                 showToast(`✅ Збережено ${changes.length} змін`);
             }
 
-            state.pendingChanges = {}; 
+            state.pendingChanges = {};
             const shifts = await fetchJson('/api/shifts');
             state.shifts = shifts;
-            
-            window.toggleEditor(); 
-            renderTable(); 
+
+            window.toggleEditor();
+            renderTable();
         } else {
             showToast('❌ Помилка: ' + res.message, 'error');
             btn.innerText = oldText;
@@ -304,12 +307,12 @@ export function editorConfigTemplates() {
         </div>
     </div>
     `;
-    
+
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
 // Функції менеджера (експортуємо в window, щоб працювали з HTML)
-window.removeTemplate = function(index) {
+window.removeTemplate = function (index) {
     if (confirm('Видалити цей шаблон?')) {
         state.shiftTemplates.splice(index, 1);
         localStorage.setItem('shiftTemplates', JSON.stringify(state.shiftTemplates));
@@ -319,12 +322,12 @@ window.removeTemplate = function(index) {
     }
 };
 
-window.addTemplate = function() {
+window.addTemplate = function () {
     const start = document.getElementById('newTplStart').value;
     const end = document.getElementById('newTplEnd').value;
-    
+
     if (!start || !end) return showToast('Введіть час', 'error');
-    
+
     // Формуємо коротку назву (наприклад "10-22")
     const h1 = start.split(':')[0];
     const h2 = end.split(':')[0];
@@ -332,14 +335,14 @@ window.addTemplate = function() {
 
     state.shiftTemplates.push({ label, start, end });
     localStorage.setItem('shiftTemplates', JSON.stringify(state.shiftTemplates));
-    
+
     document.getElementById('templateManagerModal').remove();
-    editorConfigTemplates(); 
+    editorConfigTemplates();
     renderToolbar();
     showToast('Шаблон додано');
 };
 
-window.resetTemplates = function() {
+window.resetTemplates = function () {
     if (confirm('Відновити стандартні шаблони?')) {
         setDefaultTemplates();
         document.getElementById('templateManagerModal').remove();
