@@ -203,7 +203,6 @@
                     <input type="checkbox" id="menuToggle" class="toggle-checkbox" onchange="toggleEditMode()">
                     <label for="menuToggle" class="toggle-label"></label>
                 </div>
-                <button onclick="logout()" class="text-blue-500 text-sm font-medium active:opacity-60">Вийти</button>
             </div>
         </nav>
 
@@ -304,24 +303,7 @@
                 </div>
             </div>
 
-            <div class="flex justify-between items-center ios-card p-1.5 glass-panel">
-                <div class="flex bg-[#E5E5EA] dark:bg-[#2C2C2E] rounded-[12px] p-1 w-full overflow-x-auto">
-                    <button onclick="setMode('list')" id="btnModeList"
-                        class="flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all whitespace-nowrap px-2">Список</button>
-                    <button onclick="setMode('calendar')" id="btnModeCalendar"
-                        class="flex-1 py-2 text-xs font-medium text-gray-500 transition-all whitespace-nowrap px-2">Календар</button>
-                    <button onclick="setMode('grid')" id="btnModeGrid"
-                        class="flex-1 py-2 text-xs font-medium text-gray-500 transition-all whitespace-nowrap px-2">Таблиця</button>
-                    <button onclick="setMode('kpi')" id="btnModeKpi"
-                        class="flex-1 py-2 text-xs font-medium text-gray-500 transition-all whitespace-nowrap px-2">🏆
-                        KPI</button>
-                </div>
-                <div class="flex items-center gap-4 ml-4 pr-2">
-                    <button onclick="toggleTheme()"
-                        class="text-gray-400 text-xl active:scale-90 transition-transform"><span
-                            id="themeIcon">🌙</span></button>
-                </div>
-            </div>
+
 
             <button onclick="openFilterModal()"
                 class="ios-card w-full px-4 py-4 flex justify-between items-center active:scale-[0.98] transition-transform glass-panel">
@@ -575,6 +557,35 @@
                 <div id="kpiList" class="space-y-3"></div>
             </div>
 
+            <div id="profileViewContainer" class="hidden ios-card p-6 animate-slide-up text-center mb-10">
+                <div class="w-24 h-24 mx-auto bg-gray-100 dark:bg-[#2C2C2E] rounded-full overflow-hidden flex items-center justify-center text-4xl border border-gray-200 dark:border-gray-700 shadow-xl mb-4"
+                    onclick="triggerHaptic(); openAvatarModal()">
+                    <img id="profileAvatarImg" src="" class="hidden w-full h-full object-cover">
+                    <span id="profileAvatarPlaceholder">👤</span>
+                </div>
+                <h2 id="profileNameDisplay" class="font-bold text-2xl mb-1 mt-2">...</h2>
+                <p id="profileRoleDisplay" class="text-xs text-gray-500 mb-8 uppercase tracking-wider font-bold">...</p>
+
+                <div class="space-y-3 mb-8 relative z-10 text-left">
+                    <button onclick="toggleTheme()"
+                        class="w-full flex justify-between items-center ios-input p-4 active:scale-95 transition-transform">
+                        <span class="font-medium text-gray-700 dark:text-gray-200">Тема оформлення</span>
+                        <span id="themeIcon">🌙</span>
+                    </button>
+                    <button onclick="openChangePasswordModal()"
+                        class="w-full text-center flex justify-center items-center gap-2 ios-input p-4 font-medium text-blue-500 active:scale-95 transition-transform">
+                        <span>🔐</span> Змінити пароль
+                    </button>
+                </div>
+
+                <div class="pt-6 border-t border-gray-100 dark:border-gray-800 relative z-10">
+                    <button onclick="logout()"
+                        class="w-full py-4 px-4 text-red-500 font-bold bg-red-50 dark:bg-red-900/20 rounded-xl active:scale-95 transition-transform flex justify-center items-center gap-2">
+                        <span>🚪</span> Вийти з акаунту
+                    </button>
+                </div>
+            </div>
+
         </div>
 
         <button id="backToTopBtn" onclick="scrollToTop()"
@@ -684,6 +695,38 @@
         </div>
 
         <div id="editorToolbar"></div>
+
+        <!-- Bottom Tab Bar Navigation -->
+        <nav id="bottomTabBar"
+            class="fixed bottom-0 left-0 w-full z-40 glass-header border-t border-gray-200 dark:border-gray-800 pb-safe pt-2 px-2 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+            <div class="flex justify-around items-center h-14 bg-transparent max-w-md mx-auto">
+                <button onclick="setMode('list')" id="tabModeList"
+                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform">
+                    <span class="text-xl leading-none">📋</span>
+                    <span class="text-[10px] font-medium leading-none">Головна</span>
+                </button>
+                <button onclick="setMode('calendar')" id="tabModeCalendar"
+                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform">
+                    <span class="text-xl leading-none opacity-50 transition-opacity drop-shadow-sm">📅</span>
+                    <span class="text-[10px] font-medium leading-none text-gray-500 transition-colors">Календар</span>
+                </button>
+                <button onclick="setMode('grid')" id="tabModeGrid"
+                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform">
+                    <span class="text-xl leading-none opacity-50 transition-opacity drop-shadow-sm">📊</span>
+                    <span class="text-[10px] font-medium leading-none text-gray-500 transition-colors">Таблиця</span>
+                </button>
+                <button onclick="setMode('kpi')" id="tabModeKpi"
+                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform">
+                    <span class="text-xl leading-none opacity-50 transition-opacity drop-shadow-sm">🏆</span>
+                    <span class="text-[10px] font-medium leading-none text-gray-500 transition-colors">KPI</span>
+                </button>
+                <button onclick="setMode('profile')" id="tabModeProfile"
+                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform">
+                    <span class="text-xl leading-none opacity-50 transition-opacity drop-shadow-sm">⚙️</span>
+                    <span class="text-[10px] font-medium leading-none text-gray-500 transition-colors">Профіль</span>
+                </button>
+            </div>
+        </nav>
 
     </div>
 

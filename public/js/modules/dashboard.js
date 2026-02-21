@@ -67,6 +67,12 @@ export function updateDashboard() {
         card.classList.add('hidden');
         return;
     }
+
+    if (localStorage.getItem('shifter_viewMode') === 'profile') {
+        card.classList.add('hidden');
+        return;
+    }
+
     card.classList.remove('hidden');
 
     if (!card.dataset.init) {
@@ -102,7 +108,7 @@ export function updateDashboard() {
     };
 
     // Видаляємо старі класи кольорів, залишаємо базові
-    card.className = "hidden ios-card text-white shadow-lg animate-slide-up relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-transform";
+    card.className = "ios-card text-white shadow-lg animate-slide-up relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-transform";
 
     if (todayShift) {
         const [sH, sM] = todayShift.start.split(':').map(Number);

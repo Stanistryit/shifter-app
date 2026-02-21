@@ -210,13 +210,13 @@ function checkEditorButtonVisibility() {
     const upBtn = document.getElementById('backToTopBtn');
 
     if (state.currentUser && state.currentUser.role === 'RRP') {
-        const btnCal = document.getElementById('btnModeCalendar');
-        const btnKpi = document.getElementById('btnModeKpi');
+        const btnCal = document.getElementById('tabModeCalendar');
+        const btnKpi = document.getElementById('tabModeKpi');
         if (btnCal) btnCal.classList.add('hidden');
         if (btnKpi) btnKpi.classList.add('hidden');
     } else {
-        const btnCal = document.getElementById('btnModeCalendar');
-        const btnKpi = document.getElementById('btnModeKpi');
+        const btnCal = document.getElementById('tabModeCalendar');
+        const btnKpi = document.getElementById('tabModeKpi');
         if (btnCal) btnCal.classList.remove('hidden');
         if (btnKpi) btnKpi.classList.remove('hidden');
     }
@@ -293,6 +293,7 @@ async function setMode(m) {
     const calDiv = document.getElementById('calendarViewContainer');
     const gridDiv = document.getElementById('gridViewContainer');
     const kpiDiv = document.getElementById('kpiViewContainer');
+    const profileDiv = document.getElementById('profileViewContainer');
 
     if (m === 'grid' || m === 'kpi' || m === 'calendar') {
         document.getElementById('skeletonLoader').classList.remove('hidden');
@@ -302,6 +303,7 @@ async function setMode(m) {
     calDiv.classList.add('hidden');
     gridDiv.classList.add('hidden');
     kpiDiv.classList.add('hidden');
+    if (profileDiv) profileDiv.classList.add('hidden');
 
     const filterBtn = document.querySelector('button[onclick="openFilterModal()"]');
     const globalFilterWrapper = document.getElementById('globalStoreFilterWrapper');
@@ -318,39 +320,72 @@ async function setMode(m) {
         }
     }
 
-    const btnList = document.getElementById('btnModeList');
-    const btnCal = document.getElementById('btnModeCalendar');
-    const btnGrid = document.getElementById('btnModeGrid');
-    const btnKpi = document.getElementById('btnModeKpi');
+    const tabList = document.getElementById('tabModeList');
+    const tabCal = document.getElementById('tabModeCalendar');
+    const tabGrid = document.getElementById('tabModeGrid');
+    const tabKpi = document.getElementById('tabModeKpi');
+    const tabProfile = document.getElementById('tabModeProfile');
 
-    const inactiveClass = "flex-1 py-2 text-xs font-medium text-gray-500 transition-all whitespace-nowrap px-2";
-    const activeClass = "flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all whitespace-nowrap px-2";
+    const tabs = [
+        { id: 'list', el: tabList },
+        { id: 'calendar', el: tabCal },
+        { id: 'grid', el: tabGrid },
+        { id: 'kpi', el: tabKpi },
+        { id: 'profile', el: tabProfile }
+    ];
 
-    btnList.className = inactiveClass;
-    btnCal.className = inactiveClass;
-    btnGrid.className = inactiveClass;
-    btnKpi.className = inactiveClass;
+    tabs.forEach(tab => {
+        if (!tab.el) return;
+        const iconSpan = tab.el.querySelector('span:first-child');
+        const textSpan = tab.el.querySelector('span:last-child');
+
+        if (tab.id === m) {
+            tab.el.classList.add('text-blue-500');
+            tab.el.classList.remove('text-gray-400');
+            if (iconSpan) iconSpan.classList.remove('opacity-50');
+            if (textSpan) { textSpan.classList.remove('text-gray-500'); textSpan.classList.add('text-blue-500'); }
+        } else {
+            tab.el.classList.remove('text-blue-500');
+            tab.el.classList.add('text-gray-400');
+            if (iconSpan) iconSpan.classList.add('opacity-50');
+            if (textSpan) { textSpan.classList.add('text-gray-500'); textSpan.classList.remove('text-blue-500'); }
+        }
+    });
 
     if (m === 'list') {
         listDiv.classList.remove('hidden');
-        btnList.className = activeClass;
     } else if (m === 'calendar') {
         calDiv.classList.remove('hidden');
         calDiv.classList.add('animate-slide-up');
-        btnCal.className = activeClass;
         renderCalendar();
     } else if (m === 'grid') {
         gridDiv.classList.remove('hidden');
         gridDiv.classList.add('animate-slide-up');
-        btnGrid.className = activeClass;
         await loadKpiData();
         renderTable();
     } else if (m === 'kpi') {
         kpiDiv.classList.remove('hidden');
         kpiDiv.classList.add('animate-slide-up');
-        btnKpi.className = activeClass;
         await loadKpiData();
         renderKpi();
+    } else if (m === 'profile') {
+        if (profileDiv) profileDiv.classList.remove('hidden');
+
+        const pfName = document.getElementById('profileNameDisplay');
+        const pfRole = document.getElementById('profileRoleDisplay');
+        if (pfName) pfName.innerText = state.currentUser ? state.currentUser.name : 'Гість';
+        if (pfRole) pfRole.innerText = state.currentUser ? state.currentUser.role : '';
+
+        const pfImg = document.getElementById('profileAvatarImg');
+        const pfPlaceholder = document.getElementById('profileAvatarPlaceholder');
+        if (state.currentUser && state.currentUser.avatarId && pfImg) {
+            pfImg.src = `/api/avatar/${state.currentUser.avatarId}?t=${new Date().getTime()}`;
+            pfImg.classList.remove('hidden');
+            if (pfPlaceholder) pfPlaceholder.classList.add('hidden');
+        } else {
+            if (pfImg) pfImg.classList.add('hidden');
+            if (pfPlaceholder) pfPlaceholder.classList.remove('hidden');
+        }
     }
 
     checkEditorButtonVisibility();
