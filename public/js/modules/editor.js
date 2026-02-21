@@ -49,7 +49,7 @@ export function toggleEditor() {
     if (state.isEditMode) {
         renderToolbar();
         toolbar.classList.remove('hidden', 'translate-y-full');
-        if (bottomTab) bottomTab.classList.add('translate-y-full'); // Можна сховати анімацією
+        if (bottomTab) bottomTab.classList.add('translate-y-24'); // Ховаємо нижче екрану
         showToast('✏️ Режим редактора: Оберіть інструмент', 'info');
     } else {
         if (Object.keys(state.pendingChanges).length > 0) {
@@ -60,7 +60,7 @@ export function toggleEditor() {
         }
         discardChanges();
         toolbar.classList.add('translate-y-full');
-        if (bottomTab) bottomTab.classList.remove('translate-y-full');
+        if (bottomTab) bottomTab.classList.remove('translate-y-24');
         setTimeout(() => toolbar.classList.add('hidden'), 300);
     }
 
