@@ -7,7 +7,7 @@ const MongoStore = require('connect-mongo');
 const path = require('path');
 
 // Імпорти модулів
-const { initBot, getBot } = require('./backend/bot'); 
+const { initBot, getBot } = require('./backend/bot');
 const { initDB } = require('./backend/utils');
 const routes = require('./backend/routes');
 const { initScheduler } = require('./backend/scheduler'); // 🔥 Підключили планувальник
@@ -20,7 +20,7 @@ const TG_CONFIG = {
     groupId: process.env.TG_GROUP_ID,
     topics: { schedule: 36793, news: 36865 }
 };
-app.set('tgConfig', TG_CONFIG); 
+app.set('tgConfig', TG_CONFIG);
 app.set('trust proxy', 1);
 
 // Middleware
@@ -48,17 +48,17 @@ app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => {
 
 // Database & Bot & Scheduler Init
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => { 
-        console.log("✅ MongoDB OK"); 
-        
-        initDB(); 
-        
+    .then(() => {
+        console.log("✅ MongoDB OK");
+
+        initDB();
+
         // 1. Запускаємо Бота
         initBot(process.env.TELEGRAM_TOKEN, 'https://shifter-app.onrender.com', TG_CONFIG);
-        
-        // 2. Запускаємо Планувальник (Cron)
+
+        // 2. Запускаємо Планувальник (Cron / Agenda)
         // Вся логіка часу (18:00 звіт і т.д.) тепер всередині цієї функції
-        initScheduler(TG_CONFIG); 
+        initScheduler(TG_CONFIG).catch(err => console.error("⏰ Agenda Scheduler Error:", err));
     })
     .catch(console.error);
 
