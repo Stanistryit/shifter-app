@@ -14,6 +14,26 @@ export async function checkAuth() {
         }
     } catch (e) { }
 
+    // Перевіряємо, чи є в URL параметр '?reset=TOKEN'
+    const params = new URLSearchParams(window.location.search);
+    const resetToken = params.get('reset');
+    const resetUserId = params.get('user');
+
+    if (resetToken && resetUserId) {
+        document.getElementById('skeletonLoader').classList.add('hidden');
+        document.getElementById('loginScreen').classList.remove('hidden');
+
+        // Ховаємо логін, показуємо скидання
+        document.getElementById('loginContainer').classList.add('hidden');
+        document.getElementById('registerContainer').classList.add('hidden');
+        document.getElementById('forgotPasswordContainer').classList.add('hidden');
+
+        document.getElementById('resetPasswordContainer').classList.remove('hidden');
+        document.getElementById('resetToken').value = resetToken;
+        document.getElementById('resetUserId').value = resetUserId;
+        return;
+    }
+
     // Якщо це Telegram WebApp
     if (!tg.initDataUnsafe?.user?.id) {
         document.getElementById('skeletonLoader').classList.add('hidden');
@@ -46,7 +66,73 @@ export async function login() {
 
 export async function logout() {
     await postJson('/api/logout');
-    window.location.reload();
+    // Очищаємо можливі параметри з URL (щоб не відкривався reset)
+    window.location.href = window.location.pathname;
+}
+
+export async function requestPasswordReset() {
+    triggerHaptic();
+    const u = document.getElementById('forgotUsername').value.trim();
+    if (!u) return showToast('Введіть логін', 'error');
+
+    const btn = document.querySelector('#forgotPasswordContainer button');
+    const origText = btn.innerText;
+    btn.innerText = 'Відправка...';
+    btn.disabled = true;
+
+    try {
+        const data = await postJson('/api/forgot-password', { username: u });
+        if (data.success) {
+            showToast('Інструкції відправлено в Telegram! 🔐', 'info');
+            // Переходимо назад на логін
+            document.getElementById('forgotUsername').value = '';
+            setTimeout(() => window.toggleAuthMode('login'), 2000);
+        } else {
+            showToast(data.message || "Помилка", 'error');
+        }
+    } catch (e) {
+        showToast("Помилка з'єднання", 'error');
+    } finally {
+        btn.innerText = origText;
+        btn.disabled = false;
+    }
+}
+
+export async function submitNewPassword() {
+    triggerHaptic();
+    const token = document.getElementById('resetToken').value;
+    const userId = document.getElementById('resetUserId').value;
+    const p1 = document.getElementById('resetNewPassword').value;
+    const p2 = document.getElementById('resetConfirmPassword').value;
+
+    if (!p1 || p1.length < 4) return showToast('Пароль має бути від 4 символів', 'error');
+    if (p1 !== p2) return showToast('Паролі не співпадають', 'error');
+
+    const btn = document.querySelector('#resetPasswordContainer button');
+    const origText = btn.innerText;
+    btn.innerText = 'Збереження...';
+    btn.disabled = true;
+
+    try {
+        const data = await postJson('/api/reset-password', { token, userId, newPassword: p1 });
+        if (data.success) {
+            showToast('✅ Пароль змінено! Тепер ви можете увійти.', 'info');
+            document.getElementById('resetNewPassword').value = '';
+            document.getElementById('resetConfirmPassword').value = '';
+
+            // Очищаємо URL і йдемо на логін
+            setTimeout(() => {
+                window.location.href = window.location.pathname;
+            }, 2000);
+        } else {
+            showToast(data.message || "Помилка при збереженні", 'error');
+        }
+    } catch (e) {
+        showToast("Помилка з'єднання", 'error');
+    } finally {
+        btn.innerText = origText;
+        btn.disabled = false;
+    }
 }
 
 // Внутрішня функція ініціалізації інтерфейсу після входу

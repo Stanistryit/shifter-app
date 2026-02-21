@@ -67,10 +67,13 @@
                     <input type="password" id="loginPass" placeholder="Пароль" class="ios-input">
                     <button onclick="login()" class="btn-primary mt-4 shadow-lg shadow-blue-500/30">Увійти</button>
 
-                    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <div
+                        class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center px-1">
+                        <button onclick="toggleAuthMode('forgot')"
+                            class="text-sm text-gray-500 hover:text-black dark:hover:text-white font-medium hover:underline transition-colors">Забули
+                            пароль?</button>
                         <button onclick="toggleAuthMode('register')"
-                            class="text-sm text-blue-500 font-medium hover:underline">Немає акаунту?
-                            Зареєструватися</button>
+                            class="text-sm text-blue-500 font-medium hover:underline">Реєстрація</button>
                     </div>
                 </div>
             </div>
@@ -130,6 +133,56 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Forgot Password Container -->
+            <div id="forgotPasswordContainer" class="hidden transition-opacity duration-300">
+                <p class="text-gray-400 mb-4 text-sm">Скидання пароля</p>
+                <div class="space-y-3 text-left">
+                    <p class="text-xs text-gray-500 mb-2">
+                        Введіть свій логін, і ми надішлемо інструкції у ваш прив'язаний Телеграм.
+                    </p>
+                    <div>
+                        <input type="text" id="forgotUsername" placeholder="Ваш Логін" class="ios-input">
+                    </div>
+
+                    <button onclick="requestPasswordReset()"
+                        class="btn-primary mt-4 bg-purple-500 shadow-lg shadow-purple-500/30">Відновити пароль</button>
+
+                    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
+                        <button onclick="toggleAuthMode('login')"
+                            class="text-sm text-gray-500 hover:text-black dark:hover:text-white transition-colors">←
+                            Повернутися до входу</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reset Password Container (Appears when Token is in URL) -->
+            <div id="resetPasswordContainer" class="hidden transition-opacity duration-300">
+                <p class="text-gray-400 mb-4 text-sm">Новий пароль</p>
+                <div class="space-y-3 text-left">
+                    <p class="text-xs text-gray-500 mb-2">
+                        Придумайте новий безпечний пароль.
+                    </p>
+                    <input type="hidden" id="resetToken">
+                    <input type="hidden" id="resetUserId">
+
+                    <div>
+                        <input type="password" id="resetNewPassword" placeholder="Новий пароль" class="ios-input mb-2">
+                        <input type="password" id="resetConfirmPassword" placeholder="Повторіть пароль"
+                            class="ios-input">
+                    </div>
+
+                    <button onclick="submitNewPassword()" class="btn-primary mt-4 shadow-lg shadow-blue-500/30">Зберегти
+                        пароль</button>
+
+                    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
+                        <button onclick="toggleAuthMode('login')"
+                            class="text-sm text-gray-500 hover:text-black dark:hover:text-white transition-colors">←
+                            Повернутися до входу</button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 

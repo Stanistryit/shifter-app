@@ -235,6 +235,102 @@ exports.getMe = async (req, res) => {
     res.json({ loggedIn: !!user, user: userData });
 };
 
+// --- СКИДАННЯ ПАРОЛЯ ЧЕРЕЗ TELEGRAM ---
+const crypto = require('crypto');
+
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { username } = req.body;
+        const user = await User.findOne({ username });
+
+        if (!user) {
+            return res.json({ success: false, message: "Користувача не знайдено" });
+        }
+
+        if (!user.telegramChatId) {
+            return res.json({ success: false, message: "Для відновлення пароля потрібен прив'язаний Telegram акаунт" });
+        }
+
+        // Генеруємо токен
+        const resetToken = crypto.randomBytes(32).toString('hex');
+
+        // Зберігаємо хеш токена в БД (через bcrypt для безпеки)
+        user.resetPasswordToken = await bcrypt.hash(resetToken, await bcrypt.genSalt(10));
+        user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 хвилин
+        await user.save();
+
+        const bot = getBot();
+        if (bot) {
+            // Формуємо посилання з `startapp` параметром
+            const webAppUrl = process.env.WEBAPP_URL || 'https://shifter-app.onrender.com';
+            // Вказуємо url, який буде відкриватись по кнопці
+            // Приблизний вигляд: t.me/shifter_prod_bot/app?startapp=reset_TOKEN
+
+            await bot.sendMessage(
+                user.telegramChatId,
+                `🔐 <b>Запит на скидання пароля</b>\n\nХтось (ймовірно ти) запросив скидання пароля для акаунта <b>${user.username}</b>.\n\nНатисни кнопку нижче, щоб встановити новий пароль. Посилання дійсне 15 хвилин.\n\n<i>Якщо це був не ти, просто проігноруй це повідомлення.</i>`,
+                {
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [[
+                            { text: "🔑 Відкрити форму скидання", web_app: { url: `${webAppUrl}?reset=${resetToken}&user=${user._id}` } }
+                        ]]
+                    }
+                }
+            );
+        }
+
+        res.json({ success: true, message: "Інструкції відправлено в Telegram!" });
+
+    } catch (e) {
+        console.error("Forgot Password Error:", e);
+        res.status(500).json({ success: false, message: "Помилка сервера" });
+    }
+};
+
+exports.resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword, userId } = req.body;
+
+        if (!userId || !token || !newPassword) {
+            return res.json({ success: false, message: "Некоректні дані" });
+        }
+
+        const user = await User.findById(userId);
+
+        if (!user || !user.resetPasswordToken || !user.resetPasswordExpires) {
+            return res.json({ success: false, message: "Токен недійсний або акаунт не знайдено" });
+        }
+
+        if (user.resetPasswordExpires < Date.now()) {
+            return res.json({ success: false, message: "Час дії токена (15 хв) минув. Зробіть новий запит." });
+        }
+
+        const isValidToken = await bcrypt.compare(token, user.resetPasswordToken);
+        if (!isValidToken) {
+            return res.json({ success: false, message: "Невірний токен" });
+        }
+
+        // Встановлюємо новий пароль
+        user.password = await bcrypt.hash(newPassword, await bcrypt.genSalt(10));
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+
+        const bot = getBot();
+        if (bot && user.telegramChatId) {
+            bot.sendMessage(user.telegramChatId, `✅ <b>Пароль успішно змінено!</b>\n\nТепер ти можеш увійти в додаток з новим паролем.`, { parse_mode: 'HTML' }).catch(() => { });
+        }
+
+        logAction(user.name, 'reset_password', 'Password reset via Telegram token');
+        res.json({ success: true, message: "Пароль успішно змінено!" });
+
+    } catch (e) {
+        console.error("Reset Password Error:", e);
+        res.status(500).json({ success: false, message: "Помилка сервера" });
+    }
+};
+
 exports.uploadAvatar = async (req, res) => {
     if (!req.session.userId) return res.status(403).json({});
     await User.findByIdAndUpdate(req.session.userId, { avatar: req.body.avatar });

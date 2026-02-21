@@ -44,7 +44,11 @@ const userSchema = new mongoose.Schema({
     sortOrder: { type: Number, default: 999 },
 
     reminderTime: { type: String, default: 'none' },
-    tSalesCookie: { type: String, default: null }
+    tSalesCookie: { type: String, default: null },
+
+    // Для відновлення пароля через Telegram
+    resetPasswordToken: { type: String, default: null },
+    resetPasswordExpires: { type: Date, default: null }
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword) {

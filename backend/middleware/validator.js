@@ -65,6 +65,21 @@ const schemas = {
             password: z.string().min(4),
             telegramId: z.number().optional().nullable()
         })
+    }),
+
+    // 5. Запит на скидання пароля
+    forgotPassword: z.object({
+        body: z.object({
+            username: z.string().min(3)
+        })
+    }),
+
+    // 6. Скидання пароля з токеном
+    resetPassword: z.object({
+        body: z.object({
+            token: z.string().min(10),
+            newPassword: z.string().min(4)
+        })
     })
 };
 

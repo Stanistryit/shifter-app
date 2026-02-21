@@ -1,43 +1,43 @@
 import { state } from './modules/state.js';
 import { fetchJson, postJson } from './modules/api.js';
-import { 
+import {
     initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab as uiShowAdminTab, formatText, updateFileName,
     openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext,
-    updateFabIcon 
+    updateFabIcon
 } from './modules/ui.js';
 import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } from './modules/render.js';
-import { checkAuth, login, logout } from './modules/auth.js';
-import { 
-    delS, 
+import { checkAuth, login, logout, requestPasswordReset, submitNewPassword } from './modules/auth.js';
+import {
+    delS,
     addTask, deleteTask, toggleTaskTimeInputs, publishNews,
     createStore, loadStores, deleteStore,
     renderSalaryMatrix, saveSalaryMatrixBtn // 🔥 Імпортували нові функції
 } from './modules/admin.js';
 import { loadRequests, handleRequest, approveAllRequests } from './modules/requests.js';
 import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
-import { 
-    openFilterModal, closeFilterModal, applyFilter, 
-    openAvatarModal, closeAvatarModal, handleAvatarSelect, uploadAvatar, 
+import {
+    openFilterModal, closeFilterModal, applyFilter,
+    openAvatarModal, closeAvatarModal, handleAvatarSelect, uploadAvatar,
     openChangePasswordModal, closeChangePasswordModal, submitChangePassword, loadLogs,
     openTransferModal, updateStoreDisplay,
-    openStoreSettingsModal, saveStoreSettings 
+    openStoreSettingsModal, saveStoreSettings
 } from './modules/settings.js';
 
-import { 
-    initEditor, toggleEditor, editorSelectTool, 
-    editorConfigTemplates, saveEditorChanges 
+import {
+    initEditor, toggleEditor, editorSelectTool,
+    editorConfigTemplates, saveEditorChanges
 } from './modules/editor.js';
 
 import { updateDashboard } from './modules/dashboard.js';
 
 const tg = window.Telegram.WebApp;
-if(tg) { tg.ready(); if(tg.platform && tg.platform!=='unknown') try{tg.expand()}catch(e){} }
+if (tg) { tg.ready(); if (tg.platform && tg.platform !== 'unknown') try { tg.expand() } catch (e) { } }
 
 // --- INIT ---
 initTheme();
 checkAuth();
 initContextMenuListeners();
-initEditor(); 
+initEditor();
 
 const savedMode = localStorage.getItem('shifter_viewMode') || 'list';
 setMode(savedMode);
@@ -53,8 +53,8 @@ window.showAdminTab = (t) => {
         const mStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         const inp1 = document.getElementById('kpiMonthImport');
         const inp2 = document.getElementById('kpiMonthSettings');
-        if(inp1 && !inp1.value) inp1.value = mStr;
-        if(inp2 && !inp2.value) inp2.value = mStr;
+        if (inp1 && !inp1.value) inp1.value = mStr;
+        if (inp2 && !inp2.value) inp2.value = mStr;
     }
     if (t === 'global') {
         loadStores();
@@ -62,7 +62,7 @@ window.showAdminTab = (t) => {
     }
 };
 
-window.toggleEditMode = toggleEditMode; 
+window.toggleEditMode = toggleEditMode;
 
 window.toggleEditor = toggleEditor;
 window.editorSelectTool = editorSelectTool;
@@ -84,6 +84,8 @@ window.login = login;
 window.logout = logout;
 window.toggleAuthMode = toggleAuthMode;
 window.registerUser = registerUser;
+window.requestPasswordReset = requestPasswordReset;
+window.submitNewPassword = submitNewPassword;
 
 window.delS = delS;
 
@@ -129,7 +131,7 @@ window.openTransferModal = openTransferModal;
 
 window.openTaskProxy = (id) => {
     const task = state.tasks.find(t => t._id === id);
-    if(task) openTaskDetailsModal(task);
+    if (task) openTaskDetailsModal(task);
 };
 window.closeTaskDetailsModal = closeTaskDetailsModal;
 
@@ -140,19 +142,19 @@ window.contextMenuProxy = (e, type, id) => {
 window.changeStoreFilter = (storeId) => {
     triggerHaptic();
     state.selectedStoreFilter = storeId;
-    localStorage.setItem('shifter_storeFilter', storeId); 
-    
+    localStorage.setItem('shifter_storeFilter', storeId);
+
     document.getElementById('skeletonLoader').classList.remove('hidden');
 
     loadKpiData().then(() => {
         const kpiDiv = document.getElementById('kpiViewContainer');
         const gridDiv = document.getElementById('gridViewContainer');
-        
+
         if (kpiDiv && !kpiDiv.classList.contains('hidden')) renderKpi();
         if (gridDiv && !gridDiv.classList.contains('hidden')) renderTable();
-        
-        updateDashboard(); 
-        
+
+        updateDashboard();
+
         setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
     });
 
@@ -180,7 +182,7 @@ async function initGlobalAdminFilter() {
         const wrapper = document.createElement('div');
         wrapper.id = 'globalStoreFilterWrapper';
         wrapper.className = 'ios-card w-full px-4 py-4 mb-4 flex justify-between items-center glass-panel active:scale-[0.98] transition-transform animate-slide-up';
-        
+
         let optionsHtml = `<option value="all" ${state.selectedStoreFilter === 'all' ? 'selected' : ''}>🌍 Всі магазини</option>`;
         stores.forEach(s => {
             const isSelected = state.selectedStoreFilter === s._id ? 'selected' : '';
@@ -206,7 +208,7 @@ async function initGlobalAdminFilter() {
 function checkEditorButtonVisibility() {
     const fab = document.getElementById('fabEditBtn');
     const upBtn = document.getElementById('backToTopBtn');
-    
+
     if (state.currentUser && state.currentUser.role === 'RRP') {
         const btnCal = document.getElementById('btnModeCalendar');
         const btnKpi = document.getElementById('btnModeKpi');
@@ -238,39 +240,39 @@ function checkEditorButtonVisibility() {
     }
 }
 
-function toggleEditMode() { 
-    triggerHaptic(); 
+function toggleEditMode() {
+    triggerHaptic();
     const panel = document.getElementById('adminPanel');
-    panel.classList.toggle('hidden'); 
+    panel.classList.toggle('hidden');
     updateFabIcon(!panel.classList.contains('hidden'));
 }
 
-function toggleArchive() { 
-    triggerHaptic(); 
-    document.getElementById('archiveContainer').classList.toggle('hidden'); 
+function toggleArchive() {
+    triggerHaptic();
+    document.getElementById('archiveContainer').classList.toggle('hidden');
 }
 
-async function changeMonth(d) { 
-    triggerHaptic(); 
-    
+async function changeMonth(d) {
+    triggerHaptic();
+
     document.getElementById('skeletonLoader').classList.remove('hidden');
 
-    state.currentDate.setMonth(state.currentDate.getMonth() + d); 
-    
+    state.currentDate.setMonth(state.currentDate.getMonth() + d);
+
     const kpiContainer = document.getElementById('kpiViewContainer');
     const gridContainer = document.getElementById('gridViewContainer');
 
-    if ((kpiContainer && !kpiContainer.classList.contains('hidden')) || 
+    if ((kpiContainer && !kpiContainer.classList.contains('hidden')) ||
         (gridContainer && !gridContainer.classList.contains('hidden'))) {
         await loadKpiData();
     }
-    
+
     if (kpiContainer && !kpiContainer.classList.contains('hidden')) {
         renderKpi();
     } else {
-        renderAll(); 
+        renderAll();
     }
-    
+
     updateDashboard();
 
     setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
@@ -285,13 +287,13 @@ async function setMode(m) {
         }
     }
 
-    localStorage.setItem('shifter_viewMode', m); 
-    
+    localStorage.setItem('shifter_viewMode', m);
+
     const listDiv = document.getElementById('listViewContainer');
     const calDiv = document.getElementById('calendarViewContainer');
     const gridDiv = document.getElementById('gridViewContainer');
-    const kpiDiv = document.getElementById('kpiViewContainer'); 
-    
+    const kpiDiv = document.getElementById('kpiViewContainer');
+
     if (m === 'grid' || m === 'kpi' || m === 'calendar') {
         document.getElementById('skeletonLoader').classList.remove('hidden');
     }
@@ -300,7 +302,7 @@ async function setMode(m) {
     calDiv.classList.add('hidden');
     gridDiv.classList.add('hidden');
     kpiDiv.classList.add('hidden');
-    
+
     const filterBtn = document.querySelector('button[onclick="openFilterModal()"]');
     const globalFilterWrapper = document.getElementById('globalStoreFilterWrapper');
 
@@ -315,20 +317,20 @@ async function setMode(m) {
             if (globalFilterWrapper) globalFilterWrapper.classList.add('hidden');
         }
     }
-    
+
     const btnList = document.getElementById('btnModeList');
     const btnCal = document.getElementById('btnModeCalendar');
     const btnGrid = document.getElementById('btnModeGrid');
     const btnKpi = document.getElementById('btnModeKpi');
-    
+
     const inactiveClass = "flex-1 py-2 text-xs font-medium text-gray-500 transition-all whitespace-nowrap px-2";
     const activeClass = "flex-1 py-2 text-xs font-bold rounded-[10px] bg-white dark:bg-[#636366] shadow-sm text-black dark:text-white transition-all whitespace-nowrap px-2";
-    
+
     btnList.className = inactiveClass;
     btnCal.className = inactiveClass;
     btnGrid.className = inactiveClass;
     btnKpi.className = inactiveClass;
-    
+
     if (m === 'list') {
         listDiv.classList.remove('hidden');
         btnList.className = activeClass;
@@ -341,7 +343,7 @@ async function setMode(m) {
         gridDiv.classList.remove('hidden');
         gridDiv.classList.add('animate-slide-up');
         btnGrid.className = activeClass;
-        await loadKpiData(); 
+        await loadKpiData();
         renderTable();
     } else if (m === 'kpi') {
         kpiDiv.classList.remove('hidden');
@@ -350,9 +352,9 @@ async function setMode(m) {
         await loadKpiData();
         renderKpi();
     }
-    
+
     checkEditorButtonVisibility();
-    updateDashboard(); 
+    updateDashboard();
 
     setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
 }
@@ -360,13 +362,20 @@ async function setMode(m) {
 async function toggleAuthMode(mode) {
     const loginContainer = document.getElementById('loginContainer');
     const registerContainer = document.getElementById('registerContainer');
-    
+    const forgotContainer = document.getElementById('forgotPasswordContainer');
+    const resetContainer = document.getElementById('resetPasswordContainer');
+
+    // Ховаємо всі
+    loginContainer.classList.add('hidden');
+    registerContainer.classList.add('hidden');
+    forgotContainer.classList.add('hidden');
+    resetContainer.classList.add('hidden');
+
     if (mode === 'register') {
-        loginContainer.classList.add('hidden');
         registerContainer.classList.remove('hidden');
-        
+
         const storeSelect = document.getElementById('regStore');
-        if (storeSelect.options.length <= 1) { 
+        if (storeSelect.options.length <= 1) {
             try {
                 const stores = await fetchJson('/api/stores');
                 state.stores = stores;
@@ -379,8 +388,11 @@ async function toggleAuthMode(mode) {
                 storeSelect.innerHTML = '<option value="" disabled>Помилка</option>';
             }
         }
+    } else if (mode === 'forgot') {
+        forgotContainer.classList.remove('hidden');
+    } else if (mode === 'reset') {
+        resetContainer.classList.remove('hidden');
     } else {
-        registerContainer.classList.add('hidden');
         loginContainer.classList.remove('hidden');
     }
 }
@@ -408,7 +420,7 @@ async function registerUser() {
 
     try {
         const res = await postJson('/api/register', { fullName, username, password: pass, phone, email, storeCode });
-        
+
         if (res.success) {
             showToast('✅ Заявку надіслано! Очікуйте підтвердження SM.', 'info');
             document.getElementById('regPass').value = '';
@@ -428,10 +440,10 @@ async function registerUser() {
 async function importKpi() {
     const text = document.getElementById('kpiImportData').value;
     const month = document.getElementById('kpiMonthImport').value;
-    if(!text) return showToast('Вставте текст таблиці', 'error');
-    if(!month) return showToast('Оберіть місяць', 'error');
+    if (!text) return showToast('Вставте текст таблиці', 'error');
+    if (!month) return showToast('Оберіть місяць', 'error');
     const res = await postJson('/api/kpi/import', { text, month });
-    if(res.success) {
+    if (res.success) {
         showToast(`Імпортовано: ${res.count} записів`);
         document.getElementById('kpiImportData').value = '';
         const y = state.currentDate.getFullYear();
@@ -443,9 +455,9 @@ async function importKpi() {
 async function saveKpiSettings() {
     const month = document.getElementById('kpiMonthSettings').value;
     const normHours = document.getElementById('kpiNormHours').value;
-    if(!month || !normHours) return showToast('Заповніть всі поля', 'error');
+    if (!month || !normHours) return showToast('Заповніть всі поля', 'error');
     const res = await postJson('/api/kpi/settings', { month, normHours });
-    if(res.success) {
+    if (res.success) {
         showToast('Норму збережено ✅');
         const y = state.currentDate.getFullYear();
         const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
@@ -457,7 +469,7 @@ async function loadKpiData() {
     const y = state.currentDate.getFullYear();
     const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
     const month = `${y}-${m}`;
-    
+
     let query = `?month=${month}`;
     if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
         query += `&storeId=${state.selectedStoreFilter}`;
@@ -484,7 +496,7 @@ function initContextMenuListeners() {
             showToast('Редагування тепер доступне лише через Режим "Таблиця" 📊', 'info');
         };
     }
-    
+
     const btnCopy = document.getElementById('ctxCopy');
     if (btnCopy) {
         btnCopy.onclick = () => {
@@ -498,7 +510,7 @@ function initContextMenuListeners() {
             }
         };
     }
-    
+
     const btnDelete = document.getElementById('ctxDelete');
     if (btnDelete) {
         btnDelete.onclick = () => {
@@ -508,8 +520,8 @@ function initContextMenuListeners() {
     }
 }
 
-setInterval(updateStoreDisplay, 5000); 
-setTimeout(updateStoreDisplay, 1000); 
+setInterval(updateStoreDisplay, 5000);
+setTimeout(updateStoreDisplay, 1000);
 setInterval(initGlobalAdminFilter, 1500);
 setInterval(checkEditorButtonVisibility, 1000);
 

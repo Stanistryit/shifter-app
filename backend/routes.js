@@ -19,6 +19,8 @@ const salaryController = require('./controllers/salaryController');
 router.get('/stores', catchAsync(authController.getStores));
 router.post('/register', catchAsync(authController.register));
 router.post('/login', validate(schemas.login), catchAsync(authController.login));
+router.post('/forgot-password', validate(schemas.forgotPassword), catchAsync(authController.forgotPassword));
+router.post('/reset-password', validate(schemas.resetPassword), catchAsync(authController.resetPassword));
 router.post('/user/update', catchAsync(authController.updateUser));
 router.post('/user/change-password', catchAsync(authController.changePassword));
 router.post('/login-telegram', catchAsync(authController.loginTelegram));
