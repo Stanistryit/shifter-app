@@ -46,6 +46,12 @@ app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => {
     res.sendStatus(200);
 });
 
+// SPA Catch-all Route: Якщо маршрут не знайдено в API або static файлах,
+// ми просто повертаємо головний index.html (вирішує проблему з помилками 404).
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Глобальний обробник помилок (повинен бути останнім middleware)
 app.use((err, req, res, next) => {
     console.error("🔥 Global Error Handler:", err.stack);
