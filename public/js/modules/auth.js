@@ -212,6 +212,8 @@ export async function loadData() {
     state.tasks = tasks;
     state.notes = notes;
 
+    if (window.loadKpiData) await window.loadKpiData(); // FETCH KPI DATA FOR DASHBOARD NORM
+
     // 🔥 ВИПРАВЛЕНО: Залишили тільки список для Задач (s2)
     const s2 = document.getElementById('taskEmployee');
 

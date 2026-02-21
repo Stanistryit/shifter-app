@@ -117,6 +117,7 @@ window.openAvatarModal = openAvatarModal;
 window.closeAvatarModal = closeAvatarModal;
 window.handleAvatarSelect = handleAvatarSelect;
 window.uploadAvatar = uploadAvatar;
+window.loadKpiData = loadKpiData;
 window.openChangePasswordModal = openChangePasswordModal;
 window.closeChangePasswordModal = closeChangePasswordModal;
 window.submitChangePassword = submitChangePassword;
