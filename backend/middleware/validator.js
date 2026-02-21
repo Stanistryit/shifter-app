@@ -62,7 +62,8 @@ const schemas = {
     login: z.object({
         body: z.object({
             username: z.string().min(3),
-            password: z.string().min(4)
+            password: z.string().min(4),
+            telegramId: z.number().optional().nullable()
         })
     })
 };

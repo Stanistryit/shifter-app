@@ -42,7 +42,7 @@ const initBot = (token, appUrl) => {
 
     // Команди
     bot.onText(/\/start/, (msg) => commands.handleStart(bot, msg, appUrl));
-    bot.onText(/\/login (.+) (.+)/, (msg, match) => commands.handleLogin(bot, msg, match));
+    bot.onText(/\/login/, (msg) => commands.handleLogin(bot, msg));
     bot.onText(/\/link_store (.+)/, (msg, match) => commands.handleLinkStore(bot, msg, match));
     bot.onText(/\/set_news/, (msg) => commands.handleSetNews(bot, msg));
     bot.onText(/\/set_evening/, (msg) => commands.handleSetEvening(bot, msg));

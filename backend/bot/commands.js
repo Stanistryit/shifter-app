@@ -10,22 +10,14 @@ const handleStart = (bot, msg, appUrl) => {
         ],
         resize_keyboard: true
     };
-    const txt = `👋 <b>Привіт! Це бот Shifter.</b>\n\nТут ти можеш:\n📅 Дивитись графік роботи\n👀 Бачити, хто зараз працює\n🔔 Отримувати нагадування про зміни\n\n🔐 <b>Доступ:</b>\nЩоб користуватися кнопками, треба авторизуватися:\n<code>/login логін пароль</code>`;
+    const txt = `👋 <b>Привіт! Це бот Shifter.</b>\n\nТут ти можеш:\n📅 Дивитись графік роботи\n👀 Бачити, хто зараз працює\n🔔 Отримувати нагадування про зміни\n\n🔐 <b>Авторизація:</b>\nНатисни кнопку <b>"📅 Відкрити Графік"</b> вище та увійди в додаток. Твій акаунт буде автоматично прив'язано до Telegram.`;
     bot.sendMessage(msg.chat.id, txt, { reply_markup: mainMenu, parse_mode: 'HTML' });
 };
 
-// Авторизація
-const handleLogin = async (bot, msg, match) => {
-    try {
-        const u = await User.findOne({ username: match[1] }); 
-        if (u && (await u.comparePassword(match[2]))) { 
-            u.telegramChatId = msg.chat.id; 
-            await u.save(); 
-            bot.sendMessage(msg.chat.id, `✅ Привіт, ${u.name}! Тепер ти можеш користуватися кнопками.`); 
-        } else {
-            bot.sendMessage(msg.chat.id, "❌ Невірний логін або пароль"); 
-        }
-    } catch (e) { bot.sendMessage(msg.chat.id, "❌ Помилка сервера"); }
+// Авторизація 
+const handleLogin = async (bot, msg) => {
+    const txt = `💡 <b>Більше не потрібно вводити пароль в чаті!</b>\n\nДля авторизації просто натисни кнопку <b>"📅 Відкрити Графік"</b> в меню та увійди зі своїм логіном і паролем прямо в додатку.\n\nПісля входу твій Telegram буде автоматично прив'язано до акаунту! 🔐`;
+    bot.sendMessage(msg.chat.id, txt, { parse_mode: 'HTML' });
 };
 
 // Прив'язка магазину
@@ -34,11 +26,11 @@ const handleLinkStore = async (bot, msg, match) => {
     const chatId = msg.chat.id;
     try {
         const store = await Store.findOne({ code });
-        if (!store) return bot.sendMessage(chatId, `❌ Магазин з кодом <b>${code}</b> не знайдено.`, {parse_mode: 'HTML'});
-        
+        if (!store) return bot.sendMessage(chatId, `❌ Магазин з кодом <b>${code}</b> не знайдено.`, { parse_mode: 'HTML' });
+
         store.telegram.chatId = chatId;
         await store.save();
-        bot.sendMessage(chatId, `✅ <b>Чат прив'язано до магазину: ${store.name}</b>\n\nТепер зайдіть у відповідні гілки (Topics) і напишіть:\n/set_news — для новин\n/set_evening — для звітів`, {parse_mode: 'HTML'});
+        bot.sendMessage(chatId, `✅ <b>Чат прив'язано до магазину: ${store.name}</b>\n\nТепер зайдіть у відповідні гілки (Topics) і напишіть:\n/set_news — для новин\n/set_evening — для звітів`, { parse_mode: 'HTML' });
     } catch (e) { console.error(e); }
 };
 
@@ -81,7 +73,7 @@ const handleSetReportTime = async (bot, msg, match) => {
         const store = await Store.findById(user.storeId);
         store.telegram.reportTime = timeStr;
         await store.save();
-        bot.sendMessage(chatId, `✅ Час звіту: <b>${timeStr}</b>`, {parse_mode:'HTML'});
+        bot.sendMessage(chatId, `✅ Час звіту: <b>${timeStr}</b>`, { parse_mode: 'HTML' });
     } catch (e) { bot.sendMessage(chatId, "❌ Помилка"); }
 };
 

@@ -1,4 +1,4 @@
-const { User, Store, Shift, Task } = require('../models'); 
+const { User, Store, Shift, Task } = require('../models');
 const { logAction } = require('../utils');
 const { getBot } = require('../bot');
 const bcrypt = require('bcryptjs');
@@ -76,7 +76,7 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
     try {
-        const { username, password } = req.body;
+        const { username, password, telegramId } = req.body;
         const user = await User.findOne({ username });
 
         if (user && (await user.comparePassword(password))) {
@@ -84,6 +84,18 @@ exports.login = async (req, res) => {
                 return res.json({ success: false, message: "Акаунт заблоковано" });
             }
             req.session.userId = user._id;
+
+            // 🔥 НОВЕ: Автоматична прив'язка Telegram, якщо користувач входить з WebApp
+            if (telegramId && !user.telegramChatId) {
+                user.telegramChatId = telegramId;
+                await user.save();
+
+                const bot = getBot();
+                if (bot) {
+                    bot.sendMessage(telegramId, `✅ <b>Привіт, ${user.name}!</b>\n\nТвій акаунт успішно прив'язано до Telegram. Тепер ти отримуватимеш сюди сповіщення про задачі та графік роботи.`, { parse_mode: 'HTML' }).catch(() => { });
+                }
+            }
+
             logAction(user.name, 'login', 'Web Login');
             // Підтягуємо деталі магазину одразу при логіні, якщо треба
             res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar, status: user.status } });
@@ -117,17 +129,17 @@ exports.updateUser = async (req, res) => {
         if (position !== undefined) userToEdit.position = position;
         if (grade !== undefined) userToEdit.grade = Number(grade);
         if (role !== undefined) userToEdit.role = role;
-        
+
         // 🔥 НОВЕ: Оновлення порядку сортування
         if (sortOrder !== undefined) userToEdit.sortOrder = Number(sortOrder);
 
         if (admin.role === 'admin' && storeId !== undefined) {
             userToEdit.storeId = storeId === 'null' ? null : storeId;
         }
-        
+
         if (status !== undefined) {
             userToEdit.status = status;
-            
+
             if (status === 'blocked') {
                 const tomorrow = new Date();
                 tomorrow.setDate(tomorrow.getDate() + 1);
@@ -186,11 +198,11 @@ exports.getUsers = async (req, res) => {
     if (!req.session.userId) return res.status(403).json([]);
     const currentUser = await User.findById(req.session.userId);
     let query = {};
-    
-    if (currentUser.role !== 'admin') { 
-        query.storeId = currentUser.storeId; 
+
+    if (currentUser.role !== 'admin') {
+        query.storeId = currentUser.storeId;
     }
-    
+
     // 🔥 НОВЕ: Додав sortOrder у вибірку
     const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId sortOrder');
     res.json(users);
@@ -200,17 +212,17 @@ exports.getMe = async (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
     // 🔥 НОВЕ: populate storeId щоб отримати графік роботи магазину
     const user = await User.findById(req.session.userId).populate('storeId');
-    
+
     let userData = null;
     if (user) {
-        userData = { 
+        userData = {
             _id: user._id, // Додали ID для надійності
-            name: user.name, 
-            role: user.role, 
-            avatar: user.avatar, 
+            name: user.name,
+            role: user.role,
+            avatar: user.avatar,
             status: user.status,
             storeId: user.storeId?._id || user.storeId,
-            
+
             // Передаємо дані магазину (якщо є)
             store: user.storeId ? {
                 openTime: user.storeId.openTime,

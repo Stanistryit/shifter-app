@@ -8,11 +8,11 @@ const tg = window.Telegram.WebApp;
 export async function checkAuth() {
     try {
         const data = await fetchJson('/api/me');
-        if (data.loggedIn) { 
-            showApp(data.user); 
-            return; 
+        if (data.loggedIn) {
+            showApp(data.user);
+            return;
         }
-    } catch (e) {}
+    } catch (e) { }
 
     // Якщо це Telegram WebApp
     if (!tg.initDataUnsafe?.user?.id) {
@@ -20,7 +20,7 @@ export async function checkAuth() {
         document.getElementById('loginScreen').classList.remove('hidden');
         return;
     }
-    
+
     // Автоматичний логін через Telegram ID
     const data = await postJson('/api/login-telegram', { telegramId: tg.initDataUnsafe.user.id });
     if (data.success) {
@@ -35,7 +35,11 @@ export async function login() {
     triggerHaptic();
     const u = document.getElementById('loginUser').value;
     const p = document.getElementById('loginPass').value;
-    const data = await postJson('/api/login', { username: u, password: p });
+
+    // Передаємо telegramId, якщо ми знаходимось в середині Telegram WebApp
+    const tId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || null;
+
+    const data = await postJson('/api/login', { username: u, password: p, telegramId: tId });
     if (data.success) showApp(data.user);
     else showToast(data.message || "Помилка входу", 'error');
 }
@@ -48,21 +52,21 @@ export async function logout() {
 // Внутрішня функція ініціалізації інтерфейсу після входу
 async function showApp(user) {
     state.currentUser = user;
-    
+
     // Ховаємо логін, показуємо додаток
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('skeletonLoader').classList.add('hidden');
     const app = document.getElementById('appScreen');
     app.classList.remove('hidden');
-    
+
     // Анімація появи
     setTimeout(() => app.classList.remove('opacity-0'), 50);
 
     // Відображення імені та аватарки
     const parts = user.name.split(' ');
     document.getElementById('userNameDisplay').innerText = `Привіт, ${parts.length > 1 ? parts[1] : parts[0]}`;
-    
-    if(user.avatar) {
+
+    if (user.avatar) {
         document.getElementById('userAvatarImg').src = user.avatar;
         document.getElementById('userAvatarImg').classList.remove('hidden');
         document.getElementById('userAvatarPlaceholder').classList.add('hidden');
@@ -70,13 +74,13 @@ async function showApp(user) {
 
     // Ролі та адмінські кнопки
     if (['admin', 'SM', 'SSE', 'RRP'].includes(user.role)) {
-        if(user.role !== 'RRP') {
+        if (user.role !== 'RRP') {
             document.getElementById('toggleEditWrapper').classList.remove('hidden');
         }
-        
+
         if (['SM', 'admin'].includes(user.role)) {
             const btnRequests = document.getElementById('btnTabRequests');
-            if(btnRequests) {
+            if (btnRequests) {
                 btnRequests.classList.remove('hidden');
                 btnRequests.classList.add('flex');
             }
@@ -92,18 +96,18 @@ async function showApp(user) {
                 btnGlobal.classList.add('flex');
             }
         }
-        
+
         if (user.role === 'SM' || user.role === 'admin') {
             document.getElementById('noteTypeToggle').classList.remove('hidden');
             document.getElementById('noteTypeToggle').classList.add('flex');
         }
-        
+
         // 🔥 ВИПРАВЛЕНО: Прибрали автоматичне відкриття вкладки shifts, щоб показувало Bento-меню
     }
-    
+
     // Завантаження всіх даних
     await loadData();
-    
+
     // Перший рендер графіку
     renderAll();
 }
@@ -117,18 +121,18 @@ export async function loadData() {
     ]);
 
     state.users = users.filter(u => u.role !== 'RRP');
-    
+
     state.shifts = shifts;
     state.tasks = tasks;
     state.notes = notes;
-    
+
     // 🔥 ВИПРАВЛЕНО: Залишили тільки список для Задач (s2)
     const s2 = document.getElementById('taskEmployee');
-    
+
     if (s2) {
         const s2Val = s2.value;
         s2.innerHTML = '<option disabled selected>Кому?</option><option value="all">📢 Всім</option>';
-        
+
         state.users.forEach(x => {
             s2.innerHTML += `<option value="${x.name}">${x.name}</option>`;
         });
