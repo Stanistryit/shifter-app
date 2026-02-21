@@ -13,30 +13,30 @@ export function initTheme() {
     if (isDark) {
         document.documentElement.classList.add('dark');
         const icon = document.getElementById('themeIcon');
-        if(icon) icon.innerText = '☀️';
-        if(tg?.setHeaderColor) { tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000'); }
+        if (icon) icon.innerText = '☀️';
+        if (tg?.setHeaderColor) { tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000'); }
     } else {
         document.documentElement.classList.remove('dark');
         const icon = document.getElementById('themeIcon');
-        if(icon) icon.innerText = '🌙';
-        if(tg?.setHeaderColor) { tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7'); }
+        if (icon) icon.innerText = '🌙';
+        if (tg?.setHeaderColor) { tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7'); }
     }
 }
 
 export function toggleTheme() {
-    if(window.triggerHaptic) window.triggerHaptic();
+    if (window.triggerHaptic) window.triggerHaptic();
     const html = document.documentElement;
-    
+
     if (html.classList.contains('dark')) {
         html.classList.remove('dark');
         localStorage.setItem('theme', 'light');
         document.getElementById('themeIcon').innerText = '🌙';
-        if(tg?.setHeaderColor) { tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7'); }
+        if (tg?.setHeaderColor) { tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7'); }
     } else {
         html.classList.add('dark');
         localStorage.setItem('theme', 'dark');
         document.getElementById('themeIcon').innerText = '☀️';
-        if(tg?.setHeaderColor) { tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000'); }
+        if (tg?.setHeaderColor) { tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000'); }
     }
 }
 
@@ -53,9 +53,9 @@ export function showToast(msg, type = 'success') {
     toast.className = `toast ${type}`;
     toast.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
     container.appendChild(toast);
-    
+
     requestAnimationFrame(() => toast.classList.add('show'));
-    if(type !== 'info' && window.triggerHaptic) window.triggerHaptic();
+    if (type !== 'info' && window.triggerHaptic) window.triggerHaptic();
 
     setTimeout(() => {
         toast.classList.remove('show');
@@ -64,36 +64,28 @@ export function showToast(msg, type = 'success') {
 }
 
 export function triggerHaptic() {
-    if(tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
 export function showAdminTab(t) {
-    if(window.triggerHaptic) window.triggerHaptic();
-    
-    const tabs = ['shifts','tasks','requests','import','news','logs', 'kpi', 'global'];
-    
+    if (window.triggerHaptic) window.triggerHaptic();
+
+    // Ховаємо головне меню з красивими кнопками
+    const adminMenu = document.getElementById('adminMenu');
+    if (adminMenu) adminMenu.classList.add('hidden');
+
+    // Ховаємо всі можливі вкладки
+    const tabs = ['shifts', 'tasks', 'requests', 'import', 'news', 'logs', 'kpi', 'global'];
     tabs.forEach(x => {
         const contentId = 'adminTab' + x.charAt(0).toUpperCase() + x.slice(1);
         const content = document.getElementById(contentId);
-        if(content) content.classList.add('hidden');
-        
-        const btnId = 'btnTab' + x.charAt(0).toUpperCase() + x.slice(1);
-        const btn = document.getElementById(btnId);
-        if(btn) {
-            btn.className = "flex flex-col items-center justify-center p-3 rounded-xl transition-all active:scale-95 bg-gray-100 dark:bg-[#2C2C2E] text-gray-500 opacity-70 hover:opacity-100";
-        }
+        if (content) content.classList.add('hidden');
     });
 
+    // Показуємо вибрану вкладку
     const activeContentId = 'adminTab' + t.charAt(0).toUpperCase() + t.slice(1);
     const activeContent = document.getElementById(activeContentId);
-    if(activeContent) activeContent.classList.remove('hidden');
-    
-    const activeBtnId = 'btnTab' + t.charAt(0).toUpperCase() + t.slice(1);
-    const activeBtn = document.getElementById(activeBtnId);
-    if(activeBtn) {
-        activeBtn.classList.remove('bg-gray-100', 'dark:bg-[#2C2C2E]', 'text-gray-500', 'opacity-70');
-        activeBtn.classList.add('bg-white', 'dark:bg-[#3A3A3C]', 'shadow-md', 'text-blue-500', 'ring-2', 'ring-blue-500', 'scale-105');
-    }
+    if (activeContent) activeContent.classList.remove('hidden');
 }
 
 // --- НОВІ ФУНКЦІЇ ДЛЯ НОВИН ---
@@ -101,13 +93,13 @@ export function showAdminTab(t) {
 export function formatText(type) {
     const field = document.getElementById('newsText');
     if (!field) return;
-    
+
     const start = field.selectionStart;
     const end = field.selectionEnd;
     const text = field.value;
     const selectedText = text.substring(start, end);
     let before = '', after = '';
-    
+
     if (type === 'bold') { before = '<b>'; after = '</b>'; }
     else if (type === 'italic') { before = '<i>'; after = '</i>'; }
     else if (type === 'link') {
@@ -115,7 +107,7 @@ export function formatText(type) {
         if (!url) return;
         before = `<a href="${url}">`; after = '</a>';
     }
-    
+
     const content = selectedText || (type === 'link' ? 'посилання' : 'текст');
     field.value = text.substring(0, start) + before + content + after + text.substring(end);
     field.focus();
@@ -135,18 +127,18 @@ export function updateFileName() {
 // --- ЗАДАЧІ (MODAL) ---
 
 export function openTaskDetailsModal(task) {
-    if(window.triggerHaptic) window.triggerHaptic();
+    if (window.triggerHaptic) window.triggerHaptic();
     document.getElementById('taskModalTitle').innerText = task.title;
     document.getElementById('taskModalDate').innerText = task.date;
     document.getElementById('taskModalTime').innerText = task.isFullDay ? 'Весь день' : `${task.start} - ${task.end}`;
     document.getElementById('taskModalUser').innerText = task.name;
-    
+
     const descWrapper = document.getElementById('taskModalDescriptionWrapper');
     const descText = document.getElementById('taskModalDescription');
 
     if (task.description && task.description.trim() !== "") {
         const linkedText = task.description.replace(
-            /(https?:\/\/[^\s]+)/g, 
+            /(https?:\/\/[^\s]+)/g,
             '<a href="$1" target="_blank" class="text-blue-500 underline break-all">$1</a>'
         );
         descText.innerHTML = linkedText;
@@ -159,7 +151,7 @@ export function openTaskDetailsModal(task) {
     const btn = document.getElementById('btnDeleteTask');
     btn.onclick = () => {
         closeTaskDetailsModal();
-        if(window.deleteTask) window.deleteTask(task._id);
+        if (window.deleteTask) window.deleteTask(task._id);
     };
 
     document.getElementById('taskDetailsModal').classList.remove('hidden');
@@ -173,25 +165,25 @@ export function closeTaskDetailsModal() {
 export let activeContext = { id: null, type: null, data: null };
 
 export function showContextMenu(e, type, id, data = null) {
-    e.preventDefault(); 
-    if(window.triggerHaptic) window.triggerHaptic();
-    
+    e.preventDefault();
+    if (window.triggerHaptic) window.triggerHaptic();
+
     activeContext = { id, type, data };
-    
+
     const menu = document.getElementById('contextMenu');
-    const menuWidth = 192; 
-    const menuHeight = 120; 
-    
+    const menuWidth = 192;
+    const menuHeight = 120;
+
     let x = e.clientX;
     let y = e.clientY;
-    
+
     if (x + menuWidth > window.innerWidth) x -= menuWidth;
     if (y + menuHeight > window.innerHeight) y -= menuHeight;
-    
+
     menu.style.left = `${x}px`;
     menu.style.top = `${y}px`;
     menu.classList.remove('hidden');
-    
+
     const closeMenu = () => {
         menu.classList.add('hidden');
         document.removeEventListener('click', closeMenu);
