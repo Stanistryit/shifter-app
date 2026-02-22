@@ -11,6 +11,23 @@ const initScheduler = async (tgConfig) => {
 
     agenda = new Agenda({ db: { address: process.env.MONGO_URI, collection: 'agendaJobs' } });
 
+    // --- LOGGING LIFECYCLE FOR AGENDA ---
+    agenda.on('ready', () => console.log('✅ Agenda successfully connected to MongoDB!'));
+    agenda.on('error', (err) => console.error('❌ Agenda connection error:', err));
+
+    agenda.on('start', (job) => {
+        console.log(`▶️ Job starting: ${job.attrs.name}`);
+    });
+
+    agenda.on('complete', (job) => {
+        console.log(`✅ Job finished: ${job.attrs.name}`);
+    });
+
+    agenda.on('fail', (err, job) => {
+        console.error(`❌ Job failed: ${job.attrs.name}. Error: ${err.message}`);
+    });
+    // ------------------------------------
+
     // 1. ХВИЛИННИЙ JOB (Тиха година + 🔥 ВЕЧІРНІ ЗВІТИ)
     agenda.define('minute-jobs', async (job) => {
         const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
