@@ -23,6 +23,16 @@ export function toggleTaskTimeInputs() {
     document.getElementById('taskTimeInputs').className = c ? 'hidden' : 'flex gap-3';
 }
 
+export function openAddTaskModal() {
+    triggerHaptic();
+    document.getElementById('addTaskModal').classList.remove('hidden');
+}
+
+export function closeAddTaskModal() {
+    triggerHaptic();
+    document.getElementById('addTaskModal').classList.add('hidden');
+}
+
 export async function addTask() {
     const title = document.getElementById('taskTitle').value;
     const date = document.getElementById('taskDate').value;
@@ -40,6 +50,8 @@ export async function addTask() {
 
     document.getElementById('taskTitle').value = '';
     document.getElementById('taskDescription').value = '';
+
+    closeAddTaskModal();
 
     state.tasks = await fetchJson('/api/tasks');
     renderAll();
@@ -79,6 +91,16 @@ export async function toggleTaskExecution(id) {
 
 // --- NEWS ---
 
+export function openAddNewsModal() {
+    triggerHaptic();
+    document.getElementById('addNewsModal').classList.remove('hidden');
+}
+
+export function closeAddNewsModal() {
+    triggerHaptic();
+    document.getElementById('addNewsModal').classList.add('hidden');
+}
+
 export async function publishNews() {
     const text = document.getElementById('newsText').value;
     const files = document.getElementById('newsFile').files;
@@ -106,6 +128,7 @@ export async function publishNews() {
             document.getElementById('newsFile').value = '';
             document.getElementById('newsRequestRead').checked = true;
             updateFileName();
+            closeAddNewsModal();
         } else showToast("Помилка публікації", 'error');
     } catch (e) {
         showToast("Помилка мережі", 'error');
@@ -116,6 +139,16 @@ export async function publishNews() {
 }
 
 // --- GLOBAL ADMIN (STORES & SALARY) ---
+
+export function openAddStoreModal() {
+    triggerHaptic();
+    document.getElementById('addStoreModal').classList.remove('hidden');
+}
+
+export function closeAddStoreModal() {
+    triggerHaptic();
+    document.getElementById('addStoreModal').classList.add('hidden');
+}
 
 export async function createStore() {
     const name = document.getElementById('newStoreName').value.trim();
@@ -129,6 +162,7 @@ export async function createStore() {
         showToast("Магазин створено ✅");
         document.getElementById('newStoreName').value = '';
         document.getElementById('newStoreCode').value = '';
+        closeAddStoreModal();
         loadStores();
     } else {
         showToast(res.message || "Помилка", 'error');

@@ -462,19 +462,13 @@
                         </div>
                     </div>
 
-                    <div class="bg-white dark:bg-[#2C2C2E] p-3 rounded-xl border border-gray-100 dark:border-gray-700">
-                        <h3 class="text-xs font-bold mb-2 uppercase text-gray-500">Додати магазин</h3>
-                        <div class="space-y-2">
-                            <input type="text" id="newStoreName" placeholder="Назва (напр. IQOS Space Lviv)"
-                                class="ios-input">
-                            <input type="text" id="newStoreCode" placeholder="Код (напр. iqos_lviv)" class="ios-input">
-                            <select id="newStoreType" class="ios-input bg-transparent">
-                                <option value="top">ТОП</option>
-                                <option value="kiev">Київ</option>
-                                <option value="expansion">Експансія</option>
-                            </select>
-                            <button onclick="createStore()" class="btn-primary bg-blue-600">Створити</button>
-                        </div>
+                    <div
+                        class="bg-white dark:bg-[#2C2C2E] p-4 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center text-center">
+                        <span class="text-3xl mb-2 opacity-50">🏪</span>
+                        <p class="text-gray-500 font-medium text-xs mb-3">Створити нову точку на карті мережі.</p>
+                        <button onclick="window.openAddStoreModal()"
+                            class="btn-primary bg-blue-600 shadow-blue-600/30 w-auto px-6 py-2 text-xs">Додати
+                            магазин</button>
                     </div>
                     <div class="bg-white dark:bg-[#2C2C2E] p-3 rounded-xl border border-gray-100 dark:border-gray-700">
                         <h3 class="text-xs font-bold mb-2 uppercase text-gray-500">Список магазинів</h3>
@@ -838,6 +832,31 @@
                 </label>
                 <button onclick="publishNews()"
                     class="btn-primary bg-pink-500 mt-2 shadow-pink-500/30">Опублікувати</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка створення магазину -->
+    <div id="addStoreModal"
+        class="hidden fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="absolute inset-0" onclick="window.closeAddStoreModal()"></div>
+        <div class="ios-card w-full max-w-sm p-6 relative z-10 animate-slide-up">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-xl">🏪 Додати магазин</h3>
+                <button onclick="window.closeAddStoreModal()"
+                    class="text-gray-400 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="space-y-3">
+                <input type="text" id="newStoreName" placeholder="Назва (напр. Space Lviv)" class="ios-input">
+                <input type="text" id="newStoreCode" placeholder="Код (напр. iqos_lviv)" class="ios-input">
+                <select id="newStoreType" class="ios-input bg-transparent">
+                    <option value="top">ТОП</option>
+                    <option value="kiev">Київ</option>
+                    <option value="expansion">Експансія</option>
+                    <option value="standard">Стандарт</option>
+                </select>
+                <button onclick="createStore()"
+                    class="btn-primary bg-blue-600 shadow-blue-600/30 mt-2">Створити</button>
             </div>
         </div>
     </div>

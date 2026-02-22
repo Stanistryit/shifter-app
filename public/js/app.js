@@ -12,7 +12,10 @@ import {
     addTask, deleteTask, toggleTaskTimeInputs, publishNews,
     createStore, loadStores, deleteStore,
     renderSalaryMatrix, saveSalaryMatrixBtn, // 🔥 Імпортували нові функції
-    toggleTaskExecution
+    toggleTaskExecution,
+    openAddTaskModal, closeAddTaskModal,
+    openAddNewsModal, closeAddNewsModal,
+    openAddStoreModal, closeAddStoreModal
 } from './modules/admin.js';
 import { loadRequests, handleRequest, approveAllRequests } from './modules/requests.js';
 import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
@@ -97,13 +100,19 @@ window.addTask = addTask;
 window.deleteTask = deleteTask;
 window.toggleTaskTimeInputs = toggleTaskTimeInputs;
 window.toggleTaskExecution = toggleTaskExecution;
+window.openAddTaskModal = openAddTaskModal;
+window.closeAddTaskModal = closeAddTaskModal;
 
 window.publishNews = publishNews;
+window.openAddNewsModal = openAddNewsModal;
+window.closeAddNewsModal = closeAddNewsModal;
 window.loadLogs = loadLogs;
 
 window.createStore = createStore;
 window.loadStores = loadStores;
 window.deleteStore = deleteStore;
+window.openAddStoreModal = openAddStoreModal;
+window.closeAddStoreModal = closeAddStoreModal;
 
 // 🔥 Робимо доступними для HTML
 window.renderSalaryMatrix = renderSalaryMatrix;
