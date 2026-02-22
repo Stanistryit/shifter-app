@@ -6,6 +6,7 @@ export function renderCalendar() {
     const t = document.getElementById('calendarTitle');
 
     if (!g || !t) return;
+    if (!state.currentUser) return;
 
     g.innerHTML = '';
     const y = state.currentDate.getFullYear();
@@ -57,6 +58,7 @@ export function renderKpi() {
     const updateDate = document.getElementById('kpiUpdateDate');
 
     if (!listDiv || !totalDiv) return;
+    if (!state.currentUser) return;
 
     listDiv.innerHTML = '';
     totalDiv.innerHTML = '';

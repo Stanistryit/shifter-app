@@ -33,6 +33,8 @@ export function renderTable() {
     const tableDiv = document.getElementById('gridViewTable');
     if (!tableDiv) return;
 
+    if (!state.currentUser) return;
+
     tableDiv.innerHTML = '';
 
     const tTitle = document.getElementById('gridTitle');
