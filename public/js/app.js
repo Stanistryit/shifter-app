@@ -21,7 +21,7 @@ import { loadRequests, handleRequest, approveAllRequests } from './modules/reque
 import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
 import {
     openFilterModal, closeFilterModal, applyFilter,
-    openAvatarModal, uploadAvatar, handleAvatarSelect, loadKpiData, openChangePasswordModal, closeChangePasswordModal, submitChangePassword,
+    openAvatarModal, closeAvatarModal, uploadAvatar, handleAvatarSelect, openChangePasswordModal, closeChangePasswordModal, submitChangePassword,
     openTransferModal, updateStoreDisplay,
     openStoreSettingsModal, saveStoreSettings, loadLogs
 } from './modules/settings.js';
