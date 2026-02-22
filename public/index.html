@@ -703,29 +703,34 @@
         <!-- Bottom Tab Bar Navigation -->
         <nav id="bottomTabBar"
             class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm z-40 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border border-white/50 dark:border-gray-800/50 rounded-[2rem] shadow-2xl pb-1 pt-1 px-3 transition-transform duration-300">
-            <div class="flex justify-around items-center h-14 bg-transparent max-w-md mx-auto">
+            <div class="flex justify-around items-center h-14 bg-transparent max-w-md mx-auto relative">
+                <!-- Анімований індикатор -->
+                <div id="tabActiveIndicator"
+                    class="absolute top-1 bottom-1 bg-blue-50 dark:bg-blue-900/30 rounded-2xl transition-all duration-300 ease-out z-0">
+                </div>
+
                 <button onclick="setMode('list')" id="tabModeList"
-                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform">
+                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform relative z-10">
                     <span class="text-xl leading-none">📋</span>
                     <span class="text-[10px] font-medium leading-none">Головна</span>
                 </button>
                 <button onclick="setMode('calendar')" id="tabModeCalendar"
-                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform">
+                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform relative z-10">
                     <span class="text-xl leading-none opacity-50 transition-opacity drop-shadow-sm">📅</span>
                     <span class="text-[10px] font-medium leading-none text-gray-500 transition-colors">Календар</span>
                 </button>
                 <button onclick="setMode('grid')" id="tabModeGrid"
-                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform">
+                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform relative z-10">
                     <span class="text-xl leading-none opacity-50 transition-opacity drop-shadow-sm">📊</span>
                     <span class="text-[10px] font-medium leading-none text-gray-500 transition-colors">Таблиця</span>
                 </button>
                 <button onclick="setMode('kpi')" id="tabModeKpi"
-                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform">
+                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform relative z-10">
                     <span class="text-xl leading-none opacity-50 transition-opacity drop-shadow-sm">🏆</span>
                     <span class="text-[10px] font-medium leading-none text-gray-500 transition-colors">KPI</span>
                 </button>
                 <button onclick="setMode('profile')" id="tabModeProfile"
-                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform">
+                    class="w-16 h-full flex flex-col items-center justify-center gap-1 active:scale-90 transition-transform relative z-10">
                     <span class="text-xl leading-none opacity-50 transition-opacity drop-shadow-sm">⚙️</span>
                     <span class="text-[10px] font-medium leading-none text-gray-500 transition-colors">Профіль</span>
                 </button>

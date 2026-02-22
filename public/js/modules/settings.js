@@ -291,9 +291,24 @@ export function uploadAvatar() {
 
         postJson('/api/user/avatar', { avatar: dataUrl }).then(data => {
             if (data.success) {
-                document.getElementById('userAvatarImg').src = dataUrl;
-                document.getElementById('userAvatarImg').classList.remove('hidden');
-                document.getElementById('userAvatarPlaceholder').classList.add('hidden');
+                // Update top-right small avatar (if it still exists somewhere)
+                const smallImg = document.getElementById('userAvatarImg');
+                if (smallImg) {
+                    smallImg.src = dataUrl;
+                    smallImg.classList.remove('hidden');
+                }
+                const smallPh = document.getElementById('userAvatarPlaceholder');
+                if (smallPh) smallPh.classList.add('hidden');
+
+                // Update main Profile view avatar
+                const pfImg = document.getElementById('profileAvatarImg');
+                if (pfImg) {
+                    pfImg.src = dataUrl;
+                    pfImg.classList.remove('hidden');
+                }
+                const pfPlaceholder = document.getElementById('profileAvatarPlaceholder');
+                if (pfPlaceholder) pfPlaceholder.classList.add('hidden');
+
                 closeAvatarModal();
                 showToast("Аватар оновлено");
             } else {

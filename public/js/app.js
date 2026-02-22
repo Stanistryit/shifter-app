@@ -363,6 +363,13 @@ async function setMode(m) {
             tab.el.classList.remove('text-gray-400');
             if (iconSpan) iconSpan.classList.remove('opacity-50');
             if (textSpan) { textSpan.classList.remove('text-gray-500'); textSpan.classList.add('text-blue-500'); }
+
+            // Рухаємо індикатор
+            const indicator = document.getElementById('tabActiveIndicator');
+            if (indicator && tab.el) {
+                indicator.style.left = `${tab.el.offsetLeft}px`;
+                indicator.style.width = `${tab.el.offsetWidth}px`;
+            }
         } else {
             tab.el.classList.remove('text-blue-500');
             tab.el.classList.add('text-gray-400');
@@ -397,8 +404,8 @@ async function setMode(m) {
 
         const pfImg = document.getElementById('profileAvatarImg');
         const pfPlaceholder = document.getElementById('profileAvatarPlaceholder');
-        if (state.currentUser && state.currentUser.avatarId && pfImg) {
-            pfImg.src = `/api/avatar/${state.currentUser.avatarId}?t=${new Date().getTime()}`;
+        if (state.currentUser && state.currentUser.avatar && pfImg) {
+            pfImg.src = `/api/avatar/${state.currentUser.avatar}?t=${new Date().getTime()}`;
             pfImg.classList.remove('hidden');
             if (pfPlaceholder) pfPlaceholder.classList.add('hidden');
         } else {
@@ -606,3 +613,15 @@ setInterval(initGlobalAdminFilter, 1500);
 setInterval(checkEditorButtonVisibility, 1000);
 
 setTimeout(updateDashboard, 1500);
+
+// Оновлення позиції індикатора табів при зміні розміру вікна
+window.addEventListener('resize', () => {
+    const m = localStorage.getItem('shifter_viewMode') || 'list';
+    const tabId = m === 'kpi' ? 'tabModeKpi' : `tabMode${m.charAt(0).toUpperCase() + m.slice(1)}`;
+    const tabEl = document.getElementById(tabId);
+    const indicator = document.getElementById('tabActiveIndicator');
+    if (indicator && tabEl) {
+        indicator.style.left = `${tabEl.offsetLeft}px`;
+        indicator.style.width = `${tabEl.offsetWidth}px`;
+    }
+});
