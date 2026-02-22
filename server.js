@@ -72,8 +72,8 @@ mongoose.connect(process.env.MONGO_URI)
         // 1. Запускаємо Бота (з Webhook та обробкою команд)
         initBot(process.env.TELEGRAM_TOKEN, 'https://shifter-app.onrender.com', TG_CONFIG);
 
-        // ⚠️ Планувальник (Cron/Agenda) ТУТ НЕ ЗАПУСКАЄТЬСЯ.
-        // Він винесений в окремий процес worker.js для масштабування!
+        // 2. Запускаємо планувальник Agenda (в одному процесі для безкоштовного тарифу Render)
+        initScheduler(TG_CONFIG).catch(err => console.error("Agenda Initialization Error:", err));
     })
     .catch(console.error);
 
