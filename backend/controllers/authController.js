@@ -79,29 +79,35 @@ exports.login = async (req, res) => {
         const { username, password, telegramId } = req.body;
         const user = await User.findOne({ username });
 
-        if (user && (await user.comparePassword(password))) {
-            if (user.status === 'blocked') {
-                return res.json({ success: false, message: "Акаунт заблоковано" });
-            }
-            req.session.userId = user._id;
-
-            // 🔥 НОВЕ: Автоматична прив'язка Telegram, якщо користувач входить з WebApp
-            if (telegramId && !user.telegramChatId) {
-                user.telegramChatId = telegramId;
-                await user.save();
-
-                const bot = getBot();
-                if (bot) {
-                    bot.sendMessage(telegramId, `✅ <b>Привіт, ${user.name}!</b>\n\nТвій акаунт успішно прив'язано до Telegram. Тепер ти отримуватимеш сюди сповіщення про задачі та графік роботи.`, { parse_mode: 'HTML' }).catch(() => { });
-                }
-            }
-
-            logAction(user.name, 'login', 'Web Login');
-            // Підтягуємо деталі магазину одразу при логіні, якщо треба
-            res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar, status: user.status } });
-        } else {
-            res.json({ success: false, message: "Невірний логін або пароль" });
+        if (!user) {
+            return res.json({ success: false, message: "Користувача не знайдено" });
         }
+
+        const isMatch = await user.comparePassword(password);
+        if (!isMatch) {
+            return res.json({ success: false, message: "Невірний пароль" });
+        }
+
+        if (user.status === 'blocked') {
+            return res.json({ success: false, message: "Акаунт заблоковано" });
+        }
+
+        req.session.userId = user._id;
+
+        // 🔥 НОВЕ: Автоматична прив'язка Telegram, якщо користувач входить з WebApp
+        if (telegramId && !user.telegramChatId) {
+            user.telegramChatId = telegramId;
+            await user.save();
+
+            const bot = getBot();
+            if (bot) {
+                bot.sendMessage(telegramId, `✅ <b>Привіт, ${user.name}!</b>\n\nТвій акаунт успішно прив'язано до Telegram. Тепер ти отримуватимеш сюди сповіщення про задачі та графік роботи.`, { parse_mode: 'HTML' }).catch(() => { });
+            }
+        }
+
+        logAction(user.name, 'login', 'Web Login');
+        // Підтягуємо деталі магазину одразу при логіні, якщо треба
+        return res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar, status: user.status } });
     } catch (e) {
         res.status(500).json({ success: false });
     }

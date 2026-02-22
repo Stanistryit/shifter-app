@@ -11,10 +11,11 @@ const validate = (schema) => (req, res, next) => {
         next();
     } catch (err) {
         if (err instanceof z.ZodError) {
+            const msgs = err.errors.map(e => e.message).join(', ');
             return res.status(400).json({
                 success: false,
-                message: "Validation Error",
-                errors: err.errors.map(e => ({ path: e.path.join('.'), message: e.message }))
+                message: msgs || "Помилка валідації",
+                errors: err.errors
             });
         }
         next(err);
@@ -61,8 +62,8 @@ const schemas = {
     // 4. Логін
     login: z.object({
         body: z.object({
-            username: z.string().min(1),
-            password: z.string().min(1),
+            username: z.string().min(1, "Введіть логін"),
+            password: z.string().min(1, "Введіть пароль"),
             telegramId: z.any().optional().nullable()
         })
     }),
