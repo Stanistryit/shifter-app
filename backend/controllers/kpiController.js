@@ -4,11 +4,11 @@ const { notifyAll } = require('../bot');
 
 exports.getKpi = async (req, res) => {
     if (!req.session.userId) return res.status(403).json({});
-    
+
     const u = await User.findById(req.session.userId);
     if (!u) return res.status(403).json({});
 
-    const { month, storeId } = req.query; 
+    const { month, storeId } = req.query;
     if (!month) return res.json({ kpi: [], settings: null, hours: {} });
 
     // 🔥 ІЗОЛЯЦІЯ ДАНИХ
@@ -31,7 +31,7 @@ exports.getKpi = async (req, res) => {
     const hoursMap = {};
 
     shifts.forEach(s => {
-        if (s.start === 'Відпустка') return;
+        if (!s.start || !s.end || !s.start.includes(':') || !s.end.includes(':')) return;
         const [h1, m1] = s.start.split(':').map(Number);
         const [h2, m2] = s.end.split(':').map(Number);
         const dur = (h2 + m2 / 60) - (h1 + m1 / 60);
@@ -39,22 +39,22 @@ exports.getKpi = async (req, res) => {
     });
 
     for (const name in hoursMap) hoursMap[name] = parseFloat(hoursMap[name].toFixed(1));
-    
+
     res.json({ kpi: kpiData, settings: settings || { normHours: 0 }, hours: hoursMap });
 };
 
 exports.saveSettings = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ message: "Тільки SM" });
-    
+
     const { month, normHours } = req.body;
     const updateData = { month, normHours: Number(normHours), storeId: u.storeId };
-    
+
     try {
         // 🔥 Зберігаємо налаштування
         await MonthSettings.findOneAndUpdate(
-            { month, storeId: u.storeId }, 
-            updateData, 
+            { month, storeId: u.storeId },
+            updateData,
             { upsert: true }
         );
     } catch (e) {
@@ -65,8 +65,8 @@ exports.saveSettings = async (req, res) => {
                 await MonthSettings.collection.dropIndex('month_1');
                 // Пробуємо ще раз після видалення
                 await MonthSettings.findOneAndUpdate(
-                    { month, storeId: u.storeId }, 
-                    updateData, 
+                    { month, storeId: u.storeId },
+                    updateData,
                     { upsert: true }
                 );
             } catch (retryError) {
@@ -78,7 +78,7 @@ exports.saveSettings = async (req, res) => {
             return res.status(500).json({ success: false, message: e.message });
         }
     }
-    
+
     logAction(u.name, 'update_kpi_settings', `${month}: ${normHours}h`);
     res.json({ success: true });
 };
@@ -86,15 +86,15 @@ exports.saveSettings = async (req, res) => {
 exports.importKpi = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ message: "Тільки SM" });
-    
+
     const { text, month } = req.body;
     if (!text || !month) return res.json({ success: false, message: "Немає даних" });
 
     const lines = text.trim().split('\n');
-    
+
     // Шукаємо співробітників ТІЛЬКИ цього магазину
     const users = await User.find({ storeId: u.storeId });
-    
+
     let importedCount = 0;
 
     for (const line of lines) {
@@ -122,10 +122,10 @@ exports.importKpi = async (req, res) => {
                 devicePercent: parseNum(parts[7]), upt: parseNum(parts[9]), uptTarget: parseNum(parts[10]),
                 uptPercent: parseNum(parts[11]), nps: parseNum(parts[12]), nba: parseNum(parts[13])
             };
-            
+
             await KPI.findOneAndUpdate(
-                { month, name: kpiName, storeId: u.storeId }, 
-                { month, name: kpiName, stats, updatedAt: new Date(), storeId: u.storeId }, 
+                { month, name: kpiName, storeId: u.storeId },
+                { month, name: kpiName, stats, updatedAt: new Date(), storeId: u.storeId },
                 { upsert: true, new: true }
             );
             importedCount++;
@@ -134,6 +134,6 @@ exports.importKpi = async (req, res) => {
 
     logAction(u.name, 'import_kpi', `${month}: ${importedCount} records`);
     if (importedCount > 0) notifyAll(`📊 <b>KPI оновлено!</b>\n\nОпубліковано дані за: <b>${month}</b> 🏆`);
-    
+
     res.json({ success: true, count: importedCount });
 };
