@@ -546,14 +546,14 @@
 
             <div id="profileViewContainer" class="hidden ios-card p-6 animate-slide-up text-center mb-10">
                 <div class="relative inline-block mx-auto mb-4">
-                    <div class="w-24 h-24 bg-gray-100 dark:bg-[#2C2C2E] rounded-full overflow-hidden flex items-center justify-center text-4xl border border-gray-200 dark:border-gray-700 shadow-xl cursor-pointer"
-                        onclick="triggerHaptic(); openAvatarModal()">
+                    <div
+                        class="w-24 h-24 bg-gray-100 dark:bg-[#2C2C2E] rounded-full overflow-hidden flex items-center justify-center text-4xl border border-gray-200 dark:border-gray-700 shadow-xl">
                         <img id="profileAvatarImg" src="" class="hidden w-full h-full object-cover">
                         <span id="profileAvatarPlaceholder">👤</span>
                     </div>
-                    <div class="absolute bottom-0 right-0 bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg border-2 border-white dark:border-[#1C1C1E] cursor-pointer"
-                        pointer-events="none">
-                        <span class="text-sm">✏️</span>
+                    <div class="absolute bottom-0 right-0 bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg border-2 border-white dark:border-[#1C1C1E] cursor-pointer active:scale-90 transition-transform"
+                        onclick="triggerHaptic(); openAvatarModal()">
+                        <span class="text-sm pointer-events-none">✏️</span>
                     </div>
                 </div>
                 <h2 id="profileNameDisplay" class="font-bold text-2xl mb-1 mt-2">...</h2>

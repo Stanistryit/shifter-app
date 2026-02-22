@@ -405,7 +405,7 @@ async function setMode(m) {
         const pfImg = document.getElementById('profileAvatarImg');
         const pfPlaceholder = document.getElementById('profileAvatarPlaceholder');
         if (state.currentUser && state.currentUser.avatar && pfImg) {
-            pfImg.src = `/api/avatar/${state.currentUser.avatar}?t=${new Date().getTime()}`;
+            pfImg.src = state.currentUser.avatar;
             pfImg.classList.remove('hidden');
             if (pfPlaceholder) pfPlaceholder.classList.add('hidden');
         } else {
