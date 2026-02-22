@@ -143,6 +143,7 @@ window.saveNote = saveNote;
 window.deleteNote = deleteNote;
 
 window.openTransferModal = openTransferModal;
+window.openStoreSettingsModal = openStoreSettingsModal;
 
 window.openTaskProxy = (id) => {
     const task = state.tasks.find(t => t._id === id);
@@ -403,6 +404,32 @@ async function setMode(m) {
         } else {
             if (pfImg) pfImg.classList.add('hidden');
             if (pfPlaceholder) pfPlaceholder.classList.remove('hidden');
+        }
+
+        const btnChangeStore = document.getElementById('profileBtnChangeStore');
+        const btnStoreSettings = document.getElementById('profileBtnStoreSettings');
+        if (state.currentUser && state.currentUser.role !== 'Guest') {
+            if (btnChangeStore) {
+                btnChangeStore.classList.remove('hidden');
+                btnChangeStore.classList.add('flex');
+            }
+        } else {
+            if (btnChangeStore) {
+                btnChangeStore.classList.add('hidden');
+                btnChangeStore.classList.remove('flex');
+            }
+        }
+
+        if (state.currentUser && (state.currentUser.role === 'SM' || state.currentUser.role === 'admin')) {
+            if (btnStoreSettings) {
+                btnStoreSettings.classList.remove('hidden');
+                btnStoreSettings.classList.add('flex');
+            }
+        } else {
+            if (btnStoreSettings) {
+                btnStoreSettings.classList.add('hidden');
+                btnStoreSettings.classList.remove('flex');
+            }
         }
     }
 

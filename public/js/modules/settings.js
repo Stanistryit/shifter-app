@@ -59,14 +59,14 @@ export async function saveStoreSettings() {
         const res = await postJson('/api/admin/store/settings', { reportTime, openTime, closeTime });
         if (res.success) {
             showToast("Налаштування збережено! ✅");
-            
+
             // Оновлюємо локальний стейт, щоб графік перемалювався одразу
             if (state.currentUser.store) {
                 state.currentUser.store.reportTime = reportTime;
                 state.currentUser.store.openTime = openTime;
                 state.currentUser.store.closeTime = closeTime;
             }
-            
+
             document.getElementById('storeSettingsModal').remove();
             renderAll(); // Перемальовуємо графік з новими межами
         } else {
@@ -87,10 +87,10 @@ export async function updateStoreDisplay() {
 
     try {
         const stores = await fetchJson('/api/stores');
-        
+
         // 🔥 FIX: Додана перевірка, чи прийшов масив
         if (!Array.isArray(stores)) {
-            return; 
+            return;
         }
 
         const myStore = stores.find(s => s._id === me.storeId || s.code === me.storeId);
@@ -154,7 +154,7 @@ export async function openTransferModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-window.submitTransferRequest = async function() {
+window.submitTransferRequest = async function () {
     const select = document.getElementById('transferStoreSelect');
     const targetStoreCode = select.value;
 
@@ -167,7 +167,7 @@ window.submitTransferRequest = async function() {
 
     try {
         const res = await postJson('/api/user/transfer/request', { targetStoreCode });
-        
+
         if (res.success) {
             showToast(res.message || "Запит надіслано! ✅");
             document.getElementById('transferModal').remove();
@@ -197,7 +197,7 @@ export function closeFilterModal() {
 
 export function renderFilterList() {
     const list = document.getElementById('filterList');
-    
+
     // 🔥 ОНОВЛЕНО: Фільтруємо список користувачів, якщо обрано магазин (для Global Admin)
     let usersToShow = state.users;
     if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
@@ -238,27 +238,6 @@ export function openAvatarModal() {
     triggerHaptic();
     const modal = document.getElementById('avatarModal');
     modal.classList.remove('hidden');
-
-    const container = modal.querySelector('.glass-modal');
-    if (!document.getElementById('btnOpenTransfer') && state.currentUser.role !== 'Guest') {
-        const btn = document.createElement('button');
-        btn.id = 'btnOpenTransfer';
-        btn.className = "w-full py-2 text-blue-500 font-medium text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors border-t border-gray-100 dark:border-gray-800 mt-2 flex items-center justify-center gap-2";
-        btn.innerHTML = "🔄 Змінити Магазин";
-        btn.onclick = openTransferModal;
-        const lastDiv = container.lastElementChild; 
-        container.insertBefore(btn, lastDiv);
-    }
-    
-    if (!document.getElementById('btnStoreSettings') && (state.currentUser.role === 'SM' || state.currentUser.role === 'admin')) {
-        const btn = document.createElement('button');
-        btn.id = 'btnStoreSettings';
-        btn.className = "w-full py-2 text-gray-500 font-medium text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center gap-2";
-        btn.innerHTML = "⚙️ Налаштування Магазину";
-        btn.onclick = () => { closeAvatarModal(); openStoreSettingsModal(); };
-        const lastDiv = container.lastElementChild; 
-        container.insertBefore(btn, lastDiv);
-    }
 }
 
 export function closeAvatarModal() {
@@ -268,7 +247,7 @@ export function closeAvatarModal() {
 export function handleAvatarSelect(input) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             const img = document.getElementById('avatarPreview');
             img.src = e.target.result;
             img.classList.remove('hidden');
@@ -284,18 +263,18 @@ export function uploadAvatar() {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const size = 200;
-    
+
     canvas.width = size;
     canvas.height = size;
-    
+
     const img = new Image();
-    img.onload = function() {
+    img.onload = function () {
         const minSide = Math.min(img.width, img.height);
         const sx = (img.width - minSide) / 2;
         const sy = (img.height - minSide) / 2;
         ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        
+
         postJson('/api/user/avatar', { avatar: dataUrl }).then(data => {
             if (data.success) {
                 document.getElementById('userAvatarImg').src = dataUrl;
@@ -335,7 +314,7 @@ export async function submitChangePassword() {
     if (newP.length < 3) return showToast("Пароль закороткий", 'error');
 
     const d = await postJson('/api/user/change-password', { oldPassword: oldP, newPassword: newP });
-    
+
     if (d.success) {
         showToast("Пароль змінено! ✅");
         closeChangePasswordModal();
@@ -350,7 +329,7 @@ export async function loadLogs() {
     const logs = await fetchJson('/api/logs');
     const c = document.getElementById('logsList');
     c.innerHTML = '';
-    
+
     logs.forEach(l => {
         const date = new Date(l.timestamp).toLocaleString('uk-UA');
         c.innerHTML += `
