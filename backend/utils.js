@@ -22,13 +22,37 @@ async function syncWithGoogleSheets(googleSheetUrl, storeId) {
     try {
         const response = await axios.get(googleSheetUrl);
         const rows = response.data.split('\n').map(row => row.trim()).filter(row => row.length > 0);
+        const headers = rows[0].split(',').map(h => h.trim());
+        const dateColumns = [];
+
+        for (let i = 1; i < headers.length; i++) {
+            if (headers[i].match(/^\d{4}-\d{2}-\d{2}$/)) {
+                dateColumns.push({ index: i, date: headers[i] });
+            }
+        }
+
         const shiftsToImport = [];
-        for (let i = 1; i < rows.length; i++) {
-            const cols = rows[i].split(',');
-            if (cols.length < 4) continue;
-            const [date, name, start, end] = cols.map(c => c.trim());
-            if (date.match(/^\d{4}-\d{2}-\d{2}$/) && name && start && end) {
-                shiftsToImport.push({ date, name, start, end, storeId }); // Add storeId to imported shift
+
+        for (let r = 1; r < rows.length; r++) {
+            const cols = rows[r].split(',').map(c => c.trim());
+            const name = cols[0];
+            if (!name) continue;
+
+            for (const dc of dateColumns) {
+                let cellValue = cols[dc.index];
+                if (!cellValue || cellValue === '-' || cellValue === '') continue;
+
+                let start = '', end = '';
+                if (cellValue.includes('-')) {
+                    const parts = cellValue.split('-');
+                    start = parts[0].trim();
+                    end = parts[1].trim();
+                } else {
+                    start = cellValue;
+                    end = '';
+                }
+
+                shiftsToImport.push({ date: dc.date, name, start, end, storeId });
             }
         }
         if (shiftsToImport.length > 0) {
