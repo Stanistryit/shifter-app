@@ -40,6 +40,7 @@ router.post('/admin/stores/delete', catchAsync(adminController.deleteStore));
 
 // Збереження налаштувань магазину (час звіту)
 router.post('/admin/store/settings', catchAsync(adminController.updateStoreSettings));
+router.get('/admin/store/export', checkRole, adminController.exportSchedule);
 
 // SALARY MATRIX (Global Admin)
 router.get('/admin/salary-matrix', catchAsync(adminController.getSalaryMatrix));

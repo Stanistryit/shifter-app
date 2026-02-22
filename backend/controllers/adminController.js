@@ -289,3 +289,76 @@ exports.publishNews = async (req, res) => {
         res.json({ success: false, message: "Помилка відправки в Telegram" });
     }
 };
+
+// --- Експорт графіку в CSV ---
+exports.exportSchedule = async (req, res) => {
+    const u = req.user;
+    if (u.role !== 'SM' && u.role !== 'admin') {
+        return res.status(403).json({ success: false, message: "Тільки для SM" });
+    }
+
+    try {
+        const { month, year } = req.query; // example: month=05, year=2024
+        if (!month || !year) {
+            return res.status(400).json({ success: false, message: "Не вказано місяць та рік" });
+        }
+
+        const m = month.padStart(2, '0');
+        const prefix = `${year}-${m}-`; // "2024-05-"
+
+        const shifts = await Shift.find({ storeId: u.storeId, date: { $regex: `^${prefix}` } });
+
+        if (shifts.length === 0) {
+            // Порожній файл з повідомленням або 404
+            return res.status(404).json({ success: false, message: "Немає даних за цей місяць" });
+        }
+
+        // Збираємо унікальні дати (колонки) та імена (рядки)
+        const dateSet = new Set();
+        const namesSet = new Set();
+        const matrix = {}; // matrix[name][date] = "start-end" | "status"
+
+        shifts.forEach(s => {
+            dateSet.add(s.date);
+            namesSet.add(s.name);
+
+            if (!matrix[s.name]) matrix[s.name] = {};
+
+            if (s.end) {
+                matrix[s.name][s.date] = `${s.start}-${s.end}`;
+            } else {
+                matrix[s.name][s.date] = s.start;
+            }
+        });
+
+        // Сортуємо дати та імена
+        const dates = Array.from(dateSet).sort();
+        const names = Array.from(namesSet).sort();
+
+        // Формуємо CSV-рядки
+        let csvLines = [];
+
+        // Рядок 1 (Заголовки): "Ім'я / Дата", "2024-05-01", "2024-05-02"...
+        const headers = ["Ім'я / Дата", ...dates];
+        csvLines.push(headers.join(','));
+
+        // Рядки працівників
+        names.forEach(name => {
+            const row = [name];
+            dates.forEach(date => {
+                row.push(matrix[name][date] || "-");
+            });
+            csvLines.push(row.join(','));
+        });
+
+        const csvContent = "\uFEFF" + csvLines.join('\n'); // \uFEFF - BOM (щоб Excel розумів UTF-8)
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="shifter_schedule_${year}_${m}.csv"`);
+        res.send(csvContent);
+
+    } catch (e) {
+        console.error("Export Error:", e.message);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};

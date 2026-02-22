@@ -281,20 +281,28 @@ async function changeMonth(d) {
     }
 
     updateDashboard();
+}
 
-    // Відновлення вигляду кнопки закріплення годин
-    const btnPin = document.getElementById('toggleHoursPinBtn');
-    if (btnPin) {
-        if (state.isHoursPinned) {
-            btnPin.innerHTML = '<span>📌</span> Закріплено';
-            btnPin.className = 'text-[10px] text-white bg-blue-500 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 transition-transform shadow-md shadow-blue-500/30';
-        } else {
-            btnPin.innerHTML = '<span>📌</span> Закріпити години';
-            btnPin.className = 'text-[10px] text-gray-500 bg-gray-100 dark:bg-[#2C2C2E] px-2 py-1 rounded-lg font-medium flex items-center gap-1 active:scale-95 transition-transform';
-        }
+function exportCurrentMonthCsv() {
+    triggerHaptic();
+    const currentMonth = String(state.currentDate.getMonth() + 1).padStart(2, '0');
+    const currentYear = state.currentDate.getFullYear();
+    window.location.href = `/api/admin/store/export?month=${currentMonth}&year=${currentYear}`;
+}
+
+// Відновлення вигляду кнопки закріплення годин
+const btnPin = document.getElementById('toggleHoursPinBtn');
+if (btnPin) {
+    if (state.isHoursPinned) {
+        btnPin.innerHTML = '<span>📌</span> Закріплено';
+        btnPin.className = 'text-[10px] text-white bg-blue-500 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 transition-transform shadow-md shadow-blue-500/30';
+    } else {
+        btnPin.innerHTML = '<span>📌</span> Закріпити години';
+        btnPin.className = 'text-[10px] text-gray-500 bg-gray-100 dark:bg-[#2C2C2E] px-2 py-1 rounded-lg font-medium flex items-center gap-1 active:scale-95 transition-transform';
     }
+}
 
-    setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
+setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
 }
 
 async function setMode(m) {
