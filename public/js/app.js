@@ -3,7 +3,7 @@ import { fetchJson, postJson } from './modules/api.js';
 import {
     initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab as uiShowAdminTab, formatText, updateFileName,
     openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext,
-    updateFabIcon
+    updateFabIcon, toggleHoursPin
 } from './modules/ui.js';
 import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } from './modules/render.js';
 import { checkAuth, login, logout, requestPasswordReset, submitNewPassword } from './modules/auth.js';
