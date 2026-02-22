@@ -144,28 +144,7 @@ window.deleteNote = deleteNote;
 
 window.handleCalendarDayClick = (ds) => {
     triggerHaptic();
-    const isDesktop = window.innerWidth >= 1024;
-
-    if (isDesktop) {
-        const colEl = document.getElementById(`grid-col-${ds}`);
-        const container = document.getElementById('gridViewTable');
-        if (colEl && container) {
-            const containerCenter = container.clientWidth / 2;
-            const colCenter = colEl.offsetLeft + (colEl.clientWidth / 2);
-            container.scrollTo({
-                left: colCenter - containerCenter,
-                behavior: 'smooth'
-            });
-
-            // Highlight temporarily
-            colEl.classList.add('ring-4', 'ring-blue-400');
-            setTimeout(() => {
-                colEl.classList.remove('ring-4', 'ring-blue-400');
-            }, 1000);
-        }
-    } else {
-        openNotesModal(ds);
-    }
+    openNotesModal(ds);
 };
 
 window.openTransferModal = openTransferModal;
@@ -347,30 +326,22 @@ async function setMode(m) {
     const gridDiv = document.getElementById('gridViewContainer');
     const kpiDiv = document.getElementById('kpiViewContainer');
     const profileDiv = document.getElementById('profileViewContainer');
-    const scheduleSplitWrapper = document.getElementById('scheduleSplitWrapper');
 
     listDiv.classList.add('hidden');
     calDiv.classList.add('hidden');
-    calDiv.classList.remove('lg:block');
     gridDiv.classList.add('hidden');
-    gridDiv.classList.remove('lg:block');
     kpiDiv.classList.add('hidden');
     if (profileDiv) profileDiv.classList.add('hidden');
-    if (scheduleSplitWrapper) scheduleSplitWrapper.classList.add('hidden');
 
     const filterBtn = document.querySelector('button[onclick="openFilterModal()"]');
     const globalFilterWrapper = document.getElementById('globalStoreFilterWrapper');
 
-    if (filterBtn) {
-        if (m === 'list') {
-            filterBtn.classList.remove('hidden');
-            filterBtn.classList.add('flex');
-            if (globalFilterWrapper) globalFilterWrapper.classList.remove('hidden');
-        } else {
-            filterBtn.classList.add('hidden');
-            filterBtn.classList.remove('flex');
-            if (globalFilterWrapper) globalFilterWrapper.classList.add('hidden');
-        }
+    if (m === 'kpi' || m === 'list' || m === 'grid') {
+        if (filterBtn) filterBtn.classList.remove('hidden');
+        if (globalFilterWrapper) globalFilterWrapper.classList.remove('hidden');
+    } else {
+        if (filterBtn) filterBtn.classList.add('hidden');
+        if (globalFilterWrapper) globalFilterWrapper.classList.add('hidden');
     }
 
     const tabList = document.getElementById('tabModeList');
@@ -433,31 +404,12 @@ async function setMode(m) {
     if (m === 'list') {
         listDiv.classList.remove('hidden');
     } else if (m === 'calendar') {
-        if (scheduleSplitWrapper) scheduleSplitWrapper.classList.remove('hidden');
-        calDiv.classList.remove('hidden', 'lg:block');
-        gridDiv.classList.add('hidden', 'lg:block');
+        calDiv.classList.remove('hidden');
         calDiv.classList.add('animate-slide-up');
         renderCalendar();
-        await loadKpiData();
-        renderTable();
     } else if (m === 'grid') {
-        if (scheduleSplitWrapper) scheduleSplitWrapper.classList.remove('hidden');
-        gridDiv.classList.remove('hidden', 'lg:block');
-        // On mobile, hide calendar. On desktop, show it (Split View).
-        calDiv.classList.add('hidden');
-        calDiv.classList.remove('lg:block');
-        // Let lg:flex handle showing it if we want split view on desktop.
-        // Actually, the user asked to remove calendar from table menu completely. 
-        // So let's hide the scheduleSplitWrapper's Calendar component ENTIRELY when on the Grid tab 
-        // (if they want them truly separated on both mobile and desktop). 
-        // Or if they just meant mobile? "Прибери календар меню "Таблиця". Нехай календар буде в календарі."
-        // Let's assume they want them 100% separated everywhere.
-        if (scheduleSplitWrapper) {
-            scheduleSplitWrapper.classList.remove('lg:flex', 'lg:items-start', 'lg:gap-6');
-            scheduleSplitWrapper.classList.add('block');
-        }
-        gridDiv.classList.add('animate-slide-up', 'w-full');
-        gridDiv.classList.remove('lg:w-7/12');
+        gridDiv.classList.remove('hidden');
+        gridDiv.classList.add('animate-slide-up');
         await loadKpiData();
         renderTable();
     } else if (m === 'kpi') {

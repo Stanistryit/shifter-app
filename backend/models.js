@@ -104,47 +104,14 @@ const noteSchema = new mongoose.Schema({
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }
 });
 
-// 7. Схема Логів
+// 8. Схема Ревізій (Аудиту)
 const auditLogSchema = new mongoose.Schema({
     timestamp: { type: Date, default: Date.now },
     performer: { type: String, required: true },
     action: { type: String, required: true },
-    details: { type: String, default: '' }
+    details: { type: String }
 });
 
-// 8. Схема Контактів
-const contactSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    phone: { type: String, required: true }
-});
-
-// 9. Схема Подій
-const eventSchema = new mongoose.Schema({
-    title: { type: String, required: true },
-    date: { type: String, required: true }
-});
-
-// 10. Схема KPI 
-const kpiSchema = new mongoose.Schema({
-    month: { type: String, required: true },
-    name: { type: String, required: true },
-    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
-    updatedAt: { type: Date, default: Date.now },
-    stats: {
-        orders: { type: Number, default: 0 },
-        devices: { type: Number, default: 0 },
-        devicesTarget: { type: Number, default: 0 },
-        devicePercent: { type: Number, default: 0 },
-        upt: { type: Number, default: 0 },
-        uptTarget: { type: Number, default: 0 },
-        uptPercent: { type: Number, default: 0 },
-        nps: { type: Number, default: 0 },
-        npsTarget: { type: Number, default: 0 },
-        npsPercent: { type: Number, default: 0 },
-        nba: { type: Number, default: 0 },
-        nbaPercent: { type: Number, default: 0 }
-    }
-});
 
 // 11. Схема Налаштувань Місяця 
 const monthSettingsSchema = new mongoose.Schema({
@@ -184,8 +151,6 @@ shiftSchema.index({ date: 1, name: 1 }); // Допомагає при перев
 taskSchema.index({ storeId: 1, date: 1 }); // Вивантаження задач для конкретного дня
 taskSchema.index({ date: 1, name: 1 }); // Задачі для конкретного працівника на день
 
-kpiSchema.index({ storeId: 1, month: 1 }); // Завантаження KPI магазину за конкретний місяць
-
 // Індекс для уникнення дублів (один запис на кожну комбінацію: тип магазину + посада + грейд)
 salaryMatrixSchema.index({ storeType: 1, position: 1, grade: 1 }, { unique: true });
 
@@ -197,11 +162,8 @@ const NewsPost = mongoose.models.NewsPost || mongoose.model('NewsPost', newsPost
 const Request = mongoose.models.Request || mongoose.model('Request', requestSchema);
 const Note = mongoose.models.Note || mongoose.model('Note', noteSchema);
 const AuditLog = mongoose.models.AuditLog || mongoose.model('AuditLog', auditLogSchema);
-const Contact = mongoose.models.Contact || mongoose.model('Contact', contactSchema);
-const Event = mongoose.models.Event || mongoose.model('Event', eventSchema);
-const KPI = mongoose.models.KPI || mongoose.model('KPI', kpiSchema);
 const MonthSettings = mongoose.models.MonthSettings || mongoose.model('MonthSettings', monthSettingsSchema);
 const PendingNotification = mongoose.models.PendingNotification || mongoose.model('PendingNotification', pendingNotificationSchema);
 const SalaryMatrix = mongoose.models.SalaryMatrix || mongoose.model('SalaryMatrix', salaryMatrixSchema);
 
-module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, Contact, Event, KPI, MonthSettings, PendingNotification, SalaryMatrix };
+module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, MonthSettings, PendingNotification, SalaryMatrix };

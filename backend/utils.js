@@ -1,4 +1,4 @@
-const { AuditLog, User, Shift, Task, Contact } = require('./models');
+const { AuditLog, User, Shift, Task } = require('./models');
 const axios = require('axios');
 const bcrypt = require('bcryptjs'); // New import
 
@@ -48,8 +48,6 @@ async function initDB() {
         const hash = await bcrypt.hash("rrp", 10);
         await User.create({ username: "rrp", password: hash, role: "RRP", name: "Регіональний Менеджер" });
     }
-
-    if ((await Contact.countDocuments()) === 0) await Contact.create([{ name: "RRP Наташа", phone: "+380954101682" }, { name: "AM Руслан", phone: "+380674652158" }]);
 
     // Run migration
     await migratePasswords();
