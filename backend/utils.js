@@ -17,56 +17,103 @@ async function handlePermission(req, userId, type, data, notifyRoleCallback) {
     return 'forbidden';
 }
 
-async function syncWithGoogleSheets(googleSheetUrl, storeId) {
-    if (!googleSheetUrl || googleSheetUrl.length < 10) return { success: false, message: "URL not set" };
-    try {
-        const response = await axios.get(googleSheetUrl);
-        const rows = response.data.split('\n').map(row => row.trim()).filter(row => row.length > 0);
-        const headers = rows[0].split(',').map(h => h.trim());
-        const dateColumns = [];
+async function syncWithGoogleSheets(googleSheetUrlsString, storeId) {
+    if (!googleSheetUrlsString || googleSheetUrlsString.length < 10) return { success: false, message: "URL not set" };
 
-        for (let i = 1; i < headers.length; i++) {
-            if (headers[i].match(/^\d{4}-\d{2}-\d{2}$/)) {
-                dateColumns.push({ index: i, date: headers[i] });
-            }
-        }
+    // 1. Розбиваємо рядок на масив посилань (якщо їх кілька через кому)
+    const urls = googleSheetUrlsString.split(',').map(u => u.trim()).filter(u => u.length > 10);
 
-        const shiftsToImport = [];
+    let totalUpdated = 0;
+    let anySuccess = false;
 
-        for (let r = 1; r < rows.length; r++) {
-            const cols = rows[r].split(',').map(c => c.trim());
-            const name = cols[0];
-            if (!name) continue;
+    // Отримуємо сьогоднішню дату по Києву для перевірки "15+ числа"
+    const uaDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
+    const currentMonth = uaDate.getMonth(); // 0-11
+    const currentYear = uaDate.getFullYear();
+    const currentDay = uaDate.getDate();
 
-            for (const dc of dateColumns) {
-                let cellValue = cols[dc.index];
-                if (!cellValue || cellValue === '-' || cellValue === '') continue;
+    for (const url of urls) {
+        try {
+            const response = await axios.get(url);
+            const rows = response.data.split('\n').map(row => row.trim()).filter(row => row.length > 0);
+            const headers = rows[0].split(',').map(h => h.trim());
+            const dateColumns = [];
 
-                let start = '', end = '';
-                if (cellValue.includes('-')) {
-                    const parts = cellValue.split('-');
-                    start = parts[0].trim();
-                    end = parts[1].trim();
-                } else {
-                    start = cellValue;
-                    end = '';
+            for (let i = 1; i < headers.length; i++) {
+                if (headers[i].match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    dateColumns.push({ index: i, date: headers[i] });
                 }
-
-                shiftsToImport.push({ date: dc.date, name, start, end, storeId });
             }
-        }
-        if (shiftsToImport.length > 0) {
-            const datesToUpdate = [...new Set(shiftsToImport.map(s => s.date))];
 
-            // Delete old shifts ONLY for these dates AND for this specific store
-            await Shift.deleteMany({ date: { $in: datesToUpdate }, storeId: storeId });
+            if (dateColumns.length === 0) continue; // Немає дат у цьому файлі
 
-            // Insert the new shifts
-            await Shift.insertMany(shiftsToImport);
-            return { success: true, count: shiftsToImport.length };
+            // --- ОПТИМІЗАЦІЯ: Перевірка актуальності аркушу (правило 16 числа) ---
+            let allDatesArePast = true;
+            for (const dc of dateColumns) {
+                const sheetDate = new Date(dc.date);
+                const sMonth = sheetDate.getMonth();
+                const sYear = sheetDate.getFullYear();
+
+                // Якщо дата в майбутньому, або в поточному місяці
+                if (sYear > currentYear || (sYear === currentYear && sMonth >= currentMonth)) {
+                    allDatesArePast = false;
+                    break;
+                }
+            }
+
+            // Якщо всі дати аркушу належать до минулого і вже 16+ число поточного місяця -> ПРОПУСКАЄМО
+            if (allDatesArePast && currentDay >= 16) {
+                console.log(`⏩ Пропускаємо стару таблицю для Store ${storeId}`);
+                continue;
+            }
+
+            const shiftsToImport = [];
+
+            for (let r = 1; r < rows.length; r++) {
+                const cols = rows[r].split(',').map(c => c.trim());
+                const name = cols[0];
+                if (!name) continue;
+
+                for (const dc of dateColumns) {
+                    let cellValue = cols[dc.index];
+                    if (!cellValue || cellValue === '-' || cellValue === '') continue;
+
+                    let start = '', end = '';
+                    if (cellValue.includes('-')) {
+                        const parts = cellValue.split('-');
+                        start = parts[0].trim();
+                        end = parts[1].trim();
+                    } else {
+                        start = cellValue;
+                        end = '';
+                    }
+
+                    shiftsToImport.push({ date: dc.date, name, start, end, storeId });
+                }
+            }
+
+            if (shiftsToImport.length > 0) {
+                const datesToUpdate = [...new Set(shiftsToImport.map(s => s.date))];
+
+                // Видаляємо старі зміни ТІЛЬКИ для тих дат, які є В ЦЬОМУ аркуші і для ЦЬОГО магазину
+                await Shift.deleteMany({ date: { $in: datesToUpdate }, storeId: storeId });
+
+                // Зберігаємо нові зміни
+                await Shift.insertMany(shiftsToImport);
+                totalUpdated += shiftsToImport.length;
+                anySuccess = true;
+            }
+
+        } catch (e) {
+            console.error(`Sync error for URL ${url}:`, e.message);
         }
-        return { success: false, message: "No data" };
-    } catch (e) { return { success: false, message: e.message }; }
+    }
+
+    if (anySuccess) {
+        return { success: true, count: totalUpdated };
+    } else {
+        return { success: false, message: "No data or all sheets skipped." };
+    }
 }
 
 // SECURITY MIGRATION: Convert plain text passwords to hashes

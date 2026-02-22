@@ -40,8 +40,8 @@ export function openStoreSettingsModal() {
 
                 <div class="mt-4">
                     <label class="block text-xs font-bold text-gray-400 mb-1">Синхронізація (Google Таблиця .csv)</label>
-                    <input type="text" id="set_googleSheetUrl" value="${googleSheetUrl}" placeholder="https://docs.google.com/.../pub?output=csv" class="ios-input w-full text-xs">
-                    <p class="text-[10px] text-gray-400 mt-1">Опублікуйте таблицю як CSV і вставте посилання. Синхронізується щогодини.</p>
+                    <input type="text" id="set_googleSheetUrl" value="${googleSheetUrl}" placeholder="https://..., https://..." class="ios-input w-full text-xs">
+                    <p class="text-[10px] text-gray-400 mt-1">Вставте одне або кілька посилань через кому. Аркуші минулих місяців автоматично ігноруються після 15-го числа.</p>
                 </div>
             </div>
 
