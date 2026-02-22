@@ -238,6 +238,20 @@ export function openAvatarModal() {
     triggerHaptic();
     const modal = document.getElementById('avatarModal');
     modal.classList.remove('hidden');
+
+    const img = document.getElementById('avatarPreview');
+    const placeholder = document.getElementById('avatarPlaceholder');
+
+    // Reset explicitly or load existing
+    if (state.currentUser && state.currentUser.avatarId) {
+        img.src = `/api/avatar/${state.currentUser.avatarId}?t=${new Date().getTime()}`;
+        img.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+    } else {
+        img.src = '';
+        img.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+    }
 }
 
 export function closeAvatarModal() {
