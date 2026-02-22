@@ -86,8 +86,10 @@ export function renderTable() {
         if (isPast) bgClass = 'bg-gray-100 text-gray-300 dark:bg-[#151515] dark:text-gray-600';
         else if (isWeekend) bgClass = 'bg-red-50 dark:bg-red-900/20 text-red-500';
 
-        const thId = isToday ? 'id="todayColumn"' : '';
-        if (isToday) bgClass = 'bg-blue-500 text-white shadow-md shadow-blue-500/30 rounded-t-lg transform scale-105 z-30 ring-2 ring-blue-500';
+        let thId = `id="grid-col-${dStr}"`;
+        if (isToday) {
+            bgClass = 'bg-blue-500 text-white shadow-md shadow-blue-500/30 rounded-t-lg transform scale-105 z-30 ring-2 ring-blue-500';
+        }
 
         html += `<th ${thId} class="px-1 text-center min-w-[40px] font-normal ${bgClass} border-r border-gray-100 dark:border-gray-800 relative group cursor-default">
             <div class="font-bold text-[13px]">${d}</div>

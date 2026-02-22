@@ -142,6 +142,32 @@ window.toggleNoteType = toggleNoteType;
 window.saveNote = saveNote;
 window.deleteNote = deleteNote;
 
+window.handleCalendarDayClick = (ds) => {
+    triggerHaptic();
+    const isDesktop = window.innerWidth >= 1024;
+
+    if (isDesktop) {
+        const colEl = document.getElementById(`grid-col-${ds}`);
+        const container = document.getElementById('gridViewTable');
+        if (colEl && container) {
+            const containerCenter = container.clientWidth / 2;
+            const colCenter = colEl.offsetLeft + (colEl.clientWidth / 2);
+            container.scrollTo({
+                left: colCenter - containerCenter,
+                behavior: 'smooth'
+            });
+
+            // Highlight temporarily
+            colEl.classList.add('ring-4', 'ring-blue-400');
+            setTimeout(() => {
+                colEl.classList.remove('ring-4', 'ring-blue-400');
+            }, 1000);
+        }
+    } else {
+        openNotesModal(ds);
+    }
+};
+
 window.openTransferModal = openTransferModal;
 window.openStoreSettingsModal = openStoreSettingsModal;
 
@@ -302,6 +328,8 @@ function exportCurrentMonthCsv() {
     const currentYear = state.currentDate.getFullYear();
     window.location.href = `/api/admin/store/export?month=${currentMonth}&year=${currentYear}`;
 }
+// Expose function to global scope for HTML onclick
+window.exportCurrentMonthCsv = exportCurrentMonthCsv;
 
 async function setMode(m) {
     triggerHaptic();
@@ -319,12 +347,16 @@ async function setMode(m) {
     const gridDiv = document.getElementById('gridViewContainer');
     const kpiDiv = document.getElementById('kpiViewContainer');
     const profileDiv = document.getElementById('profileViewContainer');
+    const scheduleSplitWrapper = document.getElementById('scheduleSplitWrapper');
 
     listDiv.classList.add('hidden');
     calDiv.classList.add('hidden');
+    calDiv.classList.remove('lg:block');
     gridDiv.classList.add('hidden');
+    gridDiv.classList.remove('lg:block');
     kpiDiv.classList.add('hidden');
     if (profileDiv) profileDiv.classList.add('hidden');
+    if (scheduleSplitWrapper) scheduleSplitWrapper.classList.add('hidden');
 
     const filterBtn = document.querySelector('button[onclick="openFilterModal()"]');
     const globalFilterWrapper = document.getElementById('globalStoreFilterWrapper');
@@ -401,14 +433,21 @@ async function setMode(m) {
     if (m === 'list') {
         listDiv.classList.remove('hidden');
     } else if (m === 'calendar') {
-        calDiv.classList.remove('hidden');
+        if (scheduleSplitWrapper) scheduleSplitWrapper.classList.remove('hidden');
+        calDiv.classList.remove('hidden', 'lg:block');
+        gridDiv.classList.add('hidden', 'lg:block');
         calDiv.classList.add('animate-slide-up');
         renderCalendar();
+        await loadKpiData();
+        renderTable();
     } else if (m === 'grid') {
-        gridDiv.classList.remove('hidden');
+        if (scheduleSplitWrapper) scheduleSplitWrapper.classList.remove('hidden');
+        gridDiv.classList.remove('hidden', 'lg:block');
+        calDiv.classList.add('hidden', 'lg:block');
         gridDiv.classList.add('animate-slide-up');
         await loadKpiData();
         renderTable();
+        renderCalendar();
     } else if (m === 'kpi') {
         kpiDiv.classList.remove('hidden');
         kpiDiv.classList.add('animate-slide-up');
