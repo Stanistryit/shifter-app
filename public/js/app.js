@@ -443,11 +443,23 @@ async function setMode(m) {
     } else if (m === 'grid') {
         if (scheduleSplitWrapper) scheduleSplitWrapper.classList.remove('hidden');
         gridDiv.classList.remove('hidden', 'lg:block');
-        calDiv.classList.add('hidden', 'lg:block');
-        gridDiv.classList.add('animate-slide-up');
+        // On mobile, hide calendar. On desktop, show it (Split View).
+        calDiv.classList.add('hidden');
+        calDiv.classList.remove('lg:block');
+        // Let lg:flex handle showing it if we want split view on desktop.
+        // Actually, the user asked to remove calendar from table menu completely. 
+        // So let's hide the scheduleSplitWrapper's Calendar component ENTIRELY when on the Grid tab 
+        // (if they want them truly separated on both mobile and desktop). 
+        // Or if they just meant mobile? "Прибери календар меню "Таблиця". Нехай календар буде в календарі."
+        // Let's assume they want them 100% separated everywhere.
+        if (scheduleSplitWrapper) {
+            scheduleSplitWrapper.classList.remove('lg:flex', 'lg:items-start', 'lg:gap-6');
+            scheduleSplitWrapper.classList.add('block');
+        }
+        gridDiv.classList.add('animate-slide-up', 'w-full');
+        gridDiv.classList.remove('lg:w-7/12');
         await loadKpiData();
         renderTable();
-        renderCalendar();
     } else if (m === 'kpi') {
         kpiDiv.classList.remove('hidden');
         kpiDiv.classList.add('animate-slide-up');
