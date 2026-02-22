@@ -292,8 +292,8 @@ exports.publishNews = async (req, res) => {
 
 // --- Експорт графіку в CSV ---
 exports.exportSchedule = async (req, res) => {
-    const u = req.user;
-    if (u.role !== 'SM' && u.role !== 'admin') {
+    const u = await User.findById(req.session.userId);
+    if (!u || (u.role !== 'SM' && u.role !== 'admin')) {
         return res.status(403).json({ success: false, message: "Тільки для SM" });
     }
 
