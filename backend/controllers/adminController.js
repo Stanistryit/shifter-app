@@ -51,7 +51,7 @@ exports.updateStoreSettings = async (req, res) => {
     }
 
     try {
-        const { reportTime, openTime, closeTime, googleSheetUrl } = req.body;
+        const { reportTime, openTime, closeTime } = req.body;
         const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
         if (reportTime && !timeRegex.test(reportTime)) {
@@ -68,7 +68,6 @@ exports.updateStoreSettings = async (req, res) => {
         if (reportTime) store.telegram.reportTime = reportTime;
         if (openTime) store.openTime = openTime;
         if (closeTime) store.closeTime = closeTime;
-        if (googleSheetUrl !== undefined) store.googleSheetUrl = googleSheetUrl;
 
         await store.save();
 

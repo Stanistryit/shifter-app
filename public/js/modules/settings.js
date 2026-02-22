@@ -12,7 +12,6 @@ export function openStoreSettingsModal() {
     const reportTime = s.reportTime || "20:00";
     const openTime = s.openTime || "10:00";
     const closeTime = s.closeTime || "22:00";
-    const googleSheetUrl = s.googleSheetUrl || "";
 
     const modalHtml = `
     <div id="storeSettingsModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -36,13 +35,6 @@ export function openStoreSettingsModal() {
                         <input type="time" id="set_closeTime" value="${closeTime}" class="ios-input w-full">
                     </div>
                 </div>
-                <p class="text-[10px] text-gray-400 mt-2">Цей час впливає на відображення графіку (Timeline).</p>
-
-                <div class="mt-4">
-                    <label class="block text-xs font-bold text-gray-400 mb-1">Синхронізація (Google Таблиця .csv)</label>
-                    <input type="text" id="set_googleSheetUrl" value="${googleSheetUrl}" placeholder="https://..., https://..." class="ios-input w-full text-xs">
-                    <p class="text-[10px] text-gray-400 mt-1">Вставте одне або кілька посилань через кому. Аркуші минулих місяців автоматично ігноруються після 15-го числа.</p>
-                </div>
             </div>
 
             <button onclick="window.saveStoreSettings()" class="btn-primary bg-blue-600 shadow-lg shadow-blue-500/30 mb-2">💾 Зберегти</button>
@@ -57,14 +49,14 @@ export async function saveStoreSettings() {
     const reportTime = document.getElementById('set_reportTime').value;
     const openTime = document.getElementById('set_openTime').value;
     const closeTime = document.getElementById('set_closeTime').value;
-    const googleSheetUrl = document.getElementById('set_googleSheetUrl').value.trim();
+
 
     const btn = document.querySelector('#storeSettingsModal .btn-primary');
     const oldText = btn.innerText;
     btn.innerText = "⏳ ...";
 
     try {
-        const res = await postJson('/api/admin/store/settings', { reportTime, openTime, closeTime, googleSheetUrl });
+        const res = await postJson('/api/admin/store/settings', { reportTime, openTime, closeTime });
         if (res.success) {
             showToast("Налаштування збережено! ✅");
 
@@ -73,7 +65,6 @@ export async function saveStoreSettings() {
                 state.currentUser.store.reportTime = reportTime;
                 state.currentUser.store.openTime = openTime;
                 state.currentUser.store.closeTime = closeTime;
-                state.currentUser.store.googleSheetUrl = googleSheetUrl;
             }
 
             document.getElementById('storeSettingsModal').remove();
