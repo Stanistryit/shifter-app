@@ -21,10 +21,9 @@ import { loadRequests, handleRequest, approveAllRequests } from './modules/reque
 import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
 import {
     openFilterModal, closeFilterModal, applyFilter,
-    openAvatarModal, closeAvatarModal, handleAvatarSelect, uploadAvatar,
-    openChangePasswordModal, closeChangePasswordModal, submitChangePassword, loadLogs,
+    openAvatarModal, uploadAvatar, handleAvatarSelect, loadKpiData, openChangePasswordModal, closeChangePasswordModal, submitChangePassword,
     openTransferModal, updateStoreDisplay,
-    openStoreSettingsModal, saveStoreSettings
+    openStoreSettingsModal, saveStoreSettings, loadLogs
 } from './modules/settings.js';
 
 import {
@@ -135,6 +134,7 @@ window.loadKpiData = loadKpiData;
 window.openChangePasswordModal = openChangePasswordModal;
 window.closeChangePasswordModal = closeChangePasswordModal;
 window.submitChangePassword = submitChangePassword;
+window.toggleHoursPin = toggleHoursPin;
 
 window.openNotesModal = openNotesModal;
 window.closeNotesModal = closeNotesModal;
@@ -280,6 +280,18 @@ async function changeMonth(d) {
     }
 
     updateDashboard();
+
+    // Відновлення вигляду кнопки закріплення годин
+    const btnPin = document.getElementById('toggleHoursPinBtn');
+    if (btnPin) {
+        if (state.isHoursPinned) {
+            btnPin.innerHTML = '<span>📌</span> Закріплено';
+            btnPin.className = 'text-[10px] text-white bg-blue-500 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 transition-transform shadow-md shadow-blue-500/30';
+        } else {
+            btnPin.innerHTML = '<span>📌</span> Закріпити години';
+            btnPin.className = 'text-[10px] text-gray-500 bg-gray-100 dark:bg-[#2C2C2E] px-2 py-1 rounded-lg font-medium flex items-center gap-1 active:scale-95 transition-transform';
+        }
+    }
 
     setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
 }

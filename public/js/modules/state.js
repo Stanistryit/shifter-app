@@ -1,7 +1,7 @@
 // Зберігаємо глобальні змінні тут, щоб вони були доступні всім
 export const state = {
     currentUser: null,
-    
+
     // Дані
     shifts: [],
     users: [],
@@ -9,18 +9,19 @@ export const state = {
     notes: [],
     stores: [],
     kpiData: null,
-    
+
     // Фільтри та навігація (🔥 ОНОВЛЕНО: читаємо з LocalStorage)
     filter: localStorage.getItem('shifter_filter') || 'all',
     selectedStoreFilter: localStorage.getItem('shifter_storeFilter') || 'all',
     viewMode: localStorage.getItem('shifter_viewMode') || 'list', // Зберігаємо режим (list/calendar/grid/kpi)
-    
+
     currentDate: new Date(),
-    
+
     // Стан UI
     selectedNoteDate: null,
     noteType: 'private',
-    
+    isHoursPinned: localStorage.getItem('shifter_hoursPinned') === '1', // Зберігаємо налаштування стовпця Годин
+
     // 🔥 НОВЕ: Стан Редактора Графіку
     isEditMode: false,          // Чи відкрито редактор
     activeTool: null,           // Поточний пензлик ({start:'10:00', end:'20:00'} або 'eraser')

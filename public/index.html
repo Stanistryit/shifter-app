@@ -518,6 +518,14 @@
                     <button onclick="changeMonth(1)"
                         class="absolute right-0 top-1/2 -translate-y-1/2 text-blue-500 text-3xl font-bold p-2 active:scale-90 transition-transform">›</button>
                 </div>
+
+                <div class="flex justify-end mb-2 px-2">
+                    <button id="toggleHoursPinBtn" onclick="toggleHoursPin()"
+                        class="text-[10px] text-gray-500 bg-gray-100 dark:bg-[#2C2C2E] px-2 py-1 rounded-lg font-medium flex items-center gap-1 active:scale-95 transition-transform">
+                        <span>📌</span> Закріпити години
+                    </button>
+                </div>
+
                 <div class="overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide" id="gridViewTable">
                 </div>
             </div>

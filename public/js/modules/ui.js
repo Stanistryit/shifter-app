@@ -23,6 +23,29 @@ export function initTheme() {
     }
 }
 
+import { state } from './state.js';
+import { renderTable } from './render_table.js';
+
+export function toggleHoursPin() {
+    if (window.triggerHaptic) window.triggerHaptic();
+    state.isHoursPinned = !state.isHoursPinned;
+    localStorage.setItem('shifter_hoursPinned', state.isHoursPinned ? '1' : '0');
+
+    // Update button styling depending on state
+    const btn = document.getElementById('toggleHoursPinBtn');
+    if (btn) {
+        if (state.isHoursPinned) {
+            btn.innerHTML = '<span>📌</span> Закріплено';
+            btn.className = 'text-[10px] text-white bg-blue-500 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 transition-transform shadow-md shadow-blue-500/30';
+        } else {
+            btn.innerHTML = '<span>📌</span> Закріпити години';
+            btn.className = 'text-[10px] text-gray-500 bg-gray-100 dark:bg-[#2C2C2E] px-2 py-1 rounded-lg font-medium flex items-center gap-1 active:scale-95 transition-transform';
+        }
+    }
+
+    renderTable(); // Re-render table with new sticky classes
+}
+
 export function toggleTheme() {
     if (window.triggerHaptic) window.triggerHaptic();
     const html = document.documentElement;

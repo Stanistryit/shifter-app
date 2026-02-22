@@ -72,7 +72,7 @@ export function renderTable() {
     // ================= HEADER =================
     html += '<thead>';
     html += '<tr class="h-10 border-b border-gray-100 dark:border-gray-800">';
-    html += '<th class="sticky left-0 z-20 bg-[#F2F2F7] dark:bg-[#1C1C1E] px-2 text-left font-bold min-w-[120px] border-r border-gray-200 dark:border-gray-700 shadow-sm">Співробітник</th>';
+    html += '<th class="sticky left-0 z-40 bg-[#F2F2F7] dark:bg-[#1C1C1E] px-2 text-left font-bold min-w-[120px] border-r border-gray-200 dark:border-gray-700 shadow-sm">Співробітник</th>';
 
     for (let d = 1; d <= daysInMonth; d++) {
         const isToday = isCurrentMonth && d === todayDate;
@@ -95,12 +95,13 @@ export function renderTable() {
         </th>`;
     }
 
-    html += '<th class="sticky right-0 z-20 bg-[#F2F2F7] dark:bg-[#1C1C1E] px-2 text-center font-bold min-w-[80px] border-l border-gray-200 dark:border-gray-700 shadow-sm">Години</th>';
+    const hoursStickyClass = state.isHoursPinned ? 'sticky right-0 z-40' : '';
+    html += `<th class="${hoursStickyClass} bg-[#F2F2F7] dark:bg-[#1C1C1E] px-2 text-center font-bold min-w-[80px] border-l border-gray-200 dark:border-gray-700 shadow-sm">Години</th>`;
     html += '</tr>';
 
     // --- Рядок 2: Кількість людей ---
     html += '<tr class="h-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#202022]">';
-    html += '<td class="sticky left-0 z-20 bg-[#F2F2F7] dark:bg-[#1C1C1E] px-2 text-[10px] text-gray-400 font-bold border-r border-gray-200 dark:border-gray-700 text-right">Людей:</td>';
+    html += '<td class="sticky left-0 z-40 bg-[#F2F2F7] dark:bg-[#1C1C1E] px-2 text-[10px] text-gray-400 font-bold border-r border-gray-200 dark:border-gray-700 text-right">Людей:</td>';
 
     for (let d = 1; d <= daysInMonth; d++) {
         const dStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -172,7 +173,8 @@ export function renderTable() {
             ${contentHtml}
         </td>`;
     }
-    html += '<td class="sticky right-0 bg-[#F2F2F7] dark:bg-[#1C1C1E] border-l border-gray-200 dark:border-gray-700"></td>';
+    const rightSideStickyClass = state.isHoursPinned ? 'sticky right-0 z-40' : '';
+    html += `<td class="${rightSideStickyClass} bg-[#F2F2F7] dark:bg-[#1C1C1E] border-l border-gray-200 dark:border-gray-700"></td>`;
     html += '</tr>';
     html += '</thead>';
 
@@ -195,7 +197,7 @@ export function renderTable() {
 
         html += `<tr class="h-10 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors ${blockedClass}">`;
 
-        html += `<td ${editAction} class="sticky left-0 z-10 ${meStyleSticky} ${editClasses} px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[120px] shadow-sm">${shortName}${editIcon}</td>`;
+        html += `<td ${editAction} class="sticky left-0 z-30 ${meStyleSticky} ${editClasses} px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[120px] shadow-sm">${shortName}${editIcon}</td>`;
 
         let totalHours = 0;
 
@@ -284,7 +286,8 @@ export function renderTable() {
             hoursHtml = `<div class="font-bold text-gray-500">${totalHours}</div>`;
         }
 
-        html += `<td class="sticky right-0 z-10 ${meStyleSticky} border-l border-gray-200 dark:border-gray-700 text-center px-1 shadow-sm">${hoursHtml}</td>`;
+        const hsClass = state.isHoursPinned ? 'sticky right-0 z-30' : '';
+        html += `<td class="${hsClass} ${meStyleSticky} border-l border-gray-200 dark:border-gray-700 text-center px-1 shadow-sm">${hoursHtml}</td>`;
         html += '</tr>';
     });
     html += '</tbody></table>';
