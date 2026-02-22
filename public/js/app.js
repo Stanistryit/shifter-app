@@ -281,6 +281,19 @@ async function changeMonth(d) {
     }
 
     updateDashboard();
+    // Відновлення вигляду кнопки закріплення годин
+    const btnPin = document.getElementById('toggleHoursPinBtn');
+    if (btnPin) {
+        if (state.isHoursPinned) {
+            btnPin.innerHTML = '<span>📌</span> Закріплено';
+            btnPin.className = 'text-[10px] text-white bg-blue-500 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 transition-transform shadow-md shadow-blue-500/30';
+        } else {
+            btnPin.innerHTML = '<span>📌</span> Закріпити години';
+            btnPin.className = 'text-[10px] text-gray-500 bg-gray-100 dark:bg-[#2C2C2E] px-2 py-1 rounded-lg font-medium flex items-center gap-1 active:scale-95 transition-transform';
+        }
+    }
+
+    setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
 }
 
 function exportCurrentMonthCsv() {
@@ -288,21 +301,6 @@ function exportCurrentMonthCsv() {
     const currentMonth = String(state.currentDate.getMonth() + 1).padStart(2, '0');
     const currentYear = state.currentDate.getFullYear();
     window.location.href = `/api/admin/store/export?month=${currentMonth}&year=${currentYear}`;
-}
-
-// Відновлення вигляду кнопки закріплення годин
-const btnPin = document.getElementById('toggleHoursPinBtn');
-if (btnPin) {
-    if (state.isHoursPinned) {
-        btnPin.innerHTML = '<span>📌</span> Закріплено';
-        btnPin.className = 'text-[10px] text-white bg-blue-500 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 transition-transform shadow-md shadow-blue-500/30';
-    } else {
-        btnPin.innerHTML = '<span>📌</span> Закріпити години';
-        btnPin.className = 'text-[10px] text-gray-500 bg-gray-100 dark:bg-[#2C2C2E] px-2 py-1 rounded-lg font-medium flex items-center gap-1 active:scale-95 transition-transform';
-    }
-}
-
-setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
 }
 
 async function setMode(m) {
@@ -379,6 +377,24 @@ async function setMode(m) {
             tab.el.classList.add('text-gray-400');
             if (iconSpan) iconSpan.classList.add('opacity-50');
             if (textSpan) { textSpan.classList.add('text-gray-500'); textSpan.classList.remove('text-blue-500'); }
+        }
+    });
+
+    // Update Desktop Sidebar active states
+    const deskBtns = document.querySelectorAll('.desk-nav-btn');
+    deskBtns.forEach(btn => {
+        const iconSpan = btn.querySelector('span:first-child');
+        const textSpan = btn.querySelector('span:last-child');
+        if (btn.dataset.mode === m) {
+            btn.classList.add('bg-blue-50', 'dark:bg-blue-900/30');
+            btn.classList.remove('hover:bg-gray-100', 'dark:hover:bg-gray-800');
+            if (iconSpan) iconSpan.classList.remove('opacity-70');
+            if (textSpan) { textSpan.classList.remove('text-gray-500'); textSpan.classList.add('text-blue-600', 'font-bold'); }
+        } else {
+            btn.classList.remove('bg-blue-50', 'dark:bg-blue-900/30');
+            btn.classList.add('hover:bg-gray-100', 'dark:hover:bg-gray-800');
+            if (iconSpan) iconSpan.classList.add('opacity-70');
+            if (textSpan) { textSpan.classList.add('text-gray-500'); textSpan.classList.remove('text-blue-600', 'font-bold'); }
         }
     });
 
