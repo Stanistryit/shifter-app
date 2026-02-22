@@ -7,15 +7,15 @@ const setBot = (bot) => { botInstance = bot; };
 // Логіка "Тихих годин"
 const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
     if (!botInstance) return;
-    const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Kiev"}));
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
     const hours = now.getHours();
 
     // Тиха година: з 22:00 до 08:00
     const isQuietHour = hours >= 22 || hours < 8;
 
     // 🔥 FIX: Якщо є кнопки (reply_markup) — відправляємо одразу, ігноруючи тиху годину.
-    // Інакше кнопки загубляться в базі відкладених повідомлень.
-    if (isQuietHour && !options.reply_markup) {
+    // Також додано опцію ignoreQuietHours для важливих нагадувань.
+    if (isQuietHour && !options.reply_markup && !options.ignoreQuietHours) {
         await PendingNotification.create({ chatId, text });
         console.log(`zzz Повідомлення відкладено для ${chatId} (Тиха година)`);
     } else {
@@ -28,50 +28,50 @@ const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
 };
 
 // 🔥 ОНОВЛЕНО: Тепер приймає options для кнопок
-const notifyUser = async (name, msg, options = {}) => { 
-    if(!botInstance) return; 
-    try { 
-        const u = await User.findOne({name}); 
+const notifyUser = async (name, msg, options = {}) => {
+    if (!botInstance) return;
+    try {
+        const u = await User.findOne({ name });
         // Об'єднуємо дефолтні налаштування з переданими
         const finalOptions = { parse_mode: 'HTML', ...options };
-        
-        if(u?.telegramChatId) {
-            await sendMessageWithQuietHours(u.telegramChatId, msg, finalOptions); 
+
+        if (u?.telegramChatId) {
+            await sendMessageWithQuietHours(u.telegramChatId, msg, finalOptions);
         }
-    } catch(e) {
+    } catch (e) {
         console.error("NotifyUser Error:", e.message);
-    } 
+    }
 };
 
 // Сповіщення в новини магазинів
-const notifyAll = async (msg) => { 
-    if(!botInstance) return; 
-    try { 
+const notifyAll = async (msg) => {
+    if (!botInstance) return;
+    try {
         const stores = await Store.find({ 'telegram.chatId': { $ne: null } });
-        for(const store of stores) {
+        for (const store of stores) {
             const opts = { parse_mode: 'HTML' };
             if (store.telegram.newsTopicId) opts.message_thread_id = store.telegram.newsTopicId;
             await sendMessageWithQuietHours(store.telegram.chatId, msg, opts);
         }
-    } catch(e){} 
+    } catch (e) { }
 };
 
 // ВІДПРАВКА ЗАПИТУ SM
 const sendRequestToSM = async (requestDoc) => {
-    if(!botInstance) return;
+    if (!botInstance) return;
     try {
         let storeId = null;
         if (requestDoc.data && requestDoc.data.storeId) {
-             storeId = requestDoc.data.storeId;
+            storeId = requestDoc.data.storeId;
         } else {
-             const creator = await User.findOne({ name: requestDoc.createdBy });
-             if (creator) storeId = creator.storeId;
+            const creator = await User.findOne({ name: requestDoc.createdBy });
+            if (creator) storeId = creator.storeId;
         }
 
         if (!storeId) return console.log("⚠️ Магазин не визначено для запиту");
 
         const smUser = await User.findOne({ storeId: storeId, role: 'SM' });
-        
+
         if (!smUser || !smUser.telegramChatId) return console.log(`⚠️ SM не знайдено або немає ID (Store: ${storeId})`);
 
         let details = "";
@@ -98,20 +98,20 @@ const sendRequestToSM = async (requestDoc) => {
         }
 
         const txt = `${typeIcon} <b>Новий запит</b>\n\n👤 <b>Від:</b> ${requestDoc.createdBy}\n${details}`;
-        
-        const opts = { 
-            parse_mode: 'HTML', 
-            reply_markup: { 
+
+        const opts = {
+            parse_mode: 'HTML',
+            reply_markup: {
                 inline_keyboard: [
-                    [ 
-                        { text: "✅ Підтвердити", callback_data: `approve_req_${requestDoc._id}` }, 
-                        { text: "⛔️ Відхилити", callback_data: `reject_req_${requestDoc._id}` } 
+                    [
+                        { text: "✅ Підтвердити", callback_data: `approve_req_${requestDoc._id}` },
+                        { text: "⛔️ Відхилити", callback_data: `reject_req_${requestDoc._id}` }
                     ]
-                ] 
-            } 
+                ]
+            }
         };
-        
-        await sendMessageWithQuietHours(smUser.telegramChatId, txt, opts); 
+
+        await sendMessageWithQuietHours(smUser.telegramChatId, txt, opts);
 
     } catch (e) {
         console.error("Error sending request to SM:", e.message);

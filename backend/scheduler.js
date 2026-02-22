@@ -42,7 +42,18 @@ const initScheduler = async (tgConfig) => {
 
         // --- B. 🔥 ПЕРСОНАЛІЗОВАНИЙ ВЕЧІРНІЙ ЗВІТ ---
         // Шукаємо магазини, у яких reportTime співпадає з поточною хвилиною
-        const stores = await Store.find({ 'telegram.reportTime': timeString });
+        const storeQuery = {
+            $or: [
+                { 'telegram.reportTime': timeString }
+            ]
+        };
+        // Для старих магазинів без вказаного часу розсилка йде о 20:00 по замовчуванню
+        if (timeString === '20:00') {
+            storeQuery.$or.push({ 'telegram.reportTime': { $exists: false } });
+            storeQuery.$or.push({ telegram: { $exists: false } });
+        }
+
+        const stores = await Store.find(storeQuery);
 
         if (stores.length > 0) {
             console.log(`⏰ Sending reports for ${stores.length} stores at ${timeString}`);
@@ -56,9 +67,18 @@ const initScheduler = async (tgConfig) => {
 
         const uaDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
         const currentUAHour = uaDate.getHours();
-        const currentUADay = uaDate.toISOString().split('T')[0];
-        const tomorrowDate = new Date(Date.now() + 86400000);
-        const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
+
+        const yToday = uaDate.getFullYear();
+        const mToday = String(uaDate.getMonth() + 1).padStart(2, '0');
+        const dToday = String(uaDate.getDate()).padStart(2, '0');
+        const currentUADay = `${yToday}-${mToday}-${dToday}`;
+
+        const tomorrowDate = new Date(uaDate);
+        tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+        const yTom = tomorrowDate.getFullYear();
+        const mTom = String(tomorrowDate.getMonth() + 1).padStart(2, '0');
+        const dTom = String(tomorrowDate.getDate()).padStart(2, '0');
+        const tomorrowStr = `${yTom}-${mTom}-${dTom}`;
 
         // Shift Reminders
         const shifts = await Shift.find({ date: { $in: [currentUADay, tomorrowStr] } });
@@ -70,19 +90,25 @@ const initScheduler = async (tgConfig) => {
             const [sH, sM] = s.start.split(':').map(Number);
             let shouldNotify = false;
 
-            if (user.reminderTime.includes(':')) {
-                const [rH, rM] = user.reminderTime.split(':').map(Number);
-                if (s.date > currentUADay && currentUAHour === rH) shouldNotify = true;
-            }
-            else if (s.date === currentUADay) {
-                if (user.reminderTime === 'start' && currentUAHour === sH) shouldNotify = true;
-                if (user.reminderTime === '1h' && currentUAHour === (sH - 1)) shouldNotify = true;
-            }
-            else if (s.date > currentUADay) {
-                if (user.reminderTime === '12h' && currentUAHour === (sH + 12)) shouldNotify = true;
+            let hoursUntilShift = -1;
+            if (s.date === tomorrowStr) {
+                hoursUntilShift = (24 - currentUAHour) + sH;
+            } else if (s.date === currentUADay) {
+                hoursUntilShift = sH - currentUAHour;
             }
 
-            if (shouldNotify) notifyUser(s.name, `🔔 <b>Нагадування!</b>\n\nВ тебе зміна: <b>${s.date}</b>\n⏰ Час: <b>${s.start} - ${s.end}</b>`);
+            if (user.reminderTime.includes(':')) {
+                const [rH, rM] = user.reminderTime.split(':').map(Number);
+                if (s.date === tomorrowStr && currentUAHour === rH) shouldNotify = true;
+            } else if (user.reminderTime === 'start' && hoursUntilShift === 0) {
+                shouldNotify = true;
+            } else if (user.reminderTime === '1h' && hoursUntilShift === 1) {
+                shouldNotify = true;
+            } else if (user.reminderTime === '12h' && hoursUntilShift === 12) {
+                shouldNotify = true;
+            }
+
+            if (shouldNotify) notifyUser(s.name, `🔔 <b>Нагадування!</b>\n\nВ тебе зміна: <b>${s.date}</b>\n⏰ Час: <b>${s.start} - ${s.end}</b>`, { ignoreQuietHours: true });
         }
 
         // Task Reminders
@@ -94,7 +120,7 @@ const initScheduler = async (tgConfig) => {
         for (const t of tasks) {
             if (t.isFullDay || !t.start) continue;
             const [tH, tM] = t.start.split(':').map(Number);
-            if (tH === checkTaskHour) notifyUser(t.name, `📌 <b>Нагадування про задачу!</b>\n\n📝 ${t.title}\n⏰ Початок: ${t.start}`);
+            if (tH === checkTaskHour) notifyUser(t.name, `📌 <b>Нагадування про задачу!</b>\n\n📝 ${t.title}\n⏰ Початок: ${t.start}`, { ignoreQuietHours: true });
         }
     });
 
@@ -118,10 +144,15 @@ async function sendDailyReports(stores) {
     const bot = getBot();
     if (!bot) return;
 
-    const tomorrow = new Date();
+    const tomorrow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const dateStr = tomorrow.toISOString().split('T')[0];
-    const display = tomorrow.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
+
+    const y = tomorrow.getFullYear();
+    const m = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const d = String(tomorrow.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
+
+    const display = tomorrow.toLocaleDateString('uk-UA', { timeZone: 'Europe/Kiev', weekday: 'long', day: 'numeric', month: 'long' });
 
     for (const store of stores) {
         if (!store.telegram.chatId) continue;
