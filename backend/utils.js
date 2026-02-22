@@ -55,4 +55,4 @@ async function initDB() {
     await migratePasswords();
 }
 
-module.exports = { logAction, migratePasswords, initDB };
+module.exports = { logAction, handlePermission, migratePasswords, initDB };
