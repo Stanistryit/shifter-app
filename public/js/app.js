@@ -314,10 +314,6 @@ async function setMode(m) {
     const kpiDiv = document.getElementById('kpiViewContainer');
     const profileDiv = document.getElementById('profileViewContainer');
 
-    if (m === 'grid' || m === 'kpi' || m === 'calendar') {
-        document.getElementById('skeletonLoader').classList.remove('hidden');
-    }
-
     listDiv.classList.add('hidden');
     calDiv.classList.add('hidden');
     gridDiv.classList.add('hidden');
@@ -442,8 +438,6 @@ async function setMode(m) {
 
     checkEditorButtonVisibility();
     updateDashboard();
-
-    setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
 }
 
 async function toggleAuthMode(mode) {
