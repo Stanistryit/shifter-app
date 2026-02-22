@@ -18,6 +18,7 @@ const storeSchema = new mongoose.Schema({
         eveningTopicId: { type: Number, default: null },
         reportTime: { type: String, default: "20:00" }
     },
+    googleSheetUrl: { type: String, default: null },
     createdAt: { type: Date, default: Date.now }
 });
 

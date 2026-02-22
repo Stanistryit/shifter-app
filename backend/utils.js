@@ -3,7 +3,7 @@ const axios = require('axios');
 const bcrypt = require('bcryptjs'); // New import
 
 async function logAction(performer, action, details) {
-    try { await AuditLog.create({ performer, action, details }); } catch(e){ console.error("Log error", e); }
+    try { await AuditLog.create({ performer, action, details }); } catch (e) { console.error("Log error", e); }
 }
 
 async function handlePermission(req, userId, type, data, notifyRoleCallback) {
@@ -17,21 +17,27 @@ async function handlePermission(req, userId, type, data, notifyRoleCallback) {
     return 'forbidden';
 }
 
-async function syncWithGoogleSheets(googleSheetUrl) {
+async function syncWithGoogleSheets(googleSheetUrl, storeId) {
     if (!googleSheetUrl || googleSheetUrl.length < 10) return { success: false, message: "URL not set" };
     try {
         const response = await axios.get(googleSheetUrl);
         const rows = response.data.split('\n').map(row => row.trim()).filter(row => row.length > 0);
         const shiftsToImport = [];
         for (let i = 1; i < rows.length; i++) {
-            const cols = rows[i].split(','); 
+            const cols = rows[i].split(',');
             if (cols.length < 4) continue;
             const [date, name, start, end] = cols.map(c => c.trim());
-            if (date.match(/^\d{4}-\d{2}-\d{2}$/) && name && start && end) shiftsToImport.push({ date, name, start, end });
+            if (date.match(/^\d{4}-\d{2}-\d{2}$/) && name && start && end) {
+                shiftsToImport.push({ date, name, start, end, storeId }); // Add storeId to imported shift
+            }
         }
         if (shiftsToImport.length > 0) {
             const datesToUpdate = [...new Set(shiftsToImport.map(s => s.date))];
-            await Shift.deleteMany({ date: { $in: datesToUpdate } });
+
+            // Delete old shifts ONLY for these dates AND for this specific store
+            await Shift.deleteMany({ date: { $in: datesToUpdate }, storeId: storeId });
+
+            // Insert the new shifts
             await Shift.insertMany(shiftsToImport);
             return { success: true, count: shiftsToImport.length };
         }
@@ -58,20 +64,20 @@ async function migratePasswords() {
     }
 }
 
-async function initDB() { 
+async function initDB() {
     // Create admin if not exists (hashed)
     if ((await User.countDocuments()) === 0) {
         const hash = await bcrypt.hash("123", 10);
-        await User.create([{ username: "admin", password: hash, role: "admin", name: "Адмін" }]); 
+        await User.create([{ username: "admin", password: hash, role: "admin", name: "Адмін" }]);
     }
     // Create RRP if not exists (hashed)
-    if(!(await User.findOne({role:'RRP'}))) {
+    if (!(await User.findOne({ role: 'RRP' }))) {
         const hash = await bcrypt.hash("rrp", 10);
-        await User.create({username:"rrp", password: hash, role:"RRP", name:"Регіональний Менеджер"});
+        await User.create({ username: "rrp", password: hash, role: "RRP", name: "Регіональний Менеджер" });
     }
-    
-    if((await Contact.countDocuments())===0) await Contact.create([{name: "RRP Наташа", phone: "+380954101682"}, {name: "AM Руслан", phone: "+380674652158"}]);
-    
+
+    if ((await Contact.countDocuments()) === 0) await Contact.create([{ name: "RRP Наташа", phone: "+380954101682" }, { name: "AM Руслан", phone: "+380674652158" }]);
+
     // Run migration
     await migratePasswords();
 }

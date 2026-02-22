@@ -3,8 +3,7 @@ const { User, Shift, Task, PendingNotification, Store } = require('./models');
 const { getBot, notifyUser } = require('./bot');
 const { syncWithGoogleSheets } = require('./utils');
 
-// Конфігурація
-const GOOGLE_SHEET_URL = '';
+// Видалили глобальну константу GOOGLE_SHEET_URL
 
 let agenda;
 
@@ -63,7 +62,16 @@ const initScheduler = async (tgConfig) => {
 
     // 2. ЩОГОДИННИЙ JOB (Sync + Reminders)
     agenda.define('hourly-jobs', async (job) => {
-        if (GOOGLE_SHEET_URL) syncWithGoogleSheets(GOOGLE_SHEET_URL).catch(console.error);
+        // Синхронізація для всіх магазинів, де вказане посилання
+        const syncStores = await Store.find({ googleSheetUrl: { $ne: null, $ne: "" } });
+        for (const st of syncStores) {
+            try {
+                const res = await syncWithGoogleSheets(st.googleSheetUrl, st._id);
+                console.log(`♻️ Sync done for Store ${st.name}:`, res.success ? `Updated ${res.count}` : res.message);
+            } catch (e) {
+                console.error(`Sync error for Store ${st.name}:`, e.message);
+            }
+        }
 
         const uaDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
         const currentUAHour = uaDate.getHours();
