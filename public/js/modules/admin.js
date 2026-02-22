@@ -116,9 +116,11 @@ export async function publishNews() {
         formData.append('media', files[i]);
     }
 
-    const btn = document.querySelector('#adminTabNews button:last-child');
-    btn.innerText = "⏳ Публікую...";
-    btn.disabled = true;
+    const btn = document.querySelector('#addNewsModal button[onclick="publishNews()"]');
+    if (btn) {
+        btn.innerText = "⏳ Публікую...";
+        btn.disabled = true;
+    }
 
     try {
         const res = await fetch('/api/news/publish', { method: 'POST', body: formData });
@@ -133,8 +135,10 @@ export async function publishNews() {
     } catch (e) {
         showToast("Помилка мережі", 'error');
     } finally {
-        btn.innerText = "Опублікувати";
-        btn.disabled = false;
+        if (btn) {
+            btn.innerText = "Опублікувати";
+            btn.disabled = false;
+        }
     }
 }
 
