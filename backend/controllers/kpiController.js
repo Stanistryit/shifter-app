@@ -31,7 +31,7 @@ exports.getKpi = async (req, res) => {
     const hoursMap = {};
 
     shifts.forEach(s => {
-        if (!s.start || !s.end || !s.start.includes(':') || !s.end.includes(':')) return;
+        if (s.start === 'Відпустка') return;
         const [h1, m1] = s.start.split(':').map(Number);
         const [h2, m2] = s.end.split(':').map(Number);
         const dur = (h2 + m2 / 60) - (h1 + m1 / 60);
