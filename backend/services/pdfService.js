@@ -117,21 +117,22 @@ exports.generateSchedulePdf = async (storeName, monthIndex, year, dates, names, 
                 width: 100%;
                 border-collapse: collapse;
                 text-align: center;
-                font-size: 11px;
+                font-size: 10px; /* Злегка зменшив шрифт для вміщення */
             }
             .schedule-table th {
                 background-color: #f9fafb;
-                padding: 10px 4px;
+                padding: 6px 2px; /* Зменшив відступи */
                 font-weight: 600;
                 color: #374151;
                 border-bottom: 1px solid #e5e7eb;
                 border-right: 1px solid #e5e7eb;
             }
             .schedule-table td {
-                padding: 8px 4px;
+                padding: 6px 2px; /* Зменшив відступи */
                 border-bottom: 1px solid #e5e7eb;
                 border-right: 1px solid #e5e7eb;
                 white-space: nowrap;
+                font-size: 9px;
             }
             .schedule-table th:last-child,
             .schedule-table td:last-child {
@@ -139,14 +140,18 @@ exports.generateSchedulePdf = async (storeName, monthIndex, year, dates, names, 
             }
             .sticky-col {
                 text-align: left;
-                padding-left: 12px !important;
+                padding-left: 8px !important;
                 font-weight: 600;
                 color: #111827;
                 background-color: #ffffff;
                 border-right: 2px solid #e5e7eb !important;
+                min-width: 150px;
+                max-width: 150px;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             .name-cell {
-                font-size: 12px;
+                font-size: 11px;
             }
             .empty-cell {
                 color: #d1d5db;
@@ -189,10 +194,12 @@ exports.generateSchedulePdf = async (storeName, monthIndex, year, dates, names, 
     await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
     // Генерація PDF у ландшафтній орієнтації, щоб таблиця вмістилась
+    // Генерація PDF у ландшафтній орієнтації, щоб таблиця вмістилась
     const pdfBuffer = await page.pdf({
         format: 'A4',
         landscape: true,
         printBackground: true, // Включає фонові кольори CSS
+        scale: 0.65, // Зменшуємо масштаб, щоб таблиця на 31 день влізла в один рядок
         margin: {
             top: '10mm',
             right: '10mm',
