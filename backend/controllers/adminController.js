@@ -362,3 +362,61 @@ exports.exportSchedule = async (req, res) => {
         res.status(500).json({ success: false, message: "Server Error" });
     }
 };
+
+const pdfService = require('../services/pdfService');
+
+exports.exportSchedulePdf = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (!u || (u.role !== 'SM' && u.role !== 'admin')) {
+        return res.status(403).json({ success: false, message: "Тільки для SM" });
+    }
+
+    try {
+        const { month, year } = req.query;
+        if (!month || !year) {
+            return res.status(400).json({ success: false, message: "Не вказано місяць та рік" });
+        }
+
+        const m = month.padStart(2, '0');
+        const prefix = `${year}-${m}-`;
+
+        const store = await Store.findById(u.storeId);
+        const storeName = store ? store.name : "Невідомий магазин";
+
+        const shifts = await Shift.find({ storeId: u.storeId, date: { $regex: `^${prefix}` } });
+        if (shifts.length === 0) {
+            return res.status(404).json({ success: false, message: "Немає даних за цей місяць" });
+        }
+
+        const dateSet = new Set();
+        const namesSet = new Set();
+        const matrix = {};
+
+        shifts.forEach(s => {
+            dateSet.add(s.date);
+            namesSet.add(s.name);
+
+            if (!matrix[s.name]) matrix[s.name] = {};
+
+            if (s.end) {
+                matrix[s.name][s.date] = `${s.start}-${s.end}`;
+            } else {
+                matrix[s.name][s.date] = s.start;
+            }
+        });
+
+        const dates = Array.from(dateSet).sort();
+        const names = Array.from(namesSet).sort();
+
+        // Генеруємо PDF через сервіс
+        const pdfBuffer = await pdfService.generateSchedulePdf(storeName, m, year, dates, names, matrix);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="shifter_schedule_${year}_${m}.pdf"`);
+        res.send(pdfBuffer);
+
+    } catch (e) {
+        console.error("PDF Export Error:", e.message);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};

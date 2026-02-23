@@ -301,14 +301,14 @@ async function changeMonth(d) {
     setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
 }
 
-function exportCurrentMonthCsv() {
+function exportCurrentMonthPdf() {
     triggerHaptic();
     const currentMonth = String(state.currentDate.getMonth() + 1).padStart(2, '0');
     const currentYear = state.currentDate.getFullYear();
-    window.location.href = `/api/admin/store/export?month=${currentMonth}&year=${currentYear}`;
+    window.location.href = `/api/admin/store/export-pdf?month=${currentMonth}&year=${currentYear}`;
 }
 // Expose function to global scope for HTML onclick
-window.exportCurrentMonthCsv = exportCurrentMonthCsv;
+window.exportCurrentMonthPdf = exportCurrentMonthPdf;
 
 async function setMode(m) {
     triggerHaptic();
