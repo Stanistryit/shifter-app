@@ -224,6 +224,19 @@ export function renderTable() {
             let duration = 0;
             if (sStart && sEnd) {
                 duration = timeToDec(sEnd) - timeToDec(sStart);
+
+                // Віднімання часу обіду (якщо є)
+                let lunchMins = 0;
+                if (state.currentUser.store && state.currentUser.store.lunch_duration_minutes) {
+                    lunchMins = state.currentUser.store.lunch_duration_minutes;
+                } else if (state.stores && state.currentUser.storeId) {
+                    const foundStore = state.stores.find(s => s._id === state.currentUser.storeId || s.code === state.currentUser.storeId);
+                    if (foundStore && foundStore.lunch_duration_minutes) lunchMins = foundStore.lunch_duration_minutes;
+                }
+
+                duration -= (lunchMins / 60);
+                if (duration < 0) duration = 0;
+
                 totalHours += duration;
             }
 

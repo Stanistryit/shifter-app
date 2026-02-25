@@ -51,7 +51,7 @@ exports.updateStoreSettings = async (req, res) => {
     }
 
     try {
-        const { reportTime, openTime, closeTime } = req.body;
+        const { reportTime, openTime, closeTime, lunch_duration_minutes } = req.body;
         const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
         if (reportTime && !timeRegex.test(reportTime)) {
@@ -68,10 +68,16 @@ exports.updateStoreSettings = async (req, res) => {
         if (reportTime) store.telegram.reportTime = reportTime;
         if (openTime) store.openTime = openTime;
         if (closeTime) store.closeTime = closeTime;
+        if (lunch_duration_minutes !== undefined) {
+            const parsedLunch = parseInt(lunch_duration_minutes, 10);
+            if (!isNaN(parsedLunch) && parsedLunch >= 0) {
+                store.lunch_duration_minutes = parsedLunch;
+            }
+        }
 
         await store.save();
 
-        logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}`);
+        logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}, Lunch=${store.lunch_duration_minutes}`);
         res.json({ success: true });
 
     } catch (e) {

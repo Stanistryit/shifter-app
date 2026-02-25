@@ -10,6 +10,7 @@ const storeSchema = new mongoose.Schema({
     // Графік роботи магазину (для таймлайну)
     openTime: { type: String, default: '10:00' },
     closeTime: { type: String, default: '22:00' },
+    lunch_duration_minutes: { type: Number, default: 0 },
 
     telegram: {
         chatId: { type: Number, default: null },

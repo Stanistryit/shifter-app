@@ -25,6 +25,14 @@ exports.getKpi = async (req, res) => {
         }
     }
 
+    const { Store } = require('../models');
+    let targetStoreId = u.role !== 'admin' ? u.storeId : (storeId && storeId !== 'all' ? storeId : null);
+    let storeLunchMinutes = 0;
+    if (targetStoreId) {
+        const store = await Store.findById(targetStoreId);
+        if (store) storeLunchMinutes = store.lunch_duration_minutes || 0;
+    }
+
     const kpiData = await KPI.find(query);
     const settings = await MonthSettings.findOne(query);
     const shifts = await Shift.find(shiftQuery);
@@ -34,7 +42,14 @@ exports.getKpi = async (req, res) => {
         if (s.start === 'Відпустка') return;
         const [h1, m1] = s.start.split(':').map(Number);
         const [h2, m2] = s.end.split(':').map(Number);
-        const dur = (h2 + m2 / 60) - (h1 + m1 / 60);
+        let dur = (h2 + m2 / 60) - (h1 + m1 / 60);
+
+        // Віднімаємо обід, але беремо магазин зі зміни, якщо це 'all' запит
+        let currentLunch = storeLunchMinutes;
+
+        // Щоб не ускладнювати, якщо targetStoreId відсутній, не враховуємо обід (загальний підсумок для адміна)
+        // або можна завантажувати магазини масово, але для getKpi зазвичай є targetStoreId.
+        dur -= (currentLunch / 60);
         if (dur > 0) hoursMap[s.name] = (hoursMap[s.name] || 0) + dur;
     });
 

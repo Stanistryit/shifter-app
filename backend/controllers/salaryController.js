@@ -1,13 +1,14 @@
 const { User, Shift, SalaryMatrix, MonthSettings } = require('../models');
 
 // Допоміжна функція для підрахунку тривалості зміни в годинах (напр. з 10:00 до 22:00 = 12)
-const calculateDuration = (start, end) => {
+const calculateDuration = (start, end, lunchMinutes = 0) => {
     if (!start || !end || start === 'Відпустка' || start === 'Лікарняний' || start === 'DELETE') return 0;
-    
+
     const [startH, startM] = start.split(':').map(Number);
     const [endH, endM] = end.split(':').map(Number);
-    
+
     let diff = (endH + endM / 60) - (startH + startM / 60);
+    diff -= (lunchMinutes / 60);
     return diff > 0 ? diff : 0;
 };
 
@@ -48,9 +49,11 @@ exports.getUserSalary = async (req, res) => {
             start: { $nin: ['DELETE', 'Відпустка', 'Лікарняний'] }
         });
 
+        const storeLunchMinutes = user.storeId.lunch_duration_minutes || 0;
+
         let workedHours = 0;
         shifts.forEach(s => {
-            workedHours += calculateDuration(s.start, s.end);
+            workedHours += calculateDuration(s.start, s.end, storeLunchMinutes);
         });
 
         // 4. Фінансова математика
@@ -69,7 +72,7 @@ exports.getUserSalary = async (req, res) => {
             baseRate,
             hourlyRate: parseFloat(hourlyRate.toFixed(2)),
             baseSalary: Math.round(baseSalary),
-            bonuses: [], 
+            bonuses: [],
             totalSalary: Math.round(baseSalary) // На майбутнє: baseSalary + сума всіх bonuses
         };
 

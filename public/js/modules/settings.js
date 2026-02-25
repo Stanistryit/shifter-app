@@ -12,6 +12,7 @@ export function openStoreSettingsModal() {
     const reportTime = s.reportTime || "20:00";
     const openTime = s.openTime || "10:00";
     const closeTime = s.closeTime || "22:00";
+    const lunchDuration = s.lunch_duration_minutes || 0;
 
     const modalHtml = `
     <div id="storeSettingsModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -35,6 +36,12 @@ export function openStoreSettingsModal() {
                         <input type="time" id="set_closeTime" value="${closeTime}" class="ios-input w-full">
                     </div>
                 </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1">Обід (хв)</label>
+                    <input type="number" id="set_lunchDuration" value="${lunchDuration}" min="0" class="ios-input w-full">
+                    <p class="text-[10px] text-gray-500 mt-1">Вкажіть час у хвилинах. Це значення буде автоматично відніматися від кожної зміни</p>
+                </div>
             </div>
 
             <button onclick="window.saveStoreSettings()" class="btn-primary bg-blue-600 shadow-lg shadow-blue-500/30 mb-2">💾 Зберегти</button>
@@ -49,6 +56,7 @@ export async function saveStoreSettings() {
     const reportTime = document.getElementById('set_reportTime').value;
     const openTime = document.getElementById('set_openTime').value;
     const closeTime = document.getElementById('set_closeTime').value;
+    const lunch_duration_minutes = parseInt(document.getElementById('set_lunchDuration').value, 10) || 0;
 
 
     const btn = document.querySelector('#storeSettingsModal .btn-primary');
@@ -56,7 +64,7 @@ export async function saveStoreSettings() {
     btn.innerText = "⏳ ...";
 
     try {
-        const res = await postJson('/api/admin/store/settings', { reportTime, openTime, closeTime });
+        const res = await postJson('/api/admin/store/settings', { reportTime, openTime, closeTime, lunch_duration_minutes });
         if (res.success) {
             showToast("Налаштування збережено! ✅");
 
@@ -65,6 +73,7 @@ export async function saveStoreSettings() {
                 state.currentUser.store.reportTime = reportTime;
                 state.currentUser.store.openTime = openTime;
                 state.currentUser.store.closeTime = closeTime;
+                state.currentUser.store.lunch_duration_minutes = lunch_duration_minutes;
             }
 
             document.getElementById('storeSettingsModal').remove();
