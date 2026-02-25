@@ -142,6 +142,8 @@ window.toggleNoteType = toggleNoteType;
 window.saveNote = saveNote;
 window.deleteNote = deleteNote;
 
+window.checkEditorButtonVisibility = checkEditorButtonVisibility;
+
 window.handleCalendarDayClick = (ds) => {
     triggerHaptic();
     openNotesModal(ds);
@@ -229,16 +231,31 @@ async function initGlobalAdminFilter() {
 function checkEditorButtonVisibility() {
     const inlineEditBtn = document.getElementById('inlineEditBtn');
 
-    if (state.currentUser && state.currentUser.role === 'RRP') {
+    const isRrp = state.currentUser?.role === 'RRP';
+    const kpiEnabled = state.currentUser?.store?.kpi_enabled !== false; // Default is true
+
+    if (isRrp) {
         const btnCal = document.getElementById('tabModeCalendar');
         const btnKpi = document.getElementById('tabModeKpi');
+        const deskBtnKpi = document.querySelector('.desk-nav-btn[data-mode="kpi"]');
+
         if (btnCal) btnCal.classList.add('hidden');
-        if (btnKpi) btnKpi.classList.add('hidden');
+        if (btnKpi) {
+            if (kpiEnabled) btnKpi.classList.remove('hidden');
+            else btnKpi.classList.add('hidden');
+        }
+        if (deskBtnKpi) {
+            if (kpiEnabled) deskBtnKpi.classList.remove('hidden');
+            else deskBtnKpi.classList.add('hidden');
+        }
     } else {
         const btnCal = document.getElementById('tabModeCalendar');
         const btnKpi = document.getElementById('tabModeKpi');
+        const deskBtnKpi = document.querySelector('.desk-nav-btn[data-mode="kpi"]');
+
         if (btnCal) btnCal.classList.remove('hidden');
         if (btnKpi) btnKpi.classList.remove('hidden');
+        if (deskBtnKpi) deskBtnKpi.classList.remove('hidden');
     }
 
     const isGridMode = localStorage.getItem('shifter_viewMode') === 'grid';

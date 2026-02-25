@@ -30,7 +30,13 @@ exports.getKpi = async (req, res) => {
     let storeLunchMinutes = 0;
     if (targetStoreId) {
         const store = await Store.findById(targetStoreId);
-        if (store) storeLunchMinutes = store.lunch_duration_minutes || 0;
+        if (store) {
+            storeLunchMinutes = store.lunch_duration_minutes || 0;
+            // Перевірка доступу до KPI для ролі RRP
+            if (u.role === 'RRP' && store.kpi_enabled === false) {
+                return res.status(403).json({ message: "Доступ до KPI вимкнено адміністратором" });
+            }
+        }
     }
 
     const kpiData = await KPI.find(query);

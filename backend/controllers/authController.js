@@ -233,7 +233,8 @@ exports.getMe = async (req, res) => {
             store: user.storeId ? {
                 openTime: user.storeId.openTime,
                 closeTime: user.storeId.closeTime,
-                reportTime: user.storeId.telegram?.reportTime
+                reportTime: user.storeId.telegram?.reportTime,
+                kpi_enabled: user.storeId.kpi_enabled !== false // Default to true if undefined
             } : null
         };
     }

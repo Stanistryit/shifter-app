@@ -19,6 +19,8 @@ const storeSchema = new mongoose.Schema({
         eveningTopicId: { type: Number, default: null },
         reportTime: { type: String, default: "20:00" }
     },
+    // Доступ до вкладки KPI (глобально для магазину)
+    kpi_enabled: { type: Boolean, default: true },
     createdAt: { type: Date, default: Date.now }
 });
 

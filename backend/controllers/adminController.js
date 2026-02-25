@@ -51,7 +51,7 @@ exports.updateStoreSettings = async (req, res) => {
     }
 
     try {
-        const { reportTime, openTime, closeTime, lunch_duration_minutes } = req.body;
+        const { reportTime, openTime, closeTime, lunch_duration_minutes, kpi_enabled } = req.body;
         const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
         if (reportTime && !timeRegex.test(reportTime)) {
@@ -74,10 +74,11 @@ exports.updateStoreSettings = async (req, res) => {
                 store.lunch_duration_minutes = parsedLunch;
             }
         }
+        if (kpi_enabled !== undefined) store.kpi_enabled = kpi_enabled;
 
         await store.save();
 
-        logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}, Lunch=${store.lunch_duration_minutes}`);
+        logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}, Lunch=${store.lunch_duration_minutes}, KPI=${store.kpi_enabled}`);
         res.json({ success: true });
 
     } catch (e) {

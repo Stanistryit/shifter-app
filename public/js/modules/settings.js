@@ -13,6 +13,7 @@ export function openStoreSettingsModal() {
     const openTime = s.openTime || "10:00";
     const closeTime = s.closeTime || "22:00";
     const lunchDuration = s.lunch_duration_minutes || 0;
+    const kpiEnabled = s.kpi_enabled !== false; // Default to true if undefined
 
     const modalHtml = `
     <div id="storeSettingsModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -42,6 +43,17 @@ export function openStoreSettingsModal() {
                     <input type="number" id="set_lunchDuration" value="${lunchDuration}" min="0" class="ios-input w-full">
                     <p class="text-[10px] text-gray-500 mt-1">Вкажіть час у хвилинах. Це значення буде автоматично відніматися від кожної зміни</p>
                 </div>
+                
+                <div class="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <div class="pr-2">
+                        <label class="block text-xs font-bold text-gray-800 dark:text-gray-200 mb-1">Доступ до вкладки KPI для персоналу</label>
+                        <p class="text-[10px] text-gray-500">Якщо вимкнено, RRP користувачі не бачитимуть вкладку KPI</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                        <input type="checkbox" id="set_kpiEnabled" class="sr-only peer" ${kpiEnabled ? 'checked' : ''}>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
             </div>
 
             <button onclick="window.saveStoreSettings()" class="btn-primary bg-blue-600 shadow-lg shadow-blue-500/30 mb-2">💾 Зберегти</button>
@@ -57,6 +69,7 @@ export async function saveStoreSettings() {
     const openTime = document.getElementById('set_openTime').value;
     const closeTime = document.getElementById('set_closeTime').value;
     const lunch_duration_minutes = parseInt(document.getElementById('set_lunchDuration').value, 10) || 0;
+    const kpi_enabled = document.getElementById('set_kpiEnabled').checked;
 
 
     const btn = document.querySelector('#storeSettingsModal .btn-primary');
@@ -64,7 +77,7 @@ export async function saveStoreSettings() {
     btn.innerText = "⏳ ...";
 
     try {
-        const res = await postJson('/api/admin/store/settings', { reportTime, openTime, closeTime, lunch_duration_minutes });
+        const res = await postJson('/api/admin/store/settings', { reportTime, openTime, closeTime, lunch_duration_minutes, kpi_enabled });
         if (res.success) {
             showToast("Налаштування збережено! ✅");
 
@@ -74,6 +87,12 @@ export async function saveStoreSettings() {
                 state.currentUser.store.openTime = openTime;
                 state.currentUser.store.closeTime = closeTime;
                 state.currentUser.store.lunch_duration_minutes = lunch_duration_minutes;
+                state.currentUser.store.kpi_enabled = kpi_enabled;
+            }
+
+            // Якщо є функція для перевірки видимості кнопок, викликаємо її
+            if (window.checkEditorButtonVisibility) {
+                window.checkEditorButtonVisibility();
             }
 
             document.getElementById('storeSettingsModal').remove();
