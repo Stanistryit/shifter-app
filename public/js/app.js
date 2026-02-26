@@ -254,8 +254,15 @@ function checkEditorButtonVisibility() {
         const deskBtnKpi = document.querySelector('.desk-nav-btn[data-mode="kpi"]');
 
         if (btnCal) btnCal.classList.remove('hidden');
-        if (btnKpi) btnKpi.classList.remove('hidden');
-        if (deskBtnKpi) deskBtnKpi.classList.remove('hidden');
+
+        if (btnKpi) {
+            if (kpiEnabled) btnKpi.classList.remove('hidden');
+            else btnKpi.classList.add('hidden');
+        }
+        if (deskBtnKpi) {
+            if (kpiEnabled) deskBtnKpi.classList.remove('hidden');
+            else deskBtnKpi.classList.add('hidden');
+        }
     }
 
     const isGridMode = localStorage.getItem('shifter_viewMode') === 'grid';
