@@ -663,10 +663,24 @@
             <div
                 class="absolute bottom-0 left-0 right-0 glass-modal rounded-t-[24px] max-h-[70vh] overflow-y-auto p-4 animate-slide-up shadow-2xl">
                 <div class="flex justify-between items-center mb-4 px-2">
-                    <h3 class="font-bold text-lg">Фільтр</h3><button onclick="closeFilterModal()"
+                    <h3 class="font-bold text-lg">Співробітник</h3><button onclick="closeFilterModal()"
                         class="w-8 h-8 bg-gray-100 dark:bg-[#2C2C2E] rounded-full text-gray-500 text-sm font-bold">✕</button>
                 </div>
                 <div id="filterList" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <div id="storeFilterModal" class="hidden fixed inset-0 z-50">
+            <div class="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
+                onclick="closeStoreFilterModal()">
+            </div>
+            <div
+                class="absolute bottom-0 left-0 right-0 glass-modal rounded-t-[24px] max-h-[70vh] overflow-y-auto p-4 animate-slide-up shadow-2xl">
+                <div class="flex justify-between items-center mb-4 px-2">
+                    <h3 class="font-bold text-lg">Магазин</h3><button onclick="closeStoreFilterModal()"
+                        class="w-8 h-8 bg-gray-100 dark:bg-[#2C2C2E] rounded-full text-gray-500 text-sm font-bold">✕</button>
+                </div>
+                <div id="storeFilterList" class="space-y-2"></div>
             </div>
         </div>
         <div id="avatarModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">

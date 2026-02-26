@@ -260,6 +260,39 @@ export function applyFilter(val) {
     renderAll();
 }
 
+// --- STORE FILTER MODAL ---
+
+export function openStoreFilterModal() {
+    triggerHaptic();
+    document.getElementById('storeFilterModal').classList.remove('hidden');
+    renderStoreFilterList();
+}
+
+export function closeStoreFilterModal() {
+    document.getElementById('storeFilterModal').classList.add('hidden');
+}
+
+export function renderStoreFilterList() {
+    const list = document.getElementById('storeFilterList');
+
+    let html = `
+        <button onclick="window.changeStoreFilter('all')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${state.selectedStoreFilter === 'all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}">
+            <span class="font-medium">🌍 Всі магазини</span>
+            ${state.selectedStoreFilter === 'all' ? '<span>✓</span>' : ''}
+        </button>`;
+
+    state.stores.forEach(s => {
+        const isSelected = state.selectedStoreFilter === s._id;
+        html += `
+            <button onclick="window.changeStoreFilter('${s._id}', '${s.name}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}">
+                <span class="font-medium">🏪 ${s.name}</span>
+                ${isSelected ? '<span>✓</span>' : ''}
+            </button>`;
+    });
+
+    list.innerHTML = html;
+}
+
 // --- AVATAR ---
 
 export function openAvatarModal() {

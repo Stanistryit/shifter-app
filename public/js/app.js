@@ -21,6 +21,7 @@ import { loadRequests, handleRequest, approveAllRequests } from './modules/reque
 import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
 import {
     openFilterModal, closeFilterModal, applyFilter,
+    openStoreFilterModal, closeStoreFilterModal, renderStoreFilterList,
     openAvatarModal, closeAvatarModal, uploadAvatar, handleAvatarSelect, openChangePasswordModal, closeChangePasswordModal, submitChangePassword,
     openTransferModal, updateStoreDisplay,
     openStoreSettingsModal, saveStoreSettings, loadLogs
@@ -126,6 +127,8 @@ window.handleRequest = handleRequest;
 window.openFilterModal = openFilterModal;
 window.closeFilterModal = closeFilterModal;
 window.applyFilter = applyFilter;
+window.openStoreFilterModal = openStoreFilterModal;
+window.closeStoreFilterModal = closeStoreFilterModal;
 window.openAvatarModal = openAvatarModal;
 window.closeAvatarModal = closeAvatarModal;
 window.handleAvatarSelect = handleAvatarSelect;
@@ -162,10 +165,17 @@ window.contextMenuProxy = (e, type, id) => {
     showContextMenu(e, type, id);
 };
 
-window.changeStoreFilter = (storeId) => {
+window.changeStoreFilter = (storeId, storeName) => {
     triggerHaptic();
     state.selectedStoreFilter = storeId;
     localStorage.setItem('shifter_storeFilter', storeId);
+
+    const label = document.getElementById('currentStoreFilterLabel');
+    if (label) {
+        label.innerText = storeId === 'all' ? '🌍 Всі магазини' : `🏪 ${storeName}`;
+    }
+
+    closeStoreFilterModal();
 
     document.getElementById('skeletonLoader').classList.remove('hidden');
 
@@ -201,23 +211,19 @@ async function initGlobalAdminFilter() {
             state.selectedStoreFilter = state.currentUser.storeId || 'all';
         }
 
-        const wrapper = document.createElement('div');
+        const wrapper = document.createElement('button');
         wrapper.id = 'globalStoreFilterWrapper';
         wrapper.className = 'ios-card flex-1 px-3 py-2 flex flex-col items-start justify-center relative glass-panel active:scale-[0.98] transition-transform';
+        wrapper.onclick = window.openStoreFilterModal;
 
-        let optionsHtml = `<option value="all" ${state.selectedStoreFilter === 'all' ? 'selected' : ''}>🌍 Всі магазини</option>`;
-        stores.forEach(s => {
-            const isSelected = state.selectedStoreFilter === s._id ? 'selected' : '';
-            optionsHtml += `<option value="${s._id}" ${isSelected}>🏪 ${s.name}</option>`;
-        });
+        const currentStoreName = state.selectedStoreFilter === 'all' ? '🌍 Всі магазини' :
+            (stores.find(s => s._id === state.selectedStoreFilter)?.name || '🏪 Обраний магазин');
 
         wrapper.innerHTML = `
             <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5 mt-0.5">Магазин (Admin)</span>
-            <div class="flex items-center justify-between w-full relative">
-                <select onchange="changeStoreFilter(this.value)" class="bg-transparent font-bold text-sm text-blue-500 outline-none appearance-none cursor-pointer w-full text-left truncate z-10 relative pr-4">
-                    ${optionsHtml}
-                </select>
-                <span class="text-gray-300 text-[10px] absolute right-0 z-0">▼</span>
+            <div class="flex items-center justify-between w-full">
+                <span id="currentStoreFilterLabel" class="text-blue-500 font-bold text-sm truncate">${currentStoreName}</span>
+                <span class="text-gray-300 text-[10px] ml-1 flex-shrink-0">▼</span>
             </div>
         `;
 
