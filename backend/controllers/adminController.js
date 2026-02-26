@@ -389,6 +389,7 @@ exports.exportSchedulePdf = async (req, res) => {
 
         const store = await Store.findById(u.storeId);
         const storeName = store ? store.name : "Невідомий магазин";
+        const lunchMins = store?.lunch_duration_minutes ? store.lunch_duration_minutes : 0;
 
         const shifts = await Shift.find({ storeId: u.storeId, date: { $regex: `^${prefix}` } });
         if (shifts.length === 0) {
@@ -398,25 +399,57 @@ exports.exportSchedulePdf = async (req, res) => {
         const dateSet = new Set();
         const namesSet = new Set();
         const matrix = {};
+        const totals = {}; // Зберігатиме суму годин: totals[name] = number
 
         shifts.forEach(s => {
             dateSet.add(s.date);
             namesSet.add(s.name);
 
-            if (!matrix[s.name]) matrix[s.name] = {};
+            if (!matrix[s.name]) {
+                matrix[s.name] = {};
+                totals[s.name] = 0;
+            }
 
             if (s.end) {
                 matrix[s.name][s.date] = `${s.start}-${s.end}`;
+
+                // Розрахунок годин
+                if (s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'DELETE') {
+                    const parseTime = (t) => {
+                        const [h, m] = t.split(':').map(Number);
+                        return h + (m / 60);
+                    };
+
+                    let startD = parseTime(s.start);
+                    let endD = parseTime(s.end);
+
+                    // Обробка нічних змін
+                    if (endD <= 6 && startD > endD) {
+                        endD += 24;
+                    } else if (endD === 0 && startD > 0) {
+                        endD = 24;
+                    }
+
+                    let duration = endD - startD - (lunchMins / 60);
+                    if (duration < 0) duration = 0;
+                    totals[s.name] += duration;
+                }
+
             } else {
                 matrix[s.name][s.date] = s.start;
             }
         });
 
         const dates = Array.from(dateSet).sort();
-        const names = Array.from(namesSet).sort();
+        const names = Array.from(namesSet).sort((a, b) => a.localeCompare(b));
 
-        // Генеруємо PDF через сервіс
-        const pdfBuffer = await pdfService.generateSchedulePdf(storeName, m, year, dates, names, matrix);
+        // Округлення годин
+        Object.keys(totals).forEach(name => {
+            totals[name] = parseFloat(totals[name].toFixed(1));
+        });
+
+        // Генеруємо PDF через сервіс (додаємо параметр totals)
+        const pdfBuffer = await pdfService.generateSchedulePdf(storeName, m, year, dates, names, matrix, totals);
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="shifter_schedule_${year}_${m}.pdf"`);

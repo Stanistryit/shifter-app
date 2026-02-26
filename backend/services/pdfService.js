@@ -13,9 +13,10 @@ const ukrainianMonths = [
  * @param {Array<string>} dates - Масив дат (заголовків стовпців)
  * @param {Array<string>} names - Масив імен співробітників
  * @param {Object} matrix - Матриця matrix[name][date]
+ * @param {Object} totals - Об'єкт із загальними годинами { name: totalHrs }
  * @returns {Buffer} PDF-буфер
  */
-exports.generateSchedulePdf = async (storeName, monthIndex, year, dates, names, matrix) => {
+exports.generateSchedulePdf = async (storeName, monthIndex, year, dates, names, matrix, totals) => {
     const monthName = ukrainianMonths[parseInt(monthIndex, 10) - 1];
 
     // Побудова HTML таблиці
@@ -23,7 +24,7 @@ exports.generateSchedulePdf = async (storeName, monthIndex, year, dates, names, 
       <table class="schedule-table">
         <thead>
           <tr>
-            <th class="sticky-col">Співробітник / Дата</th>
+            <th class="sticky-col">Співробітник</th>
     `;
 
     // Заголовки днів
@@ -35,10 +36,11 @@ exports.generateSchedulePdf = async (storeName, monthIndex, year, dates, names, 
         const dayStr = daysUa[d.getDay()];
         const isWeekend = (d.getDay() === 0 || d.getDay() === 6) ? 'red' : '#9ca3af';
 
-        tableHtml += `<th><div style="font-size: 10px; color: ${isWeekend};">${dayStr}</div><div>${dayNum}</div></th>`;
+        tableHtml += `<th><div style="font-size: 9px; color: ${isWeekend};">${dayStr}</div><div style="font-size: 11px;">${dayNum}</div></th>`;
     });
 
     tableHtml += `
+            <th class="sticky-col-right">Години</th>
           </tr>
         </thead>
         <tbody>
@@ -52,22 +54,27 @@ exports.generateSchedulePdf = async (storeName, monthIndex, year, dates, names, 
 
         dates.forEach(date => {
             const shiftVal = matrix[name][date] || '-';
-            // Якщо є зміна, зробити фон легким синім, або іншим, щоб виділити
             let cellClass = 'empty-cell';
             let cellContent = '-';
 
             if (shiftVal !== '-') {
                 cellClass = 'shift-cell';
-                // Обробка випадкових типів статусів типу "Відпустка" чи "Лікарняний"
+
+                // Якщо це просто текстовий статус (Відпустка, Лікарняний)
                 if (shiftVal.match(/^[a-zA-Zа-яА-ЯёЁіІїЇєЄ]+$/)) {
                     cellClass = 'status-cell';
+                    cellContent = shiftVal;
+                } else {
+                    // Це час (наприклад: "10:00-20:00"). Розбиваємо на два рядки для компактності
+                    cellContent = shiftVal.replace('-', '<br>');
                 }
-                cellContent = shiftVal;
             }
 
             tableHtml += `<td class="${cellClass}">${cellContent}</td>`;
         });
 
+        const userTotalHours = totals && totals[name] !== undefined ? totals[name] : 0;
+        tableHtml += `<td class="sticky-col-right name-cell" style="text-align: center; font-weight: bold;">${userTotalHours}</td>`;
         tableHtml += `</tr>`;
     });
 
@@ -88,70 +95,75 @@ exports.generateSchedulePdf = async (storeName, monthIndex, year, dates, names, 
             body {
                 font-family: 'Inter', sans-serif;
                 margin: 0;
-                padding: 20px;
+                padding: 15px;
                 color: #1f2937;
-                background-color: #f3f4f6;
+                background-color: #ffffff;
             }
             .header {
                 text-align: center;
-                margin-bottom: 20px;
+                margin-bottom: 15px;
             }
             .title {
-                font-size: 24px;
+                font-size: 20px;
                 font-weight: 700;
                 color: #111827;
                 margin: 0;
             }
             .subtitle {
-                font-size: 14px;
+                font-size: 13px;
                 color: #6b7280;
-                margin-top: 5px;
+                margin-top: 4px;
             }
             .table-container {
-                background: white;
-                border-radius: 12px;
                 overflow: hidden;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             }
             .schedule-table {
                 width: 100%;
                 border-collapse: collapse;
                 text-align: center;
-                font-size: 10px; /* Злегка зменшив шрифт для вміщення */
+                /* Дозволити таблиці автоматично стискати стовпці */
+                table-layout: auto; 
             }
             .schedule-table th {
                 background-color: #f9fafb;
-                padding: 6px 2px; /* Зменшив відступи */
+                padding: 4px 1px;
                 font-weight: 600;
                 color: #374151;
                 border-bottom: 1px solid #e5e7eb;
                 border-right: 1px solid #e5e7eb;
             }
             .schedule-table td {
-                padding: 6px 2px; /* Зменшив відступи */
+                padding: 4px 1px;
                 border-bottom: 1px solid #e5e7eb;
                 border-right: 1px solid #e5e7eb;
-                white-space: nowrap;
-                font-size: 9px;
-            }
-            .schedule-table th:last-child,
-            .schedule-table td:last-child {
-                border-right: none;
+                font-size: 8px; /* Зменшений шрифт для часу, щоб вміщався */
+                line-height: 1.2;
             }
             .sticky-col {
                 text-align: left;
-                padding-left: 8px !important;
+                padding-left: 6px !important;
+                padding-right: 4px !important;
                 font-weight: 600;
                 color: #111827;
-                background-color: #ffffff;
                 border-right: 2px solid #e5e7eb !important;
-                min-width: 150px;
-                max-width: 150px;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                width: 100px;
+                max-width: 100px;
+                /* Перенос довгих імен */
+                white-space: normal;
+                word-wrap: break-word; 
+                word-break: break-word;
+            }
+            .sticky-col-right {
+                text-align: center;
+                font-weight: 600;
+                border-left: 2px solid #e5e7eb !important;
+                border-right: none !important;
+                width: 40px;
+                max-width: 40px;
             }
             .name-cell {
-                font-size: 11px;
+                font-size: 10px !important;
+                line-height: 1.1;
             }
             .empty-cell {
                 color: #d1d5db;
@@ -165,17 +177,14 @@ exports.generateSchedulePdf = async (storeName, monthIndex, year, dates, names, 
                 font-weight: 600;
                 color: #d97706;
                 background-color: #fef3c7;
-            }
-            /* Сховати полоси прокрутки, оскільки це PDF */
-            ::-webkit-scrollbar {
-                display: none;
+                font-size: 7px !important; /* Для відпусток і лікарняних */
             }
         </style>
     </head>
     <body>
         <div class="header">
             <h1 class="title">Магазин: ${storeName}</h1>
-            <p class="subtitle">Графік роботи на місяць: ${monthName} ${year}</p>
+            <p class="subtitle">Графік роботи на місяць &bull; ${monthName} ${year}</p>
         </div>
         <div class="table-container">
             ${tableHtml}
@@ -187,19 +196,18 @@ exports.generateSchedulePdf = async (storeName, monthIndex, year, dates, names, 
     // Запуск Puppeteer
     const browser = await puppeteer.launch({
         headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox'] // Необхідно для Render та інших хмарних сервісів
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
     const page = await browser.newPage();
     await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
-    // Генерація PDF у ландшафтній орієнтації, щоб таблиця вмістилась
-    // Генерація PDF у ландшафтній орієнтації, щоб таблиця вмістилась
+    // Генерація PDF у ландшафтній орієнтації
     const pdfBuffer = await page.pdf({
         format: 'A4',
         landscape: true,
-        printBackground: true, // Включає фонові кольори CSS
-        scale: 0.65, // Зменшуємо масштаб, щоб таблиця на 31 день влізла в один рядок
+        printBackground: true,
+        scale: 0.9, // Трохи збільшуємо, бо ми вже стиснули стовпці
         margin: {
             top: '10mm',
             right: '10mm',
