@@ -414,10 +414,10 @@ exports.exportSchedulePdf = async (req, res) => {
                 matrix[s.name][s.date] = `${s.start}-${s.end}`;
 
                 // Розрахунок годин
-                if (s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'DELETE') {
+                if (typeof s.start === 'string' && s.start.includes(':') && typeof s.end === 'string' && s.end.includes(':')) {
                     const parseTime = (t) => {
                         const [h, m] = t.split(':').map(Number);
-                        return h + (m / 60);
+                        return (h || 0) + ((m || 0) / 60);
                     };
 
                     let startD = parseTime(s.start);
