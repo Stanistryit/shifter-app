@@ -13,17 +13,16 @@ const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
     // Тиха година: з 22:00 до 08:00
     const isQuietHour = hours >= 22 || hours < 8;
 
-    // 🔥 FIX: Якщо є кнопки (reply_markup) — відправляємо одразу, ігноруючи тиху годину.
-    // Також додано опцію ignoreQuietHours для важливих нагадувань.
-    if (isQuietHour && !options.reply_markup && !options.ignoreQuietHours) {
-        await PendingNotification.create({ chatId, text });
-        console.log(`zzz Повідомлення відкладено для ${chatId} (Тиха година)`);
-    } else {
-        try {
-            await botInstance.sendMessage(chatId, text, options);
-        } catch (e) {
-            console.error(`Error sending message to ${chatId}:`, e.message);
-        }
+    // Якщо це тиха година і немає явної вказівки "ігнорувати",
+    // відправляємо повідомлення "Без звуку" (disable_notification: true)
+    if (isQuietHour && !options.ignoreQuietHours) {
+        options.disable_notification = true;
+    }
+
+    try {
+        await botInstance.sendMessage(chatId, text, options);
+    } catch (e) {
+        console.error(`Error sending message to ${chatId}:`, e.message);
     }
 };
 
