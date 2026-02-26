@@ -78,10 +78,15 @@ export function renderTable() {
             if (foundStore.openTime) openTime = foundStore.openTime;
             if (foundStore.closeTime) closeTime = foundStore.closeTime;
         }
-    } else if (state.currentUser?.store) {
-        // Fallback, якщо stores ще не завантажено
-        if (state.currentUser.store.openTime) openTime = state.currentUser.store.openTime;
-        if (state.currentUser.store.closeTime) closeTime = state.currentUser.store.closeTime;
+    }
+
+    // Якщо в state.stores не знайшло (або його ще немає), пробуємо взяти з populated currentUser
+    if (openTime === "10:00" && closeTime === "22:00") {
+        const userStoreObj = state.currentUser?.store || state.currentUser?.storeId;
+        if (userStoreObj && typeof userStoreObj === 'object') {
+            if (userStoreObj.openTime) openTime = userStoreObj.openTime;
+            if (userStoreObj.closeTime) closeTime = userStoreObj.closeTime;
+        }
     }
 
     const monthNorm = state.kpiData?.settings?.normHours || 0;
@@ -212,10 +217,7 @@ export function renderTable() {
             badgeClass = "text-green-600 font-medium";
         }
 
-        // ДОДАЛИ ВІДЛАГОДЖУВАЛЬНУ ІНФОРМАЦІЮ ПРЯМО В ТЕГ
-        html += `<td class="text-center border-r border-gray-100 dark:border-gray-800 text-[10px] ${badgeClass}"
-            data-debug-open="${openTime}" data-debug-close="${closeTime}"
-            data-debug-openers="${openers}" data-debug-closers="${closers}">
+        html += `<td class="text-center border-r border-gray-100 dark:border-gray-800 text-[10px] ${badgeClass}">
             ${contentHtml}
         </td>`;
     }
