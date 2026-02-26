@@ -55,16 +55,19 @@ export function renderTable() {
     let openTime = "10:00";
     let closeTime = "22:00";
 
-    if (state.currentUser.store && state.currentUser.store.openTime) {
-        openTime = state.currentUser.store.openTime;
-        closeTime = state.currentUser.store.closeTime;
-    }
-    else if (state.stores && state.currentUser.storeId) {
-        const foundStore = state.stores.find(s => s._id === state.currentUser.storeId || s.code === state.currentUser.storeId);
+    // Надійно беремо час роботи з масиву всіх магазинів (state.stores)
+    if (state.stores && state.currentUser) {
+        // storeId може бути об'єктом (якщо populated) або рядком
+        const sId = state.currentUser.storeId?._id || state.currentUser.storeId;
+        const foundStore = state.stores.find(s => String(s._id) === String(sId) || String(s.code) === String(sId));
         if (foundStore) {
-            openTime = foundStore.openTime || "10:00";
-            closeTime = foundStore.closeTime || "22:00";
+            if (foundStore.openTime) openTime = foundStore.openTime;
+            if (foundStore.closeTime) closeTime = foundStore.closeTime;
         }
+    } else if (state.currentUser?.store) {
+        // Fallback, якщо stores ще не завантажено
+        if (state.currentUser.store.openTime) openTime = state.currentUser.store.openTime;
+        if (state.currentUser.store.closeTime) closeTime = state.currentUser.store.closeTime;
     }
 
     const monthNorm = state.kpiData?.settings?.normHours || 0;

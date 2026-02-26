@@ -77,15 +77,18 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const { username, password, telegramId } = req.body;
-        const user = await User.findOne({ username });
+        // Знаходимо користувача за іменем
+        const user = await User.findOne({ username }).populate('storeId');
 
         if (!user) {
-            return res.json({ success: false, message: "Користувача не знайдено" });
+            return res.json({ success: false, message: 'Користувача не знайдено' });
         }
 
+        // Перевіряємо зашифрований пароль
         const isMatch = await user.comparePassword(password);
+
         if (!isMatch) {
-            return res.json({ success: false, message: "Невірний пароль" });
+            return res.json({ success: false, message: 'Невірний пароль' });
         }
 
         if (user.status === 'blocked') {
@@ -106,8 +109,23 @@ exports.login = async (req, res) => {
         }
 
         logAction(user.name, 'login', 'Web Login');
-        // Підтягуємо деталі магазину одразу при логіні, якщо треба
-        return res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar, status: user.status } });
+        return res.json({
+            success: true,
+            user: {
+                _id: user._id,
+                name: user.name,
+                role: user.role,
+                avatar: user.avatar,
+                status: user.status,
+                storeId: user.storeId?._id || user.storeId,
+                store: user.storeId ? {
+                    openTime: user.storeId.openTime,
+                    closeTime: user.storeId.closeTime,
+                    reportTime: user.storeId.telegram?.reportTime,
+                    kpi_enabled: user.storeId.kpi_enabled !== false
+                } : null
+            }
+        });
     } catch (e) {
         res.status(500).json({ success: false });
     }
@@ -185,13 +203,31 @@ exports.changePassword = async (req, res) => {
     }
 };
 
-exports.loginTelegram = async (req, res) => {
+exports.telegramLogin = async (req, res) => {
     const { telegramId } = req.body;
-    const user = await User.findOne({ telegramChatId: telegramId });
+    if (!telegramId) return res.json({ success: false });
+
+    const user = await User.findOne({ telegramChatId: telegramId }).populate('storeId');
     if (user) {
         req.session.userId = user._id;
         logAction(user.name, 'login', 'Tg Login');
-        res.json({ success: true, user: { name: user.name, role: user.role, avatar: user.avatar } });
+        res.json({
+            success: true,
+            user: {
+                _id: user._id,
+                name: user.name,
+                role: user.role,
+                avatar: user.avatar,
+                status: user.status,
+                storeId: user.storeId?._id || user.storeId,
+                store: user.storeId ? {
+                    openTime: user.storeId.openTime,
+                    closeTime: user.storeId.closeTime,
+                    reportTime: user.storeId.telegram?.reportTime,
+                    kpi_enabled: user.storeId.kpi_enabled !== false
+                } : null
+            }
+        });
     } else res.json({ success: false });
 };
 
