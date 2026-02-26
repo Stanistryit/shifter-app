@@ -68,10 +68,12 @@ export function renderTable() {
     let closeTime = "22:00";
 
     // Надійно беремо час роботи з масиву всіх магазинів (state.stores)
-    if (state.stores && state.currentUser) {
-        // storeId може бути об'єктом (якщо populated) або рядком
-        const sId = state.currentUser.storeId?._id || state.currentUser.storeId;
-        const foundStore = state.stores.find(s => String(s._id) === String(sId) || String(s.code) === String(sId));
+    const activeStoreId = (state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
+        ? state.selectedStoreFilter
+        : (state.currentUser.storeId?._id || state.currentUser.storeId);
+
+    if (state.stores && activeStoreId) {
+        const foundStore = state.stores.find(s => String(s._id) === String(activeStoreId) || String(s.code) === String(activeStoreId));
         if (foundStore) {
             if (foundStore.openTime) openTime = foundStore.openTime;
             if (foundStore.closeTime) closeTime = foundStore.closeTime;
@@ -155,20 +157,34 @@ export function renderTable() {
         // Розрахунок покриття (хто закриває, хто відкриває)
         const count = relevantShifts.length;
         const openTimeDec = timeToDec(openTime);
-        const closeTimeDec = timeToDec(closeTime);
+        let closeTimeDec = timeToDec(closeTime);
+
+        // Якщо закриття рівно о 00:00 або пізніше за північ (01:00, 02:00), вважаємо це наступним днем (додаємо 24)
+        if (closeTimeDec <= 6) {
+            closeTimeDec += 24;
+        }
 
         let openers = 0;
         let closers = 0;
 
         relevantShifts.forEach(s => {
             const startD = timeToDec(s.start);
-            const endD = timeToDec(s.end);
+            let endD = timeToDec(s.end);
 
-            // Людина вважається "відкриваючою", якщо прийшла до або рівно в час відкриття
-            if (startD > 0 && startD <= openTimeDec) openers++;
+            // Якщо зміна закінчується о 00:00, 01:00 тощо (до 6 ранку), додаємо 24 години
+            if (endD <= 6 && startD > endD) {
+                endD += 24;
+            } else if (endD === 0) {
+                // Якщо кінець зміни "00:00" але старт, наприклад, "14:00"
+                if (startD > 0) endD = 24;
+            }
 
-            // Людина вважається "закриваючою", якщо йде після або рівно в час закриття
-            if (endD > 0 && endD >= closeTimeDec) closers++;
+            // Людина вважається "відкриваючою", якщо прийшла до або рівно в час відкриття (була умова startD > 0, але 0:00 це 0)
+            if (s.start !== 'Відпустка' && s.start !== 'Лікарняний') {
+                if (startD <= openTimeDec) openers++;
+                // Людина вважається "закриваючою", якщо йде після або рівно в час закриття
+                if (endD >= closeTimeDec) closers++;
+            }
         });
 
         let badgeClass = "text-gray-500";
