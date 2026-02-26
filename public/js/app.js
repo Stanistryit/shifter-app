@@ -291,12 +291,32 @@ function toggleArchive() {
 async function changeMonth(d) {
     triggerHaptic();
 
-    document.getElementById('skeletonLoader').classList.remove('hidden');
-
     state.currentDate.setMonth(state.currentDate.getMonth() + d);
 
     const kpiContainer = document.getElementById('kpiViewContainer');
     const gridContainer = document.getElementById('gridViewContainer');
+    const calContainer = document.getElementById('calendarViewContainer');
+
+    // Показуємо локальний стан завантаження для таблиці/календаря
+    if (gridContainer && !gridContainer.classList.contains('hidden')) {
+        const gridTable = document.getElementById('gridViewTable');
+        if (gridTable) {
+            gridTable.style.opacity = '0.5';
+            gridTable.style.transition = 'opacity 0.2s';
+        }
+    } else if (calContainer && !calContainer.classList.contains('hidden')) {
+        const calGrid = document.getElementById('calendarGrid');
+        if (calGrid) {
+            calGrid.style.opacity = '0.5';
+            calGrid.style.transition = 'opacity 0.2s';
+        }
+    } else if (kpiContainer && !kpiContainer.classList.contains('hidden')) {
+        const kpiList = document.getElementById('kpiList');
+        if (kpiList) {
+            kpiList.style.opacity = '0.5';
+            kpiList.style.transition = 'opacity 0.2s';
+        }
+    }
 
     if ((kpiContainer && !kpiContainer.classList.contains('hidden')) ||
         (gridContainer && !gridContainer.classList.contains('hidden'))) {
@@ -306,10 +326,11 @@ async function changeMonth(d) {
     if (kpiContainer && !kpiContainer.classList.contains('hidden')) {
         renderKpi();
     } else {
-        renderAll();
+        renderAll(); // Відмальовує і таблицю, і календар
     }
 
     updateDashboard();
+
     // Відновлення вигляду кнопки закріплення годин
     const btnPin = document.getElementById('toggleHoursPinBtn');
     if (btnPin) {
@@ -322,7 +343,15 @@ async function changeMonth(d) {
         }
     }
 
-    setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
+    // Знімаємо локальний стан завантаження
+    setTimeout(() => {
+        const gridTable = document.getElementById('gridViewTable');
+        const calGrid = document.getElementById('calendarGrid');
+        const kpiList = document.getElementById('kpiList');
+        if (gridTable) gridTable.style.opacity = '1';
+        if (calGrid) calGrid.style.opacity = '1';
+        if (kpiList) kpiList.style.opacity = '1';
+    }, 100);
 }
 
 function exportCurrentMonthPdf() {

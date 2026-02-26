@@ -196,6 +196,12 @@ async function showApp(user) {
 
     // Перший рендер графіку
     renderAll();
+
+    // Оновлюємо поточну вкладку, щоб підтягнулись права та інтерфейс
+    if (window.setMode) {
+        const currentMode = localStorage.getItem('shifter_viewMode') || 'calendar';
+        window.setMode(currentMode);
+    }
 }
 
 export async function loadData() {
