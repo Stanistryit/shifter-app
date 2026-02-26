@@ -113,6 +113,7 @@ export function renderTable() {
         let thId = `id="grid-col-${dStr}"`;
         if (isToday) {
             bgClass = 'bg-blue-500 text-white shadow-md shadow-blue-500/30 rounded-t-lg transform scale-105 z-30 ring-2 ring-blue-500';
+            thId = `id="todayColumn"`;
         }
 
         html += `<th ${thId} class="px-1 text-center min-w-[40px] font-normal ${bgClass} border-r border-gray-100 dark:border-gray-800 relative group cursor-default">
