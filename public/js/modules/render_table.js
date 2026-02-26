@@ -154,8 +154,7 @@ export function renderTable() {
             });
         }
 
-        // Розрахунок покриття (хто закриває, хто відкриває)
-        const count = relevantShifts.length;
+        // Покращений розрахунок (хто закриває, хто відкриває)
         const openTimeDec = timeToDec(openTime);
         let closeTimeDec = timeToDec(closeTime);
 
@@ -166,10 +165,15 @@ export function renderTable() {
 
         let openers = 0;
         let closers = 0;
+        let shiftCountForValidation = 0;
 
         relevantShifts.forEach(s => {
             const startD = timeToDec(s.start);
             let endD = timeToDec(s.end);
+
+            if (startD === 0 && endD === 0) return; // Ігноруємо пусті записи або некоректні мітки
+
+            shiftCountForValidation++; // Лише реальні робочі зміни
 
             // Якщо зміна закінчується о 00:00, 01:00 тощо (до 6 ранку), додаємо 24 години
             if (endD <= 6 && startD > endD) {
@@ -179,14 +183,18 @@ export function renderTable() {
                 if (startD > 0) endD = 24;
             }
 
-            // Людина вважається "відкриваючою", якщо прийшла до або рівно в час відкриття (була умова startD > 0, але 0:00 це 0)
+            // Людина вважається "відкриваючою", якщо прийшла до або рівно в час відкриття
             if (s.start !== 'Відпустка' && s.start !== 'Лікарняний') {
+                // Допуск 15 хвилин для закриття та відкриття:
+                // Якщо прийшов трошки пізніше відкриття (наприклад відкриття 10:00, прийшов о 10:00 - рахується)
                 if (startD <= openTimeDec) openers++;
-                // Людина вважається "закриваючою", якщо йде після або рівно в час закриття
+
+                // Якщо пішов рівно в час закриття або пізніше
                 if (endD >= closeTimeDec) closers++;
             }
         });
 
+        const count = shiftCountForValidation > 0 ? shiftCountForValidation : relevantShifts.length;
         let badgeClass = "text-gray-500";
         let contentHtml = count > 0 ? count : '-';
 
