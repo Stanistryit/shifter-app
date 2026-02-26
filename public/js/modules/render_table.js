@@ -8,33 +8,36 @@ function timeToDec(t) {
     return h + (m / 60);
 }
 
-// 🔥 Кольорове кодування змін залежно від часу початку та кінця
-function getShiftColor(start, end, closeTimeStr) {
-    if (!start) return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200';
+// 🔥 Всі варіанти кольорів для змін
+const shiftColors = [
+    'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800',
+    'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800',
+    'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-800',
+    'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800',
+    'bg-pink-100 dark:bg-pink-900/40 text-pink-800 dark:text-pink-200 border border-pink-200 dark:border-pink-800',
+    'bg-teal-100 dark:bg-teal-900/40 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800',
+    'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800',
+    'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800',
+    'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-200 border border-rose-200 dark:border-rose-800',
+    'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-800 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800'
+];
 
-    const h = parseInt(start.split(':')[0], 10);
+// 🔥 Кольорове кодування змін залежно від графіку (однакові зміни = однакові кольори)
+function getShiftColor(start, end) {
+    if (!start || !end) return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700';
 
-    // Якщо зміна не до самого закриття магазину -> Зелений
-    if (end && closeTimeStr) {
-        const endDec = timeToDec(end);
-        const closeDec = timeToDec(closeTimeStr);
-        if (endDec > 0 && endDec < closeDec) {
-            return 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800';
-        }
+    const shiftKey = `${start}-${end}`;
+
+    // Простий генератор хешу з рядка (djb2 алгоритм)
+    let hash = 5381;
+    for (let i = 0; i < shiftKey.length; i++) {
+        hash = (hash * 33) ^ shiftKey.charCodeAt(i);
     }
 
-    // 🌅 Ранок (до 11:00) -> Помаранчевий
-    if (h < 11) {
-        return 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-800';
-    }
-    // ☀️ День (11:00 - 15:00) -> Блакитний
-    else if (h < 15) {
-        return 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800';
-    }
-    // 🌆 Вечір (після 15:00) -> Фіолетовий
-    else {
-        return 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800';
-    }
+    // Беремо модуль по кількості доступних кольорів (робимо хеш позитивним)
+    const colorIndex = Math.abs(hash) % shiftColors.length;
+
+    return shiftColors[colorIndex];
 }
 
 export function renderTable() {
