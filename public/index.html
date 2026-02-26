@@ -357,13 +357,18 @@
 
 
 
-            <button onclick="openFilterModal()"
-                class="ios-card w-full px-4 py-4 flex justify-between items-center active:scale-[0.98] transition-transform glass-panel">
-                <span class="text-sm font-semibold text-gray-500">Фільтр відображення</span>
-                <div class="flex items-center gap-2"><span id="currentFilterLabel"
-                        class="text-blue-500 font-bold text-sm">Всі співробітники</span><span
-                        class="text-gray-300 text-xs">▼</span></div>
-            </button>
+            <div id="filtersContainer" class="flex gap-3 mb-4">
+                <button onclick="openFilterModal()"
+                    class="ios-card flex-1 px-3 py-2 flex flex-col items-start justify-center active:scale-[0.98] transition-transform glass-panel">
+                    <span
+                        class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5 mt-0.5">Співробітник</span>
+                    <div class="flex items-center justify-between w-full">
+                        <span id="currentFilterLabel" class="text-blue-500 font-bold text-sm truncate">Всі
+                            співробітники</span>
+                        <span class="text-gray-300 text-[10px] ml-1 flex-shrink-0">▼</span>
+                    </div>
+                </button>
+            </div>
 
             <div id="adminPanel"
                 class="hidden ios-card p-5 border border-orange-100 dark:border-orange-900/30 animate-slide-up">

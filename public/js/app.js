@@ -193,10 +193,9 @@ async function initGlobalAdminFilter() {
     try {
         const stores = await fetchJson('/api/stores');
         state.stores = stores;
-        const container = document.querySelector('.container');
-        const filterBtn = document.querySelector('button[onclick="openFilterModal()"]');
+        const filtersContainer = document.getElementById('filtersContainer');
 
-        if (!container || !filterBtn) return;
+        if (!filtersContainer) return;
 
         if (!state.selectedStoreFilter) {
             state.selectedStoreFilter = state.currentUser.storeId || 'all';
@@ -204,7 +203,7 @@ async function initGlobalAdminFilter() {
 
         const wrapper = document.createElement('div');
         wrapper.id = 'globalStoreFilterWrapper';
-        wrapper.className = 'ios-card w-full px-4 py-4 mb-4 flex justify-between items-center glass-panel active:scale-[0.98] transition-transform animate-slide-up';
+        wrapper.className = 'ios-card flex-1 px-3 py-2 flex flex-col items-start justify-center relative glass-panel active:scale-[0.98] transition-transform';
 
         let optionsHtml = `<option value="all" ${state.selectedStoreFilter === 'all' ? 'selected' : ''}>🌍 Всі магазини</option>`;
         stores.forEach(s => {
@@ -213,16 +212,16 @@ async function initGlobalAdminFilter() {
         });
 
         wrapper.innerHTML = `
-            <span class="text-sm font-semibold text-gray-500">Магазин (Admin)</span>
-            <div class="flex items-center gap-2">
-                <select onchange="changeStoreFilter(this.value)" dir="rtl" class="bg-transparent font-bold text-sm text-blue-500 outline-none appearance-none cursor-pointer">
+            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5 mt-0.5">Магазин (Admin)</span>
+            <div class="flex items-center justify-between w-full relative">
+                <select onchange="changeStoreFilter(this.value)" class="bg-transparent font-bold text-sm text-blue-500 outline-none appearance-none cursor-pointer w-full text-left truncate z-10 relative pr-4">
                     ${optionsHtml}
                 </select>
-                <span class="text-gray-300 text-xs pointer-events-none">▼</span>
+                <span class="text-gray-300 text-[10px] absolute right-0 z-0">▼</span>
             </div>
         `;
 
-        container.insertBefore(wrapper, filterBtn);
+        filtersContainer.insertBefore(wrapper, filtersContainer.firstChild);
     } catch (e) {
         console.error("Failed to load stores for filter", e);
     }
@@ -386,15 +385,14 @@ async function setMode(m) {
     kpiDiv.classList.add('hidden');
     if (profileDiv) profileDiv.classList.add('hidden');
 
-    const filterBtn = document.querySelector('button[onclick="openFilterModal()"]');
-    const globalFilterWrapper = document.getElementById('globalStoreFilterWrapper');
+    const filtersContainer = document.getElementById('filtersContainer');
 
     if (m === 'kpi' || m === 'list' || m === 'grid') {
-        if (filterBtn) filterBtn.classList.remove('hidden');
-        if (globalFilterWrapper) globalFilterWrapper.classList.remove('hidden');
+        if (filtersContainer) filtersContainer.classList.remove('hidden');
+        if (filtersContainer) filtersContainer.classList.add('flex');
     } else {
-        if (filterBtn) filterBtn.classList.add('hidden');
-        if (globalFilterWrapper) globalFilterWrapper.classList.add('hidden');
+        if (filtersContainer) filtersContainer.classList.add('hidden');
+        if (filtersContainer) filtersContainer.classList.remove('flex');
     }
 
     const tabList = document.getElementById('tabModeList');
