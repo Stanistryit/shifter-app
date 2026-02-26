@@ -212,7 +212,10 @@ export function renderTable() {
             badgeClass = "text-green-600 font-medium";
         }
 
-        html += `<td class="text-center border-r border-gray-100 dark:border-gray-800 text-[10px] ${badgeClass}">
+        // ДОДАЛИ ВІДЛАГОДЖУВАЛЬНУ ІНФОРМАЦІЮ ПРЯМО В ТЕГ
+        html += `<td class="text-center border-r border-gray-100 dark:border-gray-800 text-[10px] ${badgeClass}"
+            data-debug-open="${openTime}" data-debug-close="${closeTime}"
+            data-debug-openers="${openers}" data-debug-closers="${closers}">
             ${contentHtml}
         </td>`;
     }
