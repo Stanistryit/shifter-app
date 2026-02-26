@@ -7,7 +7,8 @@
     "start": "node server.js",
     "start:web": "node server.js",
     "dev": "node server.js",
-    "postinstall": "npx puppeteer browsers install chrome"
+    "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/tailwind.css --minify",
+    "postinstall": "npx puppeteer browsers install chrome && npm run build:css"
   },
   "dependencies": {
     "body-parser": "^1.20.2",
@@ -23,6 +24,7 @@
     "exceljs": "^4.4.0",
     "bcryptjs": "^2.4.3",
     "zod": "^3.23.8",
-    "puppeteer": "^22.7.1"
+    "puppeteer": "^22.7.1",
+    "tailwindcss": "^3.4.1"
   }
 }
