@@ -7,7 +7,8 @@ const handleMyShifts = async (bot, chatId, user, messageId = null) => {
 
     if (!shifts.length) {
         const txt = "🎉 Змін немає!";
-        return messageId ? bot.editMessageText(txt, { chat_id: chatId, message_id: messageId }) : bot.sendMessage(chatId, txt);
+        const opts = { reply_markup: { inline_keyboard: [[{ text: '🔙 Назад у меню', callback_data: 'menu_back' }]] } };
+        return messageId ? bot.editMessageText(txt, { chat_id: chatId, message_id: messageId, ...opts }) : bot.sendMessage(chatId, txt, opts);
     }
 
     let r = `📋 <b>Твої зміни:</b>\n<blockquote expandable>`;
@@ -17,9 +18,11 @@ const handleMyShifts = async (bot, chatId, user, messageId = null) => {
     });
     r += `</blockquote>`;
 
+    const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '🔙 Назад у меню', callback_data: 'menu_back' }]] } };
+
     return messageId
-        ? bot.editMessageText(r, { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' })
-        : bot.sendMessage(chatId, r, { parse_mode: 'HTML' });
+        ? bot.editMessageText(r, { chat_id: chatId, message_id: messageId, ...opts })
+        : bot.sendMessage(chatId, r, opts);
 };
 
 const handleMyWeekends = async (bot, chatId, user, messageId = null) => {
@@ -37,13 +40,16 @@ const handleMyWeekends = async (bot, chatId, user, messageId = null) => {
 
     if (!weekends.length) {
         const txt = "😐 Без вихідних...";
-        return messageId ? bot.editMessageText(txt, { chat_id: chatId, message_id: messageId }) : bot.sendMessage(chatId, txt);
+        const opts = { reply_markup: { inline_keyboard: [[{ text: '🔙 Назад у меню', callback_data: 'menu_back' }]] } };
+        return messageId ? bot.editMessageText(txt, { chat_id: chatId, message_id: messageId, ...opts }) : bot.sendMessage(chatId, txt, opts);
     }
 
     const txt = `🌴 <b>Вихідні до кінця місяця:</b>\n<blockquote expandable>${weekends.join(', ')}</blockquote>`;
+    const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '🔙 Назад у меню', callback_data: 'menu_back' }]] } };
+
     return messageId
-        ? bot.editMessageText(txt, { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' })
-        : bot.sendMessage(chatId, txt, { parse_mode: 'HTML' });
+        ? bot.editMessageText(txt, { chat_id: chatId, message_id: messageId, ...opts })
+        : bot.sendMessage(chatId, txt, opts);
 };
 
 const handleWhoIsWorking = async (bot, chatId, user, messageId = null) => {
@@ -77,9 +83,11 @@ const handleWhoIsWorking = async (bot, chatId, user, messageId = null) => {
     }
 
     const txt = active.length ? `🟢 <b>Зараз працюють:</b>\n\n${active.join('\n')}` : "🌑 Нікого немає";
+    const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '🔙 Назад у меню', callback_data: 'menu_back' }]] } };
+
     return messageId
-        ? bot.editMessageText(txt, { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' })
-        : bot.sendMessage(chatId, txt, { parse_mode: 'HTML' });
+        ? bot.editMessageText(txt, { chat_id: chatId, message_id: messageId, ...opts })
+        : bot.sendMessage(chatId, txt, opts);
 };
 
 const handleSettings = async (bot, chatId, user, messageId = null) => {
