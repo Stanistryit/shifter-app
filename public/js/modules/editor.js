@@ -45,12 +45,27 @@ export function toggleEditor() {
 
     const toolbar = document.getElementById('editorToolbar');
     const bottomTab = document.getElementById('bottomTabBar');
+    const tg = window.Telegram.WebApp;
 
     if (state.isEditMode) {
         renderToolbar();
         toolbar.classList.remove('hidden', 'translate-y-full');
         if (bottomTab) bottomTab.classList.add('translate-y-24'); // Ховаємо нижче екрану
         showToast('✏️ Режим редактора: Оберіть інструмент', 'info');
+
+        // Setup MainButton
+        tg.MainButton.text = "ЗБЕРЕГТИ ЗМІНИ";
+        tg.MainButton.color = "#3b82f6"; // bg-blue-500
+        tg.MainButton.onClick(() => window.saveEditorChanges());
+
+        // Only show if there are already pending changes
+        if (Object.keys(state.pendingChanges).length > 0) {
+            tg.MainButton.text = `ЗБЕРЕГТИ ЗМІНИ (${Object.keys(state.pendingChanges).length})`;
+            tg.MainButton.show();
+        } else {
+            tg.MainButton.hide();
+        }
+
     } else {
         if (Object.keys(state.pendingChanges).length > 0) {
             if (!confirm('У вас є незбережені зміни. Вийти без збереження?')) {
@@ -62,6 +77,8 @@ export function toggleEditor() {
         toolbar.classList.add('translate-y-full');
         if (bottomTab) bottomTab.classList.remove('translate-y-24');
         setTimeout(() => toolbar.classList.add('hidden'), 300);
+        tg.MainButton.hide();
+        tg.MainButton.offClick(window.saveEditorChanges); // Cleanup
     }
 
     renderTable();
@@ -137,13 +154,12 @@ function renderToolbar() {
         </button>
     `;
 
-    // 🔥 Заголовок + Стрічка
+    // 🔥 Заголовок + Стрічка (Без кнопки Зберегти, бо тепер є MainButton)
     toolbar.innerHTML = `
         <div class="flex justify-between items-center px-4 py-3 border-b border-gray-100 dark:border-gray-800">
             <button onclick="window.editorConfigTemplates()" class="p-2 -ml-2 text-gray-400 hover:text-blue-500 active:scale-95 transition-transform"><span class="text-lg">⚙️</span></button>
             <div class="flex gap-2">
-                <button onclick="window.toggleEditor()" class="px-4 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-bold active:scale-95">Скасувати</button>
-                <button onclick="window.saveEditorChanges()" class="px-4 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-bold shadow-lg shadow-blue-500/30 active:scale-95">Зберегти (${Object.keys(state.pendingChanges).length})</button>
+                <button onclick="window.toggleEditor()" class="px-4 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-bold active:scale-95">Закрити редактор</button>
             </div>
         </div>
         <div class="flex overflow-x-auto gap-2 p-3 pb-safe scrollbar-hide snap-x relative z-10 w-full" style="scrollbar-width: none; -ms-overflow-style: none;">
@@ -245,6 +261,16 @@ function handleGridClick(e) {
     }
 
     renderTable();
+
+    // Update MainButton visibility
+    const tg = window.Telegram.WebApp;
+    const count = Object.keys(state.pendingChanges).length;
+    if (count > 0) {
+        tg.MainButton.text = `ЗБЕРЕГТИ ЗМІНИ (${count})`;
+        if (!tg.MainButton.isVisible) tg.MainButton.show();
+    } else {
+        if (tg.MainButton.isVisible) tg.MainButton.hide();
+    }
     // renderToolbar(); // Можна не перемальовувати тулбар щоразу, це економить ресурси
 }
 
@@ -257,13 +283,13 @@ export async function saveEditorChanges() {
         return;
     }
 
-    const btn = document.querySelector('#editorToolbar button[onclick="window.saveEditorChanges()"]');
-    const oldText = btn.innerText;
-    btn.innerText = '⏳';
+    const tg = window.Telegram.WebApp;
+    tg.MainButton.showProgress(); // Telegram loading indicator
 
     try {
         const res = await postJson('/api/shifts/save', { updates: changes });
         if (res.success) {
+            triggerHaptic('success');
             if (res.isRequest) {
                 showToast(`📩 Відправлено ${res.count} змін на підтвердження SM`, 'info');
             } else {
@@ -274,15 +300,17 @@ export async function saveEditorChanges() {
             const shifts = await fetchJson('/api/shifts');
             state.shifts = shifts;
 
-            window.toggleEditor();
+            window.toggleEditor(); // this hides button and cleans up
             renderTable();
         } else {
+            triggerHaptic('error');
             showToast('❌ Помилка: ' + res.message, 'error');
-            btn.innerText = oldText;
+            tg.MainButton.hideProgress();
         }
     } catch (e) {
+        triggerHaptic('error');
         showToast('❌ Помилка з\'єднання', 'error');
-        btn.innerText = oldText;
+        tg.MainButton.hideProgress();
     }
 };
 
