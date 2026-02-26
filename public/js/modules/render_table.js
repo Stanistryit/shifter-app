@@ -8,11 +8,20 @@ function timeToDec(t) {
     return h + (m / 60);
 }
 
-// 🔥 Кольорове кодування змін залежно від часу початку
-function getShiftColor(start) {
+// 🔥 Кольорове кодування змін залежно від часу початку та кінця
+function getShiftColor(start, end, closeTimeStr) {
     if (!start) return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200';
 
     const h = parseInt(start.split(':')[0], 10);
+
+    // Якщо зміна не до самого закриття магазину -> Зелений
+    if (end && closeTimeStr) {
+        const endDec = timeToDec(end);
+        const closeDec = timeToDec(closeTimeStr);
+        if (endDec > 0 && endDec < closeDec) {
+            return 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800';
+        }
+    }
 
     // 🌅 Ранок (до 11:00) -> Помаранчевий
     if (h < 11) {
@@ -279,7 +288,7 @@ export function renderTable() {
                     content = '<span class="text-lg">💊</span>';
                 } else {
                     const opacity = isPast ? 'opacity-50 grayscale' : '';
-                    const colorClass = getShiftColor(shift.start);
+                    const colorClass = getShiftColor(shift.start, shift.end, closeTime);
                     // Shift + Badge
                     content = `<div class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity}">
                         ${shift.start}<br>${shift.end}
