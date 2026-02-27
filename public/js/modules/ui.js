@@ -10,6 +10,20 @@ export function initTheme() {
         isDark = (tg?.colorScheme === 'dark');
     }
 
+    applyTheme(isDark);
+
+    // Слухаємо зміни теми від Telegram WebApp
+    if (tg) {
+        tg.onEvent('themeChanged', () => {
+            // Якщо користувач не обрав тему вручну, синхронізуємось з Telegram
+            if (!localStorage.getItem('theme')) {
+                applyTheme(tg.colorScheme === 'dark');
+            }
+        });
+    }
+}
+
+function applyTheme(isDark) {
     if (isDark) {
         document.documentElement.classList.add('dark');
         const icon = document.getElementById('themeIcon');
@@ -49,17 +63,15 @@ export function toggleHoursPin() {
 export function toggleTheme() {
     if (window.triggerHaptic) window.triggerHaptic();
     const html = document.documentElement;
+    const isDark = html.classList.contains('dark');
 
-    if (html.classList.contains('dark')) {
-        html.classList.remove('dark');
+    // Якщо зараз темна - робимо світлу
+    if (isDark) {
         localStorage.setItem('theme', 'light');
-        document.getElementById('themeIcon').innerText = '🌙';
-        if (tg?.setHeaderColor) { tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7'); }
+        applyTheme(false);
     } else {
-        html.classList.add('dark');
         localStorage.setItem('theme', 'dark');
-        document.getElementById('themeIcon').innerText = '☀️';
-        if (tg?.setHeaderColor) { tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000'); }
+        applyTheme(true);
     }
 }
 
