@@ -176,9 +176,6 @@ window.changeStoreFilter = (storeId, storeName) => {
     }
 
     closeStoreFilterModal();
-
-    document.getElementById('skeletonLoader').classList.remove('hidden');
-
     loadKpiData().then(() => {
         const kpiDiv = document.getElementById('kpiViewContainer');
         const gridDiv = document.getElementById('gridViewContainer');
@@ -187,8 +184,6 @@ window.changeStoreFilter = (storeId, storeName) => {
         if (gridDiv && !gridDiv.classList.contains('hidden')) renderTable();
 
         updateDashboard();
-
-        setTimeout(() => document.getElementById('skeletonLoader').classList.add('hidden'), 300);
     });
 
     renderAll();

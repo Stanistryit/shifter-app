@@ -20,7 +20,6 @@ export async function checkAuth() {
     const resetUserId = params.get('user');
 
     if (resetToken && resetUserId) {
-        document.getElementById('skeletonLoader').classList.add('hidden');
         document.getElementById('loginScreen').classList.remove('hidden');
 
         // Ховаємо логін, показуємо скидання
@@ -36,7 +35,6 @@ export async function checkAuth() {
 
     // Якщо це Telegram WebApp
     if (!tg.initDataUnsafe?.user?.id) {
-        document.getElementById('skeletonLoader').classList.add('hidden');
         document.getElementById('loginScreen').classList.remove('hidden');
         return;
     }
@@ -46,7 +44,6 @@ export async function checkAuth() {
     if (data.success) {
         showApp(data.user);
     } else {
-        document.getElementById('skeletonLoader').classList.add('hidden');
         document.getElementById('loginScreen').classList.remove('hidden');
     }
 }
@@ -141,7 +138,6 @@ async function showApp(user) {
 
     // Ховаємо логін, показуємо додаток
     document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('skeletonLoader').classList.add('hidden');
     const app = document.getElementById('appScreen');
     app.classList.remove('hidden');
 
