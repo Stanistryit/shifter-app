@@ -25,7 +25,7 @@ export function initDashboardInteractions() {
             const width = carousel.offsetWidth;
             const index = Math.round(scrollLeft / width);
 
-            for (let i = 1; i <= 3; i++) {
+            for (let i = 1; i <= 4; i++) {
                 const dot = document.getElementById(`dot${i}`);
                 if (dot) {
                     if (i === index + 1) {
@@ -283,7 +283,66 @@ export function updateDashboard() {
     }
 
     // =========================================================
-    // 3. LIVE STORE STATUS & NOTES
+    // 4. СЛАЙД 4 (СМАРТ KPI)
+    // =========================================================
+    const slideKpi = document.getElementById('slideKpi');
+    const dot4 = document.getElementById('dot4');
+
+    if (slideKpi && dot4) {
+        if (state.currentUser?.store?.kpi_enabled !== false && state.kpiData && state.kpiData.kpi?.length > 0) {
+            slideKpi.classList.remove('hidden');
+            dot4.classList.remove('hidden');
+
+            const dashKpiContent = document.getElementById('dashKpiContent');
+            const myKpi = state.kpiData.kpi.find(k => k.name === me.name);
+            const totalKpi = state.kpiData.kpi.find(k => k.name === 'TOTAL');
+
+            let htmlKpi = '';
+
+            if (myKpi) {
+                const s = myKpi.stats;
+                const devPerc = s.devicesTarget ? Math.min(100, (s.devices / s.devicesTarget) * 100) : 0;
+                htmlKpi += `
+                    <div class="mb-3">
+                        <div class="flex justify-between text-[10px] mb-1 font-bold">
+                            <span class="text-white/80">📱 Мої Девайси</span>
+                            <span class="text-white">${s.devices} / ${s.devicesTarget}</span>
+                        </div>
+                        <div class="w-full bg-black/20 h-1.5 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full ${devPerc >= 100 ? 'bg-green-400' : 'bg-white'}" style="width: ${devPerc}%"></div>
+                        </div>
+                    </div>
+                `;
+            }
+            if (totalKpi) {
+                const ts = totalKpi.stats;
+                const devPerc = ts.devicesTarget ? Math.min(100, (ts.devices / ts.devicesTarget) * 100) : 0;
+                htmlKpi += `
+                    <div>
+                        <div class="flex justify-between text-[10px] mb-1 font-bold">
+                            <span class="text-white/80">🏬 Тотал Магазину</span>
+                            <span class="text-white">${ts.devices} / ${ts.devicesTarget}</span>
+                        </div>
+                        <div class="w-full bg-black/20 h-1.5 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full ${devPerc >= 100 ? 'bg-green-400' : 'bg-indigo-300'}" style="width: ${devPerc}%"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (!htmlKpi) {
+                htmlKpi = '<div class="text-[10px] text-white/50 text-center">Дані KPI ще не завантажені</div>';
+            }
+            if (dashKpiContent) dashKpiContent.innerHTML = htmlKpi;
+
+        } else {
+            slideKpi.classList.add('hidden');
+            dot4.classList.add('hidden');
+        }
+    }
+
+    // =========================================================
+    // 5. LIVE STORE STATUS & NOTES
     // =========================================================
     const liveStatusEl = document.getElementById('dashLiveStatus');
     const todayShiftsGlobal = state.shifts.filter(s => s.date === todayStr && s.start !== 'DELETE' && s.start !== 'Відпустка' && s.start !== 'Лікарняний');

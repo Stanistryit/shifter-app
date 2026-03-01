@@ -98,7 +98,7 @@ export function renderTimeline() {
         if (isToday) block.classList.add('ring-2', 'ring-blue-500', 'shadow-lg', 'shadow-blue-500/20', 'dark:shadow-blue-500');
 
         // Заголовок дня
-        let html = `<div class="mb-3 border-b border-gray-100 dark:border-gray-800 pb-2 flex justify-between items-center cursor-pointer active:opacity-60" onclick="window.openNotesModal('${dateStr}')"><h3 class="font-bold text-lg capitalize ${isToday ? 'text-blue-500' : 'text-black dark:text-white'}">${dName}</h3><div class="text-blue-500 text-xs font-bold px-2 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-lg">📝 Нотатки</div></div>`;
+        let html = `<div class="sticky top-0 z-30 bg-white/90 dark:bg-black/80 backdrop-blur-md mb-2 border-b border-gray-100 dark:border-gray-800 pb-2 pt-2 -mt-2 flex justify-between items-center cursor-pointer active:opacity-60" onclick="window.openNotesModal('${dateStr}')"><h3 class="font-bold text-lg capitalize ${isToday ? 'text-blue-500' : 'text-black dark:text-white'}">${dName}</h3><div class="text-blue-500 text-xs font-bold px-2 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-lg">📝 Нотатки</div></div>`;
 
         // Нотатки
         const dayNotes = state.notes.filter(n => n.date === dateStr);

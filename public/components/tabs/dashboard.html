@@ -76,6 +76,17 @@
             <div id="dashMoneySub" class="text-[10px] text-white/70">рахуємо...</div>
         </div>
 
+        <!-- Слайд 4: KPI (Смарт-віджети) -->
+        <div class="snap-center snap-always shrink-0 w-full px-4 py-3 flex flex-col justify-center items-center text-center hidden"
+            id="slideKpi" style="scroll-snap-stop: always;">
+            <div class="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-1">
+                📈 KPI Магазину
+            </div>
+            <div id="dashKpiContent" class="w-full text-left mt-2">
+                <!-- Прогрес-бари генеруватимуться в JS -->
+            </div>
+        </div>
+
     </div>
 
     <!-- Індикатори слайдів (Dots) -->
@@ -83,6 +94,7 @@
         <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-100" id="dot1"></div>
         <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-40" id="dot2"></div>
         <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-40" id="dot3"></div>
+        <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-40 hidden" id="dot4"></div>
     </div>
 
     <!-- Live Status Bar -->

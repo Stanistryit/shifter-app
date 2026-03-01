@@ -515,18 +515,25 @@ async function setMode(mode) {
         }
     });
 
+    [l, c, g, k, profileDiv].forEach(v => {
+        if (v) {
+            v.classList.remove('page-enter', 'animate-slide-up');
+            void v.offsetWidth; // force reflow for restart
+        }
+    });
+
     if (mode === 'list') {
-        if (l) l.classList.remove('hidden');
+        if (l) { l.classList.remove('hidden'); l.classList.add('page-enter'); }
     } else if (mode === 'calendar') {
         if (c) {
             c.classList.remove('hidden');
-            c.classList.add('animate-slide-up');
+            c.classList.add('page-enter');
         }
         renderCalendar();
     } else if (mode === 'grid') {
         if (g) {
             g.classList.remove('hidden');
-            g.classList.add('animate-slide-up');
+            g.classList.add('page-enter');
         }
         showSkeletonLoader('grid-container', 'table');
         await loadKpiData();
@@ -534,13 +541,13 @@ async function setMode(mode) {
     } else if (mode === 'kpi') {
         if (k) {
             k.classList.remove('hidden');
-            k.classList.add('animate-slide-up');
+            k.classList.add('page-enter');
         }
         showSkeletonLoader('kpi-container', 'kpi');
         await loadKpiData();
         renderKpi();
     } else if (mode === 'profile') {
-        if (profileDiv) profileDiv.classList.remove('hidden');
+        if (profileDiv) { profileDiv.classList.remove('hidden'); profileDiv.classList.add('page-enter'); }
 
         const pfName = document.getElementById('profileNameDisplay');
         const pfRole = document.getElementById('profileRoleDisplay');
