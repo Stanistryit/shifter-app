@@ -60,6 +60,7 @@ async function initApp() {
     await Promise.all([
         loadComponent('desktop-sidebar-container', 'components/shared/desktop-sidebar.html'),
         loadComponent('mobile-navbar-container', 'components/shared/mobile-navbar.html'),
+        loadComponent('bottom-navbar-container', 'components/shared/bottom-nav.html'),
         loadComponent('modals-container', 'components/modals/all-modals.html'),
 
         loadComponent('dashboard-container', 'components/tabs/dashboard.html'),
@@ -328,9 +329,9 @@ async function changeMonth(d) {
 
     state.currentDate.setMonth(state.currentDate.getMonth() + d);
 
-    const kpiContainer = document.getElementById('kpiViewContainer');
-    const gridContainer = document.getElementById('gridViewContainer');
-    const calContainer = document.getElementById('calendarViewContainer');
+    const kpiContainer = document.getElementById('kpi-container');
+    const gridContainer = document.getElementById('grid-container');
+    const calContainer = document.getElementById('calendar-container');
 
     // Показуємо локальний стан завантаження для таблиці/календаря
     if (gridContainer && !gridContainer.classList.contains('hidden')) {

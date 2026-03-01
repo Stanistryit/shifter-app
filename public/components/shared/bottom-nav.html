@@ -1,0 +1,37 @@
+<nav
+    class="fixed bottom-0 w-full glass-panel border-t border-gray-200 dark:border-gray-800 z-50 lg:hidden pb-safe bg-white/80 dark:bg-black/80 backdrop-blur-md">
+    <div class="flex justify-around items-center h-16 relative px-2">
+        <div id="tabActiveIndicator" class="absolute top-0 h-1 bg-blue-500 rounded-b-md transition-all duration-300">
+        </div>
+
+        <button id="tabModeList" onclick="setMode('list')"
+            class="flex-1 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform text-gray-400">
+            <span class="text-xl opacity-50 transition-opacity">📋</span>
+            <span class="text-[10px] font-medium transition-colors text-gray-500">Головна</span>
+        </button>
+
+        <button id="tabModeCalendar" onclick="setMode('calendar')"
+            class="flex-1 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform text-gray-400">
+            <span class="text-xl opacity-50 transition-opacity">📅</span>
+            <span class="text-[10px] font-medium transition-colors text-gray-500">Календар</span>
+        </button>
+
+        <button id="tabModeGrid" onclick="setMode('grid')"
+            class="flex-1 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform text-gray-400">
+            <span class="text-xl opacity-50 transition-opacity">📊</span>
+            <span class="text-[10px] font-medium transition-colors text-gray-500">Таблиця</span>
+        </button>
+
+        <button id="tabModeKpi" onclick="setMode('kpi')"
+            class="hidden flex-1 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform text-gray-400">
+            <span class="text-xl opacity-50 transition-opacity">🏆</span>
+            <span class="text-[10px] font-medium transition-colors text-gray-500">KPI</span>
+        </button>
+
+        <button id="tabModeProfile" onclick="setMode('profile')"
+            class="flex-1 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform text-gray-400">
+            <span class="text-xl opacity-50 transition-opacity">⚙️</span>
+            <span class="text-[10px] font-medium transition-colors text-gray-500">Профіль</span>
+        </button>
+    </div>
+</nav>
