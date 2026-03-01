@@ -47,14 +47,14 @@ body.dark {
 
 /* CARDS & BUTTONS */
 .ios-card {
-    background-color: var(--tg-theme-bg-color, white);
+    background-color: white;
     border-radius: 20px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
     transition: transform 0.1s, background-color 0.5s, background-image 0.5s;
 }
 
 .dark .ios-card {
-    background-color: var(--tg-theme-bg-color, #1C1C1E);
+    background-color: var(--tg-theme-section-bg-color, #1C1C1E);
     box-shadow: none;
 }
 
