@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shifter</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>рџ—“пёЏ</text></svg>">
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="css/tailwind.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body
+    class="bg-[#F2F2F7] text-black dark:bg-black dark:text-white font-sans min-h-screen flex flex-col selection:bg-blue-500 selection:text-white pb-safe">
+    <div id="topProgressBar" class="top-progress-bar"></div>
+    <div id="toastContainer"
+        class="fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] space-y-2 w-full max-w-xs pointer-events-none">
+    </div>
+
+    <div id="loginScreen" class="hidden flex-grow flex items-center justify-center p-6 min-h-screen">
+        <div class="ios-card p-8 w-full max-w-sm text-center relative overflow-hidden transition-all duration-300">
+            <h1
+                class="text-4xl font-bold mb-2 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-indigo-600">
+                Shifter</h1>
+
+            <div id="loginContainer" class="transition-opacity duration-300">
+                <p class="text-gray-400 mb-6 text-sm">РЈРІС–Р№РґС–С‚СЊ РґР»СЏ РґРѕСЃС‚СѓРїСѓ</p>
+                <div class="space-y-3">
+                    <input type="text" id="loginUser" placeholder="Р›РѕРіС–РЅ" class="ios-input">
+                    <input type="password" id="loginPass" placeholder="РџР°СЂРѕР»СЊ" class="ios-input">
+                    <button onclick="login()" class="btn-primary mt-4 shadow-lg shadow-blue-500/30">РЈРІС–Р№С‚Рё</button>
+
+                    <div
+                        class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center px-1">
+                        <button onclick="toggleAuthMode('forgot')"
+                            class="text-sm text-gray-500 hover:text-black dark:hover:text-white font-medium hover:underline transition-colors">Р—Р°Р±СѓР»Рё
+                            РїР°СЂРѕР»СЊ?</button>
+                        <button onclick="toggleAuthMode('register')"
+                            class="text-sm text-blue-500 font-medium hover:underline">Р РµС”СЃС‚СЂР°С†С–СЏ</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="registerContainer" class="hidden transition-opacity duration-300">
+                <p class="text-gray-400 mb-4 text-sm">РЎС‚РІРѕСЂРµРЅРЅСЏ РЅРѕРІРѕРіРѕ Р°РєР°СѓРЅС‚Сѓ</p>
+                <div class="space-y-3 text-left">
+
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">РџР†Рџ</label>
+                        <input type="text" id="regFullName" placeholder="Р†РІР°РЅРѕРІ Р†РІР°РЅ Р†РІР°РЅРѕРІРёС‡" class="ios-input">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Р›РѕРіС–РЅ</label>
+                        <input type="text" id="regLogin" placeholder="РџСЂРёРґСѓРјР°Р№С‚Рµ Р»РѕРіС–РЅ" class="ios-input">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">РџР°СЂРѕР»СЊ</label>
+                            <input type="password" id="regPass" placeholder="******" class="ios-input">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Р©Рµ СЂР°Р·</label>
+                            <input type="password" id="regPassConfirm" placeholder="******" class="ios-input">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">РўРµР»РµС„РѕРЅ</label>
+                        <input type="tel" id="regPhone" placeholder="+380РҐРҐРҐРҐРҐРҐРҐРҐРҐ" class="ios-input">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Email</label>
+                        <input type="email" id="regEmail" placeholder="example@mail.com" class="ios-input">
+                    </div>
+
+                    <div class="relative">
+                        <label class="text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1 block">РњР°РіР°Р·РёРЅ</label>
+                        <div class="relative">
+                            <select id="regStore" class="ios-input bg-transparent appearance-none w-full">
+                                <option value="" disabled selected>Р—Р°РІР°РЅС‚Р°Р¶РµРЅРЅСЏ СЃРїРёСЃРєСѓ...</option>
+                            </select>
+                            <div class="absolute right-3 top-3.5 text-gray-400 pointer-events-none">в–ј</div>
+                        </div>
+                    </div>
+
+                    <button onclick="registerUser()"
+                        class="btn-primary mt-4 bg-green-500 shadow-lg shadow-green-500/30">РЎС‚РІРѕСЂРёС‚Рё Р°РєР°СѓРЅС‚</button>
+
+                    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
+                        <button onclick="toggleAuthMode('login')"
+                            class="text-sm text-gray-500 hover:text-black dark:hover:text-white transition-colors">в†ђ
+                            РџРѕРІРµСЂРЅСѓС‚РёСЃСЏ РґРѕ РІС…РѕРґСѓ</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Forgot Password Container -->
+            <div id="forgotPasswordContainer" class="hidden transition-opacity duration-300">
+                <p class="text-gray-400 mb-4 text-sm">РЎРєРёРґР°РЅРЅСЏ РїР°СЂРѕР»СЏ</p>
+                <div class="space-y-3 text-left">
+                    <p class="text-xs text-gray-500 mb-2">
+                        Р’РІРµРґС–С‚СЊ СЃРІС–Р№ Р»РѕРіС–РЅ, С– РјРё РЅР°РґС–С€Р»РµРјРѕ С–РЅСЃС‚СЂСѓРєС†С–С— Сѓ РІР°С€ РїСЂРёРІ'СЏР·Р°РЅРёР№ РўРµР»РµРіСЂР°Рј.
+                    </p>
+                    <div>
+                        <input type="text" id="forgotUsername" placeholder="Р’Р°С€ Р›РѕРіС–РЅ" class="ios-input">
+                    </div>
+
+                    <button onclick="requestPasswordReset()"
+                        class="btn-primary mt-4 bg-purple-500 shadow-lg shadow-purple-500/30">Р’С–РґРЅРѕРІРёС‚Рё РїР°СЂРѕР»СЊ</button>
+
+                    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
+                        <button onclick="toggleAuthMode('login')"
+                            class="text-sm text-gray-500 hover:text-black dark:hover:text-white transition-colors">в†ђ
+                            РџРѕРІРµСЂРЅСѓС‚РёСЃСЏ РґРѕ РІС…РѕРґСѓ</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reset Password Container (Appears when Token is in URL) -->
+            <div id="resetPasswordContainer" class="hidden transition-opacity duration-300">
+                <p class="text-gray-400 mb-4 text-sm">РќРѕРІРёР№ РїР°СЂРѕР»СЊ</p>
+                <div class="space-y-3 text-left">
+                    <p class="text-xs text-gray-500 mb-2">
+                        РџСЂРёРґСѓРјР°Р№С‚Рµ РЅРѕРІРёР№ Р±РµР·РїРµС‡РЅРёР№ РїР°СЂРѕР»СЊ.
+                    </p>
+                    <input type="hidden" id="resetToken">
+                    <input type="hidden" id="resetUserId">
+
+                    <div>
+                        <input type="password" id="resetNewPassword" placeholder="РќРѕРІРёР№ РїР°СЂРѕР»СЊ" class="ios-input mb-2">
+                        <input type="password" id="resetConfirmPassword" placeholder="РџРѕРІС‚РѕСЂС–С‚СЊ РїР°СЂРѕР»СЊ"
+                            class="ios-input">
+                    </div>
+
+                    <button onclick="submitNewPassword()" class="btn-primary mt-4 shadow-lg shadow-blue-500/30">Р—Р±РµСЂРµРіС‚Рё
+                        РїР°СЂРѕР»СЊ</button>
+
+                    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
+                        <button onclick="toggleAuthMode('login')"
+                            class="text-sm text-gray-500 hover:text-black dark:hover:text-white transition-colors">в†ђ
+                            РџРѕРІРµСЂРЅСѓС‚РёСЃСЏ РґРѕ РІС…РѕРґСѓ</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="appScreen"
+        class="hidden w-full pb-36 lg:pb-safe lg:pl-64 relative opacity-0 transition-opacity duration-500">
+
+        <!-- SIDEBAR FOR DESKTOP -->
+        <div id="desktop-sidebar-container"></div>
+
+        <!-- MOBILE NAVBAR -->
+        <div id="mobile-navbar-container"></div>
+
+        <div class="container mx-auto p-4 max-w-[95%] lg:max-w-4xl space-y-4">
+
+            <!-- РљРѕРЅС‚РµР№РЅРµСЂ РґР»СЏ Р”Р°С€Р±РѕСЂРґСѓ -->
+            <div id="dashboard-container"></div>
+
+            <!-- РљРѕРЅС‚РµР№РЅРµСЂ РґР»СЏ Р†РЅС‚РµСЂС„РµР№СЃСѓ РђРґРјС–РЅС–СЃС‚СЂР°С‚РѕСЂР° -->
+            <div id="admin-container"></div>
+
+            <!-- РљРѕРЅС‚РµР№РЅРµСЂ РґР»СЏ Р“РѕР»РѕРІРЅРѕС— (РЎРїРёСЃРѕРє) -->
+            <div id="list-container"></div>
+
+            <!-- РљРѕРЅС‚РµР№РЅРµСЂ РґР»СЏ РљР°Р»РµРЅРґР°СЂСЏ -->
+            <div id="calendar-container"></div>
+
+            <!-- РљРѕРЅС‚РµР№РЅРµСЂ РґР»СЏ РўР°Р±Р»РёС†С– (Grid) -->
+            <div id="grid-container"></div>
+
+            <!-- РљРѕРЅС‚РµР№РЅРµСЂ РґР»СЏ KPI -->
+            <div id="kpi-container"></div>
+
+            <!-- РљРѕРЅС‚РµР№РЅРµСЂ РґР»СЏ РџСЂРѕС„С–Р»СЋ -->
+            <div id="profile-container"></div>
+
+        </div>
+
+        <button id="backToTopBtn" onclick="scrollToTop()"
+            class="fixed bottom-24 right-6 w-12 h-12 bg-blue-500 text-white rounded-full shadow-lg shadow-blue-500/40 flex items-center justify-center text-2xl z-50 transition-all duration-300 opacity-0 hidden hover:scale-110 active:scale-95">в†‘</button>
+
+        <!-- РљРѕРЅС‚РµР№РЅРµСЂ РґР»СЏ РІСЃС–С… РјРѕРґР°Р»РѕРє -->
+        <div id="modals-container"></div>
+
+        <script type="module" src="js/app.js"></script>
+</body>
+
+</html>
