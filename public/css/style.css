@@ -3,8 +3,6 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 0.5s, color 0.5s;
-    background-color: var(--tg-theme-bg-color, #F2F2F7);
-    color: var(--tg-theme-text-color, #000000);
 }
 
 body.dark {
