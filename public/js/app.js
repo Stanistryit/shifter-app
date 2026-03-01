@@ -39,13 +39,48 @@ const tg = window.Telegram.WebApp;
 if (tg) { tg.ready(); if (tg.platform && tg.platform !== 'unknown') try { tg.expand() } catch (e) { } }
 
 // --- INIT ---
-initTheme();
-checkAuth();
-initContextMenuListeners();
-initEditor();
+export async function loadComponent(elementId, filePath) {
+    try {
+        const response = await fetch(filePath);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const html = await response.text();
+        const el = document.getElementById(elementId);
+        if (el) {
+            el.innerHTML = html;
+        }
+        return true;
+    } catch (error) {
+        console.error(`Failed to load ${filePath}:`, error);
+        return false;
+    }
+}
 
-const savedMode = localStorage.getItem('shifter_viewMode') || 'list';
-setMode(savedMode);
+async function initApp() {
+    // Load shell components first
+    await Promise.all([
+        loadComponent('desktop-sidebar-container', 'components/shared/desktop-sidebar.html'),
+        loadComponent('mobile-navbar-container', 'components/shared/mobile-navbar.html'),
+        loadComponent('modals-container', 'components/modals/all-modals.html'),
+
+        loadComponent('dashboard-container', 'components/tabs/dashboard.html'),
+        loadComponent('admin-container', 'components/tabs/admin.html'),
+        loadComponent('list-container', 'components/tabs/list.html'),
+        loadComponent('calendar-container', 'components/tabs/calendar.html'),
+        loadComponent('grid-container', 'components/tabs/grid.html'),
+        loadComponent('kpi-container', 'components/tabs/kpi.html'),
+        loadComponent('profile-container', 'components/tabs/profile.html')
+    ]);
+
+    initTheme();
+    checkAuth();
+    initContextMenuListeners();
+    initEditor();
+
+    const savedMode = localStorage.getItem('shifter_viewMode') || 'list';
+    setMode(savedMode);
+}
+
+document.addEventListener('DOMContentLoaded', initApp);
 
 // --- EXPOSE TO HTML (WINDOW) ---
 window.toggleTheme = toggleTheme;
@@ -374,17 +409,21 @@ async function setMode(m) {
 
     localStorage.setItem('shifter_viewMode', m);
 
-    const listDiv = document.getElementById('listViewContainer');
-    const calDiv = document.getElementById('calendarViewContainer');
-    const gridDiv = document.getElementById('gridViewContainer');
-    const kpiDiv = document.getElementById('kpiViewContainer');
-    const profileDiv = document.getElementById('profileViewContainer');
+    const listDiv = document.getElementById('list-container');
+    const calDiv = document.getElementById('calendar-container');
+    const gridDiv = document.getElementById('grid-container');
+    const kpiDiv = document.getElementById('kpi-container');
+    const profileDiv = document.getElementById('profile-container');
+    const dbDiv = document.getElementById('dashboard-container');
+    const adminDiv = document.getElementById('admin-container');
 
-    listDiv.classList.add('hidden');
-    calDiv.classList.add('hidden');
-    gridDiv.classList.add('hidden');
-    kpiDiv.classList.add('hidden');
+    if (listDiv) listDiv.classList.add('hidden');
+    if (calDiv) calDiv.classList.add('hidden');
+    if (gridDiv) gridDiv.classList.add('hidden');
+    if (kpiDiv) kpiDiv.classList.add('hidden');
     if (profileDiv) profileDiv.classList.add('hidden');
+    if (dbDiv) dbDiv.classList.add('hidden');
+    if (adminDiv) adminDiv.classList.add('hidden');
 
     const filtersContainer = document.getElementById('filtersContainer');
 
@@ -454,19 +493,25 @@ async function setMode(m) {
     });
 
     if (m === 'list') {
-        listDiv.classList.remove('hidden');
+        if (listDiv) listDiv.classList.remove('hidden');
     } else if (m === 'calendar') {
-        calDiv.classList.remove('hidden');
-        calDiv.classList.add('animate-slide-up');
+        if (calDiv) {
+            calDiv.classList.remove('hidden');
+            calDiv.classList.add('animate-slide-up');
+        }
         renderCalendar();
     } else if (m === 'grid') {
-        gridDiv.classList.remove('hidden');
-        gridDiv.classList.add('animate-slide-up');
+        if (gridDiv) {
+            gridDiv.classList.remove('hidden');
+            gridDiv.classList.add('animate-slide-up');
+        }
         await loadKpiData();
         renderTable();
     } else if (m === 'kpi') {
-        kpiDiv.classList.remove('hidden');
-        kpiDiv.classList.add('animate-slide-up');
+        if (kpiDiv) {
+            kpiDiv.classList.remove('hidden');
+            kpiDiv.classList.add('animate-slide-up');
+        }
         await loadKpiData();
         renderKpi();
     } else if (m === 'profile') {

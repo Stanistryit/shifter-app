@@ -1,0 +1,106 @@
+<div id="dashboardCard" class="hidden ios-card text-white shadow-lg animate-slide-up relative overflow-hidden group">
+    <!-- Анімація відблиску (shimmer) -->
+    <div
+        class="absolute top-0 left-0 w-1/2 h-full z-20 transform -skew-x-12 bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 animate-shimmer pointer-events-none">
+    </div>
+    <div
+        class="absolute -top-6 -right-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-110 transition-transform duration-500">
+    </div>
+
+    <!-- Контейнер каруселі / Сітки -->
+    <div id="dashboardCarousel"
+        class="flex lg:grid lg:grid-cols-3 overflow-x-auto lg:overflow-visible snap-x snap-mandatory lg:snap-none scrollbar-hide relative z-10 w-full scroll-smooth pb-6 lg:pb-0"
+        style="scrollbar-width: none; -ms-overflow-style: none;">
+
+        <!-- Слайд 1: Поточний статус та Наступна Зміна -->
+        <div class="snap-center snap-always shrink-0 w-full px-4 py-3 flex flex-col justify-start" id="slideStatus"
+            style="scroll-snap-stop: always;">
+            <div class="flex justify-between items-start mb-2">
+                <div>
+                    <div id="dashNextShiftTitle"
+                        class="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-1 flex items-center gap-1">
+                        📅 СТАТУС
+                    </div>
+                    <div id="dashNextShiftTime" class="text-2xl font-bold leading-none mb-1">--:--</div>
+                    <div id="dashNextShiftDate" class="text-xs text-white/90 font-medium">Завантаження...
+                    </div>
+                </div>
+                <!-- Pin Icon (Notes) -->
+                <div>
+                    <button id="dashNoteIcon"
+                        class="hidden w-6 h-6 flex items-center justify-center bg-yellow-400 text-black rounded-full text-xs shadow-sm animate-pulse active:scale-90 transition-transform"
+                        onclick="window.openTodayNote(event)">📌</button>
+                </div>
+            </div>
+            <div id="dashColleagues" class="mt-1 text-xs text-white/90 border-t border-white/20 pt-2 min-h-[1.5rem]">
+            </div>
+            <div class="mt-2 bg-black/20 rounded-full h-1 w-full overflow-hidden" id="dashProgressContainer1">
+                <div id="dashProgressFill1" class="bg-white h-full rounded-full transition-all duration-1000"
+                    style="width: 0%">
+                </div>
+            </div>
+        </div>
+
+        <!-- Слайд 2: Особиста статистика за місяць -->
+        <div class="snap-center snap-always shrink-0 w-full px-4 py-3 flex flex-col justify-start" id="slideStats"
+            style="scroll-snap-stop: always;">
+            <div>
+                <div class="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-2">
+                    📊 МОЯ СТАТИСТИКА (Цей місяць)
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-1">
+                    <div>
+                        <div id="dashHoursText" class="text-2xl font-bold leading-none mb-1">0 / 0</div>
+                        <div class="text-[10px] text-white/70">годин від норми</div>
+                        <div class="mt-2 bg-black/20 rounded-full h-1 w-full overflow-hidden">
+                            <div id="dashProgressFill2"
+                                class="bg-white h-full rounded-full transition-all duration-1000" style="width: 0%">
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div id="dashShiftsText" class="text-2xl font-bold leading-none mb-1">0</div>
+                        <div class="text-[10px] text-white/70">змін за місяць</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Слайд 3: Можлива ЗП -->
+        <div class="snap-center snap-always shrink-0 w-full px-4 py-3 flex flex-col justify-center items-center text-center"
+            id="slideMoney" style="scroll-snap-stop: always;">
+            <div class="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-1">
+                💰 ОРІЄНТОВНИЙ ДОХІД
+            </div>
+            <div id="dashMoneyText" class="text-2xl font-bold leading-none mb-1">...</div>
+            <div id="dashMoneySub" class="text-[10px] text-white/70">рахуємо...</div>
+        </div>
+
+    </div>
+
+    <!-- Індикатори слайдів (Dots) -->
+    <div class="absolute bottom-2 left-0 w-full flex lg:hidden justify-center gap-1.5 z-20" id="carouselIndicators">
+        <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-100" id="dot1"></div>
+        <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-40" id="dot2"></div>
+        <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-40" id="dot3"></div>
+    </div>
+
+    <!-- Live Status Bar -->
+    <div id="dashLiveStatus"
+        class="bg-black/20 backdrop-blur-sm px-4 py-2 text-[10px] font-medium flex items-center gap-2 border-t border-white/10 relative z-20">
+        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+        <span class="opacity-80">Завантаження статусу магазину...</span>
+    </div>
+</div>
+
+<div id="filtersContainer" class="flex gap-3 mb-4">
+    <button onclick="openFilterModal()"
+        class="ios-card flex-1 px-3 py-2 flex flex-col items-start justify-center active:scale-[0.98] transition-transform glass-panel">
+        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5 mt-0.5">Співробітник</span>
+        <div class="flex items-center justify-between w-full">
+            <span id="currentFilterLabel" class="text-blue-500 font-bold text-sm truncate">Всі
+                співробітники</span>
+            <span class="text-gray-300 text-[10px] ml-1 flex-shrink-0">▼</span>
+        </div>
+    </button>
+</div>
