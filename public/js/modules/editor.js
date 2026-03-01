@@ -224,14 +224,28 @@ export function closeCustomShiftModal() {
     setTimeout(() => m.classList.add('hidden'), 300);
 }
 
-export function applyCustomShiftTime() {
+export async function applyCustomShiftTime() {
     triggerHaptic();
     const s = document.getElementById('customShiftStart').value;
     const e = document.getElementById('customShiftEnd').value;
 
     if (s && e) {
-        state.activeTool = { type: 'custom', start: s, end: e };
-        renderToolbar();
+        if (state.contextEditShiftId) {
+            // Edit triggered from context menu (quick action)
+            const shift = state.shifts.find(x => x._id === state.contextEditShiftId);
+            if (shift) {
+                // Ensure sendQuickShiftUpdate is reachable from window 
+                // since it's defined in app.js. Adding it to window in app.js or calling via window.
+                if (window.sendQuickShiftUpdate) {
+                    await window.sendQuickShiftUpdate(shift, shift.status || '', s, e);
+                }
+            }
+            state.contextEditShiftId = null; // reset
+        } else {
+            // Standard assignment tool behavior
+            state.activeTool = { type: 'custom', start: s, end: e };
+            renderToolbar();
+        }
     }
     closeCustomShiftModal();
 }

@@ -166,6 +166,8 @@ window.applyFilter = applyFilter;
 window.openStoreFilterModal = openStoreFilterModal;
 window.closeStoreFilterModal = closeStoreFilterModal;
 window.openAvatarModal = openAvatarModal;
+
+window.sendQuickShiftUpdate = sendQuickShiftUpdate;
 window.closeAvatarModal = closeAvatarModal;
 window.handleAvatarSelect = handleAvatarSelect;
 window.uploadAvatar = uploadAvatar;
@@ -701,13 +703,55 @@ window.addEventListener('scroll', () => {
 });
 
 function initContextMenuListeners() {
-    // 🔥 Оновлено логіку редагування, щоб не ламалось
-    const btnEdit = document.getElementById('ctxEdit');
-    if (btnEdit) {
-        btnEdit.onclick = () => {
+    const btnEditTime = document.getElementById('ctxEditTime');
+    if (btnEditTime) {
+        btnEditTime.onclick = () => {
             const menu = document.getElementById('contextMenu');
             menu.classList.add('hidden');
-            showToast('Редагування тепер доступне лише через Режим "Таблиця" 📊', 'info');
+            if (activeContext.type === 'shift') {
+                const s = state.shifts.find(x => x._id === activeContext.id);
+                if (s) {
+                    // Pre-fill modal
+                    document.getElementById('customShiftStart').value = s.start || '09:00';
+                    document.getElementById('customShiftEnd').value = s.end || '18:00';
+
+                    // We need a custom temp flag in state to know we are editing from context
+                    state.contextEditShiftId = s._id;
+
+                    const m = document.getElementById('customShiftModal');
+                    m.classList.remove('hidden');
+                    setTimeout(() => {
+                        m.classList.remove('opacity-0');
+                        m.querySelector('.ios-card').classList.remove('scale-95');
+                    }, 10);
+                }
+            }
+        };
+    }
+
+    const btnSick = document.getElementById('ctxSick');
+    if (btnSick) {
+        btnSick.onclick = async () => {
+            document.getElementById('contextMenu').classList.add('hidden');
+            if (activeContext.type === 'shift') {
+                const s = state.shifts.find(x => x._id === activeContext.id);
+                if (s && confirm(`Встановити лікарняний для ${s.name} на ${s.date}?`)) {
+                    await sendQuickShiftUpdate(s, 'Лікарняний', '00:00', '00:00');
+                }
+            }
+        };
+    }
+
+    const btnVacation = document.getElementById('ctxVacation');
+    if (btnVacation) {
+        btnVacation.onclick = async () => {
+            document.getElementById('contextMenu').classList.add('hidden');
+            if (activeContext.type === 'shift') {
+                const s = state.shifts.find(x => x._id === activeContext.id);
+                if (s && confirm(`Встановити відпустку для ${s.name} на ${s.date}?`)) {
+                    await sendQuickShiftUpdate(s, 'Відпустка', '00:00', '00:00');
+                }
+            }
         };
     }
 
@@ -731,6 +775,31 @@ function initContextMenuListeners() {
             document.getElementById('contextMenu').classList.add('hidden');
             if (activeContext.type === 'shift') { delS(activeContext.id); }
         };
+    }
+}
+
+async function sendQuickShiftUpdate(shift, status, start, end) {
+    const changes = {};
+    changes[`${shift.date}_${shift.name}`] = {
+        date: shift.date,
+        name: shift.name,
+        status: status,
+        start: start,
+        end: end
+    };
+
+    try {
+        const res = await postJson('/api/shifts/save', { updates: Object.values(changes) });
+        if (res.success) {
+            triggerHaptic('success');
+            showToast('✅ Змінено');
+            state.shifts = await fetchJson('/api/shifts');
+            renderAll();
+        } else {
+            showToast('❌ Помилка: ' + res.message, 'error');
+        }
+    } catch (e) {
+        showToast('Помилка сервера', 'error');
     }
 }
 
