@@ -7,20 +7,15 @@ export function initTheme() {
     if (storedTheme) {
         isDark = storedTheme === 'dark';
     } else {
-        isDark = (tg?.colorScheme === 'dark');
+        // Fallback or user OS check
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            isDark = true;
+        } else {
+            isDark = (tg?.colorScheme === 'dark');
+        }
     }
 
     applyTheme(isDark);
-
-    // Слухаємо зміни теми від Telegram WebApp
-    if (tg) {
-        tg.onEvent('themeChanged', () => {
-            // Якщо користувач не обрав тему вручну, синхронізуємось з Telegram
-            if (!localStorage.getItem('theme')) {
-                applyTheme(tg.colorScheme === 'dark');
-            }
-        });
-    }
 }
 
 function applyTheme(isDark) {
@@ -29,21 +24,11 @@ function applyTheme(isDark) {
         const icon = document.getElementById('themeIcon');
         if (icon) icon.innerText = '☀️';
         if (tg?.setHeaderColor) { tg.setHeaderColor('#1C1C1E'); tg.setBackgroundColor('#000000'); }
-
-        // Remove manual overrides to let OS Dark Mode take over
-        document.body.style.removeProperty('--tg-theme-bg-color');
-        document.body.style.removeProperty('--tg-theme-section-bg-color');
-        document.body.style.removeProperty('--tg-theme-text-color');
     } else {
         document.documentElement.classList.remove('dark');
         const icon = document.getElementById('themeIcon');
         if (icon) icon.innerText = '🌙';
-        if (tg?.setHeaderColor) { tg.setHeaderColor('#FFFFFF'); tg.setBackgroundColor('#F2F2F7'); }
-
-        // Mute OS dark mode parameters explicitly for web elements
-        document.body.style.setProperty('--tg-theme-bg-color', '#F2F2F7');
-        document.body.style.setProperty('--tg-theme-section-bg-color', '#FFFFFF');
-        document.body.style.setProperty('--tg-theme-text-color', '#000000');
+        if (tg?.setHeaderColor) { tg.setHeaderColor('#F2F2F7'); tg.setBackgroundColor('#F2F2F7'); }
     }
 }
 

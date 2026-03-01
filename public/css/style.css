@@ -1,13 +1,14 @@
-/* Base Transition for Theme */
 body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 0.5s, color 0.5s;
+    background-color: #F2F2F7 !important;
+    color: #000000 !important;
 }
 
 body.dark {
-    background-color: var(--tg-theme-bg-color, #000000);
-    color: var(--tg-theme-text-color, #FFFFFF);
+    background-color: #000000 !important;
+    color: #FFFFFF !important;
 }
 
 /* HEAVY GLASS */
@@ -45,23 +46,22 @@ body.dark {
     background: rgba(28, 28, 30, 0.85);
 }
 
-/* CARDS & BUTTONS */
 .ios-card {
-    background-color: white;
+    background-color: #FFFFFF !important;
     border-radius: 20px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
     transition: transform 0.1s, background-color 0.5s, background-image 0.5s;
 }
 
 .dark .ios-card {
-    background-color: var(--tg-theme-section-bg-color, #1C1C1E);
+    background-color: #1C1C1E !important;
     box-shadow: none;
 }
 
-/* Telegram overrides for standard bg utility classes */
+/* Overrides for standard bg utility classes */
 .dark .dark\:bg-\[\#1C1C1E\],
 .dark .dark\:bg-\[\#151515\] {
-    background-color: var(--tg-theme-section-bg-color, #1C1C1E) !important;
+    background-color: #1C1C1E !important;
 }
 
 .ios-card:active {
