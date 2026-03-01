@@ -1,84 +1,45 @@
-<div id="profileView" class="hidden animate-slide-up space-y-4">
-    <div class="ios-card p-5 relative overflow-hidden">
-        <div class="flex items-center gap-4 relative z-10">
-            <div class="relative cursor-pointer group" onclick="openAvatarModal()">
-                <div class="w-20 h-20 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-white dark:border-gray-700 shadow-md flex items-center justify-center shrink-0"
-                    id="profileAvatarContainer">
-                    <img id="profileAvatarImg" src="" alt="Avatar" class="w-full h-full object-cover hidden">
-                    <span id="profileAvatarPlaceholder" class="text-3xl text-gray-400">👤</span>
-                </div>
-                <div
-                    class="absolute inset-0 bg-black/40 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span class="text-white text-xs font-bold">Змінити</span>
-                </div>
-            </div>
-            <div>
-                <h2 id="profileNameDisplay" class="font-bold text-2xl leading-tight"></h2>
-                <span id="profileRoleDisplay"
-                    class="inline-block bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 uppercase tracking-wider"></span>
-            </div>
+<div class="ios-card p-6 animate-slide-up text-center mb-10">
+    <div class="relative inline-block mx-auto mb-4">
+        <div
+            class="w-24 h-24 bg-gray-100 dark:bg-[#2C2C2E] rounded-full overflow-hidden flex items-center justify-center text-4xl border border-gray-200 dark:border-gray-700 shadow-xl">
+            <img id="profileAvatarImg" src="" class="hidden w-full h-full object-cover">
+            <span id="profileAvatarPlaceholder">👤</span>
+        </div>
+        <div class="absolute bottom-0 right-0 bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg border-2 border-white dark:border-[#1C1C1E] cursor-pointer active:scale-90 transition-transform"
+            onclick="triggerHaptic(); openAvatarModal()">
+            <span class="text-sm pointer-events-none">✏️</span>
         </div>
     </div>
+    <h2 id="profileNameDisplay" class="font-bold text-2xl mb-1 mt-2">...</h2>
+    <p id="profileRoleDisplay" class="text-xs text-gray-500 mb-8 uppercase tracking-wider font-bold">...</p>
 
-    <!-- Налаштування магазину (Тільки для SM та admin) -->
-    <button id="profileBtnStoreSettings" onclick="openStoreSettingsModal()"
-        class="hidden w-full ios-card p-4 items-center gap-3 active:scale-[0.98] transition-all">
-        <div
-            class="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-500 shrink-0">
-            <span class="text-xl">⚙️</span>
-        </div>
-        <div class="text-left flex-1">
-            <div class="font-bold text-base">Налаштування магазину</div>
-            <div class="text-xs text-gray-500">Графік роботи та каса</div>
-        </div>
-        <div class="text-gray-400">›</div>
-    </button>
-
-    <div class="ios-card overflow-hidden">
-        <button onclick="toggleTheme()"
-            class="w-full p-4 flex items-center justify-between active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors border-b border-gray-100 dark:border-gray-800">
-            <div class="flex items-center gap-3">
-                <span
-                    class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">🌓</span>
-                <span class="font-medium text-sm">Тема оформлення</span>
-            </div>
-            <div class="w-12 h-6 bg-gray-200 dark:bg-green-500 rounded-full relative transition-colors shadow-inner"
-                id="themeToggleWrapper">
-                <div class="absolute w-5 h-5 bg-white rounded-full top-0.5 left-0.5 dark:translate-x-6 transition-transform shadow-sm"
-                    id="themeToggleHandle"></div>
-            </div>
-        </button>
-
-        <button onclick="openChangePasswordModal()"
-            class="w-full p-4 flex items-center justify-between active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors border-b border-gray-100 dark:border-gray-800">
-            <div class="flex items-center gap-3">
-                <span
-                    class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-500 flex items-center justify-center text-sm">🔒</span>
-                <span class="font-medium text-sm">Змінити пароль</span>
-            </div>
-            <div class="text-gray-400">›</div>
-        </button>
-
+    <div class="space-y-3 mb-8 relative z-10 text-left">
         <button id="profileBtnChangeStore" onclick="openTransferModal()"
-            class="hidden w-full p-4 items-center justify-between active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors border-b border-gray-100 dark:border-gray-800">
-            <div class="flex items-center gap-3">
-                <span
-                    class="w-8 h-8 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-500 flex items-center justify-center text-sm">🔄</span>
-                <div class="text-left">
-                    <span class="font-medium text-sm block">Змінити магазин</span>
-                    <span class="text-[10px] text-gray-500">Перевід в іншу точку</span>
-                </div>
-            </div>
-            <div class="text-gray-400">›</div>
+            class="hidden w-full text-center flex justify-between items-center gap-2 ios-input p-4 font-medium text-blue-500 active:scale-95 transition-transform">
+            <span class="font-medium text-gray-700 dark:text-gray-200">Змінити магазин</span>
+            <span>🔄</span>
         </button>
+        <button id="profileBtnStoreSettings" onclick="openStoreSettingsModal()"
+            class="hidden w-full text-center flex justify-between items-center gap-2 ios-input p-4 font-medium text-blue-500 active:scale-95 transition-transform">
+            <span class="font-medium text-gray-700 dark:text-gray-200">Налаштування магазину</span>
+            <span>⚙️</span>
+        </button>
+        <button onclick="openChangePasswordModal()"
+            class="w-full text-center flex justify-between items-center gap-2 ios-input p-4 font-medium text-blue-500 active:scale-95 transition-transform">
+            <span class="font-medium text-gray-700 dark:text-gray-200">Змінити пароль</span>
+            <span>🔐</span>
+        </button>
+        <button onclick="toggleTheme()"
+            class="w-full flex justify-between items-center ios-input p-4 active:scale-95 transition-transform">
+            <span class="font-medium text-gray-700 dark:text-gray-200">Тема оформлення</span>
+            <span id="themeIcon">🌙</span>
+        </button>
+    </div>
 
+    <div class="pt-6 border-t border-gray-100 dark:border-gray-800 relative z-10">
         <button onclick="logout()"
-            class="w-full p-4 flex items-center justify-between active:bg-red-50 dark:active:bg-red-900/20 text-red-500 transition-colors">
-            <div class="flex items-center gap-3">
-                <span
-                    class="w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-sm">🚪</span>
-                <span class="font-bold text-sm">Вийти з акаунту</span>
-            </div>
+            class="w-full py-4 px-4 text-red-500 font-bold bg-red-50 dark:bg-red-900/20 rounded-xl active:scale-95 transition-transform flex justify-center items-center gap-2">
+            <span>🚪</span> Вийти з акаунту
         </button>
     </div>
 </div>
