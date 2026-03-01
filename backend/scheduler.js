@@ -121,7 +121,18 @@ const initScheduler = async (tgConfig) => {
                 shouldNotify = true;
             }
 
-            if (shouldNotify) notifyUser(s.name, `🔔 <b>Нагадування!</b>\n\nВ тебе зміна: <b>${s.date}</b>\n⏰ Час: <b>${s.start} - ${s.end}</b>`, { ignoreQuietHours: true });
+            if (shouldNotify) {
+                const opts = {
+                    ignoreQuietHours: true,
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: "📋 Мої зміни", callback_data: "menu_my_shifts" }, { text: "🌴 Мої віхідні", callback_data: "menu_my_weekends" }],
+                            [{ text: "👀 Зараз на зміні", callback_data: "menu_who_is_working" }, { text: "⚙️ Налаштування", callback_data: "menu_settings" }]
+                        ]
+                    }
+                };
+                notifyUser(s.name, `🔔 <b>Нагадування!</b>\n\nВ тебе зміна: <b>${s.date}</b>\n⏰ Час: <b>${s.start} - ${s.end}</b>`, opts);
+            }
         }
 
         // Task Reminders
@@ -133,7 +144,18 @@ const initScheduler = async (tgConfig) => {
         for (const t of tasks) {
             if (t.isFullDay || !t.start) continue;
             const [tH, tM] = t.start.split(':').map(Number);
-            if (tH === checkTaskHour) notifyUser(t.name, `📌 <b>Нагадування про задачу!</b>\n\n📝 ${t.title}\n⏰ Початок: ${t.start}`, { ignoreQuietHours: true });
+            if (tH === checkTaskHour) {
+                const opts = {
+                    ignoreQuietHours: true,
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: "📋 Мої зміни", callback_data: "menu_my_shifts" }, { text: "🌴 Мої віхідні", callback_data: "menu_my_weekends" }],
+                            [{ text: "👀 Зараз на зміні", callback_data: "menu_who_is_working" }, { text: "⚙️ Налаштування", callback_data: "menu_settings" }]
+                        ]
+                    }
+                };
+                notifyUser(t.name, `📌 <b>Нагадування про задачу!</b>\n\n📝 ${t.title}\n⏰ Початок: ${t.start}`, opts);
+            }
         }
     });
 
