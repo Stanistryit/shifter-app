@@ -755,20 +755,6 @@ function initContextMenuListeners() {
         };
     }
 
-    const btnCopy = document.getElementById('ctxCopy');
-    if (btnCopy) {
-        btnCopy.onclick = () => {
-            document.getElementById('contextMenu').classList.add('hidden');
-            if (activeContext.type === 'shift') {
-                const s = state.shifts.find(x => x._id === activeContext.id);
-                if (s) {
-                    const txt = `${s.date} | ${s.name} | ${s.start} - ${s.end}`;
-                    navigator.clipboard.writeText(txt).then(() => showToast('Скопійовано 📋'));
-                }
-            }
-        };
-    }
-
     const btnDelete = document.getElementById('ctxDelete');
     if (btnDelete) {
         btnDelete.onclick = () => {
