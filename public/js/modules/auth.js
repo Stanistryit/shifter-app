@@ -146,12 +146,25 @@ async function showApp(user) {
 
     // Відображення імені та аватарки
     const parts = user.name.split(' ');
-    document.getElementById('userNameDisplay').innerText = `Привіт, ${parts.length > 1 ? parts[1] : parts[0]}`;
+    const firstName = parts.length > 1 ? parts[1] : parts[0];
+
+    document.getElementById('userNameDisplay').innerText = `Привіт, ${firstName}`;
+
+    const deskHeader = document.getElementById('userNameDisplayDesk');
+    if (deskHeader) deskHeader.innerText = `Привіт, ${firstName}`;
 
     if (user.avatar) {
         document.getElementById('userAvatarImg').src = user.avatar;
         document.getElementById('userAvatarImg').classList.remove('hidden');
         document.getElementById('userAvatarPlaceholder').classList.add('hidden');
+
+        const deskImg = document.getElementById('userAvatarImgDesk');
+        if (deskImg) {
+            deskImg.src = user.avatar;
+            deskImg.classList.remove('hidden');
+        }
+        const deskPh = document.getElementById('userAvatarPlaceholderDesk');
+        if (deskPh) deskPh.classList.add('hidden');
     }
 
     // Ролі та адмінські кнопки

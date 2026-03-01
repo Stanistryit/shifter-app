@@ -1,9 +1,16 @@
 <aside id="desktopSidebar"
     class="hidden lg:flex flex-col w-64 h-screen fixed left-0 top-0 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 z-40 p-6 shadow-xl">
-    <div class="flex items-center gap-3 mb-10 mt-safe">
-        <span class="text-3xl">🗓️</span>
-        <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-indigo-600">
-            Shifter</h1>
+    <div class="flex items-center gap-3 mb-10 mt-safe cursor-pointer hover:opacity-80 transition-opacity"
+        onclick="triggerHaptic(); setMode('profile')">
+        <div
+            class="w-10 h-10 bg-gray-100 dark:bg-[#2C2C2E] rounded-full overflow-hidden flex items-center justify-center text-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <img id="userAvatarImgDesk" src="" class="hidden w-full h-full object-cover">
+            <span id="userAvatarPlaceholderDesk">👤</span>
+        </div>
+        <h1 id="userNameDisplayDesk"
+            class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-indigo-600">
+            Shifter
+        </h1>
     </div>
 
     <nav class="flex-1 space-y-2">
@@ -26,11 +33,6 @@
             class="hidden desk-nav-btn w-full text-left px-4 py-3 rounded-xl font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-3 text-gray-500"
             data-mode="kpi">
             <span class="text-xl opacity-70">🏆</span> <span class="text-sm">KPI</span>
-        </button>
-        <button onclick="setMode('profile')"
-            class="desk-nav-btn w-full text-left px-4 py-3 rounded-xl font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-3 text-gray-500"
-            data-mode="profile">
-            <span class="text-xl opacity-70">⚙️</span> <span class="text-sm">Профіль</span>
         </button>
     </nav>
 

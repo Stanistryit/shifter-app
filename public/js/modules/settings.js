@@ -361,6 +361,14 @@ export function uploadAvatar() {
                 const smallPh = document.getElementById('userAvatarPlaceholder');
                 if (smallPh) smallPh.classList.add('hidden');
 
+                const deskImg = document.getElementById('userAvatarImgDesk');
+                if (deskImg) {
+                    deskImg.src = dataUrl;
+                    deskImg.classList.remove('hidden');
+                }
+                const deskPh = document.getElementById('userAvatarPlaceholderDesk');
+                if (deskPh) deskPh.classList.add('hidden');
+
                 // Update main Profile view avatar
                 const pfImg = document.getElementById('profileAvatarImg');
                 if (pfImg) {
