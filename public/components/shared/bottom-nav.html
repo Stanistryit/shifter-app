@@ -1,37 +1,42 @@
-<nav
-    class="fixed bottom-0 w-full glass-panel border-t border-gray-200 dark:border-gray-800 z-50 lg:hidden pb-safe bg-white/80 dark:bg-black/80 backdrop-blur-md">
-    <div class="flex justify-around items-center h-16 relative px-2">
-        <div id="tabActiveIndicator" class="absolute top-0 h-1 bg-blue-500 rounded-b-md transition-all duration-300">
+<nav class="fixed bottom-4 left-4 right-4 liquid-nav rounded-[32px] z-50 lg:hidden overflow-hidden">
+    <div class="flex justify-around items-center h-[64px] relative px-1">
+        <div id="tabActiveIndicator"
+            class="absolute top-[4px] bottom-[4px] nav-bubble transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-0 pointer-events-none">
         </div>
 
         <button id="tabModeList" onclick="setMode('list')"
-            class="flex-1 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform text-gray-400">
-            <span class="text-xl opacity-50 transition-opacity">📋</span>
-            <span class="text-[10px] font-medium transition-colors text-gray-500">Головна</span>
+            class="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-transform text-gray-400">
+            <span class="text-[22px] opacity-60 scale-100 transition-all duration-300">📋</span>
+            <span
+                class="text-[10px] font-bold transition-colors text-gray-500 dark:text-gray-400 tracking-wide">Головна</span>
         </button>
 
         <button id="tabModeCalendar" onclick="setMode('calendar')"
-            class="flex-1 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform text-gray-400">
-            <span class="text-xl opacity-50 transition-opacity">📅</span>
-            <span class="text-[10px] font-medium transition-colors text-gray-500">Календар</span>
+            class="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-transform text-gray-400">
+            <span class="text-[22px] opacity-60 scale-100 transition-all duration-300">📅</span>
+            <span
+                class="text-[10px] font-bold transition-colors text-gray-500 dark:text-gray-400 tracking-wide">Календар</span>
         </button>
 
         <button id="tabModeGrid" onclick="setMode('grid')"
-            class="flex-1 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform text-gray-400">
-            <span class="text-xl opacity-50 transition-opacity">📊</span>
-            <span class="text-[10px] font-medium transition-colors text-gray-500">Таблиця</span>
+            class="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-transform text-gray-400">
+            <span class="text-[22px] opacity-60 scale-100 transition-all duration-300">📊</span>
+            <span
+                class="text-[10px] font-bold transition-colors text-gray-500 dark:text-gray-400 tracking-wide">Таблиця</span>
         </button>
 
         <button id="tabModeKpi" onclick="setMode('kpi')"
-            class="hidden flex-1 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform text-gray-400">
-            <span class="text-xl opacity-50 transition-opacity">🏆</span>
-            <span class="text-[10px] font-medium transition-colors text-gray-500">KPI</span>
+            class="hidden relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-transform text-gray-400">
+            <span class="text-[22px] opacity-60 scale-100 transition-all duration-300">🏆</span>
+            <span
+                class="text-[10px] font-bold transition-colors text-gray-500 dark:text-gray-400 tracking-wide">KPI</span>
         </button>
 
         <button id="tabModeProfile" onclick="setMode('profile')"
-            class="flex-1 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform text-gray-400">
-            <span class="text-xl opacity-50 transition-opacity">⚙️</span>
-            <span class="text-[10px] font-medium transition-colors text-gray-500">Профіль</span>
+            class="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-transform text-gray-400">
+            <span class="text-[22px] opacity-60 scale-100 transition-all duration-300">⚙️</span>
+            <span
+                class="text-[10px] font-bold transition-colors text-gray-500 dark:text-gray-400 tracking-wide">Профіль</span>
         </button>
     </div>
 </nav>

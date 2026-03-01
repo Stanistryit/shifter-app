@@ -452,22 +452,34 @@ async function setMode(m) {
         const textSpan = tab.el.querySelector('span:last-child');
 
         if (tab.id === m) {
-            tab.el.classList.add('text-blue-500');
+            tab.el.classList.add('text-blue-600', 'dark:text-blue-400');
             tab.el.classList.remove('text-gray-400');
-            if (iconSpan) iconSpan.classList.remove('opacity-50');
-            if (textSpan) { textSpan.classList.remove('text-gray-500'); textSpan.classList.add('text-blue-500'); }
+            if (iconSpan) {
+                iconSpan.classList.remove('opacity-60', 'scale-100');
+                iconSpan.classList.add('opacity-100', 'scale-110');
+            }
+            if (textSpan) {
+                textSpan.classList.remove('text-gray-500', 'dark:text-gray-400');
+                textSpan.classList.add('text-blue-600', 'dark:text-blue-400');
+            }
 
-            // Рухаємо індикатор
+            // Рухаємо індикатор (bubble)
             const indicator = document.getElementById('tabActiveIndicator');
             if (indicator && tab.el) {
                 indicator.style.left = `${tab.el.offsetLeft}px`;
                 indicator.style.width = `${tab.el.offsetWidth}px`;
             }
         } else {
-            tab.el.classList.remove('text-blue-500');
+            tab.el.classList.remove('text-blue-600', 'dark:text-blue-400');
             tab.el.classList.add('text-gray-400');
-            if (iconSpan) iconSpan.classList.add('opacity-50');
-            if (textSpan) { textSpan.classList.add('text-gray-500'); textSpan.classList.remove('text-blue-500'); }
+            if (iconSpan) {
+                iconSpan.classList.add('opacity-60', 'scale-100');
+                iconSpan.classList.remove('opacity-100', 'scale-110');
+            }
+            if (textSpan) {
+                textSpan.classList.add('text-gray-500', 'dark:text-gray-400');
+                textSpan.classList.remove('text-blue-600', 'dark:text-blue-400');
+            }
         }
     });
 
