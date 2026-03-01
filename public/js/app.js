@@ -755,11 +755,58 @@ function initContextMenuListeners() {
         };
     }
 
+    const btnAddTask = document.getElementById('ctxAddTask');
+    if (btnAddTask) {
+        btnAddTask.onclick = () => {
+            document.getElementById('contextMenu').classList.add('hidden');
+            if (activeContext.type === 'shift') {
+                const s = state.shifts.find(x => x._id === activeContext.id);
+                if (s) {
+                    // pre-fill date and user
+                    document.getElementById('taskDate').value = s.date;
+                    document.getElementById('taskEmployee').value = s.name;
+                    if (window.openAddTaskModal) window.openAddTaskModal();
+                }
+            }
+        };
+    }
+
     const btnDelete = document.getElementById('ctxDelete');
     if (btnDelete) {
         btnDelete.onclick = () => {
             document.getElementById('contextMenu').classList.add('hidden');
             if (activeContext.type === 'shift') { delS(activeContext.id); }
+        };
+    }
+
+    // --- TASK CONTEXT MENU ---
+    const btnTaskToggle = document.getElementById('ctxTaskToggle');
+    if (btnTaskToggle) {
+        btnTaskToggle.onclick = () => {
+            document.getElementById('taskContextMenu').classList.add('hidden');
+            if (activeContext.type === 'task') {
+                if (window.toggleTaskExecution) window.toggleTaskExecution(activeContext.id);
+            }
+        };
+    }
+
+    const btnTaskEdit = document.getElementById('ctxTaskEdit');
+    if (btnTaskEdit) {
+        btnTaskEdit.onclick = () => {
+            document.getElementById('taskContextMenu').classList.add('hidden');
+            if (activeContext.type === 'task') {
+                if (window.openTaskProxy) window.openTaskProxy(activeContext.id);
+            }
+        };
+    }
+
+    const btnTaskDelete = document.getElementById('ctxTaskDelete');
+    if (btnTaskDelete) {
+        btnTaskDelete.onclick = () => {
+            document.getElementById('taskContextMenu').classList.add('hidden');
+            if (activeContext.type === 'task') {
+                if (window.deleteTask) window.deleteTask(activeContext.id);
+            }
         };
     }
 }

@@ -218,9 +218,12 @@ export function showContextMenu(e, type, id, data = null) {
 
     activeContext = { id, type, data };
 
-    const menu = document.getElementById('contextMenu');
-    const menuWidth = 192;
-    const menuHeight = 120;
+    const menuObj = type === 'task' ? document.getElementById('taskContextMenu') : document.getElementById('contextMenu');
+    if (!menuObj) return;
+
+    // Use rough heights for overflow checks 
+    const menuWidth = 200;
+    const menuHeight = type === 'task' ? 140 : 200;
 
     let x = e.clientX;
     let y = e.clientY;
@@ -228,12 +231,15 @@ export function showContextMenu(e, type, id, data = null) {
     if (x + menuWidth > window.innerWidth) x -= menuWidth;
     if (y + menuHeight > window.innerHeight) y -= menuHeight;
 
-    menu.style.left = `${x}px`;
-    menu.style.top = `${y}px`;
-    menu.classList.remove('hidden');
+    menuObj.style.left = `${x}px`;
+    menuObj.style.top = `${y}px`;
+    menuObj.classList.remove('hidden');
 
     const closeMenu = () => {
-        menu.classList.add('hidden');
+        const m1 = document.getElementById('contextMenu');
+        const m2 = document.getElementById('taskContextMenu');
+        if (m1) m1.classList.add('hidden');
+        if (m2) m2.classList.add('hidden');
         document.removeEventListener('click', closeMenu);
     };
     setTimeout(() => document.addEventListener('click', closeMenu), 50);

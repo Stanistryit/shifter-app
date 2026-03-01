@@ -133,14 +133,15 @@ export function renderTimeline() {
                 if (task.isFullDay) {
                     const clickAttr = `onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();"`;
                     const toggleAttr = `onclick="window.toggleTaskExecution('${task._id}'); event.stopPropagation();"`;
+                    const ctxAttrTask = `oncontextmenu="window.contextMenuProxy(event, 'task', '${task._id}'); event.preventDefault(); event.stopPropagation();"`;
 
                     if (isCompleted) {
-                        badges += `<span class="ml-2 inline-flex items-center text-[10px] bg-gray-100 border border-gray-200 text-gray-500 rounded cursor-pointer active:scale-95 shadow-sm">
+                        badges += `<span ${ctxAttrTask} class="ml-2 inline-flex items-center text-[10px] bg-gray-100 border border-gray-200 text-gray-500 rounded cursor-pointer active:scale-95 shadow-sm">
                             <span ${toggleAttr} class="px-1.5 py-0.5 border-r border-gray-200 bg-white rounded-l text-[9px]">✅</span>
                             <span ${clickAttr} class="px-1.5 py-0.5 line-through decoration-gray-400 opacity-60 font-medium">${task.title}</span>
                         </span>`;
                     } else {
-                        badges += `<span class="ml-2 inline-flex items-center text-[10px] bg-purple-50 border border-purple-200 text-purple-600 rounded cursor-pointer active:scale-95 shadow-sm">
+                        badges += `<span ${ctxAttrTask} class="ml-2 inline-flex items-center text-[10px] bg-purple-50 border border-purple-200 text-purple-600 rounded cursor-pointer active:scale-95 shadow-sm">
                             <span ${toggleAttr} class="px-1.5 py-0.5 border-r border-purple-200 bg-white rounded-l hover:bg-purple-100 text-[9px] grayscale opacity-50">✅</span>
                             <span ${clickAttr} class="px-1.5 py-0.5 font-bold">${task.title}</span>
                         </span>`;
@@ -154,7 +155,8 @@ export function renderTimeline() {
                     const bgStyle = isCompleted ? 'background: #9CA3AF; color: white;' : 'background: linear-gradient(135deg, #A855F7, #7C3AED); color: white;';
                     const icon = isCompleted ? '✅' : '📌';
                     const opacityClass = isCompleted ? 'opacity-60 grayscale' : '';
-                    tasksHtml += `<div class="task-segment flex items-center justify-center text-[10px] ${opacityClass}" style="left:${tLeft}%; width:${tWidth}%; ${bgStyle}" onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();">${icon}</div>`;
+                    const ctxAttrTask = `oncontextmenu="window.contextMenuProxy(event, 'task', '${task._id}'); event.preventDefault(); event.stopPropagation();"`;
+                    tasksHtml += `<div class="task-segment flex items-center justify-center text-[10px] ${opacityClass}" style="left:${tLeft}%; width:${tWidth}%; ${bgStyle}" onclick="window.openTaskProxy('${task._id}'); event.stopPropagation();" ${ctxAttrTask}>${icon}</div>`;
                 }
             });
 

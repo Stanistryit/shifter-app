@@ -164,9 +164,33 @@
             class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#2C2C2E] rounded-lg flex items-center gap-2">
             <span>🌴</span> Відпустка
         </button>
+        <button id="ctxAddTask"
+            class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#2C2C2E] rounded-lg flex items-center gap-2">
+            <span>📌</span> Додати задачу
+        </button>
+        <div class="h-px bg-gray-200 dark:bg-gray-700 my-1"></div>
         <button id="ctxDelete"
             class="w-full text-left px-3 py-2 text-sm text-red-500 font-medium hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex items-center gap-2">
             <span>🗑</span> Видалити
+        </button>
+    </div>
+</div>
+
+<div id="taskContextMenu"
+    class="hidden fixed z-[100] w-56 bg-white dark:bg-[#1C1C1E] rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden transform transition-all origin-top-left">
+    <div class="p-1 space-y-0.5">
+        <button id="ctxTaskToggle"
+            class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#2C2C2E] rounded-lg flex items-center gap-2">
+            <span>✅</span> Змінити статус виконання
+        </button>
+        <button id="ctxTaskEdit"
+            class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#2C2C2E] rounded-lg flex items-center gap-2">
+            <span>✏️</span> Відкрити деталі
+        </button>
+        <div class="h-px bg-gray-200 dark:bg-gray-700 my-1"></div>
+        <button id="ctxTaskDelete"
+            class="w-full text-left px-3 py-2 text-sm text-red-500 font-medium hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex items-center gap-2">
+            <span>🗑</span> Видалити задачу
         </button>
     </div>
 </div>
