@@ -80,7 +80,7 @@ async function initApp() {
     setMode(savedMode);
 }
 
-document.addEventListener('DOMContentLoaded', initApp);
+initApp();
 
 // --- EXPOSE TO HTML (WINDOW) ---
 window.toggleTheme = toggleTheme;
@@ -414,16 +414,12 @@ async function setMode(m) {
     const gridDiv = document.getElementById('grid-container');
     const kpiDiv = document.getElementById('kpi-container');
     const profileDiv = document.getElementById('profile-container');
-    const dbDiv = document.getElementById('dashboard-container');
-    const adminDiv = document.getElementById('admin-container');
 
     if (listDiv) listDiv.classList.add('hidden');
     if (calDiv) calDiv.classList.add('hidden');
     if (gridDiv) gridDiv.classList.add('hidden');
     if (kpiDiv) kpiDiv.classList.add('hidden');
     if (profileDiv) profileDiv.classList.add('hidden');
-    if (dbDiv) dbDiv.classList.add('hidden');
-    if (adminDiv) adminDiv.classList.add('hidden');
 
     const filtersContainer = document.getElementById('filtersContainer');
 
