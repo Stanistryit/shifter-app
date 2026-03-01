@@ -43,14 +43,17 @@ export function toggleEditor() {
     triggerHaptic();
     state.isEditMode = !state.isEditMode;
 
-    const toolbar = document.getElementById('editorToolbar');
-    const bottomTab = document.getElementById('bottomTabBar');
     const tg = window.Telegram.WebApp;
 
     if (state.isEditMode) {
-        renderToolbar();
+        renderToolbar(); // Create Toolbar if it doesn't exist
+
+        const toolbar = document.getElementById('editorToolbar');
+        const bottomTab = document.getElementById('mobileBottomNav');
+
         toolbar.classList.remove('hidden', 'translate-y-full');
-        if (bottomTab) bottomTab.classList.add('translate-y-24'); // Ховаємо нижче екрану
+        if (bottomTab) bottomTab.classList.add('translate-y-32', 'opacity-0'); // Slide down out of screen and fade out
+
         showToast('✏️ Режим редактора: Оберіть інструмент', 'info');
 
         // Setup MainButton
@@ -74,9 +77,16 @@ export function toggleEditor() {
             }
         }
         discardChanges();
-        toolbar.classList.add('translate-y-full');
-        if (bottomTab) bottomTab.classList.remove('translate-y-24');
-        setTimeout(() => toolbar.classList.add('hidden'), 300);
+
+        const toolbar = document.getElementById('editorToolbar');
+        const bottomTab = document.getElementById('mobileBottomNav');
+
+        if (toolbar) {
+            toolbar.classList.add('translate-y-full');
+            setTimeout(() => toolbar.classList.add('hidden'), 300);
+        }
+        if (bottomTab) bottomTab.classList.remove('translate-y-32', 'opacity-0');
+
         tg.MainButton.hide();
         tg.MainButton.offClick(window.saveEditorChanges); // Cleanup
     }
