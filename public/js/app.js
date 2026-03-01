@@ -535,7 +535,7 @@ async function setMode(mode) {
             g.classList.remove('hidden');
             g.classList.add('page-enter');
         }
-        showSkeletonLoader('grid-container', 'table');
+        showSkeletonLoader('gridViewTable', 'table');
         await loadKpiData();
         renderTable();
     } else if (mode === 'kpi') {
@@ -543,7 +543,7 @@ async function setMode(mode) {
             k.classList.remove('hidden');
             k.classList.add('page-enter');
         }
-        showSkeletonLoader('kpi-container', 'kpi');
+        showSkeletonLoader('kpiList', 'kpi');
         await loadKpiData();
         renderKpi();
     } else if (mode === 'profile') {
@@ -708,8 +708,8 @@ async function loadKpiData() {
     const month = `${y}-${m.toString().padStart(2, '0')}`;
 
     console.log(`[KPI] Запит KPI для ${month}`);
-    showSkeletonLoader('kpi-container', 'kpi');
-    showSkeletonLoader('grid-container', 'table');
+    showSkeletonLoader('kpiList', 'kpi');
+    showSkeletonLoader('gridViewTable', 'table');
 
     try {
         const url = `/api/kpi?month=${month}${state.selectedStoreFilter ? '&store=' + state.selectedStoreFilter : ''}`;
