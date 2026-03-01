@@ -225,7 +225,7 @@ export function closeCustomShiftModal() {
 }
 
 export async function applyCustomShiftTime() {
-    triggerHaptic();
+    triggerHaptic('light', 'impact');
     const s = document.getElementById('customShiftStart').value;
     const e = document.getElementById('customShiftEnd').value;
 
@@ -313,7 +313,7 @@ export async function saveEditorChanges() {
     try {
         const res = await postJson('/api/shifts/save', { updates: changes });
         if (res.success) {
-            triggerHaptic('success');
+            triggerHaptic('success', 'notification');
             if (res.isRequest) {
                 showToast(`📩 Відправлено ${res.count} змін на підтвердження SM`, 'info');
             } else {
@@ -327,13 +327,13 @@ export async function saveEditorChanges() {
             window.toggleEditor(); // this hides button and cleans up
             renderTable();
         } else {
-            triggerHaptic('error');
+            triggerHaptic('error', 'notification');
             showToast('❌ Помилка: ' + res.message, 'error');
             tg.MainButton.hideProgress();
         }
     } catch (e) {
-        triggerHaptic('error');
-        showToast('❌ Помилка з\'єднання', 'error');
+        triggerHaptic('error', 'notification');
+        showToast('Помилка з\'єднання. Спробуйте ще раз.', 'error');
         tg.MainButton.hideProgress();
     }
 };

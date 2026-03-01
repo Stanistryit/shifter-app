@@ -98,8 +98,22 @@ export function showToast(msg, type = 'success') {
     }, 3000);
 }
 
-export function triggerHaptic() {
-    if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+export function triggerHaptic(style = 'medium', type = 'impact') {
+    if (tg && tg.HapticFeedback) {
+        if (type === 'impact') {
+            tg.HapticFeedback.impactOccurred(style); // 'light', 'medium', 'heavy', 'rigid', 'soft'
+        } else if (type === 'notification') {
+            tg.HapticFeedback.notificationOccurred(style); // 'error', 'success', 'warning'
+        } else if (type === 'selection') {
+            tg.HapticFeedback.selectionChanged();
+        }
+    } else if (navigator.vibrate) {
+        // Fallback for non-telegram environments
+        if (style === 'light') navigator.vibrate(10);
+        else if (style === 'heavy' || style === 'error') navigator.vibrate([30, 50, 30]);
+        else if (style === 'success') navigator.vibrate([20, 30, 20]);
+        else navigator.vibrate(15);
+    }
 }
 
 export function showAdminTab(t) {
@@ -261,5 +275,74 @@ export function updateFabIcon(isOpen) {
         // Повертаємо синій колір
         btn.classList.remove('bg-gray-700', 'shadow-gray-700/40');
         btn.classList.add('bg-blue-600', 'shadow-blue-600/40');
+    }
+}
+
+// --- SKELETON LOADERS ---
+export function showSkeletonLoader(containerId, type = 'table') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    let html = '';
+    if (type === 'table') {
+        // Skeleton for Grid View
+        html = `
+        <div class="skeleton-loader p-4 space-y-4">
+            <div class="flex gap-2 mb-6">
+                <div class="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                <div class="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+            </div>
+            ${Array(6).fill(`
+            <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse flex-shrink-0"></div>
+                    <div class="space-y-2">
+                        <div class="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        <div class="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse opacity-70"></div>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <div class="h-8 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                    <div class="h-8 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                </div>
+            </div>`).join('')}
+        </div>`;
+    } else if (type === 'kpi') {
+        html = `
+        <div class="skeleton-loader p-4 space-y-4">
+            <div class="h-24 w-full bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse mb-6"></div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="h-16 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+                <div class="h-16 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+                <div class="h-16 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+                <div class="h-16 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+            </div>
+            <div class="h-40 w-full bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse mt-6"></div>
+        </div>`;
+    } else if (type === 'list') {
+        html = `
+        <div class="skeleton-loader p-4 space-y-5">
+            ${Array(3).fill(`
+            <div class="ios-card p-4 h-32 bg-gray-50 dark:bg-[#1C1C1E] animate-pulse">
+                <div class="h-5 w-1/3 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                    <div class="h-4 w-1/2 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                </div>
+                <div class="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded"></div>
+            </div>`).join('')}
+        </div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+export function hideSkeletonLoader(containerId) {
+    // This is mostly a semantic wrapper, usually render methods just overwrite innerHTML,
+    // but we can add fade-out if necessary in the future.
+    const container = document.getElementById(containerId);
+    if (container) {
+        const loaders = container.querySelectorAll('.skeleton-loader');
+        loaders.forEach(l => l.remove());
     }
 }

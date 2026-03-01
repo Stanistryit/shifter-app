@@ -7,12 +7,17 @@ import { renderAll } from './render.js';
 
 export async function delS(id) {
     if (confirm("Видалити?")) {
+        triggerHaptic('warning', 'notification');
         const d = await postJson('/api/delete-shift', { id });
         if (d.success) {
+            triggerHaptic('heavy', 'impact');
             showToast("Видалено");
             state.shifts = await fetchJson('/api/shifts');
             renderAll();
-        } else showToast("Помилка видалення", 'error');
+        } else {
+            triggerHaptic('error', 'notification');
+            showToast("Помилка видалення", 'error');
+        }
     }
 }
 
@@ -42,10 +47,14 @@ export async function addTask() {
     const start = document.getElementById('taskStart').value;
     const end = document.getElementById('taskEnd').value;
 
-    if (!title || !date || !name) return showToast("Заповніть дані", 'error');
+    if (!title || !date || !name) {
+        triggerHaptic('error', 'notification');
+        return showToast("Заповніть дані", 'error');
+    }
 
     await postJson('/api/tasks', { title, date, name, description, isFullDay, start, end });
 
+    triggerHaptic('success', 'notification');
     showToast("Задачу призначено");
 
     document.getElementById('taskTitle').value = '';
@@ -59,22 +68,32 @@ export async function addTask() {
 
 export async function deleteTask(id) {
     if (confirm("Видалити задачу?")) {
+        triggerHaptic('warning', 'notification');
         const d = await postJson('/api/tasks/delete', { id });
         if (d.success) {
+            triggerHaptic('heavy', 'impact');
             showToast("Задачу видалено");
             state.tasks = await fetchJson('/api/tasks');
             renderAll();
-        } else showToast("Помилка", 'error');
+        } else {
+            triggerHaptic('error', 'notification');
+            showToast("Помилка", 'error');
+        }
     }
 }
 
 export async function toggleTaskExecution(id) {
-    triggerHaptic();
+    triggerHaptic('light', 'impact');
     const d = await postJson('/api/tasks/toggle', { id });
     if (d.success) {
         // Оновлюємо локальний стейт
         const task = state.tasks.find(t => t._id === id);
         if (task) {
+            if (d.status === 'completed') {
+                triggerHaptic('success', 'notification');
+            } else {
+                triggerHaptic('light', 'impact');
+            }
             task.status = d.status;
             renderAll();
 
@@ -85,6 +104,7 @@ export async function toggleTaskExecution(id) {
             }
         }
     } else {
+        triggerHaptic('error', 'notification');
         showToast("Помилка", 'error');
     }
 }

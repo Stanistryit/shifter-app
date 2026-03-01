@@ -3,7 +3,7 @@ import { fetchJson, postJson } from './modules/api.js';
 import {
     initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab as uiShowAdminTab, formatText, updateFileName,
     openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext,
-    updateFabIcon, toggleHoursPin
+    updateFabIcon, toggleHoursPin, showSkeletonLoader, hideSkeletonLoader
 } from './modules/ui.js';
 import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } from './modules/render.js';
 import { checkAuth, login, logout, requestPasswordReset, submitNewPassword } from './modules/auth.js';
@@ -327,9 +327,27 @@ function toggleArchive() {
 }
 
 async function changeMonth(d) {
-    triggerHaptic();
+    if (d === 0) {
+        state.currentDate = new Date();
+    } else {
+        triggerHaptic('light', 'impact');
+        state.currentDate.setMonth(state.currentDate.getMonth() + d);
+    }
 
-    state.currentDate.setMonth(state.currentDate.getMonth() + d);
+    const prevM = state.currentDate.getMonth() - d;
+
+    renderAll();
+    const btnText = document.querySelector('button[onclick="changeMonth(0)"]');
+    if (btnText) btnText.innerHTML = `<span>📅</span> ${state.currentDate.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' })}`;
+
+    // 🔥 Плавна анімація переходу
+    const container = document.getElementById('monthTransitionWrapper');
+    if (container) {
+        const isNext = d > 0;
+        container.classList.remove('animate-month-next', 'animate-month-prev');
+        void container.offsetWidth; // trigger reflow
+        container.classList.add(isNext ? 'animate-month-next' : 'animate-month-prev');
+    }
 
     const kpiContainer = document.getElementById('kpi-container');
     const gridContainer = document.getElementById('grid-container');
@@ -401,32 +419,26 @@ function exportCurrentMonthPdf() {
 // Expose function to global scope for HTML onclick
 window.exportCurrentMonthPdf = exportCurrentMonthPdf;
 
-async function setMode(m) {
-    triggerHaptic();
+async function setMode(mode) {
+    if (window.triggerHaptic) window.triggerHaptic('light', 'impact');
+    state.currentMode = mode;
+    localStorage.setItem('shifter_lastTab', mode);
 
-    if (state.currentUser && state.currentUser.role === 'RRP') {
-        if (m === 'calendar' || m === 'kpi') {
-            m = 'list';
-        }
-    }
-
-    localStorage.setItem('shifter_viewMode', m);
-
-    const listDiv = document.getElementById('list-container');
-    const calDiv = document.getElementById('calendar-container');
-    const gridDiv = document.getElementById('grid-container');
-    const kpiDiv = document.getElementById('kpi-container');
+    const l = document.getElementById('list-container');
+    const c = document.getElementById('calendar-container');
+    const g = document.getElementById('grid-container');
+    const k = document.getElementById('kpi-container');
     const profileDiv = document.getElementById('profile-container');
 
-    if (listDiv) listDiv.classList.add('hidden');
-    if (calDiv) calDiv.classList.add('hidden');
-    if (gridDiv) gridDiv.classList.add('hidden');
-    if (kpiDiv) kpiDiv.classList.add('hidden');
+    if (l) l.classList.add('hidden');
+    if (c) c.classList.add('hidden');
+    if (g) g.classList.add('hidden');
+    if (k) k.classList.add('hidden');
     if (profileDiv) profileDiv.classList.add('hidden');
 
     const filtersContainer = document.getElementById('filtersContainer');
 
-    if (m === 'kpi' || m === 'list' || m === 'grid') {
+    if (mode === 'kpi' || mode === 'list' || mode === 'grid') {
         if (filtersContainer) filtersContainer.classList.remove('hidden');
         if (filtersContainer) filtersContainer.classList.add('flex');
     } else {
@@ -453,7 +465,7 @@ async function setMode(m) {
         const iconSpan = tab.el.querySelector('span:first-child');
         const textSpan = tab.el.querySelector('span:last-child');
 
-        if (tab.id === m) {
+        if (tab.id === mode) {
             tab.el.classList.add('text-blue-600', 'dark:text-blue-400');
             tab.el.classList.remove('text-gray-400');
             if (iconSpan) {
@@ -490,7 +502,7 @@ async function setMode(m) {
     deskBtns.forEach(btn => {
         const iconSpan = btn.querySelector('span:first-child');
         const textSpan = btn.querySelector('span:last-child');
-        if (btn.dataset.mode === m) {
+        if (btn.dataset.mode === mode) {
             btn.classList.add('bg-blue-50', 'dark:bg-blue-900/30');
             btn.classList.remove('hover:bg-gray-100', 'dark:hover:bg-gray-800');
             if (iconSpan) iconSpan.classList.remove('opacity-70');
@@ -503,29 +515,31 @@ async function setMode(m) {
         }
     });
 
-    if (m === 'list') {
-        if (listDiv) listDiv.classList.remove('hidden');
-    } else if (m === 'calendar') {
-        if (calDiv) {
-            calDiv.classList.remove('hidden');
-            calDiv.classList.add('animate-slide-up');
+    if (mode === 'list') {
+        if (l) l.classList.remove('hidden');
+    } else if (mode === 'calendar') {
+        if (c) {
+            c.classList.remove('hidden');
+            c.classList.add('animate-slide-up');
         }
         renderCalendar();
-    } else if (m === 'grid') {
-        if (gridDiv) {
-            gridDiv.classList.remove('hidden');
-            gridDiv.classList.add('animate-slide-up');
+    } else if (mode === 'grid') {
+        if (g) {
+            g.classList.remove('hidden');
+            g.classList.add('animate-slide-up');
         }
+        showSkeletonLoader('grid-container', 'table');
         await loadKpiData();
         renderTable();
-    } else if (m === 'kpi') {
-        if (kpiDiv) {
-            kpiDiv.classList.remove('hidden');
-            kpiDiv.classList.add('animate-slide-up');
+    } else if (mode === 'kpi') {
+        if (k) {
+            k.classList.remove('hidden');
+            k.classList.add('animate-slide-up');
         }
+        showSkeletonLoader('kpi-container', 'kpi');
         await loadKpiData();
         renderKpi();
-    } else if (m === 'profile') {
+    } else if (mode === 'profile') {
         if (profileDiv) profileDiv.classList.remove('hidden');
 
         const pfName = document.getElementById('profileNameDisplay');
@@ -683,15 +697,29 @@ async function saveKpiSettings() {
 
 async function loadKpiData() {
     const y = state.currentDate.getFullYear();
-    const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
-    const month = `${y}-${m}`;
+    const m = state.currentDate.getMonth() + 1;
+    const month = `${y}-${m.toString().padStart(2, '0')}`;
 
-    let query = `?month=${month}`;
-    if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
-        query += `&storeId=${state.selectedStoreFilter}`;
+    console.log(`[KPI] Запит KPI для ${month}`);
+    showSkeletonLoader('kpi-container', 'kpi');
+    showSkeletonLoader('grid-container', 'table');
+
+    try {
+        const url = `/api/kpi?month=${month}${state.selectedStoreFilter ? '&store=' + state.selectedStoreFilter : ''}`;
+        const data = await fetchJson(url);
+
+        console.log(`[KPI] Отримано відповідь:`, data);
+
+        if (data && !data.error) {
+            state.kpiData = data;
+        } else {
+            console.warn(`[KPI] Помилка або порожні дані:`, data?.error || 'Unknown error');
+            state.kpiData = { dailySales: {}, goals: {}, conversion: {}, unitsPerReceipt: {}, expenses: {} };
+        }
+    } catch (error) {
+        console.error(`[KPI] Frontend Error:`, error);
+        state.kpiData = { dailySales: {}, goals: {}, conversion: {}, unitsPerReceipt: {}, expenses: {} };
     }
-
-    state.kpiData = await fetchJson(`/api/kpi${query}`);
 }
 
 window.addEventListener('scroll', () => {
@@ -824,17 +852,70 @@ async function sendQuickShiftUpdate(shift, status, start, end) {
     try {
         const res = await postJson('/api/shifts/save', { updates: Object.values(changes) });
         if (res.success) {
-            triggerHaptic('success');
+            triggerHaptic('success', 'notification');
             showToast('✅ Змінено');
             state.shifts = await fetchJson('/api/shifts');
             renderAll();
         } else {
+            triggerHaptic('error', 'notification');
             showToast('❌ Помилка: ' + res.message, 'error');
         }
     } catch (e) {
+        triggerHaptic('error', 'notification');
         showToast('Помилка сервера', 'error');
     }
 }
+
+// --- SWIPE-TO-ACTION LOGIC ---
+let touchStartX = 0;
+let touchStartY = 0;
+let touchTarget = null;
+const SWIPE_THRESHOLD = 40; // min distance to trigger
+
+document.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+
+    // Check if we touched a task or shift element
+    const t = e.target.closest('[oncontextmenu]');
+    if (t && (t.classList.contains('shift-segment') || t.classList.contains('task-segment') || t.tagName === 'SPAN')) {
+        touchTarget = t;
+    } else {
+        touchTarget = null;
+    }
+}, { passive: true });
+
+document.addEventListener('touchend', (e) => {
+    if (!touchTarget) return;
+
+    const touchEndX = e.changedTouches[0].screenX;
+    const touchEndY = e.changedTouches[0].screenY;
+
+    const diffX = touchStartX - touchEndX; // positive means left swipe
+    const diffY = Math.abs(touchStartY - touchEndY);
+
+    // Left swipe and mostly horizontal
+    if (diffX > SWIPE_THRESHOLD && diffY < 30) {
+        // Find the oncontextmenu attribute to get args
+        const ctxStr = touchTarget.getAttribute('oncontextmenu');
+        if (ctxStr) {
+            // Extract type and id, e.g. window.contextMenuProxy(event, 'shift', '123')
+            const match = ctxStr.match(/'([^']+)',\s*'([^']+)'/);
+            if (match) {
+                const type = match[1];
+                const id = match[2];
+                // Simulate context menu open but centered or at fixed touch point
+                const simulatedEvent = {
+                    preventDefault: () => { },
+                    clientX: e.changedTouches[0].clientX,
+                    clientY: e.changedTouches[0].clientY
+                };
+                window.contextMenuProxy(simulatedEvent, type, id);
+            }
+        }
+    }
+    touchTarget = null;
+}, { passive: true });
 
 setInterval(updateStoreDisplay, 5000);
 setTimeout(updateStoreDisplay, 1000);
