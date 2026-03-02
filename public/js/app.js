@@ -303,7 +303,7 @@ function checkEditorButtonVisibility() {
         }
     }
 
-    const isGridMode = localStorage.getItem('shifter_viewMode') === 'grid';
+    const isGridMode = localStorage.getItem('shifter_lastTab') === 'grid';
 
     if (inlineEditBtn && state.currentUser) {
         if (['admin', 'SM', 'SSE'].includes(state.currentUser.role) && isGridMode) {
