@@ -6,7 +6,7 @@ body {
     color: #000000 !important;
 }
 
-body.dark {
+.dark body {
     background-color: #000000 !important;
     color: #FFFFFF !important;
 }
