@@ -16,15 +16,37 @@ const handleStart = async (bot, msg, appUrl) => {
         console.error("Помилка встановлення MenuButton:", e.message);
     }
 
-    const inlineMenu = {
-        inline_keyboard: [
-            [{ text: "📋 Мої зміни", callback_data: "menu_my_shifts" }, { text: "🌴 Мої віхідні", callback_data: "menu_my_weekends" }],
-            [{ text: "👀 Зараз на зміні", callback_data: "menu_who_is_working" }, { text: "⚙️ Налаштування", callback_data: "menu_settings" }]
-        ]
-    };
+    const { User } = require('../models');
+    // Check if user is registered to tailor the onboarding
+    const user = await User.findOne({ telegramChatId: msg.chat.id });
 
-    const txt = `👋 <b>Привіт! Це бот Shifter.</b>\n\nТут ти можеш:\n📅 Дивитись графік роботи (кнопка <b>Графік</b> зліва внизу)\n👀 Бачити, хто зараз працює\n🔔 Отримувати нагадування про зміни\n\n🔐 <b>Авторизація:</b>\nНатисни кнопку <b>Графік</b> і увійди в додаток. Твій акаунт буде автоматично прив'язано до Telegram.`;
-    bot.sendMessage(msg.chat.id, txt, { reply_markup: inlineMenu, parse_mode: 'HTML' });
+    if (user) {
+        const inlineMenuAuth = {
+            inline_keyboard: [
+                [{ text: "📋 Мої зміни", callback_data: "menu_my_shifts" }, { text: "🌴 Мої віхідні", callback_data: "menu_my_weekends" }],
+                [{ text: "👀 Зараз на зміні", callback_data: "menu_who_is_working" }, { text: "⚙️ Налаштування", callback_data: "menu_settings" }],
+                [{ text: "📅 Відкрити Графік", web_app: { url: appUrl } }]
+            ]
+        };
+        const txtAuth = `👋 <b>Привіт, ${user.name}!</b>\n\nТвій акаунт синхронізовано.\n⬇️ Використовуй меню нижче для швидкого доступу або кнопку <b>Графік</b> зліва внизу для повноцінної роботи.`;
+        bot.sendMessage(msg.chat.id, txtAuth, { reply_markup: inlineMenuAuth, parse_mode: 'HTML' });
+    } else {
+        const txtNew = `👋 <b>Привіт! Це бот Shifter.</b>\n\nДля початку роботи тобі потрібно авторизуватись у системі.\n\n👇 <b>Натисни кнопку "Графік"</b> зліва від поля вводу (як показано на фото), щоб відкрити додаток та увійти (або зареєструватись). Після входу бот автоматично прив'яжеться до твого профілю!`;
+        const fs = require('fs');
+        const photoPath = require('path').join(__dirname, '../../public/assets/onboarding_guide.png');
+
+        const inlineMenuNew = {
+            inline_keyboard: [
+                [{ text: "📅 Відкрити Додаток", web_app: { url: appUrl } }]
+            ]
+        };
+
+        if (fs.existsSync(photoPath)) {
+            bot.sendPhoto(msg.chat.id, photoPath, { caption: txtNew, parse_mode: 'HTML', reply_markup: inlineMenuNew });
+        } else {
+            bot.sendMessage(msg.chat.id, txtNew, { parse_mode: 'HTML', reply_markup: inlineMenuNew });
+        }
+    }
 };
 
 // Авторизація 

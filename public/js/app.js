@@ -602,15 +602,43 @@ async function toggleAuthMode(mode) {
     const forgotContainer = document.getElementById('forgotPasswordContainer');
     const resetContainer = document.getElementById('resetPasswordContainer');
 
-    // Ховаємо всі
-    loginContainer.classList.add('hidden');
-    registerContainer.classList.add('hidden');
-    forgotContainer.classList.add('hidden');
-    resetContainer.classList.add('hidden');
+    const containers = {
+        login: loginContainer,
+        register: registerContainer,
+        forgot: forgotContainer,
+        reset: resetContainer
+    };
+
+    // Find currently visible container
+    let activeContainer = null;
+    let targetContainer = null;
+
+    Object.keys(containers).forEach(key => {
+        if (!containers[key].classList.contains('hidden') && !containers[key].classList.contains('auth-slide-out')) {
+            activeContainer = containers[key];
+        }
+        if (key === mode || (mode !== 'register' && mode !== 'forgot' && mode !== 'reset' && key === 'login')) {
+            targetContainer = containers[key];
+        }
+    });
+
+    if (activeContainer === targetContainer) return;
+
+    if (activeContainer) {
+        activeContainer.classList.remove('auth-slide-in');
+        activeContainer.classList.add('auth-slide-out');
+        setTimeout(() => {
+            activeContainer.classList.add('hidden');
+            activeContainer.classList.remove('auth-slide-out');
+        }, 300); // match animation duration
+    }
+
+    if (targetContainer) {
+        targetContainer.classList.remove('hidden');
+        targetContainer.classList.add('auth-slide-in');
+    }
 
     if (mode === 'register') {
-        registerContainer.classList.remove('hidden');
-
         const storeSelect = document.getElementById('regStore');
         if (storeSelect.options.length <= 1) {
             try {
@@ -625,12 +653,6 @@ async function toggleAuthMode(mode) {
                 storeSelect.innerHTML = '<option value="" disabled>Помилка</option>';
             }
         }
-    } else if (mode === 'forgot') {
-        forgotContainer.classList.remove('hidden');
-    } else if (mode === 'reset') {
-        resetContainer.classList.remove('hidden');
-    } else {
-        loginContainer.classList.remove('hidden');
     }
 }
 

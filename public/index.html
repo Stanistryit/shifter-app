@@ -29,8 +29,14 @@
             <div id="loginContainer" class="transition-opacity duration-300">
                 <p class="text-gray-400 mb-6 text-sm">Увійдіть для доступу</p>
                 <div class="space-y-3">
-                    <input type="text" id="loginUser" placeholder="Логін" class="ios-input">
-                    <input type="password" id="loginPass" placeholder="Пароль" class="ios-input">
+                    <div class="floating-group">
+                        <input type="text" id="loginUser" placeholder=" " class="ios-input">
+                        <label class="floating-label-text">Логін</label>
+                    </div>
+                    <div class="floating-group">
+                        <input type="password" id="loginPass" placeholder=" " class="ios-input">
+                        <label class="floating-label-text">Пароль</label>
+                    </div>
                     <button onclick="login()" class="btn-primary mt-4 shadow-lg shadow-blue-500/30">Увійти</button>
 
                     <div
@@ -48,38 +54,38 @@
                 <p class="text-gray-400 mb-4 text-sm">Створення нового акаунту</p>
                 <div class="space-y-3 text-left">
 
-                    <div>
-                        <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">ПІП</label>
-                        <input type="text" id="regFullName" placeholder="Іванов Іван Іванович" class="ios-input">
+                    <div class="floating-group">
+                        <input type="text" id="regFullName" placeholder=" " class="ios-input">
+                        <label class="floating-label-text">ПІП (Іванов Іван Іванович)</label>
                     </div>
 
-                    <div>
-                        <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Логін</label>
-                        <input type="text" id="regLogin" placeholder="Придумайте логін" class="ios-input">
+                    <div class="floating-group">
+                        <input type="text" id="regLogin" placeholder=" " class="ios-input">
+                        <label class="floating-label-text">Логін</label>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Пароль</label>
-                            <input type="password" id="regPass" placeholder="******" class="ios-input">
+                        <div class="floating-group">
+                            <input type="password" id="regPass" placeholder=" " class="ios-input">
+                            <label class="floating-label-text">Пароль</label>
                         </div>
-                        <div>
-                            <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Ще раз</label>
-                            <input type="password" id="regPassConfirm" placeholder="******" class="ios-input">
+                        <div class="floating-group">
+                            <input type="password" id="regPassConfirm" placeholder=" " class="ios-input">
+                            <label class="floating-label-text">Ще раз</label>
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Телефон</label>
-                        <input type="tel" id="regPhone" placeholder="+380ХХХХХХХХХ" class="ios-input">
+                    <div class="floating-group">
+                        <input type="tel" id="regPhone" placeholder=" " class="ios-input">
+                        <label class="floating-label-text">Телефон (+380...)</label>
                     </div>
 
-                    <div>
-                        <label class="block text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1">Email</label>
-                        <input type="email" id="regEmail" placeholder="example@mail.com" class="ios-input">
+                    <div class="floating-group">
+                        <input type="email" id="regEmail" placeholder=" " class="ios-input">
+                        <label class="floating-label-text">Email</label>
                     </div>
 
-                    <div class="relative">
+                    <div class="relative mt-2">
                         <label class="text-[10px] uppercase font-bold text-gray-400 ml-2 mb-1 block">Магазин</label>
                         <div class="relative">
                             <select id="regStore" class="ios-input bg-transparent appearance-none w-full">
@@ -107,8 +113,9 @@
                     <p class="text-xs text-gray-500 mb-2">
                         Введіть свій логін, і ми надішлемо інструкції у ваш прив'язаний Телеграм.
                     </p>
-                    <div>
-                        <input type="text" id="forgotUsername" placeholder="Ваш Логін" class="ios-input">
+                    <div class="floating-group mt-2">
+                        <input type="text" id="forgotUsername" placeholder=" " class="ios-input">
+                        <label class="floating-label-text">Ваш Логін</label>
                     </div>
 
                     <button onclick="requestPasswordReset()"
@@ -132,10 +139,13 @@
                     <input type="hidden" id="resetToken">
                     <input type="hidden" id="resetUserId">
 
-                    <div>
-                        <input type="password" id="resetNewPassword" placeholder="Новий пароль" class="ios-input mb-2">
-                        <input type="password" id="resetConfirmPassword" placeholder="Повторіть пароль"
-                            class="ios-input">
+                    <div class="floating-group mb-2">
+                        <input type="password" id="resetNewPassword" placeholder=" " class="ios-input">
+                        <label class="floating-label-text">Новий пароль</label>
+                    </div>
+                    <div class="floating-group">
+                        <input type="password" id="resetConfirmPassword" placeholder=" " class="ios-input">
+                        <label class="floating-label-text">Повторіть пароль</label>
                     </div>
 
                     <button onclick="submitNewPassword()" class="btn-primary mt-4 shadow-lg shadow-blue-500/30">Зберегти

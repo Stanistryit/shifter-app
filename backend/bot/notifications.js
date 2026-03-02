@@ -105,6 +105,9 @@ const sendRequestToSM = async (requestDoc) => {
                     [
                         { text: "✅ Підтвердити", callback_data: `approve_req_${requestDoc._id}` },
                         { text: "⛔️ Відхилити", callback_data: `reject_req_${requestDoc._id}` }
+                    ],
+                    [
+                        { text: "📅 Відкрити в додатку", web_app: { url: process.env.APP_URL } }
                     ]
                 ]
             }
