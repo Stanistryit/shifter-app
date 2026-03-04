@@ -44,30 +44,50 @@ export function toggleEditor() {
     state.isEditMode = !state.isEditMode;
 
     const tg = window.Telegram.WebApp;
+    const isDesktop = window.innerWidth >= 1024;
 
     if (state.isEditMode) {
         renderToolbar(); // Create Toolbar if it doesn't exist
 
         const toolbar = document.getElementById('editorToolbar');
         const bottomTab = document.getElementById('mobileBottomNav');
+        const pcSidebar = document.getElementById('pcEditorSidebar');
+        const deskNav = document.getElementById('desktopNavMenu');
 
-        toolbar.classList.remove('hidden', 'translate-y-full');
-        if (bottomTab) bottomTab.classList.add('translate-y-32', 'opacity-0'); // Slide down out of screen and fade out
+        if (isDesktop && pcSidebar && deskNav) {
+            // Desk logic
+            deskNav.classList.add('hidden');
+            pcSidebar.classList.remove('hidden');
+            pcSidebar.classList.add('flex');
+            // hide mobile toolbar just in case
+            if (toolbar) toolbar.classList.add('hidden', 'translate-y-full');
+
+            // Re-render PC save button state
+            updatePCSaveButton();
+        } else {
+            // Mobile logic
+            if (toolbar) toolbar.classList.remove('hidden', 'translate-y-full');
+            if (bottomTab) bottomTab.classList.add('translate-y-32', 'opacity-0'); // Slide down out of screen and fade out
+        }
 
         showToast('✏️ Режим редактора: Оберіть інструмент', 'info');
 
-        // Setup MainButton
+        // Setup MainButton (Telegram)
         tg.MainButton.text = "ЗБЕРЕГТИ ЗМІНИ";
         tg.MainButton.color = "#3b82f6"; // bg-blue-500
         tg.MainButton.onClick(() => window.saveEditorChanges());
 
         // Only show if there are already pending changes
-        if (Object.keys(state.pendingChanges).length > 0) {
-            tg.MainButton.text = `ЗБЕРЕГТИ ЗМІНИ (${Object.keys(state.pendingChanges).length})`;
+        const pendingCount = Object.keys(state.pendingChanges).length;
+        if (pendingCount > 0) {
+            tg.MainButton.text = `ЗБЕРЕГТИ ЗМІНИ (${pendingCount})`;
             tg.MainButton.show();
         } else {
             tg.MainButton.hide();
         }
+
+        // Add keyboard events for PC
+        window.addEventListener('keydown', handleEditorKeydown);
 
     } else {
         if (Object.keys(state.pendingChanges).length > 0) {
@@ -80,15 +100,24 @@ export function toggleEditor() {
 
         const toolbar = document.getElementById('editorToolbar');
         const bottomTab = document.getElementById('mobileBottomNav');
+        const pcSidebar = document.getElementById('pcEditorSidebar');
+        const deskNav = document.getElementById('desktopNavMenu');
 
-        if (toolbar) {
-            toolbar.classList.add('translate-y-full');
-            setTimeout(() => toolbar.classList.add('hidden'), 300);
+        if (isDesktop && pcSidebar && deskNav) {
+            deskNav.classList.remove('hidden');
+            pcSidebar.classList.add('hidden');
+            pcSidebar.classList.remove('flex');
+        } else {
+            if (toolbar) {
+                toolbar.classList.add('translate-y-full');
+                setTimeout(() => toolbar.classList.add('hidden'), 300);
+            }
+            if (bottomTab) bottomTab.classList.remove('translate-y-32', 'opacity-0');
         }
-        if (bottomTab) bottomTab.classList.remove('translate-y-32', 'opacity-0');
 
         tg.MainButton.hide();
         tg.MainButton.offClick(window.saveEditorChanges); // Cleanup
+        window.removeEventListener('keydown', handleEditorKeydown);
     }
 
     renderTable();
@@ -97,85 +126,211 @@ export function toggleEditor() {
 // --- TOOLBAR UI (GRID 5x5) ---
 
 function renderToolbar() {
-    let toolbar = document.getElementById('editorToolbar');
-
-    if (!toolbar) {
-        toolbar = document.createElement('div');
-        toolbar.id = 'editorToolbar';
-        // 🔥 Змінено стиль контейнера на фіксований внизу
-        toolbar.className = "fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1C1C1E] border-t border-gray-200 dark:border-gray-800 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50 transition-transform duration-300 transform translate-y-full hidden pb-safe rounded-t-2xl";
-        document.body.appendChild(toolbar);
-    }
+    const isDesktop = window.innerWidth >= 1024;
 
     const activeStyle = "bg-blue-500 text-white shadow-md ring-2 ring-blue-300 dark:ring-blue-700 transform scale-105 z-10";
     const inactiveStyle = "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700";
 
-    let toolsHtml = '';
-
-    // 1. Шаблони
-    state.shiftTemplates.forEach((tpl, idx) => {
-        const isActive = state.activeTool && state.activeTool.label === tpl.label;
-        const style = isActive ? activeStyle : inactiveStyle;
-        toolsHtml += `
-            <button onclick="window.editorSelectTool('template', ${idx})" 
-                class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${style}">
-                <span>${tpl.label}</span>
-            </button>
-        `;
-    });
-
-    // 2. Спеціальні інструменти
     const isCustom = state.activeTool && state.activeTool.type === 'custom';
     const customLabel = isCustom && state.activeTool.start ? `${state.activeTool.start}` : 'Своя';
-
     const isEraser = state.activeTool && state.activeTool.type === 'eraser';
     const isVacation = state.activeTool && state.activeTool.type === 'vacation';
     const isSick = state.activeTool && state.activeTool.type === 'sick';
 
-    // Кнопка "Своя"
-    toolsHtml += `
-        <button onclick="window.editorSelectTool('custom')" 
-            class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isCustom ? 'bg-purple-500 text-white ring-2 ring-purple-300' : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-300'}">
-            <span>✨ ${customLabel}</span>
-        </button>
-    `;
+    if (isDesktop) {
+        // --- Рендеримо бічну панель ПК ---
+        const pcSidebar = document.getElementById('pcEditorSidebar');
+        if (!pcSidebar) return;
 
-    // Кнопка "Відпустка"
-    toolsHtml += `
-        <button onclick="window.editorSelectTool('vacation')" 
-            class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isVacation ? 'bg-green-500 text-white' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300'}">
-            <span>🌴 Відп.</span>
-        </button>
-    `;
-
-    // Кнопка "Лікарняний"
-    toolsHtml += `
-        <button onclick="window.editorSelectTool('sick')" 
-            class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isSick ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300'}">
-            <span>💊 Лік.</span>
-        </button>
-    `;
-
-    // Кнопка "Гумка"
-    toolsHtml += `
-        <button onclick="window.editorSelectTool('eraser')" 
-            class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isEraser ? 'bg-gray-500 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}">
-            <span>🧹 Гумка</span>
-        </button>
-    `;
-
-    // 🔥 Заголовок + Стрічка (Без кнопки Зберегти, бо тепер є MainButton)
-    toolbar.innerHTML = `
-        <div class="flex justify-between items-center px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-            <button onclick="window.editorConfigTemplates()" class="p-2 -ml-2 text-gray-400 hover:text-blue-500 active:scale-95 transition-transform"><span class="text-lg">⚙️</span></button>
-            <div class="flex gap-2">
-                <button onclick="window.toggleEditor()" class="px-4 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-bold active:scale-95">Закрити редактор</button>
+        let pcHtml = `
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold">✏️ Редактор</h2>
+                <button onclick="window.toggleEditor()" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 active:scale-95 transition-all text-sm">✕</button>
             </div>
-        </div>
-        <div class="flex overflow-x-auto gap-2 p-3 pb-safe scrollbar-hide snap-x relative z-10 w-full" style="scrollbar-width: none; -ms-overflow-style: none;">
-            ${toolsHtml}
-        </div>
-    `;
+        `;
+
+        // Кнопка зберігання (відображення/приховування лінкується далі у коді)
+        const pendingCount = Object.keys(state.pendingChanges || {}).length;
+        const saveDisabled = pendingCount === 0 ? 'opacity-50 cursor-not-allowed scale-95' : 'hover:scale-105 hover:shadow-lg active:scale-95 shadow-blue-500/30';
+
+        pcHtml += `
+            <button id="pcEditorSaveBtn" onclick="if(Object.keys(state.pendingChanges).length > 0) window.saveEditorChanges()" 
+                class="w-full py-4 bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all duration-300 mb-6 flex flex-col items-center justify-center ${saveDisabled}">
+                <span class="text-lg mb-1">💾 Зберегти зміни</span>
+                <span class="text-xs font-normal opacity-80" id="pcEditorSaveCount">${pendingCount > 0 ? 'У вас ' + pendingCount + ' незбережених змін' : 'Немає змін'}</span>
+            </button>
+        `;
+
+        // Шаблони (Сітка)
+        pcHtml += `
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-gray-500">Շ Шаблони (1-9)</h3>
+                    <button onclick="window.editorConfigTemplates()" class="text-blue-500 hover:text-blue-600 text-lg">⚙️</button>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+        `;
+
+        state.shiftTemplates.forEach((tpl, idx) => {
+            const isActive = state.activeTool && state.activeTool.label === tpl.label;
+            const style = isActive ? activeStyle : inactiveStyle;
+            pcHtml += `
+                <button onclick="window.editorSelectTool('template', ${idx})" 
+                    class="flex flex-col items-center justify-center p-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${style}">
+                    <span class="text-[10px] opacity-70 mb-0.5">${idx + 1}</span>
+                    <span>${tpl.label}</span>
+                </button>
+            `;
+        });
+        pcHtml += `</div></div>`;
+
+        // Спеціальні Інструменти
+        pcHtml += `
+            <div class="mb-6">
+                <h3 class="text-sm font-bold text-gray-500 mb-3">🛠 Спеціальні</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="window.editorSelectTool('custom')" 
+                        class="flex flex-col items-center justify-center p-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${isCustom ? 'bg-purple-500 text-white ring-2 ring-purple-300' : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-300'}">
+                        <span>✨ ${customLabel}</span>
+                    </button>
+                    <button onclick="window.editorSelectTool('eraser')" 
+                        class="flex flex-col items-center justify-center p-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${isEraser ? 'bg-gray-500 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}">
+                        <span>🧹 Гумка (E)</span>
+                    </button>
+                    <button onclick="window.editorSelectTool('vacation')" 
+                        class="flex flex-col items-center justify-center p-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${isVacation ? 'bg-green-500 text-white' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300'}">
+                        <span>🌴 Відпустка</span>
+                    </button>
+                    <button onclick="window.editorSelectTool('sick')" 
+                        class="flex flex-col items-center justify-center p-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${isSick ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300'}">
+                        <span>💊 Лікарняний</span>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Інструкція до кастомної зміни (одразу формається)
+        let defaultS = "10:00"; let defaultE = "19:00";
+        if (state.activeTool?.type === 'custom' && state.activeTool.start) {
+            defaultS = state.activeTool.start; defaultE = state.activeTool.end;
+        }
+
+        pcHtml += `
+            <div class="mt-auto bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl border border-gray-100 dark:border-gray-800">
+                <h3 class="text-xs font-bold text-gray-500 mb-2">Налаштувати свій час</h3>
+                <div class="flex items-center gap-2 mb-3">
+                    <input type="time" id="pcCustomStart" class="w-full bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-sm outline-none" value="${defaultS}">
+                    <span class="text-gray-400">-</span>
+                    <input type="time" id="pcCustomEnd" class="w-full bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-sm outline-none" value="${defaultE}">
+                </div>
+                <button onclick="window.applyPcCustomShift()" class="w-full py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-sm font-bold text-center rounded-lg shadow-md active:scale-95 transition-transform">
+                    ✨ Обрати цей час
+                </button>
+            </div>
+        `;
+
+        pcSidebar.innerHTML = pcHtml;
+
+    } else {
+        // --- Рендеримо мобільний Toolbar ---
+        let toolbar = document.getElementById('editorToolbar');
+
+        if (!toolbar) {
+            toolbar = document.createElement('div');
+            toolbar.id = 'editorToolbar';
+            toolbar.className = "fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1C1C1E] border-t border-gray-200 dark:border-gray-800 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50 transition-transform duration-300 transform translate-y-full hidden pb-safe rounded-t-2xl";
+            document.body.appendChild(toolbar);
+        }
+
+        let toolsHtml = '';
+
+        state.shiftTemplates.forEach((tpl, idx) => {
+            const isActive = state.activeTool && state.activeTool.label === tpl.label;
+            const style = isActive ? activeStyle : inactiveStyle;
+            toolsHtml += `
+                <button onclick="window.editorSelectTool('template', ${idx})" 
+                    class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${style}">
+                    <span>${tpl.label}</span>
+                </button>
+            `;
+        });
+
+        toolsHtml += `
+            <button onclick="window.editorSelectTool('custom')" 
+                class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isCustom ? 'bg-purple-500 text-white ring-2 ring-purple-300' : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-300'}">
+                <span>✨ ${customLabel}</span>
+            </button>
+            <button onclick="window.editorSelectTool('vacation')" 
+                class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isVacation ? 'bg-green-500 text-white' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300'}">
+                <span>🌴 Відп.</span>
+            </button>
+            <button onclick="window.editorSelectTool('sick')" 
+                class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isSick ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300'}">
+                <span>💊 Лік.</span>
+            </button>
+            <button onclick="window.editorSelectTool('eraser')" 
+                class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isEraser ? 'bg-gray-500 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}">
+                <span>🧹 Гумка</span>
+            </button>
+        `;
+
+        toolbar.innerHTML = `
+            <div class="flex justify-between items-center px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                <button onclick="window.editorConfigTemplates()" class="p-2 -ml-2 text-gray-400 hover:text-blue-500 active:scale-95 transition-transform"><span class="text-lg">⚙️</span></button>
+                <div class="flex gap-2">
+                    <button onclick="window.toggleEditor()" class="px-4 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-bold active:scale-95">Закрити редактор</button>
+                </div>
+            </div>
+            <div class="flex overflow-x-auto gap-2 p-3 pb-safe scrollbar-hide snap-x relative z-10 w-full" style="scrollbar-width: none; -ms-overflow-style: none;">
+                ${toolsHtml}
+            </div>
+        `;
+    }
+}
+
+// Helpers
+window.applyPcCustomShift = function () {
+    triggerHaptic('light', 'impact');
+    const s = document.getElementById('pcCustomStart').value;
+    const e = document.getElementById('pcCustomEnd').value;
+    if (s && e) {
+        state.activeTool = { type: 'custom', start: s, end: e };
+        renderToolbar();
+    }
+}
+
+function updatePCSaveButton() {
+    const isDesktop = window.innerWidth >= 1024;
+    if (!isDesktop || !state.isEditMode) return;
+
+    const pcSaveBtn = document.getElementById('pcEditorSaveBtn');
+    const pcSaveCount = document.getElementById('pcEditorSaveCount');
+    if (!pcSaveBtn || !pcSaveCount) return;
+
+    const count = Object.keys(state.pendingChanges).length;
+    if (count > 0) {
+        pcSaveBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'scale-95');
+        pcSaveBtn.classList.add('hover:scale-105', 'hover:shadow-lg', 'active:scale-95', 'shadow-blue-500/30');
+        pcSaveCount.innerText = `У вас ${count} незбережених змін`;
+    } else {
+        pcSaveBtn.classList.add('opacity-50', 'cursor-not-allowed', 'scale-95');
+        pcSaveBtn.classList.remove('hover:scale-105', 'hover:shadow-lg', 'active:scale-95', 'shadow-blue-500/30');
+        pcSaveCount.innerText = 'Немає змін';
+    }
+}
+
+function handleEditorKeydown(e) {
+    // Ignore updates if typing in an input
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.key >= '1' && e.key <= '9') {
+        const index = parseInt(e.key) - 1;
+        if (index < state.shiftTemplates.length) {
+            window.editorSelectTool('template', index);
+        }
+    } else if (e.key.toLowerCase() === 'e') {
+        window.editorSelectTool('eraser');
+    }
 }
 
 // --- ACTIONS ---
@@ -191,25 +346,35 @@ export function editorSelectTool(type, index) {
         state.activeTool = { type: 'sick', start: 'Лікарняний', end: 'Лікарняний' };
     } else if (type === 'eraser') {
         state.activeTool = { type: 'eraser', start: 'DELETE', end: 'DELETE' };
-    } else if (type === 'custom') {
+    }
+
+    const isDesktop = window.innerWidth >= 1024;
+    if (type === 'custom' && !isDesktop) {
         let defaultS = "10:00";
         let defaultE = "19:00";
+        // On desktop custom is selected immediately, but on mobile we show a modal
         if (state.activeTool?.type === 'custom' && state.activeTool.start) {
             defaultS = state.activeTool.start;
             defaultE = state.activeTool.end;
         }
 
         const m = document.getElementById('customShiftModal');
-        const content = m.querySelector('.ios-card');
-        document.getElementById('customShiftStart').value = defaultS;
-        document.getElementById('customShiftEnd').value = defaultE;
+        if (m) {
+            const content = m.querySelector('.ios-card');
+            if (document.getElementById('customShiftStart')) document.getElementById('customShiftStart').value = defaultS;
+            if (document.getElementById('customShiftEnd')) document.getElementById('customShiftEnd').value = defaultE;
 
-        m.classList.remove('hidden');
-        setTimeout(() => {
-            m.classList.remove('opacity-0');
-            content.classList.remove('scale-95');
-        }, 10);
-        return; // Don't render toolbar yet, wait for apply
+            m.classList.remove('hidden');
+            setTimeout(() => {
+                m.classList.remove('opacity-0');
+                if (content) content.classList.remove('scale-95');
+            }, 10);
+            return; // Don't render toolbar yet, wait for apply
+        }
+    } else if (type === 'custom' && isDesktop) {
+        let s = document.getElementById('pcCustomStart')?.value || "10:00";
+        let e = document.getElementById('pcCustomEnd')?.value || "19:00";
+        state.activeTool = { type: 'custom', start: s, end: e };
     }
 
     renderToolbar();
@@ -286,16 +451,18 @@ function handleGridClick(e) {
 
     renderTable();
 
-    // Update MainButton visibility
-    const tg = window.Telegram.WebApp;
+    // Update MainButton visibility (Mobile) & Native Save Button (PC)
     const count = Object.keys(state.pendingChanges).length;
+    const tg = window.Telegram.WebApp;
     if (count > 0) {
         tg.MainButton.text = `ЗБЕРЕГТИ ЗМІНИ (${count})`;
         if (!tg.MainButton.isVisible) tg.MainButton.show();
     } else {
         if (tg.MainButton.isVisible) tg.MainButton.hide();
     }
-    // renderToolbar(); // Можна не перемальовувати тулбар щоразу, це економить ресурси
+
+    // Update PC native button save state
+    updatePCSaveButton();
 }
 
 // --- SAVING ---
