@@ -47,6 +47,9 @@ export function renderTable() {
 
     if (!state.currentUser) return;
 
+    // Зберігаємо позицію скролу до перемальовування
+    const previousScrollX = tableDiv.scrollLeft;
+
     tableDiv.innerHTML = '';
 
     const tTitle = document.getElementById('gridTitle');
@@ -355,17 +358,21 @@ export function renderTable() {
     html += '</tbody></table>';
     tableDiv.innerHTML = html;
 
-    // 🔥 FIX: Скролимо таблицю до "сьогодні" ТІЛЬКИ по горизонталі.
-    // Це залишає Дашборд у фокусі (без вертикальних стрибків сторінки).
-    setTimeout(() => {
-        const todayCol = document.getElementById('todayColumn');
-        if (todayCol && tableDiv) {
-            // Обчислюємо позицію: відступ колонки мінус половина екрану, щоб колонка стала по центру
-            const scrollPos = todayCol.offsetLeft - (tableDiv.offsetWidth / 2) + (todayCol.offsetWidth / 2);
-            tableDiv.scrollTo({
-                left: scrollPos,
-                behavior: 'smooth'
-            });
-        }
-    }, 100);
+    // 🔥 FIX: Скролимо таблицю до "сьогодні" ТІЛЬКИ якщо ми НЕ в режимі редагування.
+    // Інакше — повертаємо до попереднього скролу, щоб сітка не "стрибала" під час малювання пензликом.
+    if (state.isEditMode) {
+        tableDiv.scrollLeft = previousScrollX;
+    } else {
+        setTimeout(() => {
+            const todayCol = document.getElementById('todayColumn');
+            if (todayCol && tableDiv) {
+                // Обчислюємо позицію: відступ колонки мінус половина екрану, щоб колонка стала по центру
+                const scrollPos = todayCol.offsetLeft - (tableDiv.offsetWidth / 2) + (todayCol.offsetWidth / 2);
+                tableDiv.scrollTo({
+                    left: scrollPos,
+                    behavior: 'smooth'
+                });
+            }
+        }, 100);
+    }
 }
