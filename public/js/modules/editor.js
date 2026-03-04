@@ -143,9 +143,9 @@ function renderToolbar() {
         if (!pcSidebar) return;
 
         let pcHtml = `
-            <div class="flex items-center justify-between mb-6">
-                <h2 class="text-xl font-bold">✏️ Редактор</h2>
-                <button onclick="window.toggleEditor()" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 active:scale-95 transition-all text-sm">✕</button>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-bold">✏️ Редактор</h2>
+                <button onclick="window.toggleEditor()" class="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 active:scale-95 transition-all text-xs">✕</button>
             </div>
         `;
 
@@ -155,20 +155,20 @@ function renderToolbar() {
 
         pcHtml += `
             <button id="pcEditorSaveBtn" onclick="if(Object.keys(state.pendingChanges).length > 0) window.saveEditorChanges()" 
-                class="w-full py-4 bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all duration-300 mb-6 flex flex-col items-center justify-center ${saveDisabled}">
-                <span class="text-lg mb-1">💾 Зберегти зміни</span>
-                <span class="text-xs font-normal opacity-80" id="pcEditorSaveCount">${pendingCount > 0 ? 'У вас ' + pendingCount + ' незбережених змін' : 'Немає змін'}</span>
+                class="w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all duration-300 mb-3 flex flex-col items-center justify-center ${saveDisabled}">
+                <span class="text-base mb-0.5">💾 Зберегти зміни</span>
+                <span class="text-[10px] font-normal opacity-80" id="pcEditorSaveCount">${pendingCount > 0 ? 'У вас ' + pendingCount + ' незбережених змін' : 'Немає змін'}</span>
             </button>
         `;
 
         // Шаблони (Сітка)
         pcHtml += `
-            <div class="mb-6">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-bold text-gray-500">Շ Шаблони (1-9)</h3>
-                    <button onclick="window.editorConfigTemplates()" class="text-blue-500 hover:text-blue-600 text-lg">⚙️</button>
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-xs font-bold text-gray-500">Շ Шаблони (1-9)</h3>
+                    <button onclick="window.editorConfigTemplates()" class="text-blue-500 hover:text-blue-600 text-base">⚙️</button>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-3 gap-1.5">
         `;
 
         state.shiftTemplates.forEach((tpl, idx) => {
@@ -176,9 +176,9 @@ function renderToolbar() {
             const style = isActive ? activeStyle : inactiveStyle;
             pcHtml += `
                 <button onclick="window.editorSelectTool('template', ${idx})" 
-                    class="flex flex-col items-center justify-center p-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${style}">
-                    <span class="text-[10px] opacity-70 mb-0.5">${idx + 1}</span>
-                    <span>${tpl.label}</span>
+                    class="flex flex-col items-center justify-center p-2 rounded-lg text-xs font-bold transition-all active:scale-95 ${style}">
+                    <span class="text-[9px] opacity-70 leading-none mb-0.5">${idx + 1}</span>
+                    <span class="leading-tight">${tpl.label}</span>
                 </button>
             `;
         });
@@ -186,23 +186,23 @@ function renderToolbar() {
 
         // Спеціальні Інструменти
         pcHtml += `
-            <div class="mb-6">
-                <h3 class="text-sm font-bold text-gray-500 mb-3">🛠 Спеціальні</h3>
-                <div class="grid grid-cols-2 gap-2">
+            <div class="mb-3">
+                <h3 class="text-xs font-bold text-gray-500 mb-2">🛠 Спеціальні</h3>
+                <div class="grid grid-cols-2 gap-1.5">
                     <button onclick="window.editorSelectTool('custom')" 
-                        class="flex flex-col items-center justify-center p-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${isCustom ? 'bg-purple-500 text-white ring-2 ring-purple-300' : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-300'}">
+                        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs font-bold transition-all active:scale-95 ${isCustom ? 'bg-purple-500 text-white ring-2 ring-purple-300' : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-300'}">
                         <span>✨ ${customLabel}</span>
                     </button>
                     <button onclick="window.editorSelectTool('eraser')" 
-                        class="flex flex-col items-center justify-center p-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${isEraser ? 'bg-gray-500 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}">
+                        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs font-bold transition-all active:scale-95 ${isEraser ? 'bg-gray-500 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}">
                         <span>🧹 Гумка (E)</span>
                     </button>
                     <button onclick="window.editorSelectTool('vacation')" 
-                        class="flex flex-col items-center justify-center p-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${isVacation ? 'bg-green-500 text-white' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300'}">
+                        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs font-bold transition-all active:scale-95 ${isVacation ? 'bg-green-500 text-white' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300'}">
                         <span>🌴 Відпустка</span>
                     </button>
                     <button onclick="window.editorSelectTool('sick')" 
-                        class="flex flex-col items-center justify-center p-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${isSick ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300'}">
+                        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs font-bold transition-all active:scale-95 ${isSick ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300'}">
                         <span>💊 Лікарняний</span>
                     </button>
                 </div>
@@ -216,15 +216,15 @@ function renderToolbar() {
         }
 
         pcHtml += `
-            <div class="mt-auto bg-gray-50 dark:bg-[#2C2C2E] p-4 rounded-xl border border-gray-100 dark:border-gray-800">
-                <h3 class="text-xs font-bold text-gray-500 mb-2">Налаштувати свій час</h3>
-                <div class="flex items-center gap-2 mb-3">
-                    <input type="time" id="pcCustomStart" class="w-full bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-sm outline-none" value="${defaultS}">
-                    <span class="text-gray-400">-</span>
-                    <input type="time" id="pcCustomEnd" class="w-full bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-sm outline-none" value="${defaultE}">
+            <div class="mt-auto bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl border border-gray-100 dark:border-gray-800">
+                <h3 class="text-[10px] uppercase font-bold text-gray-500 mb-2 tracking-wide">Власний час</h3>
+                <div class="flex items-center gap-1.5 mb-2">
+                    <input type="time" id="pcCustomStart" class="w-full bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-lg p-1.5 text-xs outline-none" value="${defaultS}">
+                    <span class="text-gray-400 text-xs">-</span>
+                    <input type="time" id="pcCustomEnd" class="w-full bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-lg p-1.5 text-xs outline-none" value="${defaultE}">
                 </div>
-                <button onclick="window.applyPcCustomShift()" class="w-full py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-sm font-bold text-center rounded-lg shadow-md active:scale-95 transition-transform">
-                    ✨ Обрати цей час
+                <button onclick="window.applyPcCustomShift()" class="w-full py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-bold text-center rounded-lg shadow-sm active:scale-95 transition-transform">
+                    ✨ Обрати
                 </button>
             </div>
         `;
