@@ -323,12 +323,24 @@ function handleEditorKeydown(e) {
     // Ignore updates if typing in an input
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
+    // ЗБЕРЕГТИ: Ctrl + S або Cmd + S
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault(); // Зупиняємо стандартне збереження сторінки браузером
+        if (Object.keys(state.pendingChanges).length > 0) {
+            window.saveEditorChanges();
+        }
+        return;
+    }
+
+    // ШАБЛОНИ: Цифри 1-9
     if (e.key >= '1' && e.key <= '9') {
         const index = parseInt(e.key) - 1;
         if (index < state.shiftTemplates.length) {
             window.editorSelectTool('template', index);
         }
-    } else if (e.key.toLowerCase() === 'e') {
+    }
+    // ГУМКА: E (англійська) або У (українська)
+    else if (e.code === 'KeyE' || ['e', 'е', 'у', 'y'].includes(e.key.toLowerCase())) {
         window.editorSelectTool('eraser');
     }
 }
