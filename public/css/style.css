@@ -569,3 +569,15 @@ body {
 .dark .nav-bubble {
     background: rgba(10, 132, 255, 0.25);
 }
+
+/* HIDE SCROLLBARS */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
