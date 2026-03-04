@@ -154,7 +154,7 @@ function renderToolbar() {
         const saveDisabled = pendingCount === 0 ? 'opacity-50 cursor-not-allowed scale-95' : 'hover:scale-105 hover:shadow-lg active:scale-95 shadow-blue-500/30';
 
         pcHtml += `
-            <button id="pcEditorSaveBtn" onclick="if(Object.keys(state.pendingChanges).length > 0) window.saveEditorChanges()" 
+            <button id="pcEditorSaveBtn" onclick="window.saveEditorChanges()" 
                 class="w-full py-2.5 bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all duration-300 mb-3 flex flex-col items-center justify-center ${saveDisabled}">
                 <span class="text-base mb-0.5">💾 Зберегти зміни</span>
                 <span class="text-[10px] font-normal opacity-80" id="pcEditorSaveCount">${pendingCount > 0 ? 'У вас ' + pendingCount + ' незбережених змін' : 'Немає змін'}</span>
