@@ -208,7 +208,7 @@ async function showApp(user) {
 
     // Оновлюємо поточну вкладку, щоб підтягнулись права та інтерфейс
     if (window.setMode) {
-        const currentMode = localStorage.getItem('shifter_viewMode') || 'calendar';
+        const currentMode = localStorage.getItem('shifter_viewMode') || 'list';
         window.setMode(currentMode);
     }
 }

@@ -564,7 +564,7 @@ window.exportCurrentMonthPdf = exportCurrentMonthPdf;
 async function setMode(mode) {
     if (window.triggerHaptic) window.triggerHaptic('light', 'impact');
     state.currentMode = mode;
-    localStorage.setItem('shifter_lastTab', mode);
+    localStorage.setItem('shifter_viewMode', mode);
 
     const l = document.getElementById('list-container');
     const c = document.getElementById('calendar-container');
