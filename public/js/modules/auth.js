@@ -167,6 +167,11 @@ async function showApp(user) {
         if (deskPh) deskPh.classList.add('hidden');
     }
 
+    const prefSelect = document.getElementById('profileNotificationPref');
+    if (prefSelect && user.notificationPreference) {
+        prefSelect.value = user.notificationPreference;
+    }
+
     // Ролі та адмінські кнопки
     if (['admin', 'SM', 'SSE', 'RRP'].includes(user.role)) {
         if (user.role !== 'RRP') {

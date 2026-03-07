@@ -131,10 +131,14 @@ const initScheduler = async (tgConfig) => {
                         ]
                     }
                 };
-                notifyUser(s.name, `🔔 <b>Нагадування!</b>\n\nВ тебе зміна: <b>${s.date}</b>\n⏰ Час: <b>${s.start} - ${s.end}</b>`, opts);
+                const pref = user.notificationPreference || 'telegram';
+
+                if (pref === 'telegram' || pref === 'both') {
+                    notifyUser(s.name, `🔔 <b>Нагадування!</b>\n\nВ тебе зміна: <b>${s.date}</b>\n⏰ Час: <b>${s.start} - ${s.end}</b>`, opts);
+                }
 
                 // ВЕБ-ПУШ
-                if (user.pushSubscriptions && user.pushSubscriptions.length > 0) {
+                if ((pref === 'push' || pref === 'both') && user.pushSubscriptions && user.pushSubscriptions.length > 0) {
                     try {
                         const pushController = require('./controllers/pushController');
                         pushController.sendPushToUser(user, {
@@ -168,11 +172,15 @@ const initScheduler = async (tgConfig) => {
                         ]
                     }
                 };
-                notifyUser(t.name, `📌 <b>Нагадування про задачу!</b>\n\n📝 ${t.title}\n⏰ Початок: ${t.start}`, opts);
+                const user = await User.findOne({ name: t.name });
+                const pref = user ? (user.notificationPreference || 'telegram') : 'telegram';
+
+                if (pref === 'telegram' || pref === 'both') {
+                    notifyUser(t.name, `📌 <b>Нагадування про задачу!</b>\n\n📝 ${t.title}\n⏰ Початок: ${t.start}`, opts);
+                }
 
                 // ВЕБ-ПУШ
-                const user = await User.findOne({ name: t.name });
-                if (user && user.pushSubscriptions && user.pushSubscriptions.length > 0) {
+                if ((pref === 'push' || pref === 'both') && user && user.pushSubscriptions && user.pushSubscriptions.length > 0) {
                     try {
                         const pushController = require('./controllers/pushController');
                         pushController.sendPushToUser(user, {

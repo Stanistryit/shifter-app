@@ -33,12 +33,16 @@ exports.addTask = async (req, res) => {
         }
         let msg = `📌 <b>Нова задача!</b>\n\n📝 <b>${title}</b>\n📅 Дата: ${date}\n⏰ Час: ${timeInfo} (${dur})`;
         if (description) msg += `\n\nℹ️ <b>Опис:</b> ${description}`;
-        notifyUser(name, msg);
-
-        // WEB PUSH
+        // WEB PUSH Preference Check
         const pushController = require('./pushController');
         const user = await User.findOne({ name });
-        if (user && user.pushSubscriptions && user.pushSubscriptions.length > 0) {
+        const pref = user ? (user.notificationPreference || 'telegram') : 'telegram';
+
+        if (pref === 'telegram' || pref === 'both') {
+            notifyUser(name, msg);
+        }
+
+        if ((pref === 'push' || pref === 'both') && user && user.pushSubscriptions && user.pushSubscriptions.length > 0) {
             pushController.sendPushToUser(user, {
                 title: '📌 Нова задача!',
                 body: `${title}\nЧас: ${timeInfo}`,

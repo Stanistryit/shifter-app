@@ -203,6 +203,20 @@ exports.changePassword = async (req, res) => {
     }
 };
 
+exports.updateNotificationPref = async (req, res) => {
+    if (!req.session.userId) return res.status(403).json({});
+    try {
+        const { preference } = req.body;
+        if (!['telegram', 'push', 'both'].includes(preference)) {
+            return res.json({ success: false, message: "Invalid preference" });
+        }
+        await User.findByIdAndUpdate(req.session.userId, { notificationPreference: preference });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
 exports.telegramLogin = async (req, res) => {
     const { telegramId } = req.body;
     if (!telegramId) return res.json({ success: false });
@@ -225,7 +239,8 @@ exports.telegramLogin = async (req, res) => {
                     closeTime: user.storeId.closeTime,
                     reportTime: user.storeId.telegram?.reportTime,
                     kpi_enabled: user.storeId.kpi_enabled !== false
-                } : null
+                } : null,
+                notificationPreference: user.notificationPreference || 'telegram'
             }
         });
     } else res.json({ success: false });
@@ -265,13 +280,13 @@ exports.getMe = async (req, res) => {
             status: user.status,
             storeId: user.storeId?._id || user.storeId,
 
-            // Передаємо дані магазину (якщо є)
             store: user.storeId ? {
                 openTime: user.storeId.openTime,
                 closeTime: user.storeId.closeTime,
                 reportTime: user.storeId.telegram?.reportTime,
                 kpi_enabled: user.storeId.kpi_enabled !== false // Default to true if undefined
-            } : null
+            } : null,
+            notificationPreference: user.notificationPreference || 'telegram'
         };
     }
 

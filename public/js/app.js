@@ -211,6 +211,21 @@ async function togglePushNotifications() {
     }
 }
 
+window.saveNotificationPref = async (val) => {
+    triggerHaptic();
+    try {
+        const data = await postJson('/api/user/notification-pref', { preference: val });
+        if (data.success) {
+            showToast('Налаштування збережено ✅', 'success');
+            if (state.currentUser) state.currentUser.notificationPreference = val;
+        } else {
+            showToast('Помилка збереження', 'error');
+        }
+    } catch (e) {
+        showToast('Помилка з\'єднання', 'error');
+    }
+};
+
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');

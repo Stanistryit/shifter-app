@@ -54,7 +54,8 @@ const userSchema = new mongoose.Schema({
     resetPasswordExpires: { type: Date, default: null },
 
     // Для Web Push Сповіщень
-    pushSubscriptions: { type: [Object], default: [] }
+    pushSubscriptions: { type: [Object], default: [] },
+    notificationPreference: { type: String, enum: ['telegram', 'push', 'both'], default: 'telegram' }
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword) {
