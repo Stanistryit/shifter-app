@@ -72,6 +72,76 @@ async function initApp() {
         loadComponent('profile-container', 'components/tabs/profile.html')
     ]);
 
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').then(reg => {
+                console.log('Service Worker registered', reg);
+            }).catch(err => {
+                console.warn('Service Worker registration failed:', err);
+            });
+        });
+    }
+
+    // PWA Install Prompt Logic
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const banner = document.getElementById('pwaInstallBanner');
+        if (banner && !localStorage.getItem('pwaDismissed')) {
+            banner.classList.remove('hidden');
+            setTimeout(() => {
+                banner.classList.remove('translate-y-full');
+            }, 50);
+        }
+    });
+
+    window.installPwa = async () => {
+        const banner = document.getElementById('pwaInstallBanner');
+        if (banner) {
+            banner.classList.add('translate-y-full');
+            setTimeout(() => banner.classList.add('hidden'), 500);
+        }
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to the install prompt: ${outcome}`);
+            deferredPrompt = null;
+        }
+    };
+
+    window.dismissPwaInstall = () => {
+        localStorage.setItem('pwaDismissed', 'true');
+        const banner = document.getElementById('pwaInstallBanner');
+        if (banner) {
+            banner.classList.add('translate-y-full');
+            setTimeout(() => banner.classList.add('hidden'), 500);
+        }
+    };
+
+    // iOS Safari Specific Prompt
+    const isIos = () => {
+        const userAgent = window.navigator.userAgent.toLowerCase();
+        return /iphone|ipad|ipod/.test(userAgent);
+    };
+    const isStandalone = () => {
+        return ('standalone' in window.navigator) && (window.navigator.standalone);
+    };
+
+    if (isIos() && !isStandalone() && !localStorage.getItem('pwaDismissed')) {
+        const banner = document.getElementById('pwaInstallBanner');
+        if (banner) {
+            document.getElementById('pwaInstallText').innerText = "Натисніть 'Поділитися' внизу екрану та оберіть 'На початковий екран', щоб зберегти додаток!";
+            const installBtn = document.getElementById('pwaInstallBtn');
+            if (installBtn) installBtn.classList.add('hidden'); // No auto-install on iOS Safari
+            banner.classList.remove('hidden');
+            setTimeout(() => {
+                banner.classList.remove('translate-y-full');
+            }, 50);
+        }
+    }
+
     initTheme();
     checkAuth();
     initContextMenuListeners();
