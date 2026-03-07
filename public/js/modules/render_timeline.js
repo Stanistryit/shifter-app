@@ -175,9 +175,13 @@ export function renderTimeline() {
                     html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe ? 'text-blue-600 font-bold' : 'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe ? 'my-shift' : ''}" ${ctxAttr} style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
                 }
             } else if (userTasks.length > 0) {
-                html += `<div class="opacity-80 ${blockedStyle}"><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span> ${badges}</div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;
+                const canEditContext = ['admin', 'SM', 'SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP';
+                const ctxAttrEmpty = canEditContext ? `oncontextmenu="window.contextMenuProxy(event, 'empty_shift', '${dateStr}|${user.name}');"` : '';
+                html += `<div class="opacity-80 ${blockedStyle}" ${ctxAttrEmpty}><div class="flex items-center text-xs mb-1 text-gray-500">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-bold">Тільки задача</span> ${badges}</div><div class="timeline-track"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div>${tasksHtml}</div></div>`;
             } else {
-                html += `<div class="opacity-40 ${blockedStyle}"><div class="flex items-center justify-between text-xs mb-1 text-gray-400"><div>${avatarHtml} <span>${shortName}</span> ${hoursBadges}</div> <span>Вихідний</span></div><div class="h-[1px] bg-gray-200 dark:bg-gray-800 rounded w-full mt-3 mb-4"></div></div>`;
+                const canEditContext = ['admin', 'SM', 'SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP';
+                const ctxAttrEmpty = canEditContext ? `oncontextmenu="window.contextMenuProxy(event, 'empty_shift', '${dateStr}|${user.name}');"` : '';
+                html += `<div class="opacity-40 ${blockedStyle}" ${ctxAttrEmpty}><div class="flex items-center justify-between text-xs mb-1 text-gray-400"><div>${avatarHtml} <span>${shortName}</span> ${hoursBadges}</div> <span>Вихідний</span></div><div class="h-[1px] bg-gray-200 dark:bg-gray-800 rounded w-full mt-3 mb-4"></div></div>`;
             }
         });
 

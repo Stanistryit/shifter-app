@@ -244,6 +244,15 @@ export function showContextMenu(e, type, id, data = null) {
     menuObj.style.top = `${y}px`;
     menuObj.classList.remove('hidden');
 
+    const delBtn = document.getElementById('ctxDelete');
+    if (delBtn) {
+        if (type === 'empty_shift') {
+            delBtn.classList.add('hidden');
+        } else {
+            delBtn.classList.remove('hidden');
+        }
+    }
+
     const closeMenu = () => {
         const m1 = document.getElementById('contextMenu');
         const m2 = document.getElementById('taskContextMenu');

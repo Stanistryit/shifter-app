@@ -765,8 +765,15 @@ function initContextMenuListeners() {
         btnEditTime.onclick = () => {
             const menu = document.getElementById('contextMenu');
             menu.classList.add('hidden');
-            if (activeContext.type === 'shift') {
-                const s = state.shifts.find(x => x._id === activeContext.id);
+            if (activeContext.type === 'shift' || activeContext.type === 'empty_shift') {
+                let s = null;
+                if (activeContext.type === 'shift') {
+                    s = state.shifts.find(x => x._id === activeContext.id);
+                } else {
+                    const parts = activeContext.id.split('|');
+                    s = { date: parts[0], name: parts[1], start: '', end: '', _id: `empty|${parts[0]}|${parts[1]}` };
+                }
+
                 if (s) {
                     // Pre-fill modal
                     document.getElementById('customShiftStart').value = s.start || '09:00';
@@ -790,8 +797,10 @@ function initContextMenuListeners() {
     if (btnSick) {
         btnSick.onclick = async () => {
             document.getElementById('contextMenu').classList.add('hidden');
-            if (activeContext.type === 'shift') {
-                const s = state.shifts.find(x => x._id === activeContext.id);
+            if (activeContext.type === 'shift' || activeContext.type === 'empty_shift') {
+                const s = activeContext.type === 'shift'
+                    ? state.shifts.find(x => x._id === activeContext.id)
+                    : { date: activeContext.id.split('|')[0], name: activeContext.id.split('|')[1] };
                 if (s && confirm(`Встановити лікарняний для ${s.name} на ${s.date}?`)) {
                     await sendQuickShiftUpdate(s, 'Лікарняний', '00:00', '00:00');
                 }
@@ -803,8 +812,10 @@ function initContextMenuListeners() {
     if (btnVacation) {
         btnVacation.onclick = async () => {
             document.getElementById('contextMenu').classList.add('hidden');
-            if (activeContext.type === 'shift') {
-                const s = state.shifts.find(x => x._id === activeContext.id);
+            if (activeContext.type === 'shift' || activeContext.type === 'empty_shift') {
+                const s = activeContext.type === 'shift'
+                    ? state.shifts.find(x => x._id === activeContext.id)
+                    : { date: activeContext.id.split('|')[0], name: activeContext.id.split('|')[1] };
                 if (s && confirm(`Встановити відпустку для ${s.name} на ${s.date}?`)) {
                     await sendQuickShiftUpdate(s, 'Відпустка', '00:00', '00:00');
                 }
@@ -816,8 +827,10 @@ function initContextMenuListeners() {
     if (btnAddTask) {
         btnAddTask.onclick = () => {
             document.getElementById('contextMenu').classList.add('hidden');
-            if (activeContext.type === 'shift') {
-                const s = state.shifts.find(x => x._id === activeContext.id);
+            if (activeContext.type === 'shift' || activeContext.type === 'empty_shift') {
+                const s = activeContext.type === 'shift'
+                    ? state.shifts.find(x => x._id === activeContext.id)
+                    : { date: activeContext.id.split('|')[0], name: activeContext.id.split('|')[1] };
                 if (s) {
                     // pre-fill date and user
                     document.getElementById('taskDate').value = s.date;
