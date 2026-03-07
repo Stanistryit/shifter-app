@@ -151,6 +151,77 @@ async function initApp() {
     setMode(savedMode);
 }
 
+// --- PUSH NOTIFICATIONS ---
+async function togglePushNotifications() {
+    triggerHaptic();
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert("Push-сповіщення не підтримуються вашим браузером");
+        return;
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+        alert("Ви не надали дозвіл на сповіщення");
+        return;
+    }
+
+    try {
+        const sw = await navigator.serviceWorker.ready;
+        let subscription = await sw.pushManager.getSubscription();
+
+        if (subscription) {
+            // Unsubscribe
+            await subscription.unsubscribe();
+            await fetch('/api/push/unsubscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ endpoint: subscription.endpoint })
+            });
+            alert("Push-сповіщення вимкнено");
+            document.getElementById('pushIcon').textContent = "🔕";
+        } else {
+            // Subscribe
+            // Вкажіть тут ваш згенерований публічний ключ VAPID
+            const VAPID_PUBLIC_KEY = 'BMB4jZxAHkKpvTN54OcAJvUY0JO9yq2zPnHmpffx3FiheoAXz2Wg-smJ42cZBYGjztigbm77wcGxtDeo-ltKdl0';
+            if (VAPID_PUBLIC_KEY.includes('REPLACE')) {
+                alert('VAPID ключ не налаштовано. Попросіть адміністратора перевірити .env');
+                return;
+            }
+
+            const convertedVapidKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+            subscription = await sw.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: convertedVapidKey
+            });
+
+            const res = await fetch('/api/push/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(subscription)
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("Push-сповіщення успішно увімкнено!");
+                document.getElementById('pushIcon').textContent = "🔔";
+            }
+        }
+    } catch (err) {
+        console.error('Push functionality error:', err);
+        alert("Сталася помилка при налаштуванні сповіщень.");
+    }
+}
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
 initApp();
 
 // --- EXPOSE TO HTML (WINDOW) ---
@@ -174,6 +245,7 @@ window.showAdminTab = (t) => {
 };
 
 window.toggleEditMode = toggleEditMode;
+window.togglePushNotifications = togglePushNotifications;
 
 window.toggleEditor = toggleEditor;
 window.editorSelectTool = editorSelectTool;

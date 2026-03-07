@@ -14,6 +14,7 @@ const adminController = require('./controllers/adminController');
 const noteController = require('./controllers/noteController');
 const userController = require('./controllers/userController');
 const salaryController = require('./controllers/salaryController');
+const pushController = require('./controllers/pushController');
 
 // --- AUTH & USER ---
 router.get('/stores', catchAsync(authController.getStores));
@@ -28,6 +29,10 @@ router.post('/logout', catchAsync(authController.logout));
 router.get('/users', catchAsync(authController.getUsers));
 router.get('/me', catchAsync(authController.getMe));
 router.post('/user/avatar', catchAsync(authController.uploadAvatar));
+
+// --- WEB PUSH ---
+router.post('/push/subscribe', catchAsync(pushController.subscribe));
+router.post('/push/unsubscribe', catchAsync(pushController.unsubscribe));
 
 // --- USER TRANSFERS ---
 router.post('/user/transfer/request', catchAsync(userController.requestTransfer));

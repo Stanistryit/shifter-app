@@ -25,7 +25,7 @@ exports.addTask = async (req, res) => {
         return res.json({ success: true, pending: true });
     }
 
-    const sendTaskNotification = (name, title, date, start, end, isFullDay, description) => {
+    const sendTaskNotification = async (name, title, date, start, end, isFullDay, description) => {
         let dur = "Весь день"; let timeInfo = "Весь день";
         if (!isFullDay && start && end) {
             const [h1, m1] = start.split(':').map(Number); const [h2, m2] = end.split(':').map(Number);
@@ -34,6 +34,17 @@ exports.addTask = async (req, res) => {
         let msg = `📌 <b>Нова задача!</b>\n\n📝 <b>${title}</b>\n📅 Дата: ${date}\n⏰ Час: ${timeInfo} (${dur})`;
         if (description) msg += `\n\nℹ️ <b>Опис:</b> ${description}`;
         notifyUser(name, msg);
+
+        // WEB PUSH
+        const pushController = require('./pushController');
+        const user = await User.findOne({ name });
+        if (user && user.pushSubscriptions && user.pushSubscriptions.length > 0) {
+            pushController.sendPushToUser(user, {
+                title: '📌 Нова задача!',
+                body: `${title}\nЧас: ${timeInfo}`,
+                url: '/'
+            });
+        }
     };
 
     if (req.body.name === 'all') {

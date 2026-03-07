@@ -132,6 +132,20 @@ const initScheduler = async (tgConfig) => {
                     }
                 };
                 notifyUser(s.name, `🔔 <b>Нагадування!</b>\n\nВ тебе зміна: <b>${s.date}</b>\n⏰ Час: <b>${s.start} - ${s.end}</b>`, opts);
+
+                // ВЕБ-ПУШ
+                if (user.pushSubscriptions && user.pushSubscriptions.length > 0) {
+                    try {
+                        const pushController = require('./controllers/pushController');
+                        pushController.sendPushToUser(user, {
+                            title: '🔔 Нагадування про зміну!',
+                            body: `Зміна: ${s.date}\nЧас: ${s.start} - ${s.end}`,
+                            url: '/'
+                        });
+                    } catch (e) {
+                        console.error('Push error:', e);
+                    }
+                }
             }
         }
 
@@ -155,6 +169,21 @@ const initScheduler = async (tgConfig) => {
                     }
                 };
                 notifyUser(t.name, `📌 <b>Нагадування про задачу!</b>\n\n📝 ${t.title}\n⏰ Початок: ${t.start}`, opts);
+
+                // ВЕБ-ПУШ
+                const user = await User.findOne({ name: t.name });
+                if (user && user.pushSubscriptions && user.pushSubscriptions.length > 0) {
+                    try {
+                        const pushController = require('./controllers/pushController');
+                        pushController.sendPushToUser(user, {
+                            title: '📌 Нагадування про задачу!',
+                            body: `${t.title}\nПочаток: ${t.start}`,
+                            url: '/'
+                        });
+                    } catch (e) {
+                        console.error('Push error:', e);
+                    }
+                }
             }
         }
     });

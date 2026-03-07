@@ -51,7 +51,10 @@ const userSchema = new mongoose.Schema({
 
     // Для відновлення пароля через Telegram
     resetPasswordToken: { type: String, default: null },
-    resetPasswordExpires: { type: Date, default: null }
+    resetPasswordExpires: { type: Date, default: null },
+
+    // Для Web Push Сповіщень
+    pushSubscriptions: { type: [Object], default: [] }
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword) {
