@@ -78,17 +78,19 @@ const sendRequestToSM = async (requestDoc) => {
 
         if (requestDoc.type === 'add_shift') {
             typeIcon = "➕";
+            const empName = requestDoc.data.name ? `\n👤 <b>Співробітник:</b> ${requestDoc.data.name}` : '';
             if (requestDoc.data.start === 'Лікарняний') {
-                details = `📅 <b>Дата:</b> ${requestDoc.data.date}\n💊 <b>Статус:</b> Лікарняний`;
+                details = `📅 <b>Дата:</b> ${requestDoc.data.date}${empName}\n💊 <b>Статус:</b> Лікарняний`;
             } else if (requestDoc.data.start === 'Відпустка') {
-                details = `📅 <b>Дата:</b> ${requestDoc.data.date}\n🌴 <b>Статус:</b> Відпустка`;
+                details = `📅 <b>Дата:</b> ${requestDoc.data.date}${empName}\n🌴 <b>Статус:</b> Відпустка`;
             } else {
-                details = `📅 <b>Зміна:</b> ${requestDoc.data.date}\n⏰ <b>Час:</b> ${requestDoc.data.start} - ${requestDoc.data.end}`;
+                details = `📅 <b>Зміна:</b> ${requestDoc.data.date}${empName}\n⏰ <b>Час:</b> ${requestDoc.data.start} - ${requestDoc.data.end}`;
             }
         }
         if (requestDoc.type === 'del_shift') {
             typeIcon = "🗑";
-            details = `❌ <b>Видалення зміни:</b> ${requestDoc.data.date}`;
+            const empName = requestDoc.data.name ? `\n👤 <b>Співробітник:</b> ${requestDoc.data.name}` : '';
+            details = `❌ <b>Видалення зміни:</b> ${requestDoc.data.date}${empName}`;
         }
         if (requestDoc.type === 'add_task') {
             typeIcon = "📌";
@@ -96,7 +98,7 @@ const sendRequestToSM = async (requestDoc) => {
             if (requestDoc.data.description) details += `\nℹ️ ${requestDoc.data.description}`;
         }
 
-        const txt = `${typeIcon} <b>Новий запит</b>\n\n👤 <b>Від:</b> ${requestDoc.createdBy}\n${details}`;
+        const txt = `${typeIcon} <b>Новий запит</b>\n\n👮‍♂️ <b>Від:</b> ${requestDoc.createdBy}\n${details}`;
 
         const opts = {
             parse_mode: 'HTML',

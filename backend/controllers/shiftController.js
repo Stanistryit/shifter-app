@@ -37,8 +37,8 @@ exports.getShifts = async (req, res) => {
 
     if (currentUser.role !== 'admin') {
         query.storeId = currentUser.storeId;
-    } 
-    
+    }
+
     const s = await Shift.find(query);
     res.json(s);
 };
@@ -51,11 +51,11 @@ exports.addShift = async (req, res) => {
     if (status === 'pending') {
         const targetUser = await User.findOne({ name: req.body.name });
         const storeId = targetUser ? targetUser.storeId : user.storeId;
-        
-        const reqDoc = await Request.create({ 
-            type: 'add_shift', 
-            data: { ...req.body, storeId }, 
-            createdBy: user.name 
+
+        const reqDoc = await Request.create({
+            type: 'add_shift',
+            data: { ...req.body, storeId },
+            createdBy: user.name
         });
         sendRequestToSM(reqDoc);
         return res.json({ success: true, pending: true });
@@ -63,11 +63,11 @@ exports.addShift = async (req, res) => {
 
     const targetUser = await User.findOne({ name: req.body.name });
     const shiftData = { ...req.body };
-    
+
     if (targetUser && targetUser.storeId) {
         shiftData.storeId = targetUser.storeId;
     } else if (user.storeId) {
-        shiftData.storeId = user.storeId; 
+        shiftData.storeId = user.storeId;
     }
 
     await Shift.deleteOne({ date: req.body.date, name: req.body.name });
@@ -89,13 +89,14 @@ exports.saveSchedule = async (req, res) => {
         return res.status(403).json({ success: false, message: "Немає прав" });
     }
 
-    const updates = req.body.updates || []; 
+    const updates = req.body.updates || [];
     if (updates.length === 0) return res.json({ success: true });
 
     try {
         if (u.role === 'SSE') {
             let reqCount = 0;
-            
+            let changesText = [];
+
             for (const item of updates) {
                 const targetUser = await User.findOne({ name: item.name });
                 const storeId = targetUser ? targetUser.storeId : u.storeId;
@@ -109,6 +110,7 @@ exports.saveSchedule = async (req, res) => {
                             createdBy: u.name
                         });
                         reqCount++;
+                        changesText.push(`❌ ${item.name} (${item.date})`);
                     }
                 } else {
                     await Request.create({
@@ -117,13 +119,20 @@ exports.saveSchedule = async (req, res) => {
                         createdBy: u.name
                     });
                     reqCount++;
+                    const shiftType = (item.start === 'Лікарняний' || item.start === 'Відпустка') ? item.start : `${item.start}-${item.end}`;
+                    changesText.push(`➕ ${item.name} (${item.date}) ${shiftType}`);
                 }
             }
 
-            // 🔥 FIX: Додаємо кнопки до повідомлення
-            if (u.storeId) {
+            // 🔥 FIX: Додаємо кнопки до повідомлення та деталі змін
+            if (u.storeId && reqCount > 0) {
                 const managers = await User.find({ storeId: u.storeId, role: { $in: ['SM', 'admin'] } });
-                
+
+                let detailsStr = changesText.slice(0, 15).join('\n');
+                if (changesText.length > 15) {
+                    detailsStr += `\n... та ще ${changesText.length - 15} змін`;
+                }
+
                 const buttons = {
                     reply_markup: {
                         inline_keyboard: [
@@ -136,7 +145,7 @@ exports.saveSchedule = async (req, res) => {
                 };
 
                 managers.forEach(m => {
-                    notifyUser(m.name, `✏️ <b>Редактор Графіку</b>\n👤 ${u.name} надіслав зміни (${reqCount} шт.) на підтвердження.`, buttons);
+                    notifyUser(m.name, `✏️ <b>Редактор Графіку</b>\n👤 <b>${u.name}</b> надіслав зміни на підтвердження:\n\n${detailsStr}`, buttons);
                 });
             }
 
@@ -155,7 +164,7 @@ exports.saveSchedule = async (req, res) => {
             const targetStoreId = userStoreMap[upd.name] || u.storeId;
 
             if (u.role !== 'admin' && String(targetStoreId) !== String(u.storeId)) {
-                continue; 
+                continue;
             }
 
             bulkOps.push({
@@ -196,7 +205,7 @@ exports.deleteShift = async (req, res) => {
     const perm = await handlePermission(req, req.session.userId);
 
     if (perm.status === 'pending') {
-        const reqDoc = await Request.create({ type: 'del_shift', data: { id: s.id, date: s.date }, createdBy: perm.user.name });
+        const reqDoc = await Request.create({ type: 'del_shift', data: { id: s.id, date: s.date, name: s.name }, createdBy: perm.user.name });
         sendRequestToSM(reqDoc);
         return res.json({ success: true, pending: true });
     }
@@ -213,10 +222,10 @@ exports.deleteShift = async (req, res) => {
 exports.bulkImport = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({});
-    
+
     if (req.body.shifts?.length) {
         const shiftsToImport = [];
-        
+
         const allUsers = await User.find({}, 'name storeId');
         const userMap = {};
         allUsers.forEach(user => { userMap[user.name] = user.storeId; });
@@ -239,12 +248,12 @@ exports.bulkImport = async (req, res) => {
 
 exports.clearDay = async (req, res) => {
     const u = await User.findById(req.session.userId);
-    
+
     let query = { date: req.body.date };
     if (u.role !== 'admin') {
         query.storeId = u.storeId;
     }
-    
+
     await Shift.deleteMany(query);
     logAction(u.name, 'clear_day', req.body.date);
     res.json({ success: true });
@@ -253,7 +262,7 @@ exports.clearDay = async (req, res) => {
 exports.clearMonth = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({});
-    
+
     let query = { date: { $regex: `^${req.body.month}` } };
     if (u.role !== 'admin') {
         query.storeId = u.storeId;
