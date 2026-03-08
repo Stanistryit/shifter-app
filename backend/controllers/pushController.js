@@ -14,12 +14,12 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
 }
 
 exports.subscribe = async (req, res) => {
-    if (!req.session || !req.session.user) {
+    if (!req.session || !req.session.userId) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
     const subscription = req.body;
-    const user = await User.findById(req.session.user._id);
+    const user = await User.findById(req.session.userId);
 
     if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
@@ -36,10 +36,10 @@ exports.subscribe = async (req, res) => {
 };
 
 exports.unsubscribe = async (req, res) => {
-    if (!req.session || !req.session.user) return res.status(401).send();
+    if (!req.session || !req.session.userId) return res.status(401).send();
 
     const endpoint = req.body.endpoint;
-    const user = await User.findById(req.session.user._id);
+    const user = await User.findById(req.session.userId);
 
     if (user) {
         user.pushSubscriptions = user.pushSubscriptions.filter(sub => sub.endpoint !== endpoint);
@@ -76,11 +76,11 @@ exports.sendPushToUser = async (user, payload) => {
 };
 
 exports.testPush = async (req, res) => {
-    if (!req.session || !req.session.user) {
+    if (!req.session || !req.session.userId) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
-    const user = await User.findById(req.session.user._id);
+    const user = await User.findById(req.session.userId);
 
     if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
