@@ -186,6 +186,12 @@ async function showApp(user) {
             }
             // Завантажуємо запити
             if (window.loadRequests) window.loadRequests();
+
+            const testPushBtn = document.getElementById('testPushBtn');
+            if (testPushBtn) {
+                testPushBtn.classList.remove('hidden');
+                testPushBtn.classList.add('flex');
+            }
         }
 
         // Кнопка Глобал тільки для Admin

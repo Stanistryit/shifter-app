@@ -74,3 +74,56 @@ exports.sendPushToUser = async (user, payload) => {
         console.error("Failed to clean up dead push subscriptions", e);
     }
 };
+
+exports.testPush = async (req, res) => {
+    if (!req.session || !req.session.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const user = await User.findById(req.session.user._id);
+
+    if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Дозволено тестувати лише глобальним адмінам (вас) та SM (щоб ви знали, у кого не працює)
+    if (user.role !== 'admin' && user.role !== 'SM') {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    console.log(`\n--- [PUSH TEST INITIATED BY ${user.name}] ---`);
+    console.log(`1. VAPID Keys Present: ${!!process.env.VAPID_PUBLIC_KEY}`);
+    console.log(`2. User Role: ${user.role}`);
+    console.log(`3. Total Subscriptions: ${user.pushSubscriptions ? user.pushSubscriptions.length : 0}`);
+
+    if (user.pushSubscriptions) {
+        user.pushSubscriptions.forEach((sub, i) => {
+            console.log(`   - Sub [${i}]: ${sub.endpoint.substring(0, 50)}...`);
+        });
+    }
+
+    if (!user.pushSubscriptions || user.pushSubscriptions.length === 0) {
+        console.log(`❌ ERROR: No active push subscriptions found for this user.`);
+        console.log(`----------------------------------------------\n`);
+        return res.json({ success: false, message: 'No push subscriptions enabled on this device' });
+    }
+
+    try {
+        console.log(`4. Attempting to send push payload...`);
+        // We call the real push function to see if it works
+        await exports.sendPushToUser(user, {
+            title: '✅ Тестове Push-сповіщення',
+            body: 'Якщо ви бачите це, пуш-сповіщення успішно налаштовані!',
+            url: '/'
+        });
+
+        console.log(`5. SUCCESSFULLY sent push test.`);
+        console.log(`----------------------------------------------\n`);
+
+        res.json({ success: true, message: 'Тестове push-сповіщення відправлено' });
+    } catch (e) {
+        console.error(`❌ ERROR sending push notification:`, e);
+        console.log(`----------------------------------------------\n`);
+        res.status(500).json({ success: false, message: 'Server error sending push test' });
+    }
+};

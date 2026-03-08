@@ -34,6 +34,7 @@ router.post('/user/avatar', catchAsync(authController.uploadAvatar));
 // --- WEB PUSH ---
 router.post('/push/subscribe', catchAsync(pushController.subscribe));
 router.post('/push/unsubscribe', catchAsync(pushController.unsubscribe));
+router.post('/push/test', catchAsync(pushController.testPush));
 
 // --- USER TRANSFERS ---
 router.post('/user/transfer/request', catchAsync(userController.requestTransfer));

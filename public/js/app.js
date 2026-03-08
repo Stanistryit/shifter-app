@@ -211,6 +211,20 @@ async function togglePushNotifications() {
     }
 }
 
+window.testPushNotification = async () => {
+    triggerHaptic();
+    try {
+        const data = await postJson('/api/push/test', {});
+        if (data.success) {
+            showToast('✅ Тестове сповіщення відправлено', 'success');
+        } else {
+            alert('Помилка відправки: ' + data.message);
+        }
+    } catch (e) {
+        alert('Помилка з\'єднання з сервером');
+    }
+};
+
 window.saveNotificationPref = async (val) => {
     triggerHaptic();
     try {
