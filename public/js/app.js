@@ -153,38 +153,39 @@ async function initApp() {
 
 // --- PUSH NOTIFICATIONS ---
 async function togglePushNotifications() {
-    triggerHaptic();
-    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-        alert("На жаль, Push-сповіщення не підтримуються вашим пристроєм або браузером.");
-        return;
-    }
+    try {
+        try { triggerHaptic(); } catch (hErr) { console.log('Haptic error ignored'); }
 
-    let permission = Notification.permission;
-
-    if (permission !== 'granted' && permission !== 'denied') {
-        try {
-            // Safari/older browsers expect a callback, modern return a promise
-            permission = await new Promise((resolve, reject) => {
-                const promise = Notification.requestPermission((result) => {
-                    resolve(result);
-                });
-                if (promise) {
-                    promise.then(resolve).catch(reject);
-                }
-            });
-        } catch (e) {
-            console.error("Помилка запиту дозволу:", e);
-            alert("Системна помилка під час запиту дозволу на сповіщення: " + e.message);
+        if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+            alert("На жаль, Push-сповіщення не підтримуються вашим пристроєм або браузером.");
             return;
         }
-    }
 
-    if (permission !== 'granted') {
-        alert("Ви не надали дозвіл на сповіщення (або заборонили їх у налаштуваннях браузера).");
-        return;
-    }
+        let permission = window.Notification ? window.Notification.permission : 'default';
 
-    try {
+        if (permission !== 'granted' && permission !== 'denied') {
+            try {
+                // Safari/older browsers expect a callback, modern return a promise
+                permission = await new Promise((resolve, reject) => {
+                    const promise = window.Notification.requestPermission((result) => {
+                        resolve(result);
+                    });
+                    if (promise) {
+                        promise.then(resolve).catch(reject);
+                    }
+                });
+            } catch (e) {
+                console.error("Помилка запиту дозволу:", e);
+                alert("Системна помилка під час запиту дозволу на сповіщення: " + e.message);
+                return;
+            }
+        }
+
+        if (permission !== 'granted') {
+            alert("Ви не надали дозвіл на сповіщення (або заборонили їх у налаштуваннях браузера).");
+            return;
+        }
+
         const sw = await navigator.serviceWorker.ready;
         let subscription = await sw.pushManager.getSubscription();
 
@@ -230,9 +231,10 @@ async function togglePushNotifications() {
                 document.getElementById('pushIcon').textContent = "🔔";
             }
         }
-    } catch (err) {
-        console.error('Push functionality error:', err);
-        alert("Сталася перехоплена помилка при налаштуванні сповіщень: " + err.message);
+
+    } catch (globalErr) {
+        console.error('CRITICAL Push functionality error:', globalErr);
+        alert("Критична помилка при запуску функції: " + globalErr.message);
     }
 }
 
