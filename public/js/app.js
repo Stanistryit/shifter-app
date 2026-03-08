@@ -154,14 +154,33 @@ async function initApp() {
 // --- PUSH NOTIFICATIONS ---
 async function togglePushNotifications() {
     triggerHaptic();
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        alert("Push-сповіщення не підтримуються вашим браузером");
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        alert("На жаль, Push-сповіщення не підтримуються вашим пристроєм або браузером.");
         return;
     }
 
-    const permission = await Notification.requestPermission();
+    let permission = Notification.permission;
+
+    if (permission !== 'granted' && permission !== 'denied') {
+        try {
+            // Safari/older browsers expect a callback, modern return a promise
+            permission = await new Promise((resolve, reject) => {
+                const promise = Notification.requestPermission((result) => {
+                    resolve(result);
+                });
+                if (promise) {
+                    promise.then(resolve).catch(reject);
+                }
+            });
+        } catch (e) {
+            console.error("Помилка запиту дозволу:", e);
+            alert("Системна помилка під час запиту дозволу на сповіщення: " + e.message);
+            return;
+        }
+    }
+
     if (permission !== 'granted') {
-        alert("Ви не надали дозвіл на сповіщення");
+        alert("Ви не надали дозвіл на сповіщення (або заборонили їх у налаштуваннях браузера).");
         return;
     }
 
@@ -189,10 +208,16 @@ async function togglePushNotifications() {
             }
 
             const convertedVapidKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-            subscription = await sw.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: convertedVapidKey
-            });
+            try {
+                subscription = await sw.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: convertedVapidKey
+                });
+            } catch (subErr) {
+                console.error("Помилка генерації підписки PushManager:", subErr);
+                alert("Помилка генерації підписки: " + subErr.message);
+                return;
+            }
 
             const res = await fetch('/api/push/subscribe', {
                 method: 'POST',
@@ -207,7 +232,7 @@ async function togglePushNotifications() {
         }
     } catch (err) {
         console.error('Push functionality error:', err);
-        alert("Сталася помилка при налаштуванні сповіщень.");
+        alert("Сталася перехоплена помилка при налаштуванні сповіщень: " + err.message);
     }
 }
 
