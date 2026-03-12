@@ -202,6 +202,10 @@ async function showApp(user) {
                 btnGlobal.classList.remove('hidden');
                 btnGlobal.classList.add('flex');
             }
+            const broadcastPanel = document.getElementById('broadcastNotifPanel');
+            if (broadcastPanel) {
+                broadcastPanel.classList.remove('hidden');
+            }
         }
 
         if (user.role === 'SM' || user.role === 'admin') {

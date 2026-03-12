@@ -82,6 +82,7 @@ const notificationController = require('./controllers/notificationController');
 router.get('/notifications/stream', notificationController.stream);
 router.get('/notifications', catchAsync(notificationController.getNotifications));
 router.post('/notifications/read', catchAsync(notificationController.markAsRead));
+router.post('/notifications/broadcast', catchAsync(notificationController.broadcastNotification));
 
 // --- ADMIN (Logs, Requests, News) ---
 router.get('/logs', catchAsync(adminController.getLogs));

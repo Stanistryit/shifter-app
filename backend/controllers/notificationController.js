@@ -76,7 +76,7 @@ exports.getNotifications = async (req, res) => {
     }
 };
 
-// Відмітка прочитання
+// Маркування як прочитані
 exports.markAsRead = async (req, res) => {
     if (!req.session.userId) return res.status(401).json({});
     try {
@@ -87,5 +87,45 @@ exports.markAsRead = async (req, res) => {
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
+    }
+};
+
+// Broadcast від адміна всім підключеним користувачам
+exports.broadcastNotification = async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({});
+
+    const { User } = require('../models');
+    const caller = await User.findById(req.session.userId).select('role');
+    if (!caller || caller.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const { title = '📢 Повідомлення', message } = req.body;
+    if (!message || !message.trim()) {
+        return res.status(400).json({ success: false, message: 'Повідомлення порожнє' });
+    }
+
+    try {
+        // Створюємо записи для всіх користувачів
+        const allUsers = await User.find({}).select('_id');
+        const docs = allUsers.map(u => ({
+            userId: u._id,
+            title,
+            message: message.trim(),
+            type: 'info'
+        }));
+        await Notification.insertMany(docs);
+
+        // Відправляємо SSE всім підключеним клієнтам
+        const payload = JSON.stringify({ type: 'notification', notification: { title, message: message.trim(), type: 'info' } });
+        clients.forEach(userClients => {
+            userClients.forEach(r => {
+                try { r.write(`data: ${payload}\n\n`); } catch (e) { }
+            });
+        });
+
+        res.json({ success: true, sentTo: allUsers.length });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
     }
 };
