@@ -8,12 +8,13 @@ exports.stream = async (req, res) => {
         return res.status(401).end();
     }
 
-    const userId = req.session.userId;
+    // Normalize to string so it matches ObjectId.toString() from bot calls
+    const userId = req.session.userId.toString();
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders(); // Відправляємо заголовки одразу
+    res.flushHeaders();
 
     // Додаємо клієнта
     if (!clients.has(userId)) {
@@ -21,11 +22,17 @@ exports.stream = async (req, res) => {
     }
     clients.get(userId).add(res);
 
-    // Відправляємо початкову подію, щоб з'єднання не розірвалось
+    // Відправляємо початкову подію
     res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
 
-    // При закритті з'єднання видаляємо клієнта
+    // Heartbeat кожні 25 секунд — запобігає розриву з'єднання на Render/Heroku
+    const heartbeat = setInterval(() => {
+        try { res.write(': ping\n\n'); } catch (e) { clearInterval(heartbeat); }
+    }, 25000);
+
+    // При закритті з'єднання видаляємо клієнта і зупиняємо heartbeat
     req.on('close', () => {
+        clearInterval(heartbeat);
         const userClients = clients.get(userId);
         if (userClients) {
             userClients.delete(res);
@@ -38,10 +45,11 @@ exports.stream = async (req, res) => {
 
 // Функція для відправки події конкретному юзеру
 exports.sendToUser = (userId, data) => {
+    // toString() normalizes both string and ObjectId keys
     const userClients = clients.get(userId.toString());
     if (userClients) {
         userClients.forEach(res => {
-            res.write(`data: ${JSON.stringify(data)}\n\n`);
+            try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch (e) { }
         });
     }
 };
