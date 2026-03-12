@@ -1,4 +1,4 @@
-const { User, Store, PendingNotification } = require('../models');
+const { User, Store, PendingNotification, Notification } = require('../models');
 
 let botInstance = null;
 
@@ -26,7 +26,7 @@ const sendMessageWithQuietHours = async (chatId, text, options = {}) => {
     }
 };
 
-// 🔥 ОНОВЛЕНО: Тепер приймає options для кнопок
+// 🔥 ОНОВЛЕНО: Тепер приймає options для кнопок та зберігає In-App сповіщення
 const notifyUser = async (name, msg, options = {}) => {
     if (!botInstance) return;
     try {
@@ -34,8 +34,26 @@ const notifyUser = async (name, msg, options = {}) => {
         // Об'єднуємо дефолтні налаштування з переданими
         const finalOptions = { parse_mode: 'HTML', ...options };
 
-        if (u?.telegramChatId) {
-            await sendMessageWithQuietHours(u.telegramChatId, msg, finalOptions);
+        if (u) {
+            // Зберігаємо In-App сповіщення
+            const cleanMsg = msg.replace(/<[^>]*>?/gm, ''); // Видаляємо HTML теги для In-App
+            const notif = await Notification.create({
+                userId: u._id,
+                title: options.title || 'Нове сповіщення',
+                message: cleanMsg,
+                type: options.type || 'info'
+            });
+
+            // Відправляємо SSE Event
+            const notificationController = require('../controllers/notificationController');
+            notificationController.sendToUser(u._id, {
+                type: 'notification',
+                notification: notif
+            });
+
+            if (u.telegramChatId) {
+                await sendMessageWithQuietHours(u.telegramChatId, msg, finalOptions);
+            }
         }
     } catch (e) {
         console.error("NotifyUser Error:", e.message);

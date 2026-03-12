@@ -34,6 +34,7 @@ import {
 } from './modules/editor.js';
 
 import { updateDashboard } from './modules/dashboard.js';
+import { readNotifications } from './modules/notifications.js';
 
 const tg = window.Telegram.WebApp;
 if (tg) { tg.ready(); if (tg.platform && tg.platform !== 'unknown') try { tg.expand() } catch (e) { } }
@@ -267,6 +268,24 @@ window.saveNotificationPref = async (val) => {
     }
 };
 
+window.connectTelegram = async () => {
+    triggerHaptic();
+    try {
+        const data = await fetchJson('/api/telegram-link');
+        if (data.success && data.url) {
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink) {
+                window.Telegram.WebApp.openTelegramLink(data.url);
+            } else {
+                window.open(data.url, '_blank');
+            }
+        } else {
+            showToast('Помилка генерації посилання', 'error');
+        }
+    } catch (e) {
+        showToast('Помилка з\'єднання', 'error');
+    }
+};
+
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -283,6 +302,7 @@ initApp();
 // --- EXPOSE TO HTML (WINDOW) ---
 window.toggleTheme = toggleTheme;
 window.triggerHaptic = triggerHaptic;
+window.readNotifications = readNotifications;
 
 window.showAdminTab = (t) => {
     uiShowAdminTab(t);
@@ -786,6 +806,19 @@ async function setMode(mode) {
             if (btnStoreSettings) {
                 btnStoreSettings.classList.add('hidden');
                 btnStoreSettings.classList.remove('flex');
+            }
+        }
+
+        const btnConnectTelegram = document.getElementById('connectTelegramBtn');
+        if (state.currentUser && !state.currentUser.hasTelegram) {
+            if (btnConnectTelegram) {
+                btnConnectTelegram.classList.remove('hidden');
+                btnConnectTelegram.classList.add('flex');
+            }
+        } else {
+            if (btnConnectTelegram) {
+                btnConnectTelegram.classList.add('hidden');
+                btnConnectTelegram.classList.remove('flex');
             }
         }
     }

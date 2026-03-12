@@ -123,7 +123,8 @@ exports.login = async (req, res) => {
                     closeTime: user.storeId.closeTime,
                     reportTime: user.storeId.telegram?.reportTime,
                     kpi_enabled: user.storeId.kpi_enabled !== false
-                } : null
+                } : null,
+                hasTelegram: !!user.telegramChatId
             }
         });
     } catch (e) {
@@ -240,7 +241,8 @@ exports.telegramLogin = async (req, res) => {
                     reportTime: user.storeId.telegram?.reportTime,
                     kpi_enabled: user.storeId.kpi_enabled !== false
                 } : null,
-                notificationPreference: user.notificationPreference || 'telegram'
+                notificationPreference: user.notificationPreference || 'telegram',
+                hasTelegram: !!user.telegramChatId
             }
         });
     } else res.json({ success: false });
@@ -286,7 +288,8 @@ exports.getMe = async (req, res) => {
                 reportTime: user.storeId.telegram?.reportTime,
                 kpi_enabled: user.storeId.kpi_enabled !== false // Default to true if undefined
             } : null,
-            notificationPreference: user.notificationPreference || 'telegram'
+            notificationPreference: user.notificationPreference || 'telegram',
+            hasTelegram: !!user.telegramChatId
         };
     }
 
@@ -393,4 +396,17 @@ exports.uploadAvatar = async (req, res) => {
     if (!req.session.userId) return res.status(403).json({});
     await User.findByIdAndUpdate(req.session.userId, { avatar: req.body.avatar });
     res.json({ success: true });
+};
+
+exports.getTelegramLink = async (req, res) => {
+    if (!req.session.userId) return res.status(403).json({});
+    const bot = getBot();
+    if (!bot) return res.json({ success: false, message: "Bot not initialized" });
+    try {
+        const me = await bot.getMe();
+        const url = `https://t.me/${me.username}?start=auth_${req.session.userId}`;
+        res.json({ success: true, url });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
 };

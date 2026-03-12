@@ -195,4 +195,16 @@ const PendingNotification = mongoose.models.PendingNotification || mongoose.mode
 const SalaryMatrix = mongoose.models.SalaryMatrix || mongoose.model('SalaryMatrix', salaryMatrixSchema);
 const KPI = mongoose.models.KPI || mongoose.model('KPI', kpiSchema);
 
-module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, MonthSettings, PendingNotification, SalaryMatrix, KPI };
+// 15. Схема In-App Сповіщень
+const notificationSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    title: { type: String, required: true },
+    message: { type: String, required: true },
+    type: { type: String, default: 'info' }, // 'info', 'warning', 'success', 'error'
+    isRead: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now }
+});
+notificationSchema.index({ userId: 1, isRead: 1 });
+const Notification = mongoose.models.Notification || mongoose.model('Notification', notificationSchema);
+
+module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, MonthSettings, PendingNotification, SalaryMatrix, KPI, Notification };

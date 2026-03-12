@@ -1,7 +1,7 @@
 const { User, Store } = require('../models');
 
 // Головне меню
-const handleStart = async (bot, msg, appUrl) => {
+const handleStart = async (bot, msg, match, appUrl) => {
     // Встановлюємо кнопку меню (зліва від вводу тексту)
     try {
         await bot.setChatMenuButton({
@@ -17,6 +17,23 @@ const handleStart = async (bot, msg, appUrl) => {
     }
 
     const { User } = require('../models');
+
+    // Обробка Deep Link для авторизації (/start auth_<userId>)
+    const startParam = match && match[1] ? match[1].trim() : '';
+    if (startParam.startsWith('auth_')) {
+        const userId = startParam.replace('auth_', '');
+        try {
+            const linkedUser = await User.findById(userId);
+            if (linkedUser) {
+                linkedUser.telegramChatId = msg.chat.id;
+                await linkedUser.save();
+                bot.sendMessage(msg.chat.id, `✅ <b>Сповіщення успішно підключені!</b>\n\nАкаунт <b>${linkedUser.name}</b> тепер прив'язаний до вашого Telegram.`, { parse_mode: 'HTML' });
+            }
+        } catch (e) {
+            console.error("Deep link auth error:", e);
+        }
+    }
+
     // Check if user is registered to tailor the onboarding
     const user = await User.findOne({ telegramChatId: msg.chat.id });
 

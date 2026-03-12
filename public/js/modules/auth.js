@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { fetchJson, postJson } from './api.js';
 import { showToast, triggerHaptic, showAdminTab } from './ui.js';
 import { renderAll } from './render.js';
+import { initNotifications } from './notifications.js';
 
 const tg = window.Telegram.WebApp;
 
@@ -213,6 +214,9 @@ async function showApp(user) {
 
     // Завантаження всіх даних
     await loadData();
+
+    // Ініціалізація In-App сповіщень
+    await initNotifications();
 
     // Перший рендер графіку
     renderAll();

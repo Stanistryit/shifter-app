@@ -27,6 +27,7 @@ router.post('/user/change-password', catchAsync(authController.changePassword));
 router.post('/user/notification-pref', catchAsync(authController.updateNotificationPref));
 router.post('/login-telegram', catchAsync(authController.loginTelegram));
 router.post('/logout', catchAsync(authController.logout));
+router.get('/telegram-link', catchAsync(authController.getTelegramLink));
 router.get('/users', catchAsync(authController.getUsers));
 router.get('/me', catchAsync(authController.getMe));
 router.post('/user/avatar', catchAsync(authController.uploadAvatar));
@@ -75,6 +76,12 @@ router.post('/tasks/toggle', catchAsync(taskController.toggleTaskStatus));
 router.get('/kpi', catchAsync(kpiController.getKpi));
 router.post('/kpi/settings', catchAsync(kpiController.saveSettings));
 router.post('/kpi/import', catchAsync(kpiController.importKpi));
+
+// --- NOTIFICATIONS (In-App SSE) ---
+const notificationController = require('./controllers/notificationController');
+router.get('/notifications/stream', notificationController.stream);
+router.get('/notifications', catchAsync(notificationController.getNotifications));
+router.post('/notifications/read', catchAsync(notificationController.markAsRead));
 
 // --- ADMIN (Logs, Requests, News) ---
 router.get('/logs', catchAsync(adminController.getLogs));

@@ -35,6 +35,15 @@
             <span id="themeIcon">🌙</span>
         </button>
 
+        <button id="connectTelegramBtn" onclick="connectTelegram()"
+            class="hidden w-full flex justify-between items-center bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 p-4 border-none rounded-xl mt-3 active:scale-95 transition-transform">
+            <div class="flex flex-col text-left">
+                <span class="font-bold">Підключити Telegram ✈️</span>
+                <span class="text-[10px] font-bold uppercase opacity-70">Отримувати сповіщення</span>
+            </div>
+            <span>🔗</span>
+        </button>
+
         <div class="w-full flex justify-between items-center ios-input p-4 text-left">
             <label class="font-medium text-gray-700 dark:text-gray-200 w-full mb-1">Сповіщення (задачі, зміни)</label>
             <select id="profileNotificationPref" onchange="saveNotificationPref(this.value)"

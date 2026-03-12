@@ -11,6 +11,12 @@
         </div>
     </div>
     <div class="flex items-center gap-4">
+        <div id="notificationBellMob" class="relative cursor-pointer active:scale-95 transition-transform"
+            onclick="readNotifications()">
+            <span class="text-xl">🔔</span>
+            <span id="notifBadgeMob"
+                class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 rounded-full border border-white dark:border-[#1C1C1E]">0</span>
+        </div>
         <div id="toggleEditWrapper" class="hidden flex items-center">
             <input type="checkbox" id="menuToggle" class="toggle-checkbox" onchange="toggleEditMode()">
             <label for="menuToggle" class="toggle-label"></label>

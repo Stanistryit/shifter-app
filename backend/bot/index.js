@@ -41,7 +41,7 @@ const initBot = (token, appUrl) => {
     // --- РОУТИНГ ПОДІЙ ---
 
     // Команди
-    bot.onText(/\/start/, (msg) => commands.handleStart(bot, msg, appUrl));
+    bot.onText(/\/start(.*)/, (msg, match) => commands.handleStart(bot, msg, match, appUrl));
     bot.onText(/\/login/, (msg) => commands.handleLogin(bot, msg));
     bot.onText(/\/link_store (.+)/, (msg, match) => commands.handleLinkStore(bot, msg, match));
     bot.onText(/\/set_news/, (msg) => commands.handleSetNews(bot, msg));

@@ -11,6 +11,12 @@
             class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-indigo-600">
             Shifter
         </h1>
+        <div id="notificationBellDesk" class="ml-auto relative cursor-pointer active:scale-95 transition-transform"
+            onclick="readNotifications()">
+            <span class="text-xl">🔔</span>
+            <span id="notifBadgeDesk"
+                class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 rounded-full border border-white dark:border-[#1C1C1E]">0</span>
+        </div>
     </div>
 
     <div id="desktopNavMenu" class="flex flex-col flex-1 h-full">
