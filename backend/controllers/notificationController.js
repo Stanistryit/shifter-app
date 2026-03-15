@@ -8,12 +8,13 @@ exports.stream = async (req, res) => {
         return res.status(401).end();
     }
 
-    const userId = req.session.userId;
+    // Normalize to string so it matches ObjectId.toString() from bot calls
+    const userId = req.session.userId.toString();
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders(); // Відправляємо заголовки одразу
+    res.flushHeaders();
 
     // Додаємо клієнта
     if (!clients.has(userId)) {
@@ -21,11 +22,17 @@ exports.stream = async (req, res) => {
     }
     clients.get(userId).add(res);
 
-    // Відправляємо початкову подію, щоб з'єднання не розірвалось
+    // Відправляємо початкову подію
     res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
 
-    // При закритті з'єднання видаляємо клієнта
+    // Heartbeat кожні 25 секунд — запобігає розриву з'єднання на Render/Heroku
+    const heartbeat = setInterval(() => {
+        try { res.write(': ping\n\n'); } catch (e) { clearInterval(heartbeat); }
+    }, 25000);
+
+    // При закритті з'єднання видаляємо клієнта і зупиняємо heartbeat
     req.on('close', () => {
+        clearInterval(heartbeat);
         const userClients = clients.get(userId);
         if (userClients) {
             userClients.delete(res);
@@ -38,10 +45,11 @@ exports.stream = async (req, res) => {
 
 // Функція для відправки події конкретному юзеру
 exports.sendToUser = (userId, data) => {
+    // toString() normalizes both string and ObjectId keys
     const userClients = clients.get(userId.toString());
     if (userClients) {
         userClients.forEach(res => {
-            res.write(`data: ${JSON.stringify(data)}\n\n`);
+            try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch (e) { }
         });
     }
 };
@@ -68,7 +76,7 @@ exports.getNotifications = async (req, res) => {
     }
 };
 
-// Відмітка прочитання
+// Маркування як прочитані
 exports.markAsRead = async (req, res) => {
     if (!req.session.userId) return res.status(401).json({});
     try {
@@ -79,5 +87,45 @@ exports.markAsRead = async (req, res) => {
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
+    }
+};
+
+// Broadcast від адміна всім підключеним користувачам
+exports.broadcastNotification = async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({});
+
+    const { User } = require('../models');
+    const caller = await User.findById(req.session.userId).select('role');
+    if (!caller || caller.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const { title = '📢 Повідомлення', message } = req.body;
+    if (!message || !message.trim()) {
+        return res.status(400).json({ success: false, message: 'Повідомлення порожнє' });
+    }
+
+    try {
+        // Створюємо записи для всіх користувачів
+        const allUsers = await User.find({}).select('_id');
+        const docs = allUsers.map(u => ({
+            userId: u._id,
+            title,
+            message: message.trim(),
+            type: 'info'
+        }));
+        await Notification.insertMany(docs);
+
+        // Відправляємо SSE всім підключеним клієнтам
+        const payload = JSON.stringify({ type: 'notification', notification: { title, message: message.trim(), type: 'info' } });
+        clients.forEach(userClients => {
+            userClients.forEach(r => {
+                try { r.write(`data: ${payload}\n\n`); } catch (e) { }
+            });
+        });
+
+        res.json({ success: true, sentTo: allUsers.length });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
     }
 };

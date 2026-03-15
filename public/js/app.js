@@ -253,6 +253,28 @@ window.testPushNotification = async () => {
     }
 };
 
+window.sendBroadcastNotification = async () => {
+    triggerHaptic();
+    const title = document.getElementById('broadcastTitle')?.value.trim() || '📢 Повідомлення';
+    const message = document.getElementById('broadcastMessage')?.value.trim();
+    if (!message) {
+        showToast('Введіть текст повідомлення', 'error');
+        return;
+    }
+    try {
+        const data = await postJson('/api/notifications/broadcast', { title, message });
+        if (data.success) {
+            showToast(`✅ Надіслано ${data.sentTo} користувачам`, 'success', 4000);
+            document.getElementById('broadcastTitle').value = '';
+            document.getElementById('broadcastMessage').value = '';
+        } else {
+            showToast('Помилка: ' + data.message, 'error');
+        }
+    } catch (e) {
+        showToast('Помилка з\'єднання', 'error');
+    }
+};
+
 window.saveNotificationPref = async (val) => {
     triggerHaptic();
     try {

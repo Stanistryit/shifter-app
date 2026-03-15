@@ -68,6 +68,23 @@
             </div>
             <span>📨</span>
         </button>
+
+        <!-- Admin-only: Broadcast In-App Notification -->
+        <div id="broadcastNotifPanel"
+            class="hidden w-full bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl space-y-3 border border-purple-100 dark:border-purple-800/40">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-lg">📢</span>
+                <span class="font-bold text-purple-700 dark:text-purple-300 text-sm">Розіслати сповіщення всім</span>
+            </div>
+            <input id="broadcastTitle" type="text" placeholder="Заголовок (необов'язково)"
+                class="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#2C2C2E] border border-purple-200 dark:border-purple-700 text-sm outline-none focus:ring-2 focus:ring-purple-400 transition" />
+            <textarea id="broadcastMessage" placeholder="Текст повідомлення..." rows="3"
+                class="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#2C2C2E] border border-purple-200 dark:border-purple-700 text-sm outline-none focus:ring-2 focus:ring-purple-400 transition resize-none"></textarea>
+            <button onclick="sendBroadcastNotification()"
+                class="w-full py-2.5 px-4 bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-lg text-sm active:scale-95 transition-all shadow-md shadow-purple-500/30">
+                📨 Надіслати всім
+            </button>
+        </div>
     </div>
 
     <div class="pt-6 border-t border-gray-100 dark:border-gray-800 relative z-10">

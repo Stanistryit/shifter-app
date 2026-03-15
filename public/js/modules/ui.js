@@ -70,7 +70,7 @@ export function toggleTheme() {
     }
 }
 
-export function showToast(msg, type = 'success') {
+export function showToast(msg, type = 'success', duration = 3000) {
     let container = document.getElementById('toastContainer');
     if (!container) {
         container = document.createElement('div');
@@ -90,7 +90,7 @@ export function showToast(msg, type = 'success') {
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 400);
-    }, 3000);
+    }, duration);
 }
 
 export function triggerHaptic(style = 'medium', type = 'impact') {

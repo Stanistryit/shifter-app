@@ -28,15 +28,15 @@ export async function initNotifications() {
             if (data.type === 'notification') {
                 unreadCount++;
                 updateBadge();
-                showToast(`🔔 ${data.notification.title}\n${data.notification.message}`, 'info', 5000);
+                showToast(`🔔 ${data.notification.title}: ${data.notification.message}`, 'info');
 
                 // Trigger local push notification if supported and in background
                 if (document.hidden && 'serviceWorker' in navigator && Notification.permission === 'granted') {
                     navigator.serviceWorker.ready.then(reg => {
                         reg.showNotification(data.notification.title, {
                             body: data.notification.message,
-                            icon: '/icons/icon-192.png',
-                            badge: '/icons/icon-192.png',
+                            icon: '/icons/icon-192x192.png',
+                            badge: '/icons/icon-192x192.png',
                             vibrate: [200, 100, 200]
                         });
                     });
