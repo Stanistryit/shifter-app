@@ -257,6 +257,13 @@ exports.publishNews = async (req, res) => {
     const btn = { inline_keyboard: [[{ text: "✅ Ознайомлений", callback_data: 'read_news' }]] };
     const replyMarkup = shouldRequestRead ? btn : undefined;
 
+    // 🔥 Визначаємо тип файлу за мімтайпом АБО розширенням (PDF може прийти як application/octet-stream)
+    const isImageFile = (f) => {
+        if (f.mimetype && f.mimetype.startsWith('image/')) return true;
+        const ext = (f.originalname || '').split('.').pop().toLowerCase();
+        return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
+    };
+
     let sentMsg;
 
     try {
@@ -264,21 +271,40 @@ exports.publishNews = async (req, res) => {
             sentMsg = await bot.sendMessage(chatId, `📢 <b>Новини:</b>\n\n${text}`, { ...opts, reply_markup: replyMarkup });
         } else if (files.length === 1) {
             const f = files[0];
-            const fOpt = { filename: Buffer.from(f.originalname, 'latin1').toString('utf8'), contentType: f.mimetype };
+            const filename = Buffer.from(f.originalname, 'latin1').toString('utf8');
 
-            if (f.mimetype.startsWith('image/')) {
-                sentMsg = await bot.sendPhoto(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: replyMarkup }, fOpt);
+            if (isImageFile(f)) {
+                // ✅ Правильна передача буфера через { source }
+                sentMsg = await bot.sendPhoto(
+                    chatId,
+                    { source: f.buffer, filename },
+                    { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: replyMarkup }
+                );
             } else {
-                sentMsg = await bot.sendDocument(chatId, f.buffer, { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: replyMarkup }, fOpt);
+                // ✅ PDF та інші файли — через sendDocument з { source }
+                sentMsg = await bot.sendDocument(
+                    chatId,
+                    { source: f.buffer, filename },
+                    { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: replyMarkup }
+                );
             }
         } else {
-            const media = files.map((f, i) => ({
-                type: f.mimetype.startsWith('image/') ? 'photo' : 'document',
-                media: f.buffer,
-                caption: i === 0 ? `📢 <b>Новини:</b>\n\n${text}` : '',
-                parse_mode: 'HTML'
-            }));
-            const msgs = await bot.sendMediaGroup(chatId, media, opts);
+            // Кілька файлів: відправляємо по одному (sendMediaGroup з буферами ненадійний)
+            const msgs = [];
+            for (let i = 0; i < files.length; i++) {
+                const f = files[i];
+                const filename = Buffer.from(f.originalname, 'latin1').toString('utf8');
+                const caption = i === 0 ? `📢 <b>Новини:</b>\n\n${text}` : '';
+                const fileOpts = { ...opts, caption, reply_markup: i === files.length - 1 && !shouldRequestRead ? undefined : undefined };
+
+                let msg;
+                if (isImageFile(f)) {
+                    msg = await bot.sendPhoto(chatId, { source: f.buffer, filename }, { ...opts, caption });
+                } else {
+                    msg = await bot.sendDocument(chatId, { source: f.buffer, filename }, { ...opts, caption });
+                }
+                msgs.push(msg);
+            }
 
             if (shouldRequestRead) {
                 sentMsg = await bot.sendMessage(chatId, "👇 Підтвердити:", { ...opts, reply_to_message_id: msgs[0].message_id, reply_markup: btn });
@@ -293,9 +319,10 @@ exports.publishNews = async (req, res) => {
 
     } catch (error) {
         console.error("News Error:", error.message);
-        res.json({ success: false, message: "Помилка відправки в Telegram" });
+        res.json({ success: false, message: `Помилка відправки в Telegram: ${error.message}` });
     }
 };
+
 
 // --- Експорт графіку в CSV ---
 exports.exportSchedule = async (req, res) => {

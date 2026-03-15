@@ -144,16 +144,22 @@ export async function publishNews() {
 
     try {
         const res = await fetch('/api/news/publish', { method: 'POST', body: formData });
-        if (res.ok) {
+        const data = await res.json();
+        if (res.ok && data.success) {
             showToast("✅ Опубліковано!");
             document.getElementById('newsText').value = '';
             document.getElementById('newsFile').value = '';
             document.getElementById('newsRequestRead').checked = true;
             updateFileName();
             closeAddNewsModal();
-        } else showToast("Помилка публікації", 'error');
+        } else {
+            // Показуємо реальне повідомлення про помилку з сервера
+            showToast(data.message || "Помилка публікації", 'error');
+            console.error("News publish error:", data.message);
+        }
     } catch (e) {
         showToast("Помилка мережі", 'error');
+        console.error("News publish network error:", e);
     } finally {
         if (btn) {
             btn.innerText = "Опублікувати";
