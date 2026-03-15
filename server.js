@@ -17,8 +17,7 @@ const PORT = process.env.PORT || 3000;
 
 // Config
 const TG_CONFIG = {
-    groupId: process.env.TG_GROUP_ID,
-    topics: { schedule: 36793, news: 36865 }
+    groupId: process.env.TG_GROUP_ID
 };
 app.set('tgConfig', TG_CONFIG);
 app.set('trust proxy', 1);

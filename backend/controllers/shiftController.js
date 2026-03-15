@@ -248,6 +248,9 @@ exports.bulkImport = async (req, res) => {
 
 exports.clearDay = async (req, res) => {
     const u = await User.findById(req.session.userId);
+    if (!u || (u.role !== 'SM' && u.role !== 'admin')) {
+        return res.status(403).json({ success: false, message: 'Тільки для SM' });
+    }
 
     let query = { date: req.body.date };
     if (u.role !== 'admin') {

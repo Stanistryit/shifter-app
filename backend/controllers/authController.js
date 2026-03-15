@@ -394,7 +394,12 @@ exports.resetPassword = async (req, res) => {
 
 exports.uploadAvatar = async (req, res) => {
     if (!req.session.userId) return res.status(403).json({});
-    await User.findByIdAndUpdate(req.session.userId, { avatar: req.body.avatar });
+    const { avatar } = req.body;
+    // base64 строка ~4/3 від реального розміру; 500KB реальних ≈ 680KB base64
+    if (avatar && avatar.length > 700000) {
+        return res.status(400).json({ success: false, message: 'Зображення завелике. Максимальний розмір: ~500 KB' });
+    }
+    await User.findByIdAndUpdate(req.session.userId, { avatar });
     res.json({ success: true });
 };
 

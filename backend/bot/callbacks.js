@@ -193,9 +193,38 @@ const handleApprovalLogic = async (bot, q, uid, data) => {
     }
 
     if (type === 'user') {
-        // ...
-    }
-    else if (type === 'req') {
+        const targetUser = await User.findById(targetId);
+        if (!targetUser) {
+            return bot.editMessageText(`⚠️ Користувача не знайдено (вже оброблено).`, { chat_id: q.message.chat.id, message_id: q.message.message_id });
+        }
+
+        if (action === 'approve') {
+            targetUser.status = 'active';
+            if (targetUser.role === 'Guest') targetUser.role = 'SE'; // Базова роль за замовчуванням
+            await targetUser.save();
+
+            if (targetUser.telegramChatId) {
+                bot.sendMessage(targetUser.telegramChatId,
+                    `✅ <b>Вітаємо! Ваш акаунт підтверджено.</b>\n\n👤 ${targetUser.name}, тепер ви можете користуватися додатком Shifter.`,
+                    { parse_mode: 'HTML' }
+                ).catch(() => {});
+            }
+
+            bot.editMessageText(
+                `✅ <b>Прийнято</b> (SM: ${admin.name})\n👤 Новий співробітник: <b>${targetUser.fullName || targetUser.name}</b>`,
+                { chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML' }
+            );
+        } else {
+            const name = targetUser.fullName || targetUser.name;
+            await User.findByIdAndDelete(targetId);
+
+            bot.editMessageText(
+                `❌ <b>Відхилено</b> (SM: ${admin.name})\n👤 <b>${name}</b> — акаунт видалено.`,
+                { chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML' }
+            );
+        }
+
+    } else if (type === 'req') {
         const request = await Request.findById(targetId);
         if (!request) return bot.editMessageText(`⚠️ Запит вже оброблено.`, { chat_id: q.message.chat.id, message_id: q.message.message_id });
 

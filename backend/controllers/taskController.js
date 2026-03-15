@@ -103,8 +103,19 @@ exports.deleteTask = async (req, res) => {
 };
 
 exports.toggleTaskStatus = async (req, res) => {
+    if (!req.session.userId) return res.status(403).json({ success: false });
+
+    const u = await User.findById(req.session.userId);
     const t = await Task.findById(req.body.id);
+
     if (!t) return res.json({ success: false, message: "Task not found" });
+
+    // Дозволяємо лише власнику задачі або SM/admin
+    const isOwner = t.name === u?.name;
+    const isManager = u?.role === 'SM' || u?.role === 'admin';
+    if (!isOwner && !isManager) {
+        return res.status(403).json({ success: false, message: 'Немає прав' });
+    }
 
     t.status = t.status === 'completed' ? 'pending' : 'completed';
     await t.save();
