@@ -516,16 +516,12 @@ function checkEditorButtonVisibility() {
         const btnCal = document.getElementById('tabModeCalendar');
         const btnKpi = document.getElementById('tabModeKpi');
         const deskBtnKpi = document.querySelector('.desk-nav-btn[data-mode="kpi"]');
+        const deskBtnCal = document.querySelector('.desk-nav-btn[data-mode="calendar"]');
 
         if (btnCal) btnCal.classList.add('hidden');
-        if (btnKpi) {
-            if (kpiEnabled) btnKpi.classList.remove('hidden');
-            else btnKpi.classList.add('hidden');
-        }
-        if (deskBtnKpi) {
-            if (kpiEnabled) deskBtnKpi.classList.remove('hidden');
-            else deskBtnKpi.classList.add('hidden');
-        }
+        if (deskBtnCal) deskBtnCal.classList.add('hidden');
+        if (btnKpi) btnKpi.classList.add('hidden');
+        if (deskBtnKpi) deskBtnKpi.classList.add('hidden');
     } else {
         const btnCal = document.getElementById('tabModeCalendar');
         const btnKpi = document.getElementById('tabModeKpi');
