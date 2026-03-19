@@ -333,3 +333,22 @@
         </div>
     </div>
 </div>
+
+<!-- Модалка Центру Сповіщень -->
+<div id="notificationsModal"
+    class="hidden fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div class="absolute inset-0" onclick="window.closeNotificationsModal()"></div>
+    <div class="glass-modal rounded-2xl w-full max-w-sm p-4 relative z-10 animate-slide-up flex flex-col h-[80vh] max-h-[600px] shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between mb-2 shrink-0">
+            <h3 class="font-bold text-xl">🔔 Сповіщення</h3>
+            <button onclick="window.closeNotificationsModal()" class="text-gray-400 text-2xl leading-none px-2 active:scale-95 transition-transform">&times;</button>
+        </div>
+        <div class="flex justify-between items-center mb-3 pb-2 border-b border-gray-100 dark:border-gray-800 shrink-0">
+            <span class="text-xs text-gray-400 font-bold uppercase" id="notifCountText">Завантаження...</span>
+            <button onclick="window.markAllNotificationsAsRead()" class="text-xs font-bold text-blue-500 hover:text-blue-600 active:scale-95 transition-transform bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg">Прочитати всі</button>
+        </div>
+        <div id="notificationsList" class="flex-1 overflow-y-auto space-y-2 pr-1 -mr-1 custom-scrollbar pb-4">
+            <!-- Сюди рендеряться сповіщення -->
+        </div>
+    </div>
+</div>

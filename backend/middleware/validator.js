@@ -43,7 +43,14 @@ const schemas = {
             description: z.string().optional(),
             isFullDay: z.boolean().optional(),
             start: z.string().optional(),
-            end: z.string().optional()
+            end: z.string().optional(),
+            type: z.enum(['timeline', 'todo']).optional(),
+            deadline: z.string().optional(),
+            reminders: z.array(z.string()).optional(),
+            subtasks: z.array(z.object({
+                title: z.string(),
+                completed: z.boolean().optional()
+            })).optional()
         }).strict()
     }),
 

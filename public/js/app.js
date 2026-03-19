@@ -37,7 +37,7 @@ import {
 } from './modules/editor.js';
 
 import { updateDashboard } from './modules/dashboard.js';
-import { readNotifications } from './modules/notifications.js';
+import { readNotifications, closeNotificationsModal, markAllNotificationsAsRead } from './modules/notifications.js';
 
 const tg = window.Telegram.WebApp;
 if (tg) { tg.ready(); if (tg.platform && tg.platform !== 'unknown') try { tg.expand() } catch (e) { } }
@@ -329,6 +329,8 @@ initApp();
 window.toggleTheme = toggleTheme;
 window.triggerHaptic = triggerHaptic;
 window.readNotifications = readNotifications;
+window.closeNotificationsModal = closeNotificationsModal;
+window.markAllNotificationsAsRead = markAllNotificationsAsRead;
 
 window.showAdminTab = (t) => {
     uiShowAdminTab(t);
