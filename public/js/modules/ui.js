@@ -173,8 +173,15 @@ export function updateFileName() {
 export function openTaskDetailsModal(task) {
     if (window.triggerHaptic) window.triggerHaptic();
     document.getElementById('taskModalTitle').innerText = task.title;
-    document.getElementById('taskModalDate').innerText = task.date;
-    document.getElementById('taskModalTime').innerText = task.isFullDay ? 'Весь день' : `${task.start} - ${task.end}`;
+    
+    if (task.type === 'todo') {
+        document.getElementById('taskModalDate').innerText = 'Дедлайн:';
+        document.getElementById('taskModalTime').innerText = task.deadline ? new Date(task.deadline).toLocaleString('uk-UA', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : 'Відсутній';
+    } else {
+        document.getElementById('taskModalDate').innerText = task.date;
+        document.getElementById('taskModalTime').innerText = task.isFullDay ? 'Весь день' : `${task.start} - ${task.end}`;
+    }
+    
     document.getElementById('taskModalUser').innerText = task.name;
 
     const descWrapper = document.getElementById('taskModalDescriptionWrapper');
@@ -192,13 +199,67 @@ export function openTaskDetailsModal(task) {
         descText.innerHTML = '';
     }
 
+    const subtasksContainer = document.getElementById('taskModalSubtasksList');
+    if (subtasksContainer) {
+        if (task.subtasks && task.subtasks.length > 0) {
+            subtasksContainer.parentElement.classList.remove('hidden');
+            subtasksContainer.innerHTML = '';
+            task.subtasks.forEach(st => {
+                const isChecked = st.completed ? 'checked' : '';
+                const lineThrough = st.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-gray-100';
+                subtasksContainer.insertAdjacentHTML('beforeend', `
+                    <label class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-[#1C1C1E] rounded-xl active:scale-[0.98] transition-all cursor-pointer">
+                        <input type="checkbox" ${isChecked} onchange="window.toggleSubtask('${task._id}', '${st._id}')" class="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 bg-white dark:bg-[#2C2C2E] dark:border-gray-600">
+                        <span class="text-sm font-medium ${lineThrough} flex-1 overflow-hidden text-ellipsis">${st.title}</span>
+                    </label>
+                `);
+            });
+        } else {
+            subtasksContainer.parentElement.classList.add('hidden');
+        }
+    }
+
+    const isManager = state.currentUser && (state.currentUser.role === 'SM' || state.currentUser.role === 'admin');
+    
+    const btnEdit = document.getElementById('btnEditTask');
+    if (btnEdit) {
+        if (isManager) {
+            btnEdit.classList.remove('hidden');
+            btnEdit.onclick = () => {
+                closeTaskDetailsModal();
+                if (window.openEditTaskModal) window.openEditTaskModal(task);
+            };
+        } else {
+            btnEdit.classList.add('hidden');
+        }
+    }
+
+    const btnForceRemind = document.getElementById('btnForceRemindTask');
+    if (btnForceRemind) {
+        if (isManager || task.type === 'todo') { 
+            // Only SM can force remind. So we just check isManager
+            if (isManager) {
+                btnForceRemind.classList.remove('hidden');
+                btnForceRemind.onclick = () => {
+                    const originalText = btnForceRemind.innerHTML;
+                    btnForceRemind.innerHTML = '⏳ Відправка...';
+                    if (window.forceRemindTask) window.forceRemindTask(task._id, btnForceRemind, originalText);
+                };
+            } else {
+                btnForceRemind.classList.add('hidden');
+            }
+        } else {
+             btnForceRemind.classList.add('hidden');
+        }
+    }
+
     const btnToggle = document.getElementById('btnToggleTaskStatus');
     if (task.status === 'completed') {
         btnToggle.innerHTML = '⏳ Повернути в роботу';
-        btnToggle.className = 'w-full py-3 text-white font-bold bg-orange-500 rounded-xl active:scale-95 transition-transform mb-2';
+        btnToggle.className = 'w-full py-3 text-white font-bold bg-orange-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-orange-500/30';
     } else {
         btnToggle.innerHTML = '✅ Відмітити як виконану';
-        btnToggle.className = 'w-full py-3 text-white font-bold bg-green-500 rounded-xl active:scale-95 transition-transform mb-2';
+        btnToggle.className = 'w-full py-3 text-white font-bold bg-green-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-green-500/30';
     }
 
     btnToggle.onclick = () => {
@@ -206,10 +267,15 @@ export function openTaskDetailsModal(task) {
     };
 
     const btn = document.getElementById('btnDeleteTask');
-    btn.onclick = () => {
-        closeTaskDetailsModal();
-        if (window.deleteTask) window.deleteTask(task._id);
-    };
+    if (isManager) {
+        btn.classList.remove('hidden');
+        btn.onclick = () => {
+            closeTaskDetailsModal();
+            if (window.deleteTask) window.deleteTask(task._id);
+        };
+    } else {
+        btn.classList.add('hidden');
+    }
 
     document.getElementById('taskDetailsModal').classList.remove('hidden');
 }

@@ -82,19 +82,19 @@
 
 <div id="taskDetailsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeTaskDetailsModal()"></div>
-    <div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up">
+    <div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-start mb-4">
             <h3 class="font-bold text-xl leading-tight pr-4" id="taskModalTitle">Task Title</h3>
             <button onclick="closeTaskDetailsModal()" class="text-gray-400 text-2xl leading-none">&times;</button>
         </div>
         <div class="space-y-3 mb-6">
-            <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+            <div id="taskModalDateWrapper" class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
                 <span class="text-lg">📅</span>
                 <span id="taskModalDate" class="font-medium">Date</span>
             </div>
-            <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
-                <span class="text-lg">⏰</span>
-                <span id="taskModalTime" class="font-medium">Time</span>
+            <div id="taskModalTimeWrapper" class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                <span class="text-lg" id="taskModalTimeIcon">⏰</span>
+                <span id="taskModalTime" class="font-medium">Time / Deadline</span>
             </div>
             <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
                 <span class="text-lg">👤</span>
@@ -107,7 +107,15 @@
                     class="text-sm text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap leading-relaxed">
                 </div>
             </div>
+            <div id="taskModalSubtasksWrapper" class="hidden mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <div class="text-xs font-bold text-gray-400 mb-2 uppercase">Підзадачі</div>
+                <div id="taskModalSubtasksList" class="space-y-2"></div>
+            </div>
         </div>
+        <button id="btnForceRemindTask" onclick="forceRemindTask()"
+            class="hidden w-full py-3 text-white font-bold bg-orange-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-orange-500/30">‼️ Нагадати</button>
+        <button id="btnEditTask" onclick="openEditTaskModal()"
+            class="hidden w-full py-3 text-white font-bold bg-blue-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-blue-500/30">✏️ Редагувати</button>
         <button id="btnToggleTaskStatus"
             class="w-full py-3 text-white font-bold bg-green-500 rounded-xl active:scale-95 transition-transform mb-2">✅
             Відмітити як виконану</button>
@@ -199,35 +207,71 @@
     class="hidden ring-2 ring-blue-500 shadow-lg shadow-blue-500/20 dark:shadow-blue-500/50 dark:shadow-blue-500 sticky left-0 z-10 z-20 min-w-[100px] min-w-[40px] border-r border-b opacity-80 bg-blue-50/50 dark:bg-blue-900/10 border-x-2 border-blue-200 dark:border-blue-800">
 </div>
 
-<!-- Модалка створення задачі -->
 <div id="addTaskModal"
     class="hidden fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
     <div class="absolute inset-0" onclick="window.closeAddTaskModal()"></div>
-    <div class="ios-card w-full max-w-sm p-6 relative z-10 animate-slide-up">
+    <div class="ios-card w-full max-w-sm p-6 relative z-10 animate-slide-up max-h-[90vh] overflow-y-auto">
+        <input type="hidden" id="editTaskId" value="">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="font-bold text-xl">📌 Нова задача</h3>
+            <h3 class="font-bold text-xl" id="addTaskModalTitle">📌 Нова задача</h3>
             <button onclick="window.closeAddTaskModal()" class="text-gray-400 text-2xl leading-none">&times;</button>
         </div>
+        
+        <div class="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl mb-4">
+            <button id="taskTypeTimelineBtn" onclick="toggleTaskTypeUI('timeline')" class="flex-1 py-1.5 text-sm font-bold bg-white dark:bg-[#2C2C2E] shadow-sm rounded-lg transition-all">Таймлайн</button>
+            <button id="taskTypeTodoBtn" onclick="toggleTaskTypeUI('todo')" class="flex-1 py-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-all rounded-lg">ToDo ліст</button>
+        </div>
+        <input type="hidden" id="taskTypeInput" value="timeline">
+
         <div class="space-y-3">
             <input type="text" id="taskTitle" placeholder="Назва (коротко)" class="ios-input font-bold">
-            <div class="grid grid-cols-2 gap-3">
-                <input type="date" id="taskDate" class="ios-input">
-                <select id="taskEmployee" class="ios-input bg-transparent">
-                    <option disabled selected>Кому?</option>
-                </select>
+            <select id="taskEmployee" class="ios-input bg-transparent w-full">
+                <option disabled selected>Кому?</option>
+            </select>
+            
+            <div id="taskTimelineFields" class="space-y-3 block">
+                <input type="date" id="taskDate" class="ios-input w-full">
+                <div class="flex items-center justify-between px-1">
+                    <span class="text-sm font-medium">Весь день</span>
+                    <input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()"
+                        class="w-5 h-5 accent-purple-500">
+                </div>
+                <div id="taskTimeInputs" class="flex gap-3">
+                    <input type="time" id="taskStart" class="ios-input flex-1" value="12:00">
+                    <input type="time" id="taskEnd" class="ios-input flex-1" value="14:00">
+                </div>
             </div>
+
+            <div id="taskTodoFields" class="space-y-3 hidden">
+                <div class="pt-1">
+                    <label class="text-xs font-bold text-gray-500 uppercase mb-1 block pl-1">Дедлайн (дата та час)</label>
+                    <input type="datetime-local" id="taskDeadline" class="ios-input w-full text-sm">
+                </div>
+                <div class="px-1 mt-2">
+                    <span class="text-xs font-bold text-gray-500 uppercase">Нагадування до дедлайну</span>
+                    <div class="flex flex-wrap gap-3 mt-2" id="taskRemindersContainer">
+                        <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" value="15m" class="accent-purple-500 task-reminder-cb"> 15 хв</label>
+                        <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" value="30m" class="accent-purple-500 task-reminder-cb"> 30 хв</label>
+                        <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" value="1h" class="accent-purple-500 task-reminder-cb"> 1 год</label>
+                        <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" value="3h" class="accent-purple-500 task-reminder-cb"> 3 год</label>
+                        <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" value="1d" class="accent-purple-500 task-reminder-cb"> 1 день</label>
+                    </div>
+                </div>
+            </div>
+
             <textarea id="taskDescription" placeholder="Опис (посилання, деталі...)"
                 class="ios-input h-20 text-sm"></textarea>
-            <div class="flex items-center justify-between px-1">
-                <span class="text-sm font-medium">Весь день</span>
-                <input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()"
-                    class="w-5 h-5 accent-purple-500">
+
+            <div class="mt-2 border border-gray-200 dark:border-gray-800 rounded-xl p-3">
+                <span class="text-xs font-bold text-gray-500 uppercase mb-2 block">Підзадачі</span>
+                <div id="subtasksBuilderList" class="space-y-2 mb-2 max-h-32 overflow-y-auto empty:hidden"></div>
+                <div class="flex gap-2">
+                    <input type="text" id="newSubtaskInput" placeholder="Нова підзадача..." class="ios-input flex-1 text-sm h-9">
+                    <button onclick="window.addSubtaskToBuilder()" class="px-3 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm font-bold active:scale-95">+</button>
+                </div>
             </div>
-            <div id="taskTimeInputs" class="flex gap-3">
-                <input type="time" id="taskStart" class="ios-input" value="12:00">
-                <input type="time" id="taskEnd" class="ios-input" value="14:00">
-            </div>
-            <button onclick="addTask()" class="btn-primary bg-purple-500 shadow-purple-500/30 mt-2">Призначити</button>
+
+            <button id="btnSaveTaskModal" onclick="submitTaskModal()" class="btn-primary bg-purple-500 shadow-purple-500/30 mt-2">Зберегти</button>
         </div>
     </div>
 </div>

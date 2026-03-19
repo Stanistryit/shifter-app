@@ -6,12 +6,15 @@ import {
     updateFabIcon, toggleHoursPin, showSkeletonLoader, hideSkeletonLoader
 } from './modules/ui.js';
 import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } from './modules/render.js';
+import { renderTodo } from './modules/render_todo.js';
 import { checkAuth, login, logout, requestPasswordReset, submitNewPassword } from './modules/auth.js';
 import {
     delS,
-    addTask, deleteTask, toggleTaskTimeInputs, publishNews,
+    submitTaskModal, toggleTaskTypeUI, addSubtaskToBuilder, removeSubtaskFromBuilder,
+    toggleSubtask, forceRemindTask, openEditTaskModal,
+    deleteTask, toggleTaskTimeInputs, publishNews,
     createStore, loadStores, deleteStore,
-    renderSalaryMatrix, saveSalaryMatrixBtn, // 🔥 Імпортували нові функції
+    renderSalaryMatrix, saveSalaryMatrixBtn, 
     toggleTaskExecution,
     openAddTaskModal, closeAddTaskModal,
     openAddNewsModal, closeAddNewsModal,
@@ -70,6 +73,7 @@ async function initApp() {
         loadComponent('calendar-container', 'components/tabs/calendar.html'),
         loadComponent('grid-container', 'components/tabs/grid.html'),
         loadComponent('kpi-container', 'components/tabs/kpi.html'),
+        loadComponent('todo-container', 'components/tabs/todo.html'),
         loadComponent('profile-container', 'components/tabs/profile.html')
     ]);
 
@@ -372,7 +376,14 @@ window.submitNewPassword = submitNewPassword;
 
 window.delS = delS;
 
-window.addTask = addTask;
+window.submitTaskModal = submitTaskModal;
+window.toggleTaskTypeUI = toggleTaskTypeUI;
+window.addSubtaskToBuilder = addSubtaskToBuilder;
+window.removeSubtaskFromBuilder = removeSubtaskFromBuilder;
+window.toggleSubtask = toggleSubtask;
+window.forceRemindTask = forceRemindTask;
+window.openEditTaskModal = openEditTaskModal;
+
 window.deleteTask = deleteTask;
 window.toggleTaskTimeInputs = toggleTaskTimeInputs;
 window.toggleTaskExecution = toggleTaskExecution;
@@ -664,12 +675,14 @@ async function setMode(mode) {
     const c = document.getElementById('calendar-container');
     const g = document.getElementById('grid-container');
     const k = document.getElementById('kpi-container');
+    const t = document.getElementById('todo-container');
     const profileDiv = document.getElementById('profile-container');
 
     if (l) l.classList.add('hidden');
     if (c) c.classList.add('hidden');
     if (g) g.classList.add('hidden');
     if (k) k.classList.add('hidden');
+    if (t) t.classList.add('hidden');
     if (profileDiv) profileDiv.classList.add('hidden');
 
     const filtersContainer = document.getElementById('filtersContainer');
@@ -686,6 +699,7 @@ async function setMode(mode) {
     const tabCal = document.getElementById('tabModeCalendar');
     const tabGrid = document.getElementById('tabModeGrid');
     const tabKpi = document.getElementById('tabModeKpi');
+    const tabTodo = document.getElementById('tabModeTodo');
     const tabProfile = document.getElementById('tabModeProfile');
 
     const tabs = [
@@ -693,6 +707,7 @@ async function setMode(mode) {
         { id: 'calendar', el: tabCal },
         { id: 'grid', el: tabGrid },
         { id: 'kpi', el: tabKpi },
+        { id: 'todo', el: tabTodo },
         { id: 'profile', el: tabProfile }
     ];
 
@@ -751,7 +766,7 @@ async function setMode(mode) {
         }
     });
 
-    [l, c, g, k, profileDiv].forEach(v => {
+    [l, c, g, k, t, profileDiv].forEach(v => {
         if (v) {
             v.classList.remove('page-enter', 'animate-slide-up');
             void v.offsetWidth; // force reflow for restart
@@ -782,6 +797,12 @@ async function setMode(mode) {
         showSkeletonLoader('kpiList', 'kpi');
         await loadKpiData();
         renderKpi();
+    } else if (mode === 'todo') {
+        if (t) {
+            t.classList.remove('hidden');
+            t.classList.add('page-enter');
+        }
+        renderTodo();
     } else if (mode === 'profile') {
         if (profileDiv) { profileDiv.classList.remove('hidden'); profileDiv.classList.add('page-enter'); }
 

@@ -74,6 +74,39 @@ const initScheduler = async (tgConfig) => {
             console.log(`⏰ Sending reports for ${stores.length} stores at ${timeString}`);
             await sendDailyReports(stores);
         }
+
+        // --- C. TODO REMINDERS ---
+        const todoTasks = await Task.find({ type: 'todo', status: 'pending', deadline: { $ne: '' } });
+        for (const t of todoTasks) {
+            if (!t.reminders || t.reminders.length === 0) continue;
+            
+            const deadlineTime = new Date(t.deadline).getTime();
+            if (isNaN(deadlineTime)) continue;
+
+            const nowTime = now.getTime();
+            const diffMinutes = Math.floor((deadlineTime - nowTime) / 60000);
+
+            for (const r of t.reminders) {
+                if (t.notifiedReminders && t.notifiedReminders.includes(r)) continue;
+
+                let reminderMinutes = 0;
+                if (r === '15m') reminderMinutes = 15;
+                if (r === '30m') reminderMinutes = 30;
+                if (r === '1h') reminderMinutes = 60;
+                if (r === '3h') reminderMinutes = 180;
+                if (r === '1d') reminderMinutes = 1440;
+
+                if (reminderMinutes > 0 && diffMinutes <= reminderMinutes && diffMinutes >= 0) {
+                    const user = await User.findOne({ name: t.name });
+                    if (user) {
+                        notifyUser(t.name, `⏳ <b>Нагадування!</b>\n\nДедлайн задачі <b>${t.title}</b> вже скоро: ${t.deadline}`);
+                    }
+                    if (!t.notifiedReminders) t.notifiedReminders = [];
+                    t.notifiedReminders.push(r);
+                    await t.save();
+                }
+            }
+        }
     });
 
     // 2. ЩОГОДИННИЙ JOB (Reminders)

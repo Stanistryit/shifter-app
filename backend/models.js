@@ -81,7 +81,17 @@ const taskSchema = new mongoose.Schema({
     start: { type: String, default: '' },
     end: { type: String, default: '' },
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
-    status: { type: String, enum: ['pending', 'completed'], default: 'pending' }
+    status: { type: String, enum: ['pending', 'completed'], default: 'pending' },
+    
+    // Нові поля для ToDo List
+    type: { type: String, enum: ['timeline', 'todo'], default: 'timeline' },
+    deadline: { type: String, default: '' }, // формат наприклад 'YYYY-MM-DD HH:mm'
+    reminders: { type: [String], default: [] }, // '15m', '1h', '1d'
+    notifiedReminders: { type: [String], default: [] },
+    subtasks: [{
+        title: { type: String, required: true },
+        completed: { type: Boolean, default: false }
+    }]
 });
 
 // 4. Схема Новин

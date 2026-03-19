@@ -23,13 +23,82 @@ export async function delS(id) {
 
 // --- TASKS ---
 
+let tempSubtasks = [];
+
 export function toggleTaskTimeInputs() {
     const c = document.getElementById('taskFullDay').checked;
     document.getElementById('taskTimeInputs').className = c ? 'hidden' : 'flex gap-3';
 }
 
+export function toggleTaskTypeUI(type) {
+    document.getElementById('taskTypeInput').value = type;
+    
+    const tLineBtn = document.getElementById('taskTypeTimelineBtn');
+    const tTodoBtn = document.getElementById('taskTypeTodoBtn');
+    const tLineFields = document.getElementById('taskTimelineFields');
+    const tTodoFields = document.getElementById('taskTodoFields');
+
+    if (type === 'timeline') {
+        tLineBtn.className = "flex-1 py-1.5 text-sm font-bold bg-white dark:bg-[#2C2C2E] shadow-sm rounded-lg transition-all";
+        tTodoBtn.className = "flex-1 py-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-all rounded-lg";
+        tLineFields.classList.remove('hidden');
+        tTodoFields.classList.add('hidden');
+    } else {
+        tTodoBtn.className = "flex-1 py-1.5 text-sm font-bold bg-white dark:bg-[#2C2C2E] shadow-sm rounded-lg transition-all";
+        tLineBtn.className = "flex-1 py-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-all rounded-lg";
+        tTodoFields.classList.remove('hidden');
+        tLineFields.classList.add('hidden');
+    }
+}
+
+export function addSubtaskToBuilder() {
+    triggerHaptic();
+    const input = document.getElementById('newSubtaskInput');
+    const title = input.value.trim();
+    if (!title) return;
+    
+    tempSubtasks.push({ title, completed: false });
+    input.value = '';
+    renderSubtasksBuilder();
+}
+
+export function removeSubtaskFromBuilder(index) {
+    triggerHaptic();
+    tempSubtasks.splice(index, 1);
+    renderSubtasksBuilder();
+}
+
+function renderSubtasksBuilder() {
+    const list = document.getElementById('subtasksBuilderList');
+    if (!list) return;
+    list.innerHTML = '';
+    tempSubtasks.forEach((st, i) => {
+        list.insertAdjacentHTML('beforeend', `
+            <div class="flex items-center justify-between text-sm bg-gray-50 dark:bg-[#2C2C2E] p-2 rounded-lg">
+                <span class="truncate pr-2">${st.title}</span>
+                <button onclick="window.removeSubtaskFromBuilder(${i})" class="text-red-500 font-bold px-2 py-0.5 bg-red-100 dark:bg-red-900/30 rounded active:scale-95 transition-transform">✕</button>
+            </div>
+        `);
+    });
+}
+
 export function openAddTaskModal() {
     triggerHaptic();
+    document.getElementById('editTaskId').value = '';
+    document.getElementById('addTaskModalTitle').innerText = '📌 Нова задача';
+    document.getElementById('taskTitle').value = '';
+    document.getElementById('taskDescription').value = '';
+    document.getElementById('taskDeadline').value = '';
+    
+    Array.from(document.querySelectorAll('.task-reminder-cb')).forEach(cb => cb.checked = false);
+
+    tempSubtasks = [];
+    renderSubtasksBuilder();
+    toggleTaskTypeUI('timeline');
+    
+    document.getElementById('taskFullDay').checked = false;
+    toggleTaskTimeInputs();
+    
     document.getElementById('addTaskModal').classList.remove('hidden');
 }
 
@@ -38,33 +107,77 @@ export function closeAddTaskModal() {
     document.getElementById('addTaskModal').classList.add('hidden');
 }
 
-export async function addTask() {
-    const title = document.getElementById('taskTitle').value;
-    const date = document.getElementById('taskDate').value;
+export async function submitTaskModal() {
+    const editId = document.getElementById('editTaskId').value;
+    const type = document.getElementById('taskTypeInput').value;
+    
+    const title = document.getElementById('taskTitle').value.trim();
     const name = document.getElementById('taskEmployee').value;
-    const description = document.getElementById('taskDescription').value;
-    const isFullDay = document.getElementById('taskFullDay').checked;
-    const start = document.getElementById('taskStart').value;
-    const end = document.getElementById('taskEnd').value;
+    const description = document.getElementById('taskDescription').value.trim();
+    const subtasks = tempSubtasks;
 
-    if (!title || !date || !name) {
+    if (!title || !name) {
         triggerHaptic('error', 'notification');
-        return showToast("Заповніть дані", 'error');
+        return showToast("Введіть назву та оберіть співробітника", 'error');
     }
 
-    await postJson('/api/tasks', { title, date, name, description, isFullDay, start, end });
+    let payload = { title, name, description, type, subtasks };
 
-    triggerHaptic('success', 'notification');
-    showToast("Задачу призначено");
+    if (type === 'timeline') {
+        const date = document.getElementById('taskDate').value;
+        const isFullDay = document.getElementById('taskFullDay').checked;
+        const start = document.getElementById('taskStart').value;
+        const end = document.getElementById('taskEnd').value;
+        if (!date) return showToast("Оберіть дату", 'error');
+        payload = { ...payload, date, isFullDay, start, end };
+    } else {
+        const deadline = document.getElementById('taskDeadline').value;
+        if (!deadline) {
+            triggerHaptic('error', 'notification');
+            return showToast("Оберіть дедлайн", 'error');
+        }
+        
+        const container = document.getElementById('taskRemindersContainer');
+        const cbs = container.querySelectorAll('.task-reminder-cb:checked');
+        const reminders = Array.from(cbs).map(cb => cb.value);
 
-    document.getElementById('taskTitle').value = '';
-    document.getElementById('taskDescription').value = '';
+        const date = new Date().toISOString().split('T')[0];
+        payload = { ...payload, date, deadline, reminders };
+    }
 
-    closeAddTaskModal();
+    const btn = document.getElementById('btnSaveTaskModal');
+    const oldText = btn.innerText;
+    btn.innerText = '⏳ Збереження...';
+    btn.disabled = true;
 
-    state.tasks = await fetchJson('/api/tasks');
-    renderAll();
+    try {
+        if (editId) {
+            payload.id = editId;
+            const res = await postJson('/api/tasks/edit', payload);
+            if (res.success) showToast("Збережено");
+            else return showToast("Помилка", 'error');
+        } else {
+            const res = await postJson('/api/tasks', payload);
+            if (res.success) showToast("Створено");
+            else return showToast("Помилка", 'error');
+        }
+
+        triggerHaptic('success', 'notification');
+        closeAddTaskModal();
+        state.tasks = await fetchJson('/api/tasks');
+        renderAll();
+        
+        if (state.currentMode === 'todo') {
+            import('./render_todo.js').then(m => m.renderTodo());
+        }
+    } catch(e) {
+        showToast("Помилка з'єднання", 'error');
+    } finally {
+        btn.innerText = oldText;
+        btn.disabled = false;
+    }
 }
+
 
 export async function deleteTask(id) {
     if (confirm("Видалити задачу?")) {
@@ -107,6 +220,90 @@ export async function toggleTaskExecution(id) {
         triggerHaptic('error', 'notification');
         showToast("Помилка", 'error');
     }
+}
+
+export async function toggleSubtask(taskId, subtaskId) {
+    triggerHaptic();
+    const res = await postJson('/api/tasks/toggle', { 
+        id: taskId,
+        subtaskId: subtaskId 
+    });
+    
+    if (res.success) {
+        const task = state.tasks.find(t => t._id === taskId);
+        if (task) {
+            const st = task.subtasks.find(x => x._id === subtaskId);
+            if (st) st.completed = res.subtaskStatus;
+            
+            if (res.taskStatus) {
+                task.status = res.taskStatus;
+                // Update the button inside modal if it's open
+                const btnToggle = document.getElementById('btnToggleTaskStatus');
+                if (btnToggle) {
+                    if (task.status === 'completed') {
+                        btnToggle.innerHTML = '⏳ Повернути в роботу';
+                        btnToggle.className = 'w-full py-3 text-white font-bold bg-orange-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-orange-500/30';
+                    } else {
+                        btnToggle.innerHTML = '✅ Відмітити як виконану';
+                        btnToggle.className = 'w-full py-3 text-white font-bold bg-green-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-green-500/30';
+                    }
+                }
+            }
+            
+            renderAll();
+            if (state.currentMode === 'todo') {
+                import('./render_todo.js').then(m => m.renderTodo());
+            }
+            
+            const subTitle = st ? (st.completed ? 'Відмічено!' : 'Знято!') : '';
+            triggerHaptic('success', 'notification');
+        }
+    } else {
+        triggerHaptic('error', 'notification');
+        showToast("Помилка", 'error');
+    }
+}
+
+export async function forceRemindTask(taskId, btn, origText) {
+    triggerHaptic();
+    const res = await postJson('/api/tasks/force-remind', { id: taskId });
+    if (res.success) {
+        showToast("Нагадування відправлено ✅");
+        triggerHaptic('success', 'notification');
+    } else {
+        showToast("Помилка відправки", 'error');
+        triggerHaptic('error', 'notification');
+    }
+    btn.innerHTML = origText;
+}
+
+export function openEditTaskModal(task) {
+    triggerHaptic();
+    document.getElementById('editTaskId').value = task._id;
+    document.getElementById('addTaskModalTitle').innerText = '✏️ Редагування задачі';
+    document.getElementById('taskTitle').value = task.title || '';
+    document.getElementById('taskDescription').value = task.description || '';
+    document.getElementById('taskEmployee').value = task.name || '';
+    
+    toggleTaskTypeUI(task.type || 'timeline');
+    
+    if (task.type === 'timeline' || !task.type) {
+        document.getElementById('taskDate').value = task.date || '';
+        document.getElementById('taskFullDay').checked = task.isFullDay || false;
+        document.getElementById('taskStart').value = task.start || '10:00';
+        document.getElementById('taskEnd').value = task.end || '18:00';
+        toggleTaskTimeInputs();
+    } else {
+        document.getElementById('taskDeadline').value = task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : '';
+        Array.from(document.querySelectorAll('.task-reminder-cb')).forEach(cb => {
+             cb.checked = (task.reminders && task.reminders.includes(cb.value));
+        });
+    }
+
+    tempSubtasks = task.subtasks ? JSON.parse(JSON.stringify(task.subtasks)) : [];
+    renderSubtasksBuilder();
+
+    document.getElementById('addTaskModal').classList.remove('hidden');
 }
 
 // --- NEWS ---
