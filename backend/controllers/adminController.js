@@ -274,18 +274,18 @@ exports.publishNews = async (req, res) => {
             const filename = Buffer.from(f.originalname, 'latin1').toString('utf8');
 
             if (isImageFile(f)) {
-                // ✅ Правильна передача буфера через { source }
                 sentMsg = await bot.sendPhoto(
                     chatId,
-                    { source: f.buffer, filename },
-                    { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: replyMarkup }
+                    f.buffer,
+                    { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: replyMarkup },
+                    { filename, contentType: f.mimetype }
                 );
             } else {
-                // ✅ PDF та інші файли — через sendDocument з { source }
                 sentMsg = await bot.sendDocument(
                     chatId,
-                    { source: f.buffer, filename },
-                    { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: replyMarkup }
+                    f.buffer,
+                    { ...opts, caption: `📢 <b>Новини:</b>\n\n${text}`, reply_markup: replyMarkup },
+                    { filename, contentType: f.mimetype }
                 );
             }
         } else {
@@ -298,10 +298,11 @@ exports.publishNews = async (req, res) => {
                 const fileOpts = { ...opts, caption, reply_markup: i === files.length - 1 && !shouldRequestRead ? undefined : undefined };
 
                 let msg;
+                const tgFileOpts = { filename, contentType: f.mimetype };
                 if (isImageFile(f)) {
-                    msg = await bot.sendPhoto(chatId, { source: f.buffer, filename }, { ...opts, caption });
+                    msg = await bot.sendPhoto(chatId, f.buffer, { ...opts, caption }, tgFileOpts);
                 } else {
-                    msg = await bot.sendDocument(chatId, { source: f.buffer, filename }, { ...opts, caption });
+                    msg = await bot.sendDocument(chatId, f.buffer, { ...opts, caption }, tgFileOpts);
                 }
                 msgs.push(msg);
             }
