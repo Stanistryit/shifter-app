@@ -41,7 +41,22 @@
             </div>
         </div>
 
-        <!-- Слайд 2: Особиста статистика за місяць -->
+        <!-- Слайд 2: Список задач -->
+        <div class="snap-center snap-always shrink-0 w-full px-4 py-3 flex flex-col justify-start" id="slideTasks"
+            style="scroll-snap-stop: always;">
+            <div class="flex justify-between items-center mb-1">
+                <div class="text-[10px] font-bold text-white/80 uppercase tracking-widest flex items-center gap-1">
+                    📋 АКТУАЛЬНІ ЗАДАЧІ
+                </div>
+                <div id="dashTasksCountBadge" class="bg-blue-500/80 text-white text-[10px] px-2 py-0.5 rounded-full font-bold hidden">0</div>
+            </div>
+            <div id="dashTasksContent" class="flex-1 overflow-y-auto space-y-1.5 mt-1 pr-1 custom-scrollbar">
+                <!-- Tasks will be rendered here -->
+                <div class="text-[10px] text-white/50 text-center mt-2">Завантаження задач...</div>
+            </div>
+        </div>
+
+        <!-- Слайд 3: Особиста статистика за місяць -->
         <div class="snap-center snap-always shrink-0 w-full px-4 py-3 flex flex-col justify-start" id="slideStats"
             style="scroll-snap-stop: always;">
             <div>
@@ -66,7 +81,7 @@
             </div>
         </div>
 
-        <!-- Слайд 3: Можлива ЗП -->
+        <!-- Слайд 4: Можлива ЗП -->
         <div class="snap-center snap-always shrink-0 w-full px-4 py-3 flex flex-col justify-center items-center text-center"
             id="slideMoney" style="scroll-snap-stop: always;">
             <div class="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-1">
@@ -76,7 +91,7 @@
             <div id="dashMoneySub" class="text-[10px] text-white/70">рахуємо...</div>
         </div>
 
-        <!-- Слайд 4: KPI (Смарт-віджети) -->
+        <!-- Слайд 5: KPI (Смарт-віджети) -->
         <div class="snap-center snap-always shrink-0 w-full px-4 py-3 flex flex-col justify-center items-center text-center hidden"
             id="slideKpi" style="scroll-snap-stop: always;">
             <div class="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-1">
@@ -94,7 +109,8 @@
         <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-100" id="dot1"></div>
         <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-40" id="dot2"></div>
         <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-40" id="dot3"></div>
-        <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-40 hidden" id="dot4"></div>
+        <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-40" id="dot4"></div>
+        <div class="w-1.5 h-1.5 rounded-full bg-white transition-opacity opacity-40 hidden" id="dot5"></div>
     </div>
 
     <!-- Live Status Bar -->

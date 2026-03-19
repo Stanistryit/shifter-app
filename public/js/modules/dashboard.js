@@ -25,7 +25,7 @@ export function initDashboardInteractions() {
             const width = carousel.offsetWidth;
             const index = Math.round(scrollLeft / width);
 
-            for (let i = 1; i <= 4; i++) {
+            for (let i = 1; i <= 5; i++) {
                 const dot = document.getElementById(`dot${i}`);
                 if (dot) {
                     if (i === index + 1) {
@@ -41,8 +41,8 @@ export function initDashboardInteractions() {
 
         // Клік по карточці прокручує до наступного слайду (циклічно)
         card.onclick = (e) => {
-            // Не блокуємо клік по нотатці
-            if (e.target.closest('#dashNoteIcon')) return;
+            // Не блокуємо клік по нотатці або по задачі
+            if (e.target.closest('#dashNoteIcon') || e.target.closest('.dash-task-click')) return;
 
             triggerHaptic();
             const width = carousel.offsetWidth;
@@ -212,7 +212,77 @@ export function updateDashboard() {
     }
 
     // =========================================================
-    // 2. СЛАЙД 2 (МІСЯЧНА СТАТИСТИКА)
+    // 1.5. СЛАЙД 2 (АКТУАЛЬНІ ЗАДАЧІ)
+    // =========================================================
+    const dashTasksContent = document.getElementById('dashTasksContent');
+    const dashTasksCountBadge = document.getElementById('dashTasksCountBadge');
+    
+    if (dashTasksContent) {
+        // Only active tasks assigned to the current user
+        const myTasks = state.tasks.filter(t => t.name === me.name && t.status !== 'completed');
+        
+        // Sort: Timeline (date + start), ToDo (deadline)
+        myTasks.sort((a, b) => {
+            let dtA = a.type === 'todo' && a.deadline ? new Date(a.deadline) : new Date(`${a.date}T${a.start || '23:59'}:00`);
+            let dtB = b.type === 'todo' && b.deadline ? new Date(b.deadline) : new Date(`${b.date}T${b.start || '23:59'}:00`);
+            if (isNaN(dtA)) dtA = new Date('2099-12-31');
+            if (isNaN(dtB)) dtB = new Date('2099-12-31');
+            return dtA - dtB;
+        });
+
+        if (myTasks.length > 0) {
+            dashTasksCountBadge.innerText = myTasks.length;
+            dashTasksCountBadge.classList.remove('hidden');
+            let tasksHtml = '';
+            
+            // Show top 2 or 3 tasks so it fits the slide nicely
+            const showTasks = myTasks.slice(0, 3);
+            
+            showTasks.forEach(task => {
+                let badgeStr = '';
+                if (task.type === 'todo') {
+                    const dlStr = task.deadline ? task.deadline.replace('T', ' ') : 'Без дедлайну';
+                    badgeStr = `<span class="bg-indigo-500/20 text-indigo-200 border border-indigo-500/30 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider">ToDo: ${dlStr}</span>`;
+                } else {
+                    const tlStr = task.isFullDay ? 'Весь день' : `${task.start} - ${task.end}`;
+                    const dStr = task.date.slice(5).replace('-', '.');
+                    badgeStr = `<span class="bg-sky-500/20 text-sky-200 border border-sky-500/30 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider">${dStr} | ${tlStr}</span>`;
+                }
+
+                tasksHtml += `
+                    <div class="dash-task-click bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors rounded-xl p-2.5 cursor-pointer flex flex-col gap-1 border border-white/5"
+                         onclick="window.openTaskFromDash('${task._id}')">
+                        <div class="flex justify-between items-start gap-2">
+                            <h4 class="text-sm font-bold text-white truncate max-w-[80%]">${task.title}</h4>
+                            <div class="flex-shrink-0 mt-0.5">
+                                <div class="w-3.5 h-3.5 rounded-sm border-2 border-white/50 flex items-center justify-center"></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            ${badgeStr}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            if (myTasks.length > 3) {
+                tasksHtml += `<div class="text-[10px] text-white/50 text-center font-bold uppercase mt-2 w-full dash-task-click cursor-pointer" onclick="setMode('todo')">+ Ще ${myTasks.length - 3} задач</div>`;
+            }
+            
+            dashTasksContent.innerHTML = tasksHtml;
+        } else {
+            dashTasksCountBadge.classList.add('hidden');
+            dashTasksContent.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full text-white/50 mt-4">
+                    <span class="text-3xl mb-1">🎉</span>
+                    <span class="text-xs font-bold uppercase">Усі задачі виконано</span>
+                </div>
+            `;
+        }
+    }
+
+    // =========================================================
+    // 2. СЛАЙД 3 (МІСЯЧНА СТАТИСТИКА)
     // =========================================================
     const viewYear = state.currentDate.getFullYear();
     const viewMonth = state.currentDate.getMonth();
@@ -244,7 +314,7 @@ export function updateDashboard() {
     }
 
     // =========================================================
-    // 3. СЛАЙД 3 (ОРІЄНТОВНИЙ ДОХІД)
+    // 3. СЛАЙД 4 (ОРІЄНТОВНИЙ ДОХІД)
     // =========================================================
     const dashMoneyText = document.getElementById('dashMoneyText');
     const dashMoneySub = document.getElementById('dashMoneySub');
@@ -283,15 +353,15 @@ export function updateDashboard() {
     }
 
     // =========================================================
-    // 4. СЛАЙД 4 (СМАРТ KPI)
+    // 4. СЛАЙД 5 (СМАРТ KPI)
     // =========================================================
     const slideKpi = document.getElementById('slideKpi');
-    const dot4 = document.getElementById('dot4');
+    const dot5 = document.getElementById('dot5');
 
-    if (slideKpi && dot4) {
+    if (slideKpi && dot5) {
         if (state.currentUser?.store?.kpi_enabled !== false && state.kpiData && state.kpiData.kpi?.length > 0) {
             slideKpi.classList.remove('hidden');
-            dot4.classList.remove('hidden');
+            dot5.classList.remove('hidden');
 
             const dashKpiContent = document.getElementById('dashKpiContent');
             const myKpi = state.kpiData.kpi.find(k => k.name === me.name);
@@ -337,7 +407,7 @@ export function updateDashboard() {
 
         } else {
             slideKpi.classList.add('hidden');
-            dot4.classList.add('hidden');
+            dot5.classList.add('hidden');
         }
     }
 
@@ -385,6 +455,18 @@ function timeToVal(t) {
     const [h, m] = t.split(':').map(Number);
     return h + (m / 60);
 }
+
+// Global function to open a specific task directly
+window.openTaskFromDash = async (id) => {
+    triggerHaptic();
+    const task = state.tasks.find(t => t._id === id);
+    if (!task) return;
+    
+    // Lazy load UI functions if needed, though they should be readily available 
+    // Usually they are in ui.js or admin.js
+    const ui = await import('./ui.js');
+    ui.openTaskDetailsModal(id);
+};
 
 setInterval(() => {
     const card = document.getElementById('dashboardCard');
