@@ -317,10 +317,11 @@
     <div class="absolute inset-0" onclick="window.closeAddStoreModal()"></div>
     <div class="ios-card w-full max-w-sm p-6 relative z-10 animate-slide-up">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="font-bold text-xl">🏪 Додати магазин</h3>
+            <h3 id="addStoreModalTitle" class="font-bold text-xl">🏪 Додати магазин</h3>
             <button onclick="window.closeAddStoreModal()" class="text-gray-400 text-2xl leading-none">&times;</button>
         </div>
         <div class="space-y-3">
+            <input type="hidden" id="editStoreId" value="">
             <input type="text" id="newStoreName" placeholder="Назва (напр. Space Lviv)" class="ios-input">
             <input type="text" id="newStoreCode" placeholder="Код (напр. iqos_lviv)" class="ios-input">
             <select id="newStoreType" class="ios-input bg-transparent">
@@ -329,7 +330,7 @@
                 <option value="expansion">Експансія</option>
                 <option value="standard">Стандарт</option>
             </select>
-            <button onclick="createStore()" class="btn-primary bg-blue-600 shadow-blue-600/30 mt-2">Створити</button>
+            <button onclick="submitStoreModal()" class="btn-primary bg-blue-600 shadow-blue-600/30 mt-2">Зберегти</button>
         </div>
     </div>
 </div>

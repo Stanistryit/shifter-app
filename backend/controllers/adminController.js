@@ -23,6 +23,25 @@ exports.createStore = async (req, res) => {
     }
 };
 
+exports.editStore = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (u?.role !== 'admin') return res.status(403).json({ success: false, message: "Тільки для Global Admin" });
+
+    try {
+        const { id, name, code, type } = req.body;
+        if (!id || !name || !code || !type) return res.json({ success: false, message: "Заповніть всі поля" });
+
+        const existing = await Store.findOne({ code, _id: { $ne: id } });
+        if (existing) return res.json({ success: false, message: "Код магазину вже зайнятий іншим магазином" });
+
+        await Store.findByIdAndUpdate(id, { name, code, type });
+        logAction(u.name, 'edit_store', `Edited ${name} (${code})`);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
 exports.getAllStores = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (u?.role !== 'admin') return res.status(403).json([]);

@@ -13,7 +13,7 @@ import {
     submitTaskModal, toggleTaskTypeUI, addSubtaskToBuilder, removeSubtaskFromBuilder,
     toggleSubtask, forceRemindTask, openEditTaskModal,
     deleteTask, toggleTaskTimeInputs, publishNews,
-    createStore, loadStores, deleteStore,
+    submitStoreModal, openEditStoreModal, loadStores, deleteStore,
     renderSalaryMatrix, saveSalaryMatrixBtn, 
     toggleTaskExecution,
     openAddTaskModal, closeAddTaskModal,
@@ -397,7 +397,8 @@ window.openAddNewsModal = openAddNewsModal;
 window.closeAddNewsModal = closeAddNewsModal;
 window.loadLogs = loadLogs;
 
-window.createStore = createStore;
+window.submitStoreModal = submitStoreModal;
+window.openEditStoreModal = openEditStoreModal;
 window.loadStores = loadStores;
 window.deleteStore = deleteStore;
 window.openAddStoreModal = openAddStoreModal;

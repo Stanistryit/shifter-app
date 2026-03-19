@@ -369,6 +369,20 @@ export async function publishNews() {
 
 export function openAddStoreModal() {
     triggerHaptic();
+    document.getElementById('editStoreId').value = '';
+    document.getElementById('addStoreModalTitle').innerText = '🏪 Додати магазин';
+    document.getElementById('newStoreName').value = '';
+    document.getElementById('newStoreCode').value = '';
+    document.getElementById('addStoreModal').classList.remove('hidden');
+}
+
+export function openEditStoreModal(id, name, code, type) {
+    triggerHaptic();
+    document.getElementById('editStoreId').value = id;
+    document.getElementById('addStoreModalTitle').innerText = '✏️ Редагувати магазин';
+    document.getElementById('newStoreName').value = name;
+    document.getElementById('newStoreCode').value = code;
+    document.getElementById('newStoreType').value = type;
     document.getElementById('addStoreModal').classList.remove('hidden');
 }
 
@@ -377,18 +391,26 @@ export function closeAddStoreModal() {
     document.getElementById('addStoreModal').classList.add('hidden');
 }
 
-export async function createStore() {
+export async function submitStoreModal() {
+    const id = document.getElementById('editStoreId').value;
     const name = document.getElementById('newStoreName').value.trim();
     const code = document.getElementById('newStoreCode').value.trim();
     const type = document.getElementById('newStoreType').value;
 
     if (!name || !code) return showToast("Заповніть назву та код", 'error');
 
-    const res = await postJson('/api/admin/stores/create', { name, code, type });
+    let res;
+    if (id) {
+        res = await postJson('/api/admin/stores/edit', { id, name, code, type });
+    } else {
+        res = await postJson('/api/admin/stores/create', { name, code, type });
+    }
+
     if (res.success) {
-        showToast("Магазин створено ✅");
+        showToast(id ? "Магазин оновлено ✅" : "Магазин створено ✅");
         document.getElementById('newStoreName').value = '';
         document.getElementById('newStoreCode').value = '';
+        document.getElementById('editStoreId').value = '';
         closeAddStoreModal();
         loadStores();
     } else {
@@ -419,7 +441,10 @@ export async function loadStores() {
                     <div class="font-bold text-sm">${s.name}</div>
                     <div class="text-[10px] text-gray-500">${s.code} <span class="bg-blue-100 text-blue-800 px-1 rounded">${s.type}</span></div>
                 </div>
-                <button onclick=\"deleteStore('${s._id}')\" class=\"text-red-500 text-lg hover:scale-110 transition-transform\">🗑</button>
+                <div class="flex gap-2">
+                    <button onclick=\"window.openEditStoreModal('${s._id}', '${s.name.replace(/'/g, "\\'")}', '${s.code.replace(/'/g, "\\'")}', '${s.type}')\" class=\"text-blue-500 text-lg hover:scale-110 transition-transform\">✏️</button>
+                    <button onclick=\"deleteStore('${s._id}')\" class=\"text-red-500 text-lg hover:scale-110 transition-transform\">🗑</button>
+                </div>
             `;
             list.appendChild(item);
         });

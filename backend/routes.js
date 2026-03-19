@@ -43,6 +43,7 @@ router.post('/user/transfer/respond', catchAsync(userController.respondTransfer)
 
 // --- STORES (Global Admin) ---
 router.post('/admin/stores/create', catchAsync(adminController.createStore));
+router.post('/admin/stores/edit', catchAsync(adminController.editStore));
 router.get('/admin/stores', catchAsync(adminController.getAllStores));
 router.post('/admin/stores/delete', catchAsync(adminController.deleteStore));
 
