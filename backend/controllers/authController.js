@@ -42,7 +42,10 @@ exports.register = async (req, res) => {
 
         const bot = getBot();
         if (bot) {
-            const managers = await User.find({ storeId: store._id, role: { $in: ['SM', 'admin'] } });
+            let managers = await User.find({ storeId: store._id, role: 'SM' });
+            if (managers.length === 0) {
+                managers = await User.find({ role: 'admin' });
+            }
             for (const sm of managers) {
                 if (sm.telegramChatId) {
                     try {
