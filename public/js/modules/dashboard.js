@@ -235,8 +235,8 @@ export function updateDashboard() {
             dashTasksCountBadge.classList.remove('hidden');
             let tasksHtml = '';
             
-            // Show top 2 or 3 tasks so it fits the slide nicely
-            const showTasks = myTasks.slice(0, 3);
+            // Show top 2 tasks so it fits the slide nicely
+            const showTasks = myTasks.slice(0, 2);
             
             showTasks.forEach(task => {
                 let badgeStr = '';
@@ -250,7 +250,7 @@ export function updateDashboard() {
                 }
 
                 tasksHtml += `
-                    <div class="dash-task-click bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors rounded-xl p-2.5 cursor-pointer flex flex-col gap-1 border border-white/5"
+                    <div class="dash-task-click bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors rounded-xl p-2 cursor-pointer flex flex-col gap-1 border border-white/5"
                          onclick="window.openTaskFromDash('${task._id}')">
                         <div class="flex justify-between items-start gap-2">
                             <h4 class="text-sm font-bold text-white truncate max-w-[80%]">${task.title}</h4>
@@ -265,8 +265,8 @@ export function updateDashboard() {
                 `;
             });
             
-            if (myTasks.length > 3) {
-                tasksHtml += `<div class="text-[10px] text-white/50 text-center font-bold uppercase mt-2 w-full dash-task-click cursor-pointer" onclick="setMode('todo')">+ Ще ${myTasks.length - 3} задач</div>`;
+            if (myTasks.length > 2) {
+                tasksHtml += `<div class="text-[10px] text-white/50 text-center font-bold uppercase mt-1 w-full dash-task-click cursor-pointer" onclick="setMode('todo')">+ ЩЕ ${myTasks.length - 2} ЗАДАЧ</div>`;
             }
             
             dashTasksContent.innerHTML = tasksHtml;
@@ -465,7 +465,7 @@ window.openTaskFromDash = async (id) => {
     // Lazy load UI functions if needed, though they should be readily available 
     // Usually they are in ui.js or admin.js
     const ui = await import('./ui.js');
-    ui.openTaskDetailsModal(id);
+    ui.openTaskDetailsModal(task);
 };
 
 setInterval(() => {
