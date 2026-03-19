@@ -442,10 +442,12 @@ export async function loadStores() {
                     <div class="text-[10px] text-gray-500">${s.code} <span class="bg-blue-100 text-blue-800 px-1 rounded">${s.type}</span></div>
                 </div>
                 <div class="flex gap-2">
-                    <button onclick=\"window.openEditStoreModal('${s._id}', '${s.name.replace(/'/g, "\\'")}', '${s.code.replace(/'/g, "\\'")}', '${s.type}')\" class=\"text-blue-500 text-lg hover:scale-110 transition-transform\">✏️</button>
-                    <button onclick=\"deleteStore('${s._id}')\" class=\"text-red-500 text-lg hover:scale-110 transition-transform\">🗑</button>
+                    <button class="edit-store-btn text-blue-500 text-lg hover:scale-110 transition-transform">✏️</button>
+                    <button onclick="deleteStore('${s._id}')" class="text-red-500 text-lg hover:scale-110 transition-transform">🗑</button>
                 </div>
             `;
+            const editBtn = item.querySelector('.edit-store-btn');
+            editBtn.onclick = () => window.openEditStoreModal(s._id, s.name, s.code, s.type);
             list.appendChild(item);
         });
     } catch (e) {
