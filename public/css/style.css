@@ -414,6 +414,11 @@ body {
     transition: all 0.2s;
     position: relative;
     overflow: hidden;
+    cursor: pointer;
+}
+
+.calendar-day:active {
+    transform: scale(0.94);
 }
 
 .dark .calendar-day {
@@ -422,62 +427,91 @@ body {
     color: #E5E5EA;
 }
 
-.calendar-day.today {
+/* TODAY */
+.calendar-day.calendar-today {
+    background: linear-gradient(135deg, #007AFF, #0056CC) !important;
     border: 2px solid #007AFF;
-    box-shadow: 0 0 10px rgba(0, 122, 255, 0.2);
+    box-shadow: 0 4px 14px rgba(0, 122, 255, 0.45);
+    color: white;
 }
 
-.calendar-day.my-work-day {
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.2));
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    color: #065F46;
+.dark .calendar-day.calendar-today {
+    box-shadow: 0 4px 18px rgba(0, 122, 255, 0.6);
 }
 
-.dark .calendar-day.my-work-day {
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.3));
-    color: #D1FAE5;
+/* PAST DAYS */
+.calendar-day.calendar-past {
+    opacity: 0.45;
+    filter: grayscale(40%);
 }
 
-.calendar-day.vacation-day {
-    background: linear-gradient(135deg, rgba(20, 184, 166, 0.15), rgba(13, 148, 136, 0.2));
-    border: 1px solid rgba(20, 184, 166, 0.3);
-    color: #0F766E;
+/* WEEKENDS */
+.calendar-day.calendar-weekend {
+    background: rgba(239, 68, 68, 0.05);
+    border-color: rgba(239, 68, 68, 0.12);
 }
 
-.dark .calendar-day.vacation-day {
-    background: linear-gradient(135deg, rgba(20, 184, 166, 0.2), rgba(13, 148, 136, 0.3));
-    color: #CCFBF1;
+.dark .calendar-day.calendar-weekend {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.15);
 }
 
-.work-badge {
-    font-size: 9px;
+/* DAY NUMBER */
+.cal-day-num {
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+/* SHIFT / VACATION / SICK BADGES */
+.cal-badge {
+    font-size: 8px;
     font-weight: 700;
     margin-top: auto;
-    margin-bottom: 2px;
     padding: 2px 4px;
-    border-radius: 4px;
+    border-radius: 5px;
+    border: 1px solid transparent;
     text-align: center;
     width: 100%;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.calendar-day.my-work-day .work-badge {
-    background: rgba(16, 185, 129, 0.2);
-    color: #047857;
+.cal-vacation {
+    background: rgba(20, 184, 166, 0.15);
+    border-color: rgba(20, 184, 166, 0.35);
+    color: #0f766e;
 }
 
-.dark .calendar-day.my-work-day .work-badge {
-    background: rgba(16, 185, 129, 0.3);
-    color: #6EE7B7;
-}
-
-.calendar-day.vacation-day .work-badge {
+.dark .cal-vacation {
     background: rgba(20, 184, 166, 0.2);
-    color: #0F766E;
+    color: #5EEAD4;
 }
 
-.dark .calendar-day.vacation-day .work-badge {
-    background: rgba(20, 184, 166, 0.3);
-    color: #5EEAD4;
+.cal-sick {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #b91c1c;
+}
+
+.dark .cal-sick {
+    background: rgba(239, 68, 68, 0.18);
+    color: #fca5a5;
+}
+
+/* TASK DOT (purple dot in top-right corner) */
+.cal-task-dot {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #a855f7;
+    box-shadow: 0 0 4px rgba(168, 85, 247, 0.6);
 }
 
 /* --- NEW STYLES (TOASTS & ANIMATIONS) --- */
