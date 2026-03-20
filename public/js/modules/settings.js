@@ -47,7 +47,7 @@ export function openStoreSettingsModal() {
                 <div class="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
                     <div class="pr-2">
                         <label class="block text-xs font-bold text-gray-800 dark:text-gray-200 mb-1">Доступ до вкладки KPI для персоналу</label>
-                        <p class="text-[10px] text-gray-500">Якщо вимкнено, RRP користувачі не бачитимуть вкладку KPI</p>
+                        <p class="text-[10px] text-gray-500">Якщо вимкнено, користувачі не бачитимуть вкладку KPI</p>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
                         <input type="checkbox" id="set_kpiEnabled" class="sr-only peer" ${kpiEnabled ? 'checked' : ''}>

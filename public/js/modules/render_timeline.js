@@ -15,6 +15,11 @@ export function renderTimeline() {
     const viewM = state.currentDate.getMonth();
     const viewMonthStr = `${viewY}-${String(viewM + 1).padStart(2, '0')}`;
 
+    const monthTitleEl = document.getElementById('listMonthTitle');
+    if (monthTitleEl) {
+        monthTitleEl.innerText = state.currentDate.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
+    }
+
     // Збираємо всі унікальні дати (зміни + нотатки)
     let allDates = [...new Set([...state.shifts.map(s => s.date), ...state.notes.map(n => n.date)])];
 
@@ -55,12 +60,7 @@ export function renderTimeline() {
         userHours[u.name] = h.toFixed(0);
     });
 
-    // Кнопка "Попередній місяць"
-    const prevBtnDiv = document.createElement('div');
-    prevBtnDiv.className = "mb-4";
-    prevBtnDiv.innerHTML = `<button onclick="changeMonth(-1)" class="w-full py-3 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 text-blue-500 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-transform">⬅️ Попередній місяць (${new Date(viewY, viewM - 1).toLocaleDateString('uk-UA', { month: 'long' })})</button>`;
-    archive.appendChild(prevBtnDiv);
-
+    // Попередній місяць в архіві більше не потрібен (тепер є вгорі та внизу списку)
     if (dates.length === 0) main.innerHTML = `<div class="text-center text-gray-400 py-10 text-sm">Немає записів на цей місяць</div>`;
 
     dates.forEach((dateStr, index) => {
@@ -199,11 +199,14 @@ export function renderTimeline() {
         // if(isToday) setTimeout(()=>block.scrollIntoView({behavior:'smooth',block:'center'}),600);
     });
 
-    // Кнопка "Наступний місяць"
-    const nextBtnDiv = document.createElement('div');
-    nextBtnDiv.className = "mt-4 pb-12";
-    nextBtnDiv.innerHTML = `<button onclick="changeMonth(1)" class="w-full py-3 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 text-blue-500 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-transform">Наступний місяць (${new Date(viewY, viewM + 1).toLocaleDateString('uk-UA', { month: 'long' })}) ➡️</button>`;
-    main.appendChild(nextBtnDiv);
+    // Блок навігації по місяцях в кінці списку
+    const bottomNav = document.createElement('div');
+    bottomNav.className = "mt-4 pb-12 flex justify-between gap-3";
+    bottomNav.innerHTML = `
+        <button onclick="changeMonth(-1)" class="flex-1 py-3 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 text-blue-500 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-transform text-center capitalize">⬅️ ${new Date(viewY, viewM - 1).toLocaleDateString('uk-UA', { month: 'short' })}</button>
+        <button onclick="changeMonth(1)" class="flex-1 py-3 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 text-blue-500 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-transform text-center capitalize">${new Date(viewY, viewM + 1).toLocaleDateString('uk-UA', { month: 'short' })} ➡️</button>
+    `;
+    main.appendChild(bottomNav);
 
     // Кнопка архіву
     const arcBtn = document.getElementById('archiveToggleBtn');
