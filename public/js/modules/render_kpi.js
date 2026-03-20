@@ -32,6 +32,14 @@ function getShiftIcon(start, end) {
     return '';
 }
 
+function getShiftDuration(start, end) {
+    if (!start || !end) return '';
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    const h = (eh + em / 60) - (sh + sm / 60);
+    return h % 1 === 0 ? `${h}г` : `${h.toFixed(1)}г`;
+}
+
 export function renderCalendar() {
     const g = document.getElementById('calendarGrid');
     const t = document.getElementById('calendarTitle');
@@ -88,10 +96,12 @@ export function renderCalendar() {
             } else {
                 const color = getCalendarShiftColor(shift.start, shift.end);
                 const icon = getShiftIcon(shift.start, shift.end);
+                const duration = getShiftDuration(shift.start, shift.end);
                 const colorStyle = color
                     ? `background:${color.bg}; border-color:${color.border}; color:${color.text};`
                     : '';
-                content += `<div class="cal-badge cal-shift" style="${colorStyle}">${icon ? icon + ' ' : ''}${shift.start}–${shift.end}</div>`;
+                content += `<div class="cal-badge cal-shift" style="${colorStyle}">${icon ? icon + ' ' : ''}${duration}</div>`;
+                content += `<div class="cal-time-hint">${shift.start}–${shift.end}</div>`;
             }
         }
 

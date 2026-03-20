@@ -466,10 +466,10 @@ body {
 
 /* SHIFT / VACATION / SICK BADGES */
 .cal-badge {
-    font-size: 8px;
-    font-weight: 700;
+    font-size: 10px;
+    font-weight: 800;
     margin-top: auto;
-    padding: 2px 4px;
+    padding: 2px 3px;
     border-radius: 5px;
     border: 1px solid transparent;
     text-align: center;
@@ -478,6 +478,20 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    letter-spacing: -0.3px;
+}
+
+/* Tiny full-time subtitle shown below the badge */
+.cal-time-hint {
+    font-size: 7px;
+    opacity: 0.55;
+    text-align: center;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1;
+    margin-top: 1px;
 }
 
 .cal-vacation {
