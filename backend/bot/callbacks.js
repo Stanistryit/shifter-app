@@ -45,7 +45,7 @@ const handleCallback = async (bot, q) => {
         p.readBy.push(shortName); await p.save();
         const readList = `\n\n👀 <b>Ознайомились:</b>\n${p.readBy.join(', ')}`;
         try {
-            const baseText = p.text || "";
+            const baseText = p.text ? `📢 <b>Новини:</b>\n\n${p.text}` : "📢 <b>Новини:</b>";
             const newContent = q.message.reply_to_message && p.type === 'file' ? "👇 Підтвердити:" + readList : baseText + readList;
             const opts = { chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'HTML', reply_markup: q.message.reply_markup };
 
