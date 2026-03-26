@@ -634,6 +634,7 @@ body {
 .custom-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgba(150, 150, 150, 0.3) transparent;
+    -webkit-overflow-scrolling: touch; /* iOS native momentum scroll */
 }
 
 .dark .custom-scrollbar {
