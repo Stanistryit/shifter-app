@@ -1,6 +1,46 @@
 import { state } from './state.js';
 import { getUsersForView, getDisplayName } from './render_utils.js';
 
+// 🍎 iOS TOUCH SCROLL FIX — registered ONCE at module level to avoid stacking
+// user-scalable=no in the viewport meta blocks overflow-x:auto touch scroll on iOS Safari.
+// This handler manually moves scrollLeft for horizontal swipes.
+let _iosScrollHandlerInit = false;
+function initIosTableScroll() {
+    if (_iosScrollHandlerInit) return;
+    _iosScrollHandlerInit = true;
+
+    let startX = 0, startY = 0, startLeft = 0, isHoriz = false, decided = false;
+
+    document.addEventListener('touchstart', (e) => {
+        const el = document.getElementById('gridViewTable');
+        if (!el || !el.contains(e.target)) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        startLeft = el.scrollLeft;
+        isHoriz = false;
+        decided = false;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+        const el = document.getElementById('gridViewTable');
+        if (!el || !el.contains(e.target)) return;
+
+        const dx = startX - e.touches[0].clientX;
+        const dy = startY - e.touches[0].clientY;
+
+        if (!decided) {
+            if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return; // wait for clearer signal
+            decided = true;
+            isHoriz = Math.abs(dx) > Math.abs(dy);
+        }
+
+        if (isHoriz) {
+            e.preventDefault();
+            el.scrollLeft = startLeft + dx;
+        }
+    }, { passive: false });
+}
+
 // Допоміжна функція: переведення часу "10:30" -> 10.5
 function timeToDec(t) {
     if (!t || t === 'Відпустка' || t === 'Лікарняний' || t === 'DELETE') return 0;
@@ -358,38 +398,8 @@ export function renderTable() {
     html += '</tbody></table>';
     tableDiv.innerHTML = html;
 
-    // 🍎 iOS TOUCH SCROLL FIX
-    // When user-scalable=no is set in the viewport meta, iOS Safari blocks
-    // native touch-scrolling on overflow-x:auto children. We manually handle it.
-    let iosTouchStartX = 0;
-    let iosTouchStartY = 0;
-    let iosScrollStartLeft = 0;
-    let iosScrollingHorizontally = false;
-    let iosScrollDecided = false;
-
-    tableDiv.addEventListener('touchstart', (e) => {
-        iosTouchStartX = e.touches[0].clientX;
-        iosTouchStartY = e.touches[0].clientY;
-        iosScrollStartLeft = tableDiv.scrollLeft;
-        iosScrollingHorizontally = false;
-        iosScrollDecided = false;
-    }, { passive: true });
-
-    tableDiv.addEventListener('touchmove', (e) => {
-        const dx = iosTouchStartX - e.touches[0].clientX;
-        const dy = iosTouchStartY - e.touches[0].clientY;
-
-        if (!iosScrollDecided) {
-            // Decide direction on first move
-            iosScrollDecided = true;
-            iosScrollingHorizontally = Math.abs(dx) > Math.abs(dy);
-        }
-
-        if (iosScrollingHorizontally) {
-            e.preventDefault(); // block page scroll only when horizontal
-            tableDiv.scrollLeft = iosScrollStartLeft + dx;
-        }
-    }, { passive: false });
+    // 🍎 Ініціалізуємо iOS touch scroll один раз
+    initIosTableScroll();
 
     // 🔥 FIX: Скролимо таблицю до "сьогодні" ТІЛЬКИ якщо ми НЕ в режимі редагування.
     // Інакше — повертаємо до попереднього скролу, щоб сітка не "стрибала" під час малювання пензликом.
