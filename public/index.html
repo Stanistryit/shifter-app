@@ -20,6 +20,16 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="css/tailwind.css">
     <link rel="stylesheet" href="css/style.css">
+
+    <!-- 🐛 DEBUG CONSOLE (only active with ?debug=1) -->
+    <script>
+        if (new URLSearchParams(location.search).get('debug') === '1') {
+            var s = document.createElement('script');
+            s.src = '//cdn.jsdelivr.net/npm/eruda';
+            s.onload = function () { eruda.init(); };
+            document.head.appendChild(s);
+        }
+    </script>
 </head>
 
 <body
