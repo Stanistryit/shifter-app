@@ -91,6 +91,8 @@ export function openAddTaskModal() {
     document.getElementById('taskDeadline').value = '';
     
     Array.from(document.querySelectorAll('.task-reminder-cb')).forEach(cb => cb.checked = false);
+    const recurrenceEl = document.getElementById('taskRecurrence');
+    if (recurrenceEl) recurrenceEl.value = 'none';
 
     tempSubtasks = [];
     renderSubtasksBuilder();
@@ -142,7 +144,8 @@ export async function submitTaskModal() {
         const reminders = Array.from(cbs).map(cb => cb.value);
 
         const date = new Date().toISOString().split('T')[0];
-        payload = { ...payload, date, deadline, reminders };
+        const recurrence = document.getElementById('taskRecurrence')?.value || 'none';
+        payload = { ...payload, date, deadline, reminders, recurrence };
     }
 
     const btn = document.getElementById('btnSaveTaskModal');
@@ -298,6 +301,8 @@ export function openEditTaskModal(task) {
         Array.from(document.querySelectorAll('.task-reminder-cb')).forEach(cb => {
              cb.checked = (task.reminders && task.reminders.includes(cb.value));
         });
+        const recurrenceEl = document.getElementById('taskRecurrence');
+        if (recurrenceEl) recurrenceEl.value = task.recurrence || 'none';
     }
 
     tempSubtasks = task.subtasks ? JSON.parse(JSON.stringify(task.subtasks)) : [];

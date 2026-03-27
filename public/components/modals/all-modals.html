@@ -250,12 +250,21 @@
                 <div class="px-1 mt-2">
                     <span class="text-xs font-bold text-gray-500 uppercase">Нагадування до дедлайну</span>
                     <div class="flex flex-wrap gap-3 mt-2" id="taskRemindersContainer">
-                        <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" value="15m" class="accent-purple-500 task-reminder-cb"> 15 хв</label>
-                        <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" value="30m" class="accent-purple-500 task-reminder-cb"> 30 хв</label>
                         <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" value="1h" class="accent-purple-500 task-reminder-cb"> 1 год</label>
                         <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" value="3h" class="accent-purple-500 task-reminder-cb"> 3 год</label>
                         <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" value="1d" class="accent-purple-500 task-reminder-cb"> 1 день</label>
+                        <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" value="1w" class="accent-purple-500 task-reminder-cb"> 1 тиждень</label>
                     </div>
+                </div>
+
+                <div class="px-1 mt-3">
+                    <label class="text-xs font-bold text-gray-500 uppercase mb-1 block">🔁 Повторення</label>
+                    <select id="taskRecurrence" class="ios-input bg-transparent w-full text-sm">
+                        <option value="none">Без повторення</option>
+                        <option value="weekly">Раз на тиждень</option>
+                        <option value="monthly">Раз на місяць</option>
+                        <option value="yearly">Раз на рік</option>
+                    </select>
                 </div>
             </div>
 

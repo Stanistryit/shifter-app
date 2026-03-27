@@ -24,7 +24,7 @@ exports.addTask = async (req, res) => {
         return res.json({ success: true, pending: true });
     }
 
-    const { title, date, name, description, isFullDay, start, end, type, deadline, subtasks } = req.body;
+    const { title, date, name, description, isFullDay, start, end, type, deadline, subtasks, recurrence } = req.body;
 
     const sendTaskNotification = async (targetName, taskTitle, taskDate, tStart, tEnd, tIsFullDay, tDesc, tType, tDeadline, tSubtasks) => {
         let msg = '';
@@ -154,6 +154,38 @@ exports.toggleTaskStatus = async (req, res) => {
     } else {
         t.status = t.status === 'completed' ? 'pending' : 'completed';
         actionMsg = `Задачу "${t.title}" відмічено як ${t.status === 'completed' ? 'виконану ✅' : 'невиконану ⏳'}`;
+
+        // 🔁 Якщо задача повторювана і щойно виконана — створюємо наступну
+        if (t.status === 'completed' && t.recurrence && t.recurrence !== 'none' && t.deadline) {
+            try {
+                const nextDeadline = new Date(t.deadline);
+                if (!isNaN(nextDeadline.getTime())) {
+                    if (t.recurrence === 'weekly')  nextDeadline.setDate(nextDeadline.getDate() + 7);
+                    if (t.recurrence === 'monthly') nextDeadline.setMonth(nextDeadline.getMonth() + 1);
+                    if (t.recurrence === 'yearly')  nextDeadline.setFullYear(nextDeadline.getFullYear() + 1);
+
+                    const pad = n => String(n).padStart(2, '0');
+                    const dl = `${nextDeadline.getFullYear()}-${pad(nextDeadline.getMonth()+1)}-${pad(nextDeadline.getDate())} ${pad(nextDeadline.getHours())}:${pad(nextDeadline.getMinutes())}`;
+
+                    await Task.create({
+                        title: t.title,
+                        name: t.name,
+                        storeId: t.storeId,
+                        type: 'todo',
+                        description: t.description,
+                        date: new Date().toISOString().split('T')[0],
+                        deadline: dl,
+                        reminders: t.reminders,
+                        recurrence: t.recurrence,
+                        recurrenceParentId: t._id,
+                        subtasks: (t.subtasks || []).map(s => ({ title: s.title, completed: false })),
+                        status: 'pending'
+                    });
+                }
+            } catch(e) {
+                console.error('Recurrence task creation error:', e.message);
+            }
+        }
     }
 
     await t.save();

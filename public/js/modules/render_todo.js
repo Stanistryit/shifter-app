@@ -74,6 +74,11 @@ function buildTodoCard(t) {
         subInfo = `<div class="text-xs text-gray-500 mt-1 flex items-center gap-1">📋 Підзадачі: ${comp}/${total}</div>`;
     }
 
+    const recurLabels = { weekly: 'Щотижня', monthly: 'Щомісяця', yearly: 'Щороку' };
+    const recurInfo = (t.recurrence && t.recurrence !== 'none')
+        ? `<div class="text-xs text-purple-500 font-medium mt-1 flex items-center gap-1">🔁 ${recurLabels[t.recurrence] || t.recurrence}</div>`
+        : '';
+
     const deadInfo = t.deadline ? `<div class="text-xs ${isCompleted ? 'text-gray-400' : 'text-red-500 font-medium'} mt-1 flex items-center gap-1">⏳ Дедлайн: ${new Date(t.deadline).toLocaleString('uk-UA', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}</div>` : '';
 
     return `
@@ -82,6 +87,7 @@ function buildTodoCard(t) {
         <h4 class="font-bold text-gray-900 dark:text-white mb-1 ${isCompleted ? 'line-through text-gray-500' : ''} pr-6">${t.title}</h4>
         ${t.description ? `<p class="text-xs text-gray-500 line-clamp-2 mb-1">${t.description}</p>` : ''}
         ${subInfo}
+        ${recurInfo}
         ${deadInfo}
     </div>
     `;

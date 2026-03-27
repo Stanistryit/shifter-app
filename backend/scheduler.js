@@ -90,11 +90,10 @@ const initScheduler = async (tgConfig) => {
                 if (t.notifiedReminders && t.notifiedReminders.includes(r)) continue;
 
                 let reminderMinutes = 0;
-                if (r === '15m') reminderMinutes = 15;
-                if (r === '30m') reminderMinutes = 30;
                 if (r === '1h') reminderMinutes = 60;
                 if (r === '3h') reminderMinutes = 180;
                 if (r === '1d') reminderMinutes = 1440;
+                if (r === '1w') reminderMinutes = 10080;
 
                 if (reminderMinutes > 0 && diffMinutes <= reminderMinutes && diffMinutes >= 0) {
                     const user = await User.findOne({ name: t.name });

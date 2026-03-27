@@ -86,8 +86,10 @@ const taskSchema = new mongoose.Schema({
     // Нові поля для ToDo List
     type: { type: String, enum: ['timeline', 'todo'], default: 'timeline' },
     deadline: { type: String, default: '' }, // формат наприклад 'YYYY-MM-DD HH:mm'
-    reminders: { type: [String], default: [] }, // '15m', '1h', '1d'
+    reminders: { type: [String], default: [] }, // '1h', '3h', '1d', '1w'
     notifiedReminders: { type: [String], default: [] },
+    recurrence: { type: String, enum: ['none', 'weekly', 'monthly', 'yearly'], default: 'none' },
+    recurrenceParentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', default: null },
     subtasks: [{
         title: { type: String, required: true },
         completed: { type: Boolean, default: false }
