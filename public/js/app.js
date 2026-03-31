@@ -1002,15 +1002,12 @@ async function loadKpiData() {
     const m = state.currentDate.getMonth() + 1;
     const month = `${y}-${m.toString().padStart(2, '0')}`;
 
-    console.log(`[KPI] Запит KPI для ${month}`);
     showSkeletonLoader('kpiList', 'kpi');
     showSkeletonLoader('gridViewTable', 'table');
 
     try {
         const url = `/api/kpi?month=${month}${state.selectedStoreFilter ? '&store=' + state.selectedStoreFilter : ''}`;
         const data = await fetchJson(url);
-
-        console.log(`[KPI] Отримано відповідь:`, data);
 
         if (data && !data.error) {
             state.kpiData = data;
