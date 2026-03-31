@@ -47,6 +47,7 @@ const schemas = {
             type: z.enum(['timeline', 'todo']).optional(),
             deadline: z.string().optional(),
             reminders: z.array(z.string()).optional(),
+            recurrence: z.string().optional(),
             subtasks: z.array(z.object({
                 title: z.string(),
                 completed: z.boolean().optional()
