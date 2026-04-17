@@ -62,8 +62,8 @@ export function toggleEditor() {
             // hide mobile toolbar just in case
             if (toolbar) toolbar.classList.add('hidden', 'translate-y-full');
 
-            // Re-render PC save button state
-            updatePCSaveButton();
+            // Re-render save buttons state
+            updateSaveButtons();
         } else {
             // Mobile logic
             if (toolbar) toolbar.classList.remove('hidden', 'translate-y-full');
@@ -77,14 +77,8 @@ export function toggleEditor() {
         tg.MainButton.color = "#3b82f6"; // bg-blue-500
         tg.MainButton.onClick(() => window.saveEditorChanges());
 
-        // Only show if there are already pending changes
-        const pendingCount = Object.keys(state.pendingChanges).length;
-        if (pendingCount > 0) {
-            tg.MainButton.text = `ЗБЕРЕГТИ ЗМІНИ (${pendingCount})`;
-            tg.MainButton.show();
-        } else {
-            tg.MainButton.hide();
-        }
+        // Update all buttons including Telegram/Web/PC
+        updateSaveButtons();
 
         // Add keyboard events for PC
         window.addEventListener('keydown', handleEditorKeydown);
@@ -278,13 +272,47 @@ function renderToolbar() {
             <div class="flex justify-between items-center px-4 py-3 border-b border-gray-100 dark:border-gray-800">
                 <button onclick="window.editorConfigTemplates()" class="p-2 -ml-2 text-gray-400 hover:text-blue-500 active:scale-95 transition-transform"><span class="text-lg">⚙️</span></button>
                 <div class="flex gap-2">
+                    <button id="webSaveBtn" onclick="window.saveEditorChanges()" class="hidden px-4 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-bold shadow-md shadow-blue-500/30 active:scale-95 transition-transform">💾 Зберегти</button>
                     <button onclick="window.toggleEditor()" class="px-4 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-bold active:scale-95">Закрити редактор</button>
                 </div>
             </div>
-            <div class="flex overflow-x-auto gap-2 p-3 pb-safe scrollbar-hide snap-x relative z-10 w-full" style="scrollbar-width: none; -ms-overflow-style: none;">
+            <div id="mobileEditorScrollCtx" class="flex overflow-x-auto gap-2 p-3 pb-8 scrollbar-hide snap-x relative z-10 w-full" style="scrollbar-width: none; -ms-overflow-style: none; cursor: grab;">
                 ${toolsHtml}
             </div>
         `;
+
+        // Додаємо можливість скролити мишкою для ПК Телеграм або просто ПК без сенсора
+        const scrollCtx = toolbar.querySelector('#mobileEditorScrollCtx');
+        if (scrollCtx) {
+            let isDown = false;
+            let startX;
+            let scrollLeft;
+            
+            scrollCtx.addEventListener('mousedown', (e) => {
+                isDown = true;
+                scrollCtx.style.cursor = 'grabbing';
+                startX = e.pageX - scrollCtx.offsetLeft;
+                scrollLeft = scrollCtx.scrollLeft;
+            });
+            scrollCtx.addEventListener('mouseleave', () => {
+                isDown = false;
+                scrollCtx.style.cursor = 'grab';
+            });
+            scrollCtx.addEventListener('mouseup', () => {
+                isDown = false;
+                scrollCtx.style.cursor = 'grab';
+            });
+            scrollCtx.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - scrollCtx.offsetLeft;
+                const walk = (x - startX) * 2;
+                scrollCtx.scrollLeft = scrollLeft - walk;
+            });
+        }
+        
+        // Оновлюємо стан кнопки збереження (якщо перейшли в веб-режим)
+        updateSaveButtons();
     }
 }
 
@@ -299,23 +327,47 @@ window.applyPcCustomShift = function () {
     }
 }
 
-function updatePCSaveButton() {
+function updateSaveButtons() {
     const isDesktop = window.innerWidth >= 1024;
-    if (!isDesktop || !state.isEditMode) return;
+    const count = Object.keys(state.pendingChanges || {}).length;
+    const tg = window.Telegram.WebApp;
 
-    const pcSaveBtn = document.getElementById('pcEditorSaveBtn');
-    const pcSaveCount = document.getElementById('pcEditorSaveCount');
-    if (!pcSaveBtn || !pcSaveCount) return;
+    // --- PC Sidebar Save Button ---
+    if (isDesktop && state.isEditMode) {
+        const pcSaveBtn = document.getElementById('pcEditorSaveBtn');
+        const pcSaveCount = document.getElementById('pcEditorSaveCount');
+        if (pcSaveBtn && pcSaveCount) {
+            if (count > 0) {
+                pcSaveBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'scale-95');
+                pcSaveBtn.classList.add('hover:scale-105', 'hover:shadow-lg', 'active:scale-95', 'shadow-blue-500/30');
+                pcSaveCount.innerText = `У вас ${count} незбережених змін`;
+            } else {
+                pcSaveBtn.classList.add('opacity-50', 'cursor-not-allowed', 'scale-95');
+                pcSaveBtn.classList.remove('hover:scale-105', 'hover:shadow-lg', 'active:scale-95', 'shadow-blue-500/30');
+                pcSaveCount.innerText = 'Немає змін';
+            }
+        }
+    }
 
-    const count = Object.keys(state.pendingChanges).length;
+    // --- Mobile Web Save Button ---
+    const webBtn = document.getElementById('webSaveBtn');
+    if (webBtn) {
+        const isTgMobileApp = tg.platform === 'ios' || tg.platform === 'android';
+        // Показувати кнопку веб-збереження тільки якщо ми не в мобільному додатку телеграм, інакше є MainButton
+        if (!isTgMobileApp && count > 0 && !isDesktop) {
+            webBtn.classList.remove('hidden');
+            webBtn.innerText = `💾 Зберегти (${count})`;
+        } else {
+            webBtn.classList.add('hidden');
+        }
+    }
+
+    // --- Telegram MainButton ---
     if (count > 0) {
-        pcSaveBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'scale-95');
-        pcSaveBtn.classList.add('hover:scale-105', 'hover:shadow-lg', 'active:scale-95', 'shadow-blue-500/30');
-        pcSaveCount.innerText = `У вас ${count} незбережених змін`;
+        tg.MainButton.text = `ЗБЕРЕГТИ ЗМІНИ (${count})`;
+        if (!tg.MainButton.isVisible) tg.MainButton.show();
     } else {
-        pcSaveBtn.classList.add('opacity-50', 'cursor-not-allowed', 'scale-95');
-        pcSaveBtn.classList.remove('hover:scale-105', 'hover:shadow-lg', 'active:scale-95', 'shadow-blue-500/30');
-        pcSaveCount.innerText = 'Немає змін';
+        if (tg.MainButton.isVisible) tg.MainButton.hide();
     }
 }
 
@@ -463,18 +515,8 @@ function handleGridClick(e) {
 
     renderTable();
 
-    // Update MainButton visibility (Mobile) & Native Save Button (PC)
-    const count = Object.keys(state.pendingChanges).length;
-    const tg = window.Telegram.WebApp;
-    if (count > 0) {
-        tg.MainButton.text = `ЗБЕРЕГТИ ЗМІНИ (${count})`;
-        if (!tg.MainButton.isVisible) tg.MainButton.show();
-    } else {
-        if (tg.MainButton.isVisible) tg.MainButton.hide();
-    }
-
-    // Update PC native button save state
-    updatePCSaveButton();
+    // Update all save buttons visibility state
+    updateSaveButtons();
 }
 
 // --- SAVING ---
