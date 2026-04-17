@@ -15,13 +15,13 @@ const initScheduler = async (tgConfig) => {
     agenda.on('ready', () => console.log('✅ Agenda successfully connected to MongoDB!'));
     agenda.on('error', (err) => console.error('❌ Agenda connection error:', err));
 
-    agenda.on('start', (job) => {
-        console.log(`▶️ Job starting: ${job.attrs.name}`);
-    });
+    // agenda.on('start', (job) => {
+    //     console.log(`▶️ Job starting: ${job.attrs.name}`);
+    // });
 
-    agenda.on('complete', (job) => {
-        console.log(`✅ Job finished: ${job.attrs.name}`);
-    });
+    // agenda.on('complete', (job) => {
+    //     console.log(`✅ Job finished: ${job.attrs.name}`);
+    // });
 
     agenda.on('fail', (err, job) => {
         console.error(`❌ Job failed: ${job.attrs.name}. Error: ${err.message}`);
