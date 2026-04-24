@@ -11,7 +11,7 @@ import { checkAuth, login, logout, requestPasswordReset, submitNewPassword } fro
 import {
     delS,
     submitTaskModal, toggleTaskTypeUI, addSubtaskToBuilder, removeSubtaskFromBuilder,
-    toggleSubtask, forceRemindTask, openEditTaskModal,
+    toggleSubtask, forceRemindTask, openEditTaskModal, openAddTaskModal, closeAddTaskModal,
     deleteTask, toggleTaskTimeInputs,
     renderSalaryMatrix, saveSalaryMatrixBtn, 
     toggleTaskExecution,
