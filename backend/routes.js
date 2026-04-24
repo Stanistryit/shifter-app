@@ -93,6 +93,7 @@ router.get('/requests', catchAsync(adminController.getRequests));
 router.post('/requests/action', catchAsync(adminController.handleRequestAction));
 router.post('/requests/approve-all', catchAsync(adminController.approveAllRequests));
 router.post('/news/publish', upload.array('media', 10), catchAsync(adminController.publishNews));
+router.post('/admin/bot-broadcast', upload.array('media', 10), catchAsync(adminController.sendBotBroadcast));
 
 // --- NOTES ---
 router.get('/notes', catchAsync(noteController.getNotes));

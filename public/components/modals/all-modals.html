@@ -320,6 +320,46 @@
     </div>
 </div>
 
+<!-- Модалка розсилки через бота -->
+<div id="botBroadcastModal"
+    class="hidden fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div class="absolute inset-0" onclick="window.closeBotBroadcastModal()"></div>
+    <div class="ios-card w-full max-w-sm p-6 relative z-10 animate-slide-up">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-xl">📢 Масова розсилка</h3>
+            <button onclick="window.closeBotBroadcastModal()" class="text-gray-400 text-2xl leading-none">&times;</button>
+        </div>
+        <div class="space-y-3">
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase mb-1 block">Цільова аудиторія</label>
+                <select id="broadcastRole" class="ios-input bg-transparent w-full text-sm">
+                    <option value="all">Всі (у кого підключений бот)</option>
+                    <option value="SM">Менеджери (SM)</option>
+                    <option value="SSE">Старші продавці (SSE)</option>
+                    <option value="SE">Продавці (SE)</option>
+                </select>
+            </div>
+            <div class="flex gap-2 mb-1 overflow-x-auto pb-1 mt-2">
+                <button onclick="formatText('bold', 'broadcastText')"
+                    class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs font-bold">B</button>
+                <button onclick="formatText('italic', 'broadcastText')"
+                    class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs italic">I</button>
+                <button onclick="formatText('link', 'broadcastText')"
+                    class="bg-gray-200 dark:bg-[#3A3A3C] px-3 py-1 rounded-lg text-xs">🔗</button>
+            </div>
+            <textarea id="broadcastText" placeholder="Текст розсилки..." class="ios-input h-32 text-sm"></textarea>
+            <label
+                class="flex-1 flex items-center justify-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity mt-2 border border-dashed border-gray-300 dark:border-gray-700">
+                <span class="text-xl">📎</span>
+                <span id="broadcastFileName" class="text-xs truncate text-gray-500">Додати фото/файл</span>
+                <input type="file" id="broadcastFile" class="hidden" multiple onchange="updateFileName('broadcastFile', 'broadcastFileName')">
+            </label>
+            <button onclick="publishBotBroadcast()"
+                class="btn-primary bg-indigo-500 mt-2 shadow-indigo-500/30">Відправити</button>
+        </div>
+    </div>
+</div>
+
 <!-- Модалка створення магазину -->
 <div id="addStoreModal"
     class="hidden fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">

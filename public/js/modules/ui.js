@@ -134,8 +134,8 @@ export function showAdminTab(t) {
 
 // --- НОВІ ФУНКЦІЇ ДЛЯ НОВИН ---
 
-export function formatText(type) {
-    const field = document.getElementById('newsText');
+export function formatText(type, fieldId = 'newsText') {
+    const field = document.getElementById(fieldId);
     if (!field) return;
 
     const start = field.selectionStart;
@@ -157,10 +157,10 @@ export function formatText(type) {
     field.focus();
 }
 
-export function updateFileName() {
-    const input = document.getElementById('newsFile');
+export function updateFileName(inputId = 'newsFile', labelId = 'fileName') {
+    const input = document.getElementById(inputId);
     const count = input.files.length;
-    const label = document.getElementById('fileName');
+    const label = document.getElementById(labelId);
     if (count > 0) {
         label.innerText = count === 1 ? input.files[0].name : `Обрано ${count} файлів`;
     } else {
