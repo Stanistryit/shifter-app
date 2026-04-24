@@ -140,4 +140,40 @@ const sendRequestToSM = async (requestDoc) => {
     }
 };
 
-module.exports = { setBot, notifyUser, notifyAll, sendRequestToSM };
+// МАСОВА РОЗСИЛКА (Bot Broadcast)
+const broadcastToUsers = async (users, text, files) => {
+    if (!botInstance) return 0;
+    let successCount = 0;
+
+    for (const user of users) {
+        if (!user.telegramChatId) continue;
+        
+        try {
+            if (files && files.length > 0) {
+                // Якщо є файли (беремо перший для спрощення, або відправляємо медіагрупу)
+                // Telegram bot api підтримує sendMediaGroup, але для надійності відправимо по одному 
+                // або sendDocument / sendPhoto. Тут для спрощення відправляємо перший файл як фото/документ
+                const file = files[0];
+                const fileOptions = { caption: text || '', parse_mode: 'HTML' };
+                
+                if (file.mimetype.startsWith('image/')) {
+                    await botInstance.sendPhoto(user.telegramChatId, file.buffer, fileOptions);
+                } else {
+                    await botInstance.sendDocument(user.telegramChatId, file.buffer, fileOptions);
+                }
+            } else {
+                await botInstance.sendMessage(user.telegramChatId, text, { parse_mode: 'HTML' });
+            }
+            successCount++;
+        } catch (e) {
+            console.error(`Broadcast failed for ${user.name}:`, e.message);
+        }
+        
+        // Затримка 50мс для уникнення лімітів Telegram API (30 msg/sec)
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    return successCount;
+};
+
+module.exports = { setBot, notifyUser, notifyAll, sendRequestToSM, broadcastToUsers };

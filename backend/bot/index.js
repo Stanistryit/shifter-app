@@ -70,5 +70,6 @@ module.exports = {
     notifyUser: notifications.notifyUser,
     notifyAll: notifications.notifyAll,
     sendRequestToSM: notifications.sendRequestToSM,
+    broadcastToUsers: notifications.broadcastToUsers,
     getBot: () => bot
 };

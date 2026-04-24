@@ -343,6 +343,40 @@ exports.publishNews = async (req, res) => {
     }
 };
 
+exports.sendBotBroadcast = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (u?.role !== 'admin') return res.status(403).json({ success: false, message: "Тільки для Global Admin" });
+
+    const { text, targetRole } = req.body;
+    const files = req.files || [];
+
+    if (!text && files.length === 0) {
+        return res.json({ success: false, message: "Порожнє повідомлення" });
+    }
+
+    try {
+        let query = { telegramChatId: { $ne: null } };
+        if (targetRole && targetRole !== 'all') {
+            query.role = targetRole;
+        }
+
+        const users = await User.find(query);
+        if (users.length === 0) {
+            return res.json({ success: false, message: "Не знайдено користувачів для розсилки" });
+        }
+
+        const { broadcastToUsers } = require('../bot');
+        const count = await broadcastToUsers(users, text, files);
+
+        logAction(u.name, 'bot_broadcast', `Target: ${targetRole}, Sent to: ${count} users`);
+        res.json({ success: true, count });
+
+    } catch (e) {
+        console.error("Broadcast Error:", e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
 
 // --- Експорт графіку в CSV ---
 exports.exportSchedule = async (req, res) => {

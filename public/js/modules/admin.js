@@ -370,6 +370,63 @@ export async function publishNews() {
     }
 }
 
+// --- BOT BROADCAST ---
+
+export function openBotBroadcastModal() {
+    triggerHaptic();
+    document.getElementById('botBroadcastModal').classList.remove('hidden');
+}
+
+export function closeBotBroadcastModal() {
+    triggerHaptic();
+    document.getElementById('botBroadcastModal').classList.add('hidden');
+}
+
+export async function publishBotBroadcast() {
+    const text = document.getElementById('broadcastText').value;
+    const files = document.getElementById('broadcastFile').files;
+    const role = document.getElementById('broadcastRole').value;
+
+    if (!text && files.length === 0) return showToast("Введіть текст або файл", 'error');
+
+    const formData = new FormData();
+    formData.append('text', text);
+    formData.append('targetRole', role);
+
+    for (let i = 0; i < files.length; i++) {
+        formData.append('media', files[i]);
+    }
+
+    const btn = document.querySelector('#botBroadcastModal button[onclick="publishBotBroadcast()"]');
+    if (btn) {
+        btn.innerText = "⏳ Відправка...";
+        btn.disabled = true;
+    }
+
+    try {
+        const res = await fetch('/api/admin/bot-broadcast', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(`✅ Розсилку відправлено! (${data.count} користувачам)`);
+            document.getElementById('broadcastText').value = '';
+            document.getElementById('broadcastFile').value = '';
+            import('./ui.js').then(m => m.updateFileName('broadcastFile', 'broadcastFileName'));
+            closeBotBroadcastModal();
+        } else {
+            showToast(data.message || "Помилка розсилки", 'error');
+            console.error("Broadcast error:", data.message);
+        }
+    } catch (e) {
+        showToast("Помилка мережі", 'error');
+        console.error("Broadcast network error:", e);
+    } finally {
+        if (btn) {
+            btn.innerText = "Відправити";
+            btn.disabled = false;
+        }
+    }
+}
+
 // --- GLOBAL ADMIN (STORES & SALARY) ---
 
 export function openAddStoreModal() {

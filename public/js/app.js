@@ -12,13 +12,12 @@ import {
     delS,
     submitTaskModal, toggleTaskTypeUI, addSubtaskToBuilder, removeSubtaskFromBuilder,
     toggleSubtask, forceRemindTask, openEditTaskModal,
-    deleteTask, toggleTaskTimeInputs, publishNews,
-    submitStoreModal, openEditStoreModal, loadStores, deleteStore,
+    deleteTask, toggleTaskTimeInputs,
     renderSalaryMatrix, saveSalaryMatrixBtn, 
     toggleTaskExecution,
-    openAddTaskModal, closeAddTaskModal,
-    openAddNewsModal, closeAddNewsModal,
-    openAddStoreModal, closeAddStoreModal
+    publishNews, openAddNewsModal, closeAddNewsModal,
+    openBotBroadcastModal, closeBotBroadcastModal, publishBotBroadcast,
+    submitStoreModal, loadStores, deleteStore, openAddStoreModal, openEditStoreModal, closeAddStoreModal,
 } from './modules/admin.js';
 import { loadRequests, handleRequest, approveAllRequests } from './modules/requests.js';
 import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
@@ -395,6 +394,9 @@ window.closeAddTaskModal = closeAddTaskModal;
 window.publishNews = publishNews;
 window.openAddNewsModal = openAddNewsModal;
 window.closeAddNewsModal = closeAddNewsModal;
+window.openBotBroadcastModal = openBotBroadcastModal;
+window.closeBotBroadcastModal = closeBotBroadcastModal;
+window.publishBotBroadcast = publishBotBroadcast;
 window.loadLogs = loadLogs;
 
 window.submitStoreModal = submitStoreModal;
