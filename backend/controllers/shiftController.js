@@ -138,7 +138,7 @@ exports.saveSchedule = async (req, res) => {
                         inline_keyboard: [
                             [
                                 { text: "✅ Підтвердити Всі", callback_data: "approve_all_requests" },
-                                // { text: "❌ Відхилити", callback_data: "reject_all_requests" } // Можна розкоментувати, якщо треба
+                                { text: "❌ Відхилити Всі", callback_data: "reject_all_requests" }
                             ]
                         ]
                     }

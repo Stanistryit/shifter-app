@@ -73,7 +73,12 @@ const handleCallback = async (bot, q) => {
         await handleApproveAll(bot, q, uid);
     }
 
-    // 5. Одиночне підтвердження
+    // 🔥 5. МАСОВЕ ВІДХИЛЕННЯ (SSE -> SM)
+    else if (data === 'reject_all_requests') {
+        await handleRejectAll(bot, q, uid);
+    }
+
+    // 6. Одиночне підтвердження/відхилення
     else if (data.startsWith('approve_') || data.startsWith('reject_')) {
         await handleApprovalLogic(bot, q, uid, data);
     }
@@ -139,6 +144,56 @@ const handleApproveAll = async (bot, q, uid) => {
     });
 
     bot.answerCallbackQuery(q.id, { text: `Опрацьовано ${count} запитів` });
+};
+
+// 🔥 ЛОГІКА МАСОВОГО ВІДХИЛЕННЯ
+const handleRejectAll = async (bot, q, uid) => {
+    const admin = await User.findOne({ telegramChatId: uid });
+    if (!admin || (admin.role !== 'SM' && admin.role !== 'admin')) {
+        return bot.answerCallbackQuery(q.id, { text: '⛔️ Тільки для SM', show_alert: true });
+    }
+
+    // Шукаємо запити для магазину цього SM
+    let query = {};
+    if (admin.role !== 'admin') {
+        query = { 'data.storeId': admin.storeId };
+    }
+
+    const requests = await Request.find(query);
+
+    if (requests.length === 0) {
+        return bot.editMessageText(`⚠️ Актуальних запитів немає (вже оброблено).`, {
+            chat_id: q.message.chat.id,
+            message_id: q.message.message_id
+        });
+    }
+
+    const count = requests.length;
+    const creators = new Set();
+
+    for (const req of requests) {
+        if (req.createdBy) creators.add(req.createdBy);
+        await Request.findByIdAndDelete(req._id);
+    }
+
+    // Сповіщаємо SSE-авторів про відхилення
+    creators.forEach(name => {
+        notifyUser(name, `❌ <b>Зміни відхилено!</b>\nSM <b>${admin.name}</b> відхилив ваші зміни в графіку (${count} шт.).\n\n🔄 Зверніться до SM для уточнень.`);
+    });
+
+    await AuditLog.create({
+        performer: admin.name,
+        action: 'reject_all_requests',
+        details: `Rejected ${count} shift requests via Bot`
+    });
+
+    bot.editMessageText(`❌ <b>Всі зміни відхилено</b> (${count} шт.)\n\n👮‍♂️ SM: ${admin.name}`, {
+        chat_id: q.message.chat.id,
+        message_id: q.message.message_id,
+        parse_mode: 'HTML'
+    });
+
+    bot.answerCallbackQuery(q.id, { text: `Відхилено ${count} запитів` });
 };
 
 const handleTransferLogic = async (bot, q, uid, data) => {
