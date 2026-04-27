@@ -17,8 +17,30 @@ exports.exportCalendar = async (req, res) => {
             'CALSCALE:GREGORIAN',
             'METHOD:PUBLISH',
             'X-WR-CALNAME:Shifter — ' + user.name,
+            'X-WR-TIMEZONE:Europe/Kyiv',
             'X-WR-CALDESC:Графік роботи в Shifter'
         ];
+
+        // Обов'язковий блок VTIMEZONE для Google Calendar
+        icsLines.push(
+            'BEGIN:VTIMEZONE',
+            'TZID:Europe/Kyiv',
+            'BEGIN:STANDARD',
+            'DTSTART:19701025T040000',
+            'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+            'TZOFFSETFROM:+0300',
+            'TZOFFSETTO:+0200',
+            'TZNAME:EET',
+            'END:STANDARD',
+            'BEGIN:DAYLIGHT',
+            'DTSTART:19700329T030000',
+            'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
+            'TZOFFSETFROM:+0200',
+            'TZOFFSETTO:+0300',
+            'TZNAME:EEST',
+            'END:DAYLIGHT',
+            'END:VTIMEZONE'
+        );
 
         const nowUtc = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
@@ -67,8 +89,8 @@ exports.exportCalendar = async (req, res) => {
                 'BEGIN:VEVENT',
                 `UID:${uid}`,
                 `DTSTAMP:${nowUtc}`,
-                `DTSTART:${dtStart}`, // Floating time (місцевий час без прив'язки до часового поясу)
-                `DTEND:${dtEnd}`,
+                `DTSTART;TZID=Europe/Kyiv:${dtStart}`, // Явно вказуємо часовий пояс
+                `DTEND;TZID=Europe/Kyiv:${dtEnd}`,
                 `SUMMARY:Зміна — Shifter`,
                 `DESCRIPTION:Робоча зміна`,
                 'END:VEVENT'
