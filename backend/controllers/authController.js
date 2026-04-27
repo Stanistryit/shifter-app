@@ -418,3 +418,21 @@ exports.getTelegramLink = async (req, res) => {
         res.status(500).json({ success: false, message: e.message });
     }
 };
+
+exports.getCalendarToken = async (req, res) => {
+    if (!req.session.userId) return res.status(403).json({});
+    try {
+        const user = await User.findById(req.session.userId);
+        if (!user) return res.json({ success: false, message: "User not found" });
+
+        if (!user.calendarToken) {
+            const crypto = require('crypto');
+            user.calendarToken = crypto.randomBytes(16).toString('hex');
+            await user.save();
+        }
+
+        res.json({ success: true, token: user.calendarToken });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+};

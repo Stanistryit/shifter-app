@@ -55,7 +55,10 @@ const userSchema = new mongoose.Schema({
 
     // Для Web Push Сповіщень
     pushSubscriptions: { type: [Object], default: [] },
-    notificationPreference: { type: String, enum: ['telegram', 'push', 'both'], default: 'telegram' }
+    notificationPreference: { type: String, enum: ['telegram', 'push', 'both'], default: 'telegram' },
+
+    // Для експорту розкладу
+    calendarToken: { type: String, default: null, unique: true, sparse: true }
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword) {

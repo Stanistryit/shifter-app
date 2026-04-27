@@ -28,6 +28,7 @@ router.post('/user/notification-pref', catchAsync(authController.updateNotificat
 router.post('/login-telegram', catchAsync(authController.telegramLogin));
 router.post('/logout', catchAsync(authController.logout));
 router.get('/telegram-link', catchAsync(authController.getTelegramLink));
+router.get('/user/calendar-token', catchAsync(authController.getCalendarToken));
 router.get('/users', catchAsync(authController.getUsers));
 router.get('/me', catchAsync(authController.getMe));
 router.post('/user/avatar', catchAsync(authController.uploadAvatar));

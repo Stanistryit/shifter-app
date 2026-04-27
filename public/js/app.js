@@ -311,6 +311,26 @@ window.connectTelegram = async () => {
     }
 };
 
+window.copyCalendarLink = async () => {
+    triggerHaptic();
+    try {
+        const data = await fetchJson('/api/user/calendar-token');
+        if (data.success && data.token) {
+            const link = `${window.location.origin}/export/calendar/${data.token}`;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(link);
+                showToast('✅ Посилання скопійовано! Вставте його у ваш календар', 'success', 4000);
+            } else {
+                prompt('Ваш браузер не підтримує автоматичне копіювання. Скопіюйте посилання вручну:', link);
+            }
+        } else {
+            showToast('Помилка генерації посилання', 'error');
+        }
+    } catch (e) {
+        showToast('Помилка з\'єднання', 'error');
+    }
+};
+
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');

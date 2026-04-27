@@ -36,6 +36,10 @@ app.use(session({
 // Routes API
 app.use('/api', routes);
 
+// Публічний маршрут для експорту календаря (без авторизації)
+const exportController = require('./backend/controllers/exportController');
+app.get('/export/calendar/:token', exportController.exportCalendar);
+
 // Webhook для Telegram
 app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => {
     const bot = getBot();
