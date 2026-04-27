@@ -312,31 +312,64 @@ window.connectTelegram = async () => {
 };
 
 window.copyCalendarLink = async () => {
-    triggerHaptic();
     try {
+        if (window.triggerHaptic) triggerHaptic();
         const data = await fetchJson('/api/user/calendar-token');
-        if (data.success && data.token) {
+        if (data && data.success && data.token) {
             const link = `${window.location.origin}/export/calendar/${data.token}`;
             let copied = false;
             
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                try {
+            // Спроба 1: Сучасний API
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
                     await navigator.clipboard.writeText(link);
                     copied = true;
-                    showToast('✅ Посилання скопійовано! Вставте його у ваш календар', 'success', 4000);
-                } catch (clipErr) {
-                    console.log('Clipboard block (iOS/Safari)', clipErr);
+                }
+            } catch (err) {
+                console.log('Modern clipboard failed', err);
+            }
+            
+            // Спроба 2: Старий надійний спосіб (для iOS/Telegram WebApp)
+            if (!copied) {
+                try {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = link;
+                    textArea.style.position = "fixed";
+                    textArea.style.top = "0";
+                    textArea.style.left = "0";
+                    textArea.style.opacity = "0";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    copied = document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                } catch (err) {
+                    console.log('Legacy clipboard failed', err);
                 }
             }
             
-            if (!copied) {
-                prompt('Ваш пристрій блокує автокопіювання. Скопіюйте посилання вручну:', link);
+            // Якщо все вдалося
+            if (copied) {
+                showToast('✅ Посилання скопійовано!', 'success', 3000);
+            } else {
+                // Спроба 3: Нативний prompt (може крашитись в WebApp, тому в try/catch)
+                try {
+                    prompt('Ваш пристрій блокує копіювання. Скопіюйте вручну:', link);
+                } catch (err) {
+                    // Останній шанс — показати посилання текстом
+                    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.showAlert) {
+                        window.Telegram.WebApp.showAlert("Посилання:\n\n" + link);
+                    } else {
+                        showToast('Не вдалося скопіювати', 'error');
+                    }
+                }
             }
         } else {
-            showToast('Помилка генерації посилання', 'error');
+            showToast('Помилка генерації', 'error');
         }
     } catch (e) {
-        showToast('Помилка з\'єднання', 'error');
+        console.error(e);
+        showToast('Помилка з\'єднання. Спробуйте ще раз.', 'error');
     }
 };
 
