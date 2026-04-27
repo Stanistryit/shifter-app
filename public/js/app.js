@@ -317,11 +317,20 @@ window.copyCalendarLink = async () => {
         const data = await fetchJson('/api/user/calendar-token');
         if (data.success && data.token) {
             const link = `${window.location.origin}/export/calendar/${data.token}`;
+            let copied = false;
+            
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(link);
-                showToast('✅ Посилання скопійовано! Вставте його у ваш календар', 'success', 4000);
-            } else {
-                prompt('Ваш браузер не підтримує автоматичне копіювання. Скопіюйте посилання вручну:', link);
+                try {
+                    await navigator.clipboard.writeText(link);
+                    copied = true;
+                    showToast('✅ Посилання скопійовано! Вставте його у ваш календар', 'success', 4000);
+                } catch (clipErr) {
+                    console.log('Clipboard block (iOS/Safari)', clipErr);
+                }
+            }
+            
+            if (!copied) {
+                prompt('Ваш пристрій блокує автокопіювання. Скопіюйте посилання вручну:', link);
             }
         } else {
             showToast('Помилка генерації посилання', 'error');
