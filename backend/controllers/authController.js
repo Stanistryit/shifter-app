@@ -125,7 +125,8 @@ exports.login = async (req, res) => {
                     openTime: user.storeId.openTime,
                     closeTime: user.storeId.closeTime,
                     reportTime: user.storeId.telegram?.reportTime,
-                    kpi_enabled: user.storeId.kpi_enabled !== false
+                    kpi_enabled: user.storeId.kpi_enabled !== false,
+                    salary_enabled: user.storeId.salary_enabled !== false
                 } : null,
                 hasTelegram: !!user.telegramChatId
             }
@@ -242,7 +243,8 @@ exports.telegramLogin = async (req, res) => {
                     openTime: user.storeId.openTime,
                     closeTime: user.storeId.closeTime,
                     reportTime: user.storeId.telegram?.reportTime,
-                    kpi_enabled: user.storeId.kpi_enabled !== false
+                    kpi_enabled: user.storeId.kpi_enabled !== false,
+                    salary_enabled: user.storeId.salary_enabled !== false
                 } : null,
                 notificationPreference: user.notificationPreference || 'telegram',
                 hasTelegram: !!user.telegramChatId
@@ -289,7 +291,8 @@ exports.getMe = async (req, res) => {
                 openTime: user.storeId.openTime,
                 closeTime: user.storeId.closeTime,
                 reportTime: user.storeId.telegram?.reportTime,
-                kpi_enabled: user.storeId.kpi_enabled !== false // Default to true if undefined
+                kpi_enabled: user.storeId.kpi_enabled !== false, // Default to true if undefined
+                salary_enabled: user.storeId.salary_enabled !== false
             } : null,
             notificationPreference: user.notificationPreference || 'telegram',
             hasTelegram: !!user.telegramChatId
