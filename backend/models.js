@@ -21,6 +21,7 @@ const storeSchema = new mongoose.Schema({
     },
     // Доступ до вкладки KPI (глобально для магазину)
     kpi_enabled: { type: Boolean, default: true },
+    salary_enabled: { type: Boolean, default: true },
     createdAt: { type: Date, default: Date.now }
 });
 

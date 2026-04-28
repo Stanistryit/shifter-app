@@ -435,16 +435,20 @@ export function openAddStoreModal() {
     document.getElementById('addStoreModalTitle').innerText = '🏪 Додати магазин';
     document.getElementById('newStoreName').value = '';
     document.getElementById('newStoreCode').value = '';
+    document.getElementById('newStoreKpiEnabled').checked = true;
+    document.getElementById('newStoreSalaryEnabled').checked = true;
     document.getElementById('addStoreModal').classList.remove('hidden');
 }
 
-export function openEditStoreModal(id, name, code, type) {
+export function openEditStoreModal(id, name, code, type, kpiEnabled, salaryEnabled) {
     triggerHaptic();
     document.getElementById('editStoreId').value = id;
     document.getElementById('addStoreModalTitle').innerText = '✏️ Редагувати магазин';
     document.getElementById('newStoreName').value = name;
     document.getElementById('newStoreCode').value = code;
     document.getElementById('newStoreType').value = type;
+    document.getElementById('newStoreKpiEnabled').checked = kpiEnabled !== false;
+    document.getElementById('newStoreSalaryEnabled').checked = salaryEnabled !== false;
     document.getElementById('addStoreModal').classList.remove('hidden');
 }
 
@@ -458,14 +462,16 @@ export async function submitStoreModal() {
     const name = document.getElementById('newStoreName').value.trim();
     const code = document.getElementById('newStoreCode').value.trim();
     const type = document.getElementById('newStoreType').value;
+    const kpi_enabled = document.getElementById('newStoreKpiEnabled').checked;
+    const salary_enabled = document.getElementById('newStoreSalaryEnabled').checked;
 
     if (!name || !code) return showToast("Заповніть назву та код", 'error');
 
     let res;
     if (id) {
-        res = await postJson('/api/admin/stores/edit', { id, name, code, type });
+        res = await postJson('/api/admin/stores/edit', { id, name, code, type, kpi_enabled, salary_enabled });
     } else {
-        res = await postJson('/api/admin/stores/create', { name, code, type });
+        res = await postJson('/api/admin/stores/create', { name, code, type, kpi_enabled, salary_enabled });
     }
 
     if (res.success) {
@@ -509,7 +515,7 @@ export async function loadStores() {
                 </div>
             `;
             const editBtn = item.querySelector('.edit-store-btn');
-            editBtn.onclick = () => window.openEditStoreModal(s._id, s.name, s.code, s.type);
+            editBtn.onclick = () => window.openEditStoreModal(s._id, s.name, s.code, s.type, s.kpi_enabled, s.salary_enabled);
             list.appendChild(item);
         });
     } catch (e) {

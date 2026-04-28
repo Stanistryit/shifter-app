@@ -316,40 +316,51 @@ export function updateDashboard() {
     // =========================================================
     // 3. СЛАЙД 4 (ОРІЄНТОВНИЙ ДОХІД)
     // =========================================================
-    const dashMoneyText = document.getElementById('dashMoneyText');
-    const dashMoneySub = document.getElementById('dashMoneySub');
+    const slideMoney = document.getElementById('slideMoney');
+    const dot4 = document.getElementById('dot4');
+    
+    if (state.currentUser?.store?.salary_enabled !== false) {
+        if (slideMoney) slideMoney.classList.remove('hidden');
+        if (dot4) dot4.classList.remove('hidden');
 
-    // Завантаження ЗП як і раніше
-    const targetMonth = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
+        const dashMoneyText = document.getElementById('dashMoneyText');
+        const dashMoneySub = document.getElementById('dashMoneySub');
 
-    if (dashMoneyText && dashMoneySub) {
-        if (state.paySlip && state.paySlip.month === targetMonth) {
-            if (state.paySlip.baseRate > 0) {
-                dashMoneyText.innerText = `${state.paySlip.totalSalary.toLocaleString()} ₴`;
-                dashMoneySub.innerText = `≈ ${state.paySlip.hourlyRate} ₴/год`;
+        // Завантаження ЗП як і раніше
+        const targetMonth = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
+
+        if (dashMoneyText && dashMoneySub) {
+            if (state.paySlip && state.paySlip.month === targetMonth) {
+                if (state.paySlip.baseRate > 0) {
+                    dashMoneyText.innerText = `${state.paySlip.totalSalary.toLocaleString()} ₴`;
+                    dashMoneySub.innerText = `≈ ${state.paySlip.hourlyRate} ₴/год`;
+                } else {
+                    dashMoneyText.innerText = `0 ₴`;
+                    dashMoneySub.innerText = `ставку не налаштовано (зверніться до адміна)`;
+                }
             } else {
-                dashMoneyText.innerText = `0 ₴`;
-                dashMoneySub.innerText = `ставку не налаштовано (зверніться до адміна)`;
-            }
-        } else {
-            dashMoneyText.innerText = `...`;
-            dashMoneySub.innerText = `рахуємо...`;
+                dashMoneyText.innerText = `...`;
+                dashMoneySub.innerText = `рахуємо...`;
 
-            if (!isFetchingSalary) {
-                isFetchingSalary = true;
-                fetchJson(`/api/salary?month=${targetMonth}`).then(res => {
-                    isFetchingSalary = false;
-                    if (res.success) {
-                        state.paySlip = res.data;
-                    } else {
-                        state.paySlip = { month: targetMonth, baseRate: 0, totalSalary: 0, hourlyRate: 0 };
-                    }
-                    updateDashboard(); // ререндер щоб показало ЗП
-                }).catch(() => {
-                    isFetchingSalary = false;
-                });
+                if (!isFetchingSalary) {
+                    isFetchingSalary = true;
+                    fetchJson(`/api/salary?month=${targetMonth}`).then(res => {
+                        isFetchingSalary = false;
+                        if (res.success) {
+                            state.paySlip = res.data;
+                        } else {
+                            state.paySlip = { month: targetMonth, baseRate: 0, totalSalary: 0, hourlyRate: 0 };
+                        }
+                        updateDashboard(); // ререндер щоб показало ЗП
+                    }).catch(() => {
+                        isFetchingSalary = false;
+                    });
+                }
             }
         }
+    } else {
+        if (slideMoney) slideMoney.classList.add('hidden');
+        if (dot4) dot4.classList.add('hidden');
     }
 
     // =========================================================

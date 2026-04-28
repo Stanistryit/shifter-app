@@ -9,13 +9,17 @@ exports.createStore = async (req, res) => {
     if (u?.role !== 'admin') return res.status(403).json({ success: false, message: "Тільки для Global Admin" });
 
     try {
-        const { name, code, type } = req.body;
+        const { name, code, type, kpi_enabled, salary_enabled } = req.body;
         if (!name || !code || !type) return res.json({ success: false, message: "Заповніть всі поля" });
 
         const existing = await Store.findOne({ code });
         if (existing) return res.json({ success: false, message: "Код магазину вже зайнятий" });
 
-        await Store.create({ name, code, type });
+        const storeData = { name, code, type };
+        if (kpi_enabled !== undefined) storeData.kpi_enabled = kpi_enabled;
+        if (salary_enabled !== undefined) storeData.salary_enabled = salary_enabled;
+
+        await Store.create(storeData);
         logAction(u.name, 'create_store', `Created ${name} (${code})`);
         res.json({ success: true });
     } catch (e) {
@@ -28,13 +32,17 @@ exports.editStore = async (req, res) => {
     if (u?.role !== 'admin') return res.status(403).json({ success: false, message: "Тільки для Global Admin" });
 
     try {
-        const { id, name, code, type } = req.body;
+        const { id, name, code, type, kpi_enabled, salary_enabled } = req.body;
         if (!id || !name || !code || !type) return res.json({ success: false, message: "Заповніть всі поля" });
 
         const existing = await Store.findOne({ code, _id: { $ne: id } });
         if (existing) return res.json({ success: false, message: "Код магазину вже зайнятий іншим магазином" });
 
-        await Store.findByIdAndUpdate(id, { name, code, type });
+        const updateData = { name, code, type };
+        if (kpi_enabled !== undefined) updateData.kpi_enabled = kpi_enabled;
+        if (salary_enabled !== undefined) updateData.salary_enabled = salary_enabled;
+
+        await Store.findByIdAndUpdate(id, updateData);
         logAction(u.name, 'edit_store', `Edited ${name} (${code})`);
         res.json({ success: true });
     } catch (e) {
@@ -70,7 +78,7 @@ exports.updateStoreSettings = async (req, res) => {
     }
 
     try {
-        const { reportTime, openTime, closeTime, lunch_duration_minutes, kpi_enabled } = req.body;
+        const { reportTime, openTime, closeTime, lunch_duration_minutes } = req.body;
         const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
         if (reportTime && !timeRegex.test(reportTime)) {
@@ -93,11 +101,10 @@ exports.updateStoreSettings = async (req, res) => {
                 store.lunch_duration_minutes = parsedLunch;
             }
         }
-        if (kpi_enabled !== undefined) store.kpi_enabled = kpi_enabled;
 
         await store.save();
 
-        logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}, Lunch=${store.lunch_duration_minutes}, KPI=${store.kpi_enabled}`);
+        logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}, Lunch=${store.lunch_duration_minutes}`);
         res.json({ success: true });
 
     } catch (e) {

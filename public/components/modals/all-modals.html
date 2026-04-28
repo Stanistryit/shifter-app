@@ -379,6 +379,20 @@
                 <option value="expansion">Експансія</option>
                 <option value="standard">Стандарт</option>
             </select>
+            <div class="flex items-center justify-between px-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <span class="text-xs font-bold text-gray-800 dark:text-gray-200">Вкладка KPI</span>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                    <input type="checkbox" id="newStoreKpiEnabled" class="sr-only peer" checked>
+                    <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                </label>
+            </div>
+            <div class="flex items-center justify-between px-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <span class="text-xs font-bold text-gray-800 dark:text-gray-200">Вкладка Зарплата</span>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                    <input type="checkbox" id="newStoreSalaryEnabled" class="sr-only peer" checked>
+                    <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                </label>
+            </div>
             <button onclick="submitStoreModal()" class="btn-primary bg-blue-600 shadow-blue-600/30 mt-2">Зберегти</button>
         </div>
     </div>
