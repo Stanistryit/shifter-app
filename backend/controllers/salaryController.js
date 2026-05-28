@@ -2,7 +2,7 @@ const { User, Shift, SalaryMatrix, MonthSettings } = require('../models');
 
 // Допоміжна функція для підрахунку тривалості зміни в годинах (напр. з 10:00 до 22:00 = 12)
 const calculateDuration = (start, end, lunchMinutes = 0) => {
-    if (!start || !end || start === 'Відпустка' || start === 'Лікарняний' || start === 'DELETE') return 0;
+    if (!start || !end || start === 'Відпустка' || start === 'Лікарняний' || start === 'Донорство' || start === 'DELETE') return 0;
 
     const [startH, startM] = start.split(':').map(Number);
     const [endH, endM] = end.split(':').map(Number);
@@ -52,13 +52,18 @@ exports.getUserSalary = async (req, res) => {
         const storeLunchMinutes = user.storeId.lunch_duration_minutes || 0;
 
         let workedHours = 0;
+        let donorHours = 0;
         shifts.forEach(s => {
-            workedHours += calculateDuration(s.start, s.end, storeLunchMinutes);
+            if (s.start === 'Донорство') {
+                donorHours += 8;
+            } else {
+                workedHours += calculateDuration(s.start, s.end, storeLunchMinutes);
+            }
         });
 
         // 4. Фінансова математика
         const hourlyRate = (baseRate > 0 && normHours > 0) ? (baseRate / normHours) : 0;
-        const baseSalary = hourlyRate * workedHours;
+        const baseSalary = hourlyRate * (workedHours + donorHours);
 
         // 5. Формуємо розрахунковий лист (PaySlip)
         // Тут є масив bonuses, куди ми пізніше додамо логіку премій
@@ -69,6 +74,7 @@ exports.getUserSalary = async (req, res) => {
             storeType,
             normHours,
             workedHours: parseFloat(workedHours.toFixed(2)),
+            donorHours,
             baseRate,
             hourlyRate: parseFloat(hourlyRate.toFixed(2)),
             baseSalary: Math.round(baseSalary),

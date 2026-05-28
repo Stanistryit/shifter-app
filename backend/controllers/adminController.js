@@ -488,6 +488,7 @@ exports.exportSchedulePdf = async (req, res) => {
         const namesSet = new Set();
         const matrix = {};
         const totals = {}; // Зберігатиме суму годин: totals[name] = number
+        const donorTotals = {};
 
         shifts.forEach(s => {
             dateSet.add(s.date);
@@ -496,6 +497,7 @@ exports.exportSchedulePdf = async (req, res) => {
             if (!matrix[s.name]) {
                 matrix[s.name] = {};
                 totals[s.name] = 0;
+                donorTotals[s.name] = 0;
             }
 
             if (s.end) {
@@ -525,6 +527,9 @@ exports.exportSchedulePdf = async (req, res) => {
 
             } else {
                 matrix[s.name][s.date] = s.start;
+                if (s.start === 'Донорство') {
+                    donorTotals[s.name] += 8;
+                }
             }
         });
 
@@ -533,7 +538,9 @@ exports.exportSchedulePdf = async (req, res) => {
 
         // Округлення годин
         Object.keys(totals).forEach(name => {
-            totals[name] = parseFloat(totals[name].toFixed(1));
+            let totalHours = parseFloat(totals[name].toFixed(1));
+            let donorHours = donorTotals[name];
+            totals[name] = donorHours > 0 ? `${totalHours} +${donorHours}` : totalHours;
         });
 
         // Генеруємо PDF через сервіс (додаємо параметр totals)

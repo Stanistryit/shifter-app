@@ -130,6 +130,7 @@ function renderToolbar() {
     const isEraser = state.activeTool && state.activeTool.type === 'eraser';
     const isVacation = state.activeTool && state.activeTool.type === 'vacation';
     const isSick = state.activeTool && state.activeTool.type === 'sick';
+    const isDonor = state.activeTool && state.activeTool.type === 'donor';
 
     if (isDesktop) {
         // --- Рендеримо бічну панель ПК ---
@@ -199,6 +200,10 @@ function renderToolbar() {
                         class="flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs font-bold transition-all active:scale-95 ${isSick ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300'}">
                         <span>💊 Лікарняний</span>
                     </button>
+                    <button onclick="window.editorSelectTool('donor')" 
+                        class="flex flex-col items-center justify-center py-2 px-1 col-span-2 sm:col-span-1 rounded-lg text-xs font-bold transition-all active:scale-95 ${isDonor ? 'bg-indigo-500 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-300'}">
+                        <span>🩸 Донорство</span>
+                    </button>
                 </div>
             </div>
         `;
@@ -261,6 +266,10 @@ function renderToolbar() {
             <button onclick="window.editorSelectTool('sick')" 
                 class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isSick ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300'}">
                 <span>💊 Лік.</span>
+            </button>
+            <button onclick="window.editorSelectTool('donor')" 
+                class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isDonor ? 'bg-indigo-500 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-300'}">
+                <span>🩸 Донор.</span>
             </button>
             <button onclick="window.editorSelectTool('eraser')" 
                 class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 ${isEraser ? 'bg-gray-500 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}">
@@ -408,6 +417,8 @@ export function editorSelectTool(type, index) {
         state.activeTool = { type: 'vacation', start: 'Відпустка', end: 'Відпустка' };
     } else if (type === 'sick') {
         state.activeTool = { type: 'sick', start: 'Лікарняний', end: 'Лікарняний' };
+    } else if (type === 'donor') {
+        state.activeTool = { type: 'donor', start: 'Донорство', end: 'Донорство' };
     } else if (type === 'eraser') {
         state.activeTool = { type: 'eraser', start: 'DELETE', end: 'DELETE' };
     }

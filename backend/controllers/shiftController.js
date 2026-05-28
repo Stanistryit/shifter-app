@@ -119,7 +119,7 @@ exports.saveSchedule = async (req, res) => {
                         createdBy: u.name
                     });
                     reqCount++;
-                    const shiftType = (item.start === 'Лікарняний' || item.start === 'Відпустка') ? item.start : `${item.start}-${item.end}`;
+                    const shiftType = (item.start === 'Лікарняний' || item.start === 'Відпустка' || item.start === 'Донорство') ? item.start : `${item.start}-${item.end}`;
                     changesText.push(`➕ ${item.name} (${item.date}) ${shiftType}`);
                 }
             }

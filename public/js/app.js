@@ -1157,6 +1157,21 @@ function initContextMenuListeners() {
         };
     }
 
+    const btnDonor = document.getElementById('ctxDonor');
+    if (btnDonor) {
+        btnDonor.onclick = async () => {
+            document.getElementById('contextMenu').classList.add('hidden');
+            if (activeContext.type === 'shift' || activeContext.type === 'empty_shift') {
+                const s = activeContext.type === 'shift'
+                    ? state.shifts.find(x => x._id === activeContext.id)
+                    : { date: activeContext.id.split('|')[0], name: activeContext.id.split('|')[1] };
+                if (s && confirm(`Встановити статус донорства для ${s.name} на ${s.date}?`)) {
+                    await sendQuickShiftUpdate(s, 'Донорство', '00:00', '00:00');
+                }
+            }
+        };
+    }
+
     const btnAddTask = document.getElementById('ctxAddTask');
     if (btnAddTask) {
         btnAddTask.onclick = () => {

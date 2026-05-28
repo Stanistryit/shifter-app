@@ -128,7 +128,7 @@ const initScheduler = async (tgConfig) => {
         // Shift Reminders
         const shifts = await Shift.find({ date: { $in: [currentUADay, tomorrowStr] } });
         for (const s of shifts) {
-            if (s.start === 'Відпустка') continue;
+            if (s.start === 'Відпустка' || s.start === 'Лікарняний' || s.start === 'Донорство') continue;
             const user = await User.findOne({ name: s.name });
             if (!user || !user.reminderTime || user.reminderTime === 'none') continue;
 
@@ -271,24 +271,31 @@ async function sendDailyReports(stores) {
 
         const workingShifts = [];
         const vacationShifts = [];
+        const donorShifts = [];
         const scheduledNames = [];
 
         shifts.forEach(s => {
             scheduledNames.push(s.name);
             if (s.start === 'Відпустка') vacationShifts.push(s);
+            else if (s.start === 'Донорство') donorShifts.push(s);
             else workingShifts.push(s);
         });
 
         if (workingShifts.length > 0) {
             msg += `👷‍♂️ <b>На зміні:</b>\n`;
             workingShifts.forEach(s => msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`);
-        } else if (vacationShifts.length === 0) {
+        } else if (vacationShifts.length === 0 && donorShifts.length === 0) {
             msg += `🤷‍♂️ <b>Змін немає</b>\n`;
         }
 
         if (vacationShifts.length > 0) {
             msg += `\n🌴 <b>Відпустка:</b>\n`;
             vacationShifts.forEach(s => msg += `🔸 <b>${s.name}</b>\n`);
+        }
+
+        if (donorShifts.length > 0) {
+            msg += `\n🩸 <b>Донорство:</b>\n`;
+            donorShifts.forEach(s => msg += `🔸 <b>${s.name}</b>\n`);
         }
 
         if (tasks.length) {

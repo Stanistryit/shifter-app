@@ -43,7 +43,7 @@ function initIosTableScroll() {
 
 // Допоміжна функція: переведення часу "10:30" -> 10.5
 function timeToDec(t) {
-    if (!t || t === 'Відпустка' || t === 'Лікарняний' || t === 'DELETE') return 0;
+    if (!t || t === 'Відпустка' || t === 'Лікарняний' || t === 'Донорство' || t === 'DELETE') return 0;
     const [h, m] = t.split(':').map(Number);
     return h + (m / 60);
 }
@@ -176,7 +176,7 @@ export function renderTable() {
     for (let d = 1; d <= daysInMonth; d++) {
         const dStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
-        const dayShifts = state.shifts.filter(s => s.date === dStr && s.start !== 'Відпустка' && s.start !== 'Лікарняний');
+        const dayShifts = state.shifts.filter(s => s.date === dStr && s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство');
         const dayDrafts = state.pendingChanges ? Object.values(state.pendingChanges).filter(p => p.date === dStr) : [];
 
         const finalShifts = [];
@@ -184,7 +184,7 @@ export function renderTable() {
 
         dayDrafts.forEach(draft => {
             processedUsers.add(draft.name);
-            if (draft.start !== 'DELETE' && draft.start !== 'Відпустка' && draft.start !== 'Лікарняний') {
+            if (draft.start !== 'DELETE' && draft.start !== 'Відпустка' && draft.start !== 'Лікарняний' && draft.start !== 'Донорство') {
                 finalShifts.push(draft);
             }
         });
@@ -233,7 +233,7 @@ export function renderTable() {
             }
 
             // Людина вважається "відкриваючою", якщо прийшла до або рівно в час відкриття
-            if (s.start !== 'Відпустка' && s.start !== 'Лікарняний') {
+            if (s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство') {
                 // Допуск 15 хвилин для закриття та відкриття:
                 // Якщо прийшов трошки пізніше відкриття (наприклад відкриття 10:00, прийшов о 10:00 - рахується)
                 if (startD <= openTimeDec) openers++;
@@ -292,6 +292,7 @@ export function renderTable() {
         html += `<td ${editAction} class="sticky left-0 z-30 ${meStyleSticky} ${editClasses} px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[120px] shadow-sm">${shortName}${editIcon}</td>`;
 
         let totalHours = 0;
+        let donorDays = 0;
 
         for (let d = 1; d <= daysInMonth; d++) {
             const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -304,9 +305,11 @@ export function renderTable() {
 
             let sStart, sEnd;
             if (draft) {
-                if (draft.start !== 'DELETE' && draft.start !== 'Відпустка' && draft.start !== 'Лікарняний') { sStart = draft.start; sEnd = draft.end; }
+                if (draft.start !== 'DELETE' && draft.start !== 'Відпустка' && draft.start !== 'Лікарняний' && draft.start !== 'Донорство') { sStart = draft.start; sEnd = draft.end; }
+                if (draft.start === 'Донорство') donorDays++;
             } else if (shift) {
-                if (shift.start !== 'Відпустка' && shift.start !== 'Лікарняний') { sStart = shift.start; sEnd = shift.end; }
+                if (shift.start !== 'Відпустка' && shift.start !== 'Лікарняний' && shift.start !== 'Донорство') { sStart = shift.start; sEnd = shift.end; }
+                if (shift.start === 'Донорство') donorDays++;
             }
 
             let duration = 0;
@@ -350,6 +353,8 @@ export function renderTable() {
                     content = '<span class="text-lg">🌴</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>';
                 } else if (draft.start === 'Лікарняний') {
                     content = '<span class="text-lg">💊</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>';
+                } else if (draft.start === 'Донорство') {
+                    content = '<span class="text-lg">🩸</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div>';
                 } else {
                     // Draft + Badge
                     content = `<div class="relative text-[10px] font-mono leading-tight bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 border border-yellow-300 dark:border-yellow-600 shadow-sm transform scale-105">
@@ -362,6 +367,8 @@ export function renderTable() {
                     content = '<span class="text-lg">🌴</span>';
                 } else if (shift.start === 'Лікарняний') {
                     content = '<span class="text-lg">💊</span>';
+                } else if (shift.start === 'Донорство') {
+                    content = '<span class="text-lg">🩸</span>';
                 } else {
                     const opacity = isPast ? 'opacity-50 grayscale' : '';
                     const colorClass = getShiftColor(shift.start, shift.end, closeTime);
@@ -376,17 +383,21 @@ export function renderTable() {
             html += `<td ${dataAttrs} class="shift-cell text-center p-0.5 border-r border-gray-100 dark:border-gray-800 ${cellClass} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">${content}</td>`;
         }
 
-        let hoursHtml = `<div class="font-bold">${totalHours}</div>`;
+        let donorHours = donorDays * 8;
+        let hoursHtml = `<div class="font-bold">${totalHours}${donorHours > 0 ? ` <span class="text-indigo-500 text-[10px]">+${donorHours}</span>` : ''}</div>`;
+        
         if (monthNorm > 0) {
             const diff = parseFloat((totalHours - monthNorm).toFixed(1));
             let diffClass = diff >= 0 ? "text-green-500" : "text-red-500";
             let diffSign = diff > 0 ? "+" : "";
             hoursHtml = `
                 <div class="flex flex-col leading-none">
-                    <span class="font-bold text-[11px]">${totalHours} <span class="text-gray-400 font-normal">/ ${monthNorm}</span></span>
+                    <span class="font-bold text-[11px]">${totalHours}${donorHours > 0 ? ` <span class="text-indigo-500">+${donorHours}</span>` : ''} <span class="text-gray-400 font-normal">/ ${monthNorm}</span></span>
                     <span class="text-[9px] ${diffClass} font-bold">${diffSign}${diff}</span>
                 </div>
             `;
+        } else if (donorHours > 0) {
+            hoursHtml = `<div class="font-bold text-gray-500">${totalHours} <span class="text-indigo-500 text-[10px]">+${donorHours}</span></div>`;
         } else {
             hoursHtml = `<div class="font-bold text-gray-500">${totalHours}</div>`;
         }
