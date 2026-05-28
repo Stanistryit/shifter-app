@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shifter-pwa-cache-v4';
+const CACHE_NAME = 'shifter-pwa-cache-v5';
 const urlsToCache = [
     '/',
     '/index.html',
