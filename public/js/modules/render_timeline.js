@@ -52,7 +52,7 @@ export function renderTimeline() {
     const userHours = {};
     usersToShow.forEach(u => {
         let h = 0;
-        state.shifts.filter(s => s.name === u.name && s.date.startsWith(viewMonthStr) && s.start !== 'Відпустка').forEach(s => {
+        state.shifts.filter(s => s.name === u.name && s.date.startsWith(viewMonthStr) && s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство').forEach(s => {
             const [h1, m1] = s.start.split(':').map(Number);
             const [h2, m2] = s.end.split(':').map(Number);
             h += (h2 + m2 / 60) - (h1 + m1 / 60);
@@ -75,7 +75,7 @@ export function renderTimeline() {
                 if (t.end) { const parts = t.end.split(':'); const hEnd = parseInt(parts[0]) + (parseInt(parts[1]) > 0 ? 1 : 0); if (hEnd > dayEnd) dayEnd = hEnd; }
             }
         });
-        state.shifts.filter(s => s.date === dateStr && s.start !== 'Відпустка').forEach(s => {
+        state.shifts.filter(s => s.date === dateStr && s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство').forEach(s => {
             const h = parseInt(s.start.split(':')[0]); if (h < dayStart) dayStart = h;
             const parts = s.end.split(':'); const hEnd = parseInt(parts[0]) + (parseInt(parts[1]) > 0 ? 1 : 0); if (hEnd > dayEnd) dayEnd = hEnd;
         });
@@ -145,7 +145,7 @@ export function renderTimeline() {
                             <span ${clickAttr} class="px-1.5 py-0.5 font-bold">${task.title}</span>
                         </span>`;
                     }
-                } else if (task.start && task.end && (!shift || shift.start !== 'Відпустка')) {
+                } else if (task.start && task.end && (!shift || (shift.start !== 'Відпустка' && shift.start !== 'Лікарняний' && shift.start !== 'Донорство'))) {
                     const [tS_h, tS_m] = task.start.split(':').map(Number); const [tE_h, tE_m] = task.end.split(':').map(Number);
                     const tStartD = tS_h + tS_m / 60; const tEndD = tE_h + tE_m / 60;
                     let tLeft = ((tStartD - dayStart) / totalHours) * 100; let tWidth = ((tEndD - tStartD) / totalHours) * 100;
@@ -166,6 +166,10 @@ export function renderTimeline() {
 
                 if (shift.start === 'Відпустка') {
                     html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe ? 'text-teal-600 font-bold' : 'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-teal-500 font-mono">Відпустка</span> ${badges}</div><div class="timeline-track" ${ctxAttr}><div class="shift-segment vacation-segment">ВІДПУСТКА 🌴</div></div></div>`;
+                } else if (shift.start === 'Лікарняний') {
+                    html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe ? 'text-rose-600 font-bold' : 'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-rose-500 font-mono">Лікарняний</span> ${badges}</div><div class="timeline-track" ${ctxAttr}><div class="shift-segment bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/40 dark:text-rose-200 dark:border-rose-800" style="left:0%; width:100%">ЛІКАРНЯНИЙ 💊</div></div></div>`;
+                } else if (shift.start === 'Донорство') {
+                    html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe ? 'text-red-600 font-bold' : 'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-red-500 font-mono">Донорство</span> ${badges}</div><div class="timeline-track" ${ctxAttr}><div class="shift-segment bg-red-100 text-red-800 border-red-300 dark:bg-red-900/40 dark:text-red-200 dark:border-red-800" style="left:0%; width:100%">ДОНОРСТВО 🩸</div></div></div>`;
                 } else {
                     const [sH, sM] = shift.start.split(':').map(Number);
                     const [eH, eM] = shift.end.split(':').map(Number);

@@ -93,6 +93,8 @@ export function renderCalendar() {
                 content += `<div class="cal-badge cal-vacation">🌴</div>`;
             } else if (shift.start === 'Лікарняний') {
                 content += `<div class="cal-badge cal-sick">💊</div>`;
+            } else if (shift.start === 'Донорство') {
+                content += `<div class="cal-badge" style="background:rgba(239,68,68,0.1); border-color:rgba(239,68,68,0.4); color:#b91c1c;">🩸</div>`;
             } else {
                 const color = getCalendarShiftColor(shift.start, shift.end);
                 const icon = getShiftIcon(shift.start, shift.end);
