@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 
 exports.getStores = async (req, res) => {
     try {
-        const stores = await Store.find({}, 'name code type');
+        const stores = await Store.find({}, 'name code type openTime closeTime normHours');
         res.json(stores);
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -124,7 +124,8 @@ exports.login = async (req, res) => {
                 store: user.storeId ? {
                     openTime: user.storeId.openTime,
                     closeTime: user.storeId.closeTime,
-                    reportTime: user.storeId.telegram?.reportTime
+                    reportTime: user.storeId.telegram?.reportTime,
+                    normHours: user.storeId.normHours
                 } : null,
                 hasTelegram: !!user.telegramChatId
             }
@@ -240,7 +241,8 @@ exports.telegramLogin = async (req, res) => {
                 store: user.storeId ? {
                     openTime: user.storeId.openTime,
                     closeTime: user.storeId.closeTime,
-                    reportTime: user.storeId.telegram?.reportTime
+                    reportTime: user.storeId.telegram?.reportTime,
+                    normHours: user.storeId.normHours
                 } : null,
                 notificationPreference: user.notificationPreference || 'telegram',
                 hasTelegram: !!user.telegramChatId
@@ -286,7 +288,8 @@ exports.getMe = async (req, res) => {
             store: user.storeId ? {
                 openTime: user.storeId.openTime,
                 closeTime: user.storeId.closeTime,
-                reportTime: user.storeId.telegram?.reportTime
+                reportTime: user.storeId.telegram?.reportTime,
+                normHours: user.storeId.normHours
             } : null,
             notificationPreference: user.notificationPreference || 'telegram',
             hasTelegram: !!user.telegramChatId
