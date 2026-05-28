@@ -136,6 +136,40 @@ export function renderTable() {
         }
     }
 
+    let usersToShow = getUsersForView(viewMonthStr);
+    
+    let storeTotalHours = 0;
+    let storeTotalDonorHours = 0;
+    
+    usersToShow.forEach(user => {
+        for (let d = 1; d <= daysInMonth; d++) {
+            const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const draft = state.pendingChanges ? state.pendingChanges[`${ds}|${user.name}`] : null;
+            let sStart = null, sEnd = null;
+            
+            if (draft) {
+                if (draft.start !== 'DELETE' && draft.start !== 'Відпустка' && draft.start !== 'Лікарняний' && draft.start !== 'Донорство') { sStart = draft.start; sEnd = draft.end; }
+                if (draft.start === 'Донорство') storeTotalDonorHours += 8;
+            } else {
+                const shift = state.shifts.find(s => s.date === ds && s.name === user.name);
+                if (shift) {
+                    if (shift.start !== 'Відпустка' && shift.start !== 'Лікарняний' && shift.start !== 'Донорство') { sStart = shift.start; sEnd = shift.end; }
+                    if (shift.start === 'Донорство') storeTotalDonorHours += 8;
+                }
+            }
+            if (sStart && sEnd) {
+                const [h1, m1] = sStart.split(':').map(Number);
+                const [h2, m2] = sEnd.split(':').map(Number);
+                storeTotalHours += (h2 + m2 / 60) - (h1 + m1 / 60);
+            }
+        }
+    });
+
+    let storeTotalNorm = monthNorm > 0 ? (monthNorm * usersToShow.length) : 0;
+    let storeHoursText = `<span class="text-gray-600 dark:text-gray-300">${storeTotalHours}</span>`;
+    if (storeTotalDonorHours > 0) storeHoursText += `<span class="text-indigo-500 text-[8px] ml-0.5">+${storeTotalDonorHours}</span>`;
+    if (storeTotalNorm > 0) storeHoursText += `<span class="text-gray-400 font-normal mx-0.5">\\</span><span class="text-gray-500">${storeTotalNorm}</span>`;
+
     let html = '<table class="w-full text-xs border-collapse">';
 
     // ================= HEADER =================
@@ -268,14 +302,13 @@ export function renderTable() {
         </td>`;
     }
     const rightSideStickyClass = state.isHoursPinned ? 'sticky right-0 z-40' : '';
-    html += `<td class="${rightSideStickyClass} bg-[#F2F2F7] dark:bg-[#1C1C1E] border-l border-gray-200 dark:border-gray-700"></td>`;
+    html += `<td class="${rightSideStickyClass} bg-[#F2F2F7] dark:bg-[#1C1C1E] border-l border-gray-200 dark:border-gray-700 text-center px-1 shadow-sm"><div class="flex items-center justify-center h-full text-[9px] font-bold whitespace-nowrap leading-tight">${storeHoursText}</div></td>`;
     html += '</tr>';
     html += '</thead>';
 
     // ================= BODY =================
     html += '<tbody>';
 
-    let usersToShow = getUsersForView(viewMonthStr);
     const canEditUser = ['SM', 'admin'].includes(state.currentUser.role);
 
     usersToShow.forEach(user => {
