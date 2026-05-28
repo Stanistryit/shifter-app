@@ -773,7 +773,7 @@ async function setMode(mode) {
         }
     });
 
-    [l, c, g, k, t, profileDiv].forEach(v => {
+    [l, c, g, t, profileDiv].forEach(v => {
         if (v) {
             v.classList.remove('page-enter', 'animate-slide-up');
             void v.offsetWidth; // force reflow for restart
