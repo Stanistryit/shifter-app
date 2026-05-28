@@ -7,17 +7,21 @@ import { renderAll } from './render.js';
 
 export function openStoreSettingsModal() {
     triggerHaptic();
-    // Беремо поточні налаштування зі стейту (або дефолтні)
     const s = state.currentUser.store || {};
     const reportTime = s.reportTime || "20:00";
     const openTime = s.openTime || "10:00";
     const closeTime = s.closeTime || "22:00";
     const lunchDuration = s.lunch_duration_minutes || 0;
+    
+    const now = new Date();
+    const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const normObj = s.normHours || {};
+    const defaultNorm = normObj[defaultMonth] || 0;
 
     const modalHtml = `
     <div id="storeSettingsModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="document.getElementById('storeSettingsModal').remove()"></div>
-        <div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up">
+        <div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up max-h-[90vh] overflow-y-auto">
             <h3 class="font-bold text-xl mb-4">⚙️ Налаштування Магазину</h3>
             
             <div class="space-y-4 mb-6">
@@ -42,6 +46,25 @@ export function openStoreSettingsModal() {
                     <input type="number" id="set_lunchDuration" value="${lunchDuration}" min="0" class="ios-input w-full">
                     <p class="text-[10px] text-gray-500 mt-1">Вкажіть час у хвилинах. Це значення буде автоматично відніматися від кожної зміни</p>
                 </div>
+            </div>
+
+            <div class="h-px bg-gray-200 dark:bg-gray-700 my-4"></div>
+            
+            <h4 class="font-bold text-md mb-3 text-indigo-500">⏳ Норма годин</h4>
+            <div class="space-y-4 mb-6 bg-gray-50 dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-gray-800">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1">Місяць</label>
+                        <input type="month" id="set_normMonth" value="${defaultMonth}" class="ios-input w-full text-sm" onchange="window.updateNormHoursInput()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1">Години</label>
+                        <input type="number" id="set_normHours" value="${defaultNorm}" class="ios-input w-full text-sm" placeholder="Наприклад, 160">
+                    </div>
+                </div>
+                <button onclick="window.saveStoreNormHours()" id="btnSaveNormHours" class="w-full py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm font-bold active:scale-95 transition-transform">
+                    Зберегти норму годин
+                </button>
             </div>
 
             <button onclick="window.saveStoreSettings()" class="btn-primary bg-blue-600 shadow-lg shadow-blue-500/30 mb-2">💾 Зберегти</button>
@@ -88,8 +111,60 @@ export async function saveStoreSettings() {
             btn.innerText = oldText;
         }
     } catch (e) {
-        showToast("Помилка мережі", 'error');
+            showToast("Помилка мережі", 'error');
         btn.innerText = oldText;
+    }
+}
+
+window.updateNormHoursInput = function() {
+    const month = document.getElementById('set_normMonth').value;
+    const s = state.currentUser.store || {};
+    const normObj = s.normHours || {};
+    const val = normObj[month] || 0;
+    document.getElementById('set_normHours').value = val;
+};
+
+window.saveStoreNormHours = async function() {
+    const month = document.getElementById('set_normMonth').value;
+    const normHours = parseInt(document.getElementById('set_normHours').value, 10) || 0;
+
+    if (!month) return showToast("Оберіть місяць", 'error');
+
+    const btn = document.getElementById('btnSaveNormHours');
+    const oldText = btn.innerText;
+    btn.innerText = "⏳ ...";
+    btn.disabled = true;
+
+    try {
+        const res = await postJson('/api/admin/store/norm-hours', { month, normHours });
+        if (res.success) {
+            showToast(`Норму на ${month} збережено! ✅`);
+            
+            if (state.currentUser.store) {
+                if (!state.currentUser.store.normHours) {
+                    state.currentUser.store.normHours = {};
+                }
+                state.currentUser.store.normHours[month] = normHours;
+            }
+            
+            // Якщо є інші магазини в state.stores, їх теж треба оновити, щоб таблиця перемалювалась правильно
+            if (state.stores) {
+                const s = state.stores.find(x => String(x._id) === String(state.currentUser.storeId?._id || state.currentUser.storeId));
+                if (s) {
+                    if (!s.normHours) s.normHours = {};
+                    s.normHours[month] = normHours;
+                }
+            }
+
+            renderAll(); // Перемалювати таблицю, щоб показати прогрес бар
+        } else {
+            showToast(res.message || "Помилка", 'error');
+        }
+    } catch (e) {
+        showToast("Помилка мережі", 'error');
+    } finally {
+        btn.innerText = oldText;
+        btn.disabled = false;
     }
 }
 

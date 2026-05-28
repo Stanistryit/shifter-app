@@ -11,6 +11,7 @@ const storeSchema = new mongoose.Schema({
     openTime: { type: String, default: '10:00' },
     closeTime: { type: String, default: '22:00' },
     lunch_duration_minutes: { type: Number, default: 0 },
+    normHours: { type: Map, of: Number, default: {} },
 
     telegram: {
         chatId: { type: Number, default: null },

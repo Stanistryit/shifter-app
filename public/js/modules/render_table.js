@@ -115,24 +115,26 @@ export function renderTable() {
         ? state.selectedStoreFilter
         : (state.currentUser.storeId?._id || state.currentUser.storeId);
 
+    let monthNorm = 0;
+
     if (state.stores && activeStoreId) {
         const foundStore = state.stores.find(s => String(s._id) === String(activeStoreId) || String(s.code) === String(activeStoreId));
         if (foundStore) {
             if (foundStore.openTime) openTime = foundStore.openTime;
             if (foundStore.closeTime) closeTime = foundStore.closeTime;
+            if (foundStore.normHours) monthNorm = foundStore.normHours[viewMonthStr] || 0;
         }
     }
 
     // Якщо в state.stores не знайшло (або його ще немає), пробуємо взяти з populated currentUser
-    if (openTime === "10:00" && closeTime === "22:00") {
+    if (openTime === "10:00" && closeTime === "22:00" && monthNorm === 0) {
         const userStoreObj = state.currentUser?.store || state.currentUser?.storeId;
         if (userStoreObj && typeof userStoreObj === 'object') {
             if (userStoreObj.openTime) openTime = userStoreObj.openTime;
             if (userStoreObj.closeTime) closeTime = userStoreObj.closeTime;
+            if (userStoreObj.normHours) monthNorm = userStoreObj.normHours[viewMonthStr] || 0;
         }
     }
-
-    const monthNorm = 0;
 
     let html = '<table class="w-full text-xs border-collapse">';
 

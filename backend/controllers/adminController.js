@@ -109,6 +109,34 @@ exports.updateStoreSettings = async (req, res) => {
     }
 };
 
+exports.updateStoreNormHours = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (!u || (u.role !== 'SM' && u.role !== 'admin')) {
+        return res.status(403).json({ success: false, message: "Тільки для SM або Admin" });
+    }
+
+    try {
+        const { month, normHours } = req.body;
+        if (!month) return res.json({ success: false, message: "Не вказано місяць" });
+
+        const store = await Store.findById(u.storeId);
+        if (!store) return res.json({ success: false, message: "Магазин не знайдено" });
+
+        if (!store.normHours) {
+            store.normHours = new Map();
+        }
+
+        store.normHours.set(month, Number(normHours) || 0);
+        await store.save();
+
+        logAction(u.name, 'update_norm_hours', `Set ${month} norm to ${normHours}`);
+        res.json({ success: true });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
 
 // --- LOGS ---
 exports.getLogs = async (req, res) => {

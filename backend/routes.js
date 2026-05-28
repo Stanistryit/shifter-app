@@ -46,8 +46,8 @@ router.post('/admin/stores/edit', catchAsync(adminController.editStore));
 router.get('/admin/stores', catchAsync(adminController.getAllStores));
 router.post('/admin/stores/delete', catchAsync(adminController.deleteStore));
 
-// Збереження налаштувань магазину (час звіту)
 router.post('/admin/store/settings', catchAsync(adminController.updateStoreSettings));
+router.post('/admin/store/norm-hours', catchAsync(adminController.updateStoreNormHours));
 router.get('/admin/store/export', catchAsync(adminController.exportSchedule));
 router.get('/admin/store/export-pdf', catchAsync(adminController.exportSchedulePdf));
 
