@@ -794,16 +794,7 @@ async function setMode(mode) {
             g.classList.add('page-enter');
         }
         showSkeletonLoader('gridViewTable', 'table');
-        await loadKpiData();
         renderTable();
-    } else if (mode === 'kpi') {
-        if (k) {
-            k.classList.remove('hidden');
-            k.classList.add('page-enter');
-        }
-        showSkeletonLoader('kpiList', 'kpi');
-        await loadKpiData();
-        renderKpi();
     } else if (mode === 'todo') {
         if (t) {
             t.classList.remove('hidden');
@@ -973,57 +964,7 @@ async function registerUser() {
     }
 }
 
-async function importKpi() {
-    const text = document.getElementById('kpiImportData').value;
-    const month = document.getElementById('kpiMonthImport').value;
-    if (!text) return showToast('Вставте текст таблиці', 'error');
-    if (!month) return showToast('Оберіть місяць', 'error');
-    const res = await postJson('/api/kpi/import', { text, month });
-    if (res.success) {
-        showToast(`Імпортовано: ${res.count} записів`);
-        document.getElementById('kpiImportData').value = '';
-        const y = state.currentDate.getFullYear();
-        const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
-        if (`${y}-${m}` === month) { await loadKpiData(); renderKpi(); }
-    } else { showToast('Помилка імпорту', 'error'); }
-}
 
-async function saveKpiSettings() {
-    const month = document.getElementById('kpiMonthSettings').value;
-    const normHours = document.getElementById('kpiNormHours').value;
-    if (!month || !normHours) return showToast('Заповніть всі поля', 'error');
-    const res = await postJson('/api/kpi/settings', { month, normHours });
-    if (res.success) {
-        showToast('Норму збережено ✅');
-        const y = state.currentDate.getFullYear();
-        const m = String(state.currentDate.getMonth() + 1).padStart(2, '0');
-        if (`${y}-${m}` === month) { await loadKpiData(); renderKpi(); }
-    } else { showToast('Помилка збереження', 'error'); }
-}
-
-async function loadKpiData() {
-    const y = state.currentDate.getFullYear();
-    const m = state.currentDate.getMonth() + 1;
-    const month = `${y}-${m.toString().padStart(2, '0')}`;
-
-    showSkeletonLoader('kpiList', 'kpi');
-    showSkeletonLoader('gridViewTable', 'table');
-
-    try {
-        const url = `/api/kpi?month=${month}${state.selectedStoreFilter ? '&store=' + state.selectedStoreFilter : ''}`;
-        const data = await fetchJson(url);
-
-        if (data && !data.error) {
-            state.kpiData = data;
-        } else {
-            console.warn(`[KPI] Помилка або порожні дані:`, data?.error || 'Unknown error');
-            state.kpiData = { dailySales: {}, goals: {}, conversion: {}, unitsPerReceipt: {}, expenses: {} };
-        }
-    } catch (error) {
-        console.error(`[KPI] Frontend Error:`, error);
-        state.kpiData = { dailySales: {}, goals: {}, conversion: {}, unitsPerReceipt: {}, expenses: {} };
-    }
-}
 
 window.addEventListener('scroll', () => {
     const btn = document.getElementById('backToTopBtn');
