@@ -435,20 +435,16 @@ export function openAddStoreModal() {
     document.getElementById('addStoreModalTitle').innerText = '🏪 Додати магазин';
     document.getElementById('newStoreName').value = '';
     document.getElementById('newStoreCode').value = '';
-    document.getElementById('newStoreKpiEnabled').checked = true;
-    document.getElementById('newStoreSalaryEnabled').checked = true;
     document.getElementById('addStoreModal').classList.remove('hidden');
 }
 
-export function openEditStoreModal(id, name, code, type, kpiEnabled, salaryEnabled) {
+export function openEditStoreModal(id, name, code, type) {
     triggerHaptic();
     document.getElementById('editStoreId').value = id;
     document.getElementById('addStoreModalTitle').innerText = '✏️ Редагувати магазин';
     document.getElementById('newStoreName').value = name;
     document.getElementById('newStoreCode').value = code;
     document.getElementById('newStoreType').value = type;
-    document.getElementById('newStoreKpiEnabled').checked = kpiEnabled !== false;
-    document.getElementById('newStoreSalaryEnabled').checked = salaryEnabled !== false;
     document.getElementById('addStoreModal').classList.remove('hidden');
 }
 
@@ -462,16 +458,14 @@ export async function submitStoreModal() {
     const name = document.getElementById('newStoreName').value.trim();
     const code = document.getElementById('newStoreCode').value.trim();
     const type = document.getElementById('newStoreType').value;
-    const kpi_enabled = document.getElementById('newStoreKpiEnabled').checked;
-    const salary_enabled = document.getElementById('newStoreSalaryEnabled').checked;
 
     if (!name || !code) return showToast("Заповніть назву та код", 'error');
 
     let res;
     if (id) {
-        res = await postJson('/api/admin/stores/edit', { id, name, code, type, kpi_enabled, salary_enabled });
+        res = await postJson('/api/admin/stores/edit', { id, name, code, type });
     } else {
-        res = await postJson('/api/admin/stores/create', { name, code, type, kpi_enabled, salary_enabled });
+        res = await postJson('/api/admin/stores/create', { name, code, type });
     }
 
     if (res.success) {
@@ -515,7 +509,7 @@ export async function loadStores() {
                 </div>
             `;
             const editBtn = item.querySelector('.edit-store-btn');
-            editBtn.onclick = () => window.openEditStoreModal(s._id, s.name, s.code, s.type, s.kpi_enabled, s.salary_enabled);
+            editBtn.onclick = () => window.openEditStoreModal(s._id, s.name, s.code, s.type);
             list.appendChild(item);
         });
     } catch (e) {
@@ -533,83 +527,4 @@ export async function deleteStore(id) {
         showToast(res.message, 'error');
     }
 }
-
-// 🔥 ВІДМАЛЬОВКА ТА ЗБЕРЕЖЕННЯ ЗАРПЛАТНОЇ МАТРИЦІ
-export async function renderSalaryMatrix() {
-    const container = document.getElementById('salaryMatrixContainer');
-    const storeType = document.getElementById('salaryStoreType').value;
-    if (!container) return;
-
-    container.innerHTML = '<div class="text-center text-gray-400 text-xs py-2">Завантаження...</div>';
-
-    try {
-        const matrixData = await fetchJson('/api/admin/salary-matrix');
-        container.innerHTML = '';
-
-        // 🔥 ВИПРАВЛЕНО: Правильні наскрізні грейди для кожної посади + прибрали RRP
-        const matrixStructure = [
-            { pos: 'SM', grades: [7, 8, 9] },
-            { pos: 'SSE', grades: [5, 6] },
-            { pos: 'SE', grades: [2, 3, 4] }
-        ];
-
-        matrixStructure.forEach(group => {
-            const groupDiv = document.createElement('div');
-            groupDiv.className = 'mb-3 bg-gray-50 dark:bg-[#1C1C1E] p-3 rounded-lg border border-gray-200 dark:border-gray-600';
-            groupDiv.innerHTML = `<div class="font-bold text-sm mb-2 text-indigo-500">${group.pos}</div>`;
-
-            group.grades.forEach(grade => {
-                const existing = matrixData.find(m => m.storeType === storeType && m.position === group.pos && m.grade === grade);
-                const rateValue = existing ? existing.rate : 0;
-
-                const row = document.createElement('div');
-                row.className = 'flex items-center justify-between mb-2 last:mb-0';
-                row.innerHTML = `
-                    <span class="text-xs font-medium text-gray-500 w-16">Grade ${grade}</span>
-                    <div class="relative flex-1 ml-2">
-                        <input type="number" data-pos="${group.pos}" data-grade="${grade}" value="${rateValue}" class="salary-rate-input ios-input w-full text-right pr-6 h-8 text-sm font-bold" placeholder="0">
-                        <span class="absolute right-2 top-1.5 text-xs text-gray-400">₴</span>
-                    </div>
-                `;
-                groupDiv.appendChild(row);
-            });
-            container.appendChild(groupDiv);
-        });
-
-    } catch (e) {
-        container.innerHTML = '<div class="text-center text-red-400 text-xs">Помилка завантаження</div>';
-    }
-}
-
-export async function saveSalaryMatrixBtn() {
-    const storeType = document.getElementById('salaryStoreType').value;
-    const inputs = document.querySelectorAll('.salary-rate-input');
-    const matrix = [];
-
-    inputs.forEach(inp => {
-        const position = inp.getAttribute('data-pos');
-        const grade = parseInt(inp.getAttribute('data-grade'));
-        const rate = parseFloat(inp.value) || 0;
-
-        matrix.push({ storeType, position, grade, rate });
-    });
-
-    const btn = document.querySelector('button[onclick="saveSalaryMatrixBtn()"]');
-    const origText = btn.innerText;
-    btn.innerText = '⏳ Збереження...';
-    btn.disabled = true;
-
-    try {
-        const res = await postJson('/api/admin/salary-matrix', { matrix });
-        if (res.success) {
-            showToast("Ставки успішно збережено! ✅");
-        } else {
-            showToast(res.message || "Помилка збереження", 'error');
-        }
-    } catch (e) {
-        showToast("Помилка мережі", 'error');
-    } finally {
-        btn.innerText = origText;
-        btn.disabled = false;
-    }
-}
+

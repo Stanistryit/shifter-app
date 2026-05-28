@@ -20,16 +20,7 @@
             <div class="text-xs text-white/80 font-medium relative z-10 mt-1">Створити оголошення</div>
         </button>
 
-        <button id="btnTabKpi" onclick="showAdminTab('kpi')"
-            class="col-span-2 lg:col-span-1 relative overflow-hidden bg-gradient-to-br from-emerald-500 to-green-600 bg-green-500 text-white p-5 rounded-2xl shadow-lg shadow-green-500/30 text-left transition-transform active:scale-95 flex items-center justify-between group min-h-[90px]">
-            <div class="relative z-10">
-                <div class="font-bold text-lg text-white">KPI та Аналітика</div>
-                <div class="text-xs text-white/80 font-medium mt-1">Встановлення планів і норм</div>
-            </div>
-            <div
-                class="absolute -bottom-6 -right-2 text-8xl opacity-20 group-hover:scale-110 transition-transform pointer-events-none">
-                📈</div>
-        </button>
+
 
         <button id="btnTabGlobal" onclick="showAdminTab('global')"
             class="hidden col-span-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 p-3 rounded-xl text-xs font-bold items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
@@ -77,42 +68,7 @@
         </div>
     </div>
 
-    <div id="adminTabKpi" class="hidden space-y-4 animate-slide-up">
-        <div class="flex items-center justify-between mb-2">
-            <h3 class="font-bold text-lg">📈 KPI Налаштування</h3>
-            <button
-                onclick="document.getElementById('adminTabKpi').classList.add('hidden'); document.getElementById('adminMenu').classList.remove('hidden');"
-                class="text-xs text-blue-500 font-bold bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">←
-                Назад</button>
-        </div>
 
-        <div class="bg-white dark:bg-[#2C2C2E] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
-            <h3 class="text-xs font-bold mb-3 uppercase text-gray-500">Імпорт з T-Sales</h3>
-            <div class="flex gap-2 mb-2">
-                <input type="month" id="kpiMonthImport" class="ios-input">
-            </div>
-            <textarea id="kpiImportData" placeholder="Вставте таблицю сюди..."
-                class="ios-input h-24 font-mono text-[10px] whitespace-pre mb-2"></textarea>
-            <button onclick="importKpi()" class="btn-primary bg-blue-600 shadow-blue-600/30">📥
-                Завантажити</button>
-        </div>
-
-        <div class="bg-white dark:bg-[#2C2C2E] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
-            <h3 class="text-xs font-bold mb-3 uppercase text-gray-500">Планова норма</h3>
-            <div class="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                    <label class="text-[10px] text-gray-400 block mb-1 font-bold">Місяць</label>
-                    <input type="month" id="kpiMonthSettings" class="ios-input">
-                </div>
-                <div>
-                    <label class="text-[10px] text-gray-400 block mb-1 font-bold">Години</label>
-                    <input type="number" id="kpiNormHours" placeholder="160" class="ios-input">
-                </div>
-            </div>
-            <button onclick="saveKpiSettings()" class="btn-primary bg-gray-500 shadow-lg">💾
-                Зберегти</button>
-        </div>
-    </div>
 
     <div id="adminTabGlobal" class="hidden space-y-4 animate-slide-up">
         <div class="flex items-center justify-between mb-2">
@@ -123,25 +79,7 @@
                 Назад</button>
         </div>
 
-        <div class="bg-white dark:bg-[#2C2C2E] p-3 rounded-xl border border-gray-100 dark:border-gray-700">
-            <h3 class="text-xs font-bold mb-2 uppercase text-gray-500">💰 Базові ставки (Матриця)</h3>
-            <div class="space-y-3">
-                <select id="salaryStoreType" class="ios-input font-bold text-blue-500 bg-transparent"
-                    onchange="renderSalaryMatrix()">
-                    <option value="top">🔥 ТОП</option>
-                    <option value="kiev">🏙️ Київ</option>
-                    <option value="expansion">🚀 Експансія</option>
-                    <option value="standard">🏠 Стандарт</option>
-                </select>
 
-                <div id="salaryMatrixContainer" class="space-y-2 max-h-64 overflow-y-auto pr-1">
-                    <div class="text-center text-gray-400 text-xs py-2">Оберіть тип магазину...</div>
-                </div>
-
-                <button onclick="saveSalaryMatrixBtn()" class="btn-primary bg-emerald-500 shadow-emerald-500/30">💾
-                    Зберегти ставки</button>
-            </div>
-        </div>
 
 
 

@@ -132,7 +132,7 @@ export function renderTable() {
         }
     }
 
-    const monthNorm = state.kpiData?.settings?.normHours || 0;
+    const monthNorm = 0;
 
     let html = '<table class="w-full text-xs border-collapse">';
 

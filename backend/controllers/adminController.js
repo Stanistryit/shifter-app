@@ -1,4 +1,4 @@
-const { User, Request, Shift, Task, NewsPost, AuditLog, Store, SalaryMatrix } = require('../models');
+const { User, Request, Shift, Task, NewsPost, AuditLog, Store } = require('../models');
 const { logAction } = require('../utils');
 // 👇 Видалив notifyRole з імпорту, бо його немає в експорті bot.js
 const { notifyUser, getBot } = require('../bot');
@@ -9,15 +9,13 @@ exports.createStore = async (req, res) => {
     if (u?.role !== 'admin') return res.status(403).json({ success: false, message: "Тільки для Global Admin" });
 
     try {
-        const { name, code, type, kpi_enabled, salary_enabled } = req.body;
+        const { name, code, type } = req.body;
         if (!name || !code || !type) return res.json({ success: false, message: "Заповніть всі поля" });
 
         const existing = await Store.findOne({ code });
         if (existing) return res.json({ success: false, message: "Код магазину вже зайнятий" });
 
         const storeData = { name, code, type };
-        if (kpi_enabled !== undefined) storeData.kpi_enabled = kpi_enabled;
-        if (salary_enabled !== undefined) storeData.salary_enabled = salary_enabled;
 
         await Store.create(storeData);
         logAction(u.name, 'create_store', `Created ${name} (${code})`);
@@ -32,15 +30,13 @@ exports.editStore = async (req, res) => {
     if (u?.role !== 'admin') return res.status(403).json({ success: false, message: "Тільки для Global Admin" });
 
     try {
-        const { id, name, code, type, kpi_enabled, salary_enabled } = req.body;
+        const { id, name, code, type } = req.body;
         if (!id || !name || !code || !type) return res.json({ success: false, message: "Заповніть всі поля" });
 
         const existing = await Store.findOne({ code, _id: { $ne: id } });
         if (existing) return res.json({ success: false, message: "Код магазину вже зайнятий іншим магазином" });
 
         const updateData = { name, code, type };
-        if (kpi_enabled !== undefined) updateData.kpi_enabled = kpi_enabled;
-        if (salary_enabled !== undefined) updateData.salary_enabled = salary_enabled;
 
         await Store.findByIdAndUpdate(id, updateData);
         logAction(u.name, 'edit_store', `Edited ${name} (${code})`);
@@ -113,46 +109,6 @@ exports.updateStoreSettings = async (req, res) => {
     }
 };
 
-// --- SALARY MATRIX (Global Admin) ---
-exports.getSalaryMatrix = async (req, res) => {
-    const u = await User.findById(req.session.userId);
-    if (u?.role !== 'admin') return res.status(403).json([]);
-
-    try {
-        const matrix = await SalaryMatrix.find();
-        res.json(matrix);
-    } catch (e) {
-        res.status(500).json([]);
-    }
-};
-
-exports.saveSalaryMatrix = async (req, res) => {
-    const u = await User.findById(req.session.userId);
-    if (u?.role !== 'admin') return res.status(403).json({ success: false, message: "Тільки для Global Admin" });
-
-    try {
-        const { matrix } = req.body;
-        if (!matrix || !Array.isArray(matrix)) return res.json({ success: false, message: "Невірний формат даних" });
-
-        const bulkOps = matrix.map(item => ({
-            updateOne: {
-                filter: { storeType: item.storeType, position: item.position, grade: item.grade },
-                update: { $set: { rate: item.rate, updatedAt: Date.now() } },
-                upsert: true
-            }
-        }));
-
-        if (bulkOps.length > 0) {
-            await SalaryMatrix.bulkWrite(bulkOps);
-        }
-
-        logAction(u.name, 'update_salary_matrix', `Updated ${bulkOps.length} rates`);
-        res.json({ success: true });
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ success: false, message: e.message });
-    }
-};
 
 // --- LOGS ---
 exports.getLogs = async (req, res) => {

@@ -5,10 +5,10 @@ import { fetchJson } from './api.js';
 // Імпортуємо розбиті модулі
 import { renderTimeline } from './render_timeline.js';
 import { renderTable } from './render_table.js';
-import { renderCalendar, renderKpi } from './render_kpi.js';
+import { renderCalendar } from './render_calendar.js';
 
 // Експортуємо їх, щоб app.js міг їх використовувати
-export { renderTimeline, renderTable, renderCalendar, renderKpi };
+export { renderTimeline, renderTable, renderCalendar };
 
 // Головна функція рендеру
 export function renderAll() {

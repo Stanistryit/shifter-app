@@ -19,9 +19,6 @@ const storeSchema = new mongoose.Schema({
         eveningTopicId: { type: Number, default: null },
         reportTime: { type: String, default: "20:00" }
     },
-    // Доступ до вкладки KPI (глобально для магазину)
-    kpi_enabled: { type: Boolean, default: true },
-    salary_enabled: { type: Boolean, default: true },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -150,15 +147,6 @@ const pendingNotificationSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-// 🔥 13. Схема Матриці Зарплат (Salary Matrix)
-const salaryMatrixSchema = new mongoose.Schema({
-    storeType: { type: String, enum: ['expansion', 'top', 'kiev', 'standard'], required: true },
-    // Прибрали RRP і None, щоб уникнути помилок при налаштуванні матриці
-    position: { type: String, enum: ['SM', 'SSE', 'SE'], required: true },
-    grade: { type: Number, required: true },
-    rate: { type: Number, required: true, default: 0 }, // Базова ставка за норму годин
-    updatedAt: { type: Date, default: Date.now }
-});
 
 // 🔥 Індекси для швидкодії
 storeSchema.index({ 'telegram.chatId': 1 }); // Швидкий пошук магазину по чату
@@ -174,29 +162,6 @@ shiftSchema.index({ date: 1, name: 1 }); // Допомагає при перев
 taskSchema.index({ storeId: 1, date: 1 }); // Вивантаження задач для конкретного дня
 taskSchema.index({ date: 1, name: 1 }); // Задачі для конкретного працівника на день
 
-// Індекс для уникнення дублів (один запис на кожну комбінацію: тип магазину + посада + грейд)
-salaryMatrixSchema.index({ storeType: 1, position: 1, grade: 1 }, { unique: true });
-
-// 🔥 14. Схема KPI (Відновлено)
-const kpiSchema = new mongoose.Schema({
-    month: { type: String, required: true },
-    name: { type: String, required: true },
-    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
-    stats: {
-        orders: { type: Number, default: 0 },
-        devices: { type: Number, default: 0 },
-        devicesTarget: { type: Number, default: 0 },
-        devicePercent: { type: Number, default: 0 },
-        upt: { type: Number, default: 0 },
-        uptTarget: { type: Number, default: 0 },
-        uptPercent: { type: Number, default: 0 },
-        nps: { type: Number, default: 0 },
-        nba: { type: Number, default: 0 }
-    },
-    updatedAt: { type: Date, default: Date.now }
-});
-
-kpiSchema.index({ storeId: 1, month: 1, name: 1 }, { unique: true });
 
 const Store = mongoose.models.Store || mongoose.model('Store', storeSchema);
 const User = mongoose.models.User || mongoose.model('User', userSchema);
@@ -208,8 +173,6 @@ const Note = mongoose.models.Note || mongoose.model('Note', noteSchema);
 const AuditLog = mongoose.models.AuditLog || mongoose.model('AuditLog', auditLogSchema);
 const MonthSettings = mongoose.models.MonthSettings || mongoose.model('MonthSettings', monthSettingsSchema);
 const PendingNotification = mongoose.models.PendingNotification || mongoose.model('PendingNotification', pendingNotificationSchema);
-const SalaryMatrix = mongoose.models.SalaryMatrix || mongoose.model('SalaryMatrix', salaryMatrixSchema);
-const KPI = mongoose.models.KPI || mongoose.model('KPI', kpiSchema);
 
 // 15. Схема In-App Сповіщень
 const notificationSchema = new mongoose.Schema({
@@ -223,4 +186,4 @@ const notificationSchema = new mongoose.Schema({
 notificationSchema.index({ userId: 1, isRead: 1 });
 const Notification = mongoose.models.Notification || mongoose.model('Notification', notificationSchema);
 
-module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, MonthSettings, PendingNotification, SalaryMatrix, KPI, Notification };
+module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, MonthSettings, PendingNotification, Notification };

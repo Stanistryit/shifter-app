@@ -119,7 +119,7 @@ export function showAdminTab(t) {
     if (adminMenu) adminMenu.classList.add('hidden');
 
     // Ховаємо всі можливі вкладки
-    const tabs = ['shifts', 'tasks', 'requests', 'import', 'news', 'logs', 'kpi', 'global'];
+    const tabs = ['shifts', 'tasks', 'requests', 'import', 'news', 'logs', 'global'];
     tabs.forEach(x => {
         const contentId = 'adminTab' + x.charAt(0).toUpperCase() + x.slice(1);
         const content = document.getElementById(contentId);
@@ -377,18 +377,7 @@ export function showSkeletonLoader(containerId, type = 'table') {
                 </div>
             </div>`).join('')}
         </div>`;
-    } else if (type === 'kpi') {
-        html = `
-        <div class="skeleton-loader p-4 space-y-4">
-            <div class="h-24 w-full bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse mb-6"></div>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="h-16 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-                <div class="h-16 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-                <div class="h-16 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-                <div class="h-16 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-            </div>
-            <div class="h-40 w-full bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse mt-6"></div>
-        </div>`;
+
     } else if (type === 'list') {
         html = `
         <div class="skeleton-loader p-4 space-y-5">

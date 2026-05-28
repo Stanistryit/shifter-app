@@ -8,12 +8,11 @@ export const state = {
     tasks: [],
     notes: [],
     stores: [],
-    kpiData: null,
 
     // Фільтри та навігація (🔥 ОНОВЛЕНО: читаємо з LocalStorage)
     filter: localStorage.getItem('shifter_filter') || 'all',
     selectedStoreFilter: localStorage.getItem('shifter_storeFilter') || 'all',
-    viewMode: localStorage.getItem('shifter_viewMode') || 'list', // Зберігаємо режим (list/calendar/grid/kpi)
+    viewMode: localStorage.getItem('shifter_viewMode') || 'list', // Зберігаємо режим (list/calendar/grid)
 
     currentDate: new Date(),
 

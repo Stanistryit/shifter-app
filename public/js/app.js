@@ -5,7 +5,7 @@ import {
     openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext,
     updateFabIcon, toggleHoursPin, showSkeletonLoader, hideSkeletonLoader
 } from './modules/ui.js';
-import { renderTimeline, renderCalendar, renderTable, renderAll, renderKpi } from './modules/render.js';
+import { renderTimeline, renderCalendar, renderTable, renderAll } from './modules/render.js';
 import { renderTodo } from './modules/render_todo.js';
 import { checkAuth, login, logout, requestPasswordReset, submitNewPassword } from './modules/auth.js';
 import {
@@ -13,7 +13,6 @@ import {
     submitTaskModal, toggleTaskTypeUI, addSubtaskToBuilder, removeSubtaskFromBuilder,
     toggleSubtask, forceRemindTask, openEditTaskModal, openAddTaskModal, closeAddTaskModal,
     deleteTask, toggleTaskTimeInputs,
-    renderSalaryMatrix, saveSalaryMatrixBtn, 
     toggleTaskExecution,
     publishNews, openAddNewsModal, closeAddNewsModal,
     openBotBroadcastModal, closeBotBroadcastModal, publishBotBroadcast,
@@ -71,7 +70,7 @@ async function initApp() {
         loadComponent('list-container', 'components/tabs/list.html'),
         loadComponent('calendar-container', 'components/tabs/calendar.html'),
         loadComponent('grid-container', 'components/tabs/grid.html'),
-        loadComponent('kpi-container', 'components/tabs/kpi.html'),
+
         loadComponent('todo-container', 'components/tabs/todo.html'),
         loadComponent('profile-container', 'components/tabs/profile.html')
     ]);
@@ -395,17 +394,8 @@ window.markAllNotificationsAsRead = markAllNotificationsAsRead;
 
 window.showAdminTab = (t) => {
     uiShowAdminTab(t);
-    if (t === 'kpi') {
-        const now = new Date();
-        const mStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const inp1 = document.getElementById('kpiMonthImport');
-        const inp2 = document.getElementById('kpiMonthSettings');
-        if (inp1 && !inp1.value) inp1.value = mStr;
-        if (inp2 && !inp2.value) inp2.value = mStr;
-    }
     if (t === 'global') {
         loadStores();
-        renderSalaryMatrix(); // 🔥 Автоматично малюємо матрицю при відкритті вкладки
     }
 };
 
@@ -468,12 +458,7 @@ window.deleteStore = deleteStore;
 window.openAddStoreModal = openAddStoreModal;
 window.closeAddStoreModal = closeAddStoreModal;
 
-// 🔥 Робимо доступними для HTML
-window.renderSalaryMatrix = renderSalaryMatrix;
-window.saveSalaryMatrixBtn = saveSalaryMatrixBtn;
 
-window.importKpi = importKpi;
-window.saveKpiSettings = saveKpiSettings;
 
 window.approveAllRequests = approveAllRequests;
 window.handleRequest = handleRequest;
@@ -489,7 +474,7 @@ window.sendQuickShiftUpdate = sendQuickShiftUpdate;
 window.closeAvatarModal = closeAvatarModal;
 window.handleAvatarSelect = handleAvatarSelect;
 window.uploadAvatar = uploadAvatar;
-window.loadKpiData = loadKpiData;
+
 window.openChangePasswordModal = openChangePasswordModal;
 window.closeChangePasswordModal = closeChangePasswordModal;
 window.submitChangePassword = submitChangePassword;
@@ -532,15 +517,10 @@ window.changeStoreFilter = (storeId, storeName) => {
     }
 
     closeStoreFilterModal();
-    loadKpiData().then(() => {
-        const kpiDiv = document.getElementById('kpiViewContainer');
-        const gridDiv = document.getElementById('gridViewContainer');
+    const gridDiv = document.getElementById('gridViewContainer');
+    if (gridDiv && !gridDiv.classList.contains('hidden')) renderTable();
 
-        if (kpiDiv && !kpiDiv.classList.contains('hidden')) renderKpi();
-        if (gridDiv && !gridDiv.classList.contains('hidden')) renderTable();
-
-        updateDashboard();
-    });
+    updateDashboard();
 
     renderAll();
 };
@@ -588,33 +568,16 @@ function checkEditorButtonVisibility() {
     const inlineEditBtn = document.getElementById('inlineEditBtn');
 
     const isRrp = state.currentUser?.role === 'RRP';
-    const kpiEnabled = state.currentUser?.store?.kpi_enabled !== false; // Default is true
-
     if (isRrp) {
         const btnCal = document.getElementById('tabModeCalendar');
-        const btnKpi = document.getElementById('tabModeKpi');
-        const deskBtnKpi = document.querySelector('.desk-nav-btn[data-mode="kpi"]');
         const deskBtnCal = document.querySelector('.desk-nav-btn[data-mode="calendar"]');
 
         if (btnCal) btnCal.classList.add('hidden');
         if (deskBtnCal) deskBtnCal.classList.add('hidden');
-        if (btnKpi) btnKpi.classList.add('hidden');
-        if (deskBtnKpi) deskBtnKpi.classList.add('hidden');
     } else {
         const btnCal = document.getElementById('tabModeCalendar');
-        const btnKpi = document.getElementById('tabModeKpi');
-        const deskBtnKpi = document.querySelector('.desk-nav-btn[data-mode="kpi"]');
 
         if (btnCal) btnCal.classList.remove('hidden');
-
-        if (btnKpi) {
-            if (kpiEnabled) btnKpi.classList.remove('hidden');
-            else btnKpi.classList.add('hidden');
-        }
-        if (deskBtnKpi) {
-            if (kpiEnabled) deskBtnKpi.classList.remove('hidden');
-            else deskBtnKpi.classList.add('hidden');
-        }
     }
 
     const isGridMode = state.currentMode === 'grid' || localStorage.getItem('shifter_viewMode') === 'grid';
@@ -663,7 +626,6 @@ async function changeMonth(d) {
         container.classList.add(isNext ? 'animate-month-next' : 'animate-month-prev');
     }
 
-    const kpiContainer = document.getElementById('kpi-container');
     const gridContainer = document.getElementById('grid-container');
     const calContainer = document.getElementById('calendar-container');
 
@@ -680,24 +642,9 @@ async function changeMonth(d) {
             calGrid.style.opacity = '0.5';
             calGrid.style.transition = 'opacity 0.2s';
         }
-    } else if (kpiContainer && !kpiContainer.classList.contains('hidden')) {
-        const kpiList = document.getElementById('kpiList');
-        if (kpiList) {
-            kpiList.style.opacity = '0.5';
-            kpiList.style.transition = 'opacity 0.2s';
-        }
     }
 
-    if ((kpiContainer && !kpiContainer.classList.contains('hidden')) ||
-        (gridContainer && !gridContainer.classList.contains('hidden'))) {
-        await loadKpiData();
-    }
-
-    if (kpiContainer && !kpiContainer.classList.contains('hidden')) {
-        renderKpi();
-    } else {
-        renderAll(); // Відмальовує і таблицю, і календар
-    }
+    renderAll(); // Відмальовує і таблицю, і календар
 
     updateDashboard();
 
@@ -713,14 +660,11 @@ async function changeMonth(d) {
         }
     }
 
-    // Знімаємо локальний стан завантаження
     setTimeout(() => {
         const gridTable = document.getElementById('gridViewTable');
         const calGrid = document.getElementById('calendarGrid');
-        const kpiList = document.getElementById('kpiList');
         if (gridTable) gridTable.style.opacity = '1';
         if (calGrid) calGrid.style.opacity = '1';
-        if (kpiList) kpiList.style.opacity = '1';
     }, 100);
 }
 
@@ -741,20 +685,18 @@ async function setMode(mode) {
     const l = document.getElementById('list-container');
     const c = document.getElementById('calendar-container');
     const g = document.getElementById('grid-container');
-    const k = document.getElementById('kpi-container');
     const t = document.getElementById('todo-container');
     const profileDiv = document.getElementById('profile-container');
 
     if (l) l.classList.add('hidden');
     if (c) c.classList.add('hidden');
     if (g) g.classList.add('hidden');
-    if (k) k.classList.add('hidden');
     if (t) t.classList.add('hidden');
     if (profileDiv) profileDiv.classList.add('hidden');
 
     const filtersContainer = document.getElementById('filtersContainer');
 
-    if (mode === 'kpi' || mode === 'list' || mode === 'grid') {
+    if (mode === 'list' || mode === 'grid') {
         if (filtersContainer) filtersContainer.classList.remove('hidden');
         if (filtersContainer) filtersContainer.classList.add('flex');
     } else {
@@ -765,7 +707,6 @@ async function setMode(mode) {
     const tabList = document.getElementById('tabModeList');
     const tabCal = document.getElementById('tabModeCalendar');
     const tabGrid = document.getElementById('tabModeGrid');
-    const tabKpi = document.getElementById('tabModeKpi');
     const tabTodo = document.getElementById('tabModeTodo');
     const tabProfile = document.getElementById('tabModeProfile');
 
@@ -773,7 +714,6 @@ async function setMode(mode) {
         { id: 'list', el: tabList },
         { id: 'calendar', el: tabCal },
         { id: 'grid', el: tabGrid },
-        { id: 'kpi', el: tabKpi },
         { id: 'todo', el: tabTodo },
         { id: 'profile', el: tabProfile }
     ];

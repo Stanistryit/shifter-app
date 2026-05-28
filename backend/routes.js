@@ -9,11 +9,9 @@ const catchAsync = require('./middleware/catchAsync');
 const authController = require('./controllers/authController');
 const shiftController = require('./controllers/shiftController');
 const taskController = require('./controllers/taskController');
-const kpiController = require('./controllers/kpiController');
 const adminController = require('./controllers/adminController');
 const noteController = require('./controllers/noteController');
 const userController = require('./controllers/userController');
-const salaryController = require('./controllers/salaryController');
 const pushController = require('./controllers/pushController');
 
 // --- AUTH & USER ---
@@ -53,9 +51,7 @@ router.post('/admin/store/settings', catchAsync(adminController.updateStoreSetti
 router.get('/admin/store/export', catchAsync(adminController.exportSchedule));
 router.get('/admin/store/export-pdf', catchAsync(adminController.exportSchedulePdf));
 
-// SALARY MATRIX (Global Admin)
-router.get('/admin/salary-matrix', catchAsync(adminController.getSalaryMatrix));
-router.post('/admin/salary-matrix', catchAsync(adminController.saveSalaryMatrix));
+
 
 // --- SHIFTS ---
 router.get('/shifts', catchAsync(shiftController.getShifts));
@@ -76,10 +72,7 @@ router.post('/tasks/delete', catchAsync(taskController.deleteTask));
 router.post('/tasks/toggle', catchAsync(taskController.toggleTaskStatus));
 router.post('/tasks/force-remind', catchAsync(taskController.forceRemind));
 
-// --- KPI ---
-router.get('/kpi', catchAsync(kpiController.getKpi));
-router.post('/kpi/settings', catchAsync(kpiController.saveSettings));
-router.post('/kpi/import', catchAsync(kpiController.importKpi));
+
 
 // --- NOTIFICATIONS (In-App SSE) ---
 const notificationController = require('./controllers/notificationController');
@@ -101,7 +94,6 @@ router.get('/notes', catchAsync(noteController.getNotes));
 router.post('/notes', catchAsync(noteController.addNote));
 router.post('/notes/delete', catchAsync(noteController.deleteNote));
 
-// --- SALARY (PaySlips) ---
-router.get('/salary', catchAsync(salaryController.getUserSalary));
+
 
 module.exports = router;
