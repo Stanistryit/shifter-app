@@ -1,7 +1,7 @@
 import { state } from './modules/state.js';
 import { fetchJson, postJson } from './modules/api.js';
 import {
-    initTheme, toggleTheme, showToast, triggerHaptic, showAdminTab as uiShowAdminTab, formatText, updateFileName,
+    initTheme, toggleTheme, changeColorTheme, showToast, triggerHaptic, showAdminTab as uiShowAdminTab, formatText, updateFileName,
     openTaskDetailsModal, closeTaskDetailsModal, showContextMenu, activeContext,
     updateFabIcon, toggleHoursPin, showSkeletonLoader, hideSkeletonLoader
 } from './modules/ui.js';
@@ -389,6 +389,7 @@ initApp();
 
 // --- EXPOSE TO HTML (WINDOW) ---
 window.toggleTheme = toggleTheme;
+window.changeColorTheme = changeColorTheme;
 window.triggerHaptic = triggerHaptic;
 window.readNotifications = readNotifications;
 window.closeNotificationsModal = closeNotificationsModal;

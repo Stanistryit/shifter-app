@@ -16,6 +16,27 @@ export function initTheme() {
     }
 
     applyTheme(isDark);
+    
+    const storedColorTheme = localStorage.getItem('colorTheme') || 'default';
+    applyColorTheme(storedColorTheme);
+}
+
+function applyColorTheme(themeName) {
+    if (themeName === 'default') {
+        document.documentElement.removeAttribute('data-theme');
+    } else {
+        document.documentElement.setAttribute('data-theme', themeName);
+    }
+    
+    // Update selector if it exists
+    const select = document.getElementById('profileColorTheme');
+    if (select) select.value = themeName;
+}
+
+export function changeColorTheme(themeName) {
+    if (window.triggerHaptic) window.triggerHaptic();
+    localStorage.setItem('colorTheme', themeName);
+    applyColorTheme(themeName);
 }
 
 function applyTheme(isDark) {
