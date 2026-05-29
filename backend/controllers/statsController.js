@@ -1,8 +1,13 @@
 const Shift = require('../models').Shift;
+const User = require('../models').User;
 
 exports.getPersonalStats = async (req, res) => {
     try {
-        const userName = req.user.name;
+        if (!req.session.userId) return res.status(401).json({ success: false, message: 'Не авторизовано' });
+        const user = await User.findById(req.session.userId);
+        if (!user) return res.status(401).json({ success: false, message: 'Не авторизовано' });
+        
+        const userName = user.name;
         // get all shifts for this user for calculating "days without sick leave"
         const allShifts = await Shift.find({ name: userName }).sort({ date: 1 });
         
