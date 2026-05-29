@@ -466,7 +466,7 @@ exports.notifyBadge = async (req, res) => {
             const bot = getBot();
             if (bot) {
                 const msg = `🏆 <b>Ви отримали новий бейдж!</b>\n\n${emoji} <i>${badgeTitle}</i>\n\nПродовжуйте в тому ж дусі! 🚀`;
-                await bot.telegram.sendMessage(user.telegramChatId, msg, { parse_mode: 'HTML' }).catch(e => console.error(e));
+                await bot.sendMessage(user.telegramChatId, msg, { parse_mode: 'HTML' }).catch(e => console.error(e));
             }
         }
 

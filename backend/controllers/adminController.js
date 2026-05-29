@@ -572,7 +572,7 @@ exports.addCustomBadge = async (req, res) => {
                     const bot = getBot();
                     if (bot) {
                         const msg = `🎉 <b>Нова нагорода!</b>\n\nSM нагородив <b>${targetUser.name}</b> новим бейджем:\n${emoji} <i>${name}</i>\n\nВітаємо! 👏`;
-                        await bot.telegram.sendMessage(store.telegram.chatId, msg, {
+                        await bot.sendMessage(store.telegram.chatId, msg, {
                             message_thread_id: store.telegram.eveningTopicId || undefined,
                             parse_mode: 'HTML'
                         });
