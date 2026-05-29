@@ -898,12 +898,12 @@ async function setMode(mode) {
                 if (badges.length === 0) {
                     badgesContainer.innerHTML = '<span class="text-xs text-gray-400">Поки немає бейджів</span>';
                 } else {
-                    badgesContainer.innerHTML = badges.map(b => \`
+                    badgesContainer.innerHTML = badges.map(b => `
                         <div class="flex items-center gap-1.5 bg-gray-100 dark:bg-[#2C2C2E] px-3 py-1.5 rounded-full shadow-sm border border-gray-200 dark:border-gray-700 hover:scale-105 transition-transform">
-                            <span class="text-lg">\${b.emoji}</span>
-                            <span class="text-xs font-bold text-gray-700 dark:text-gray-300">\${b.title}</span>
+                            <span class="text-lg">${b.emoji}</span>
+                            <span class="text-xs font-bold text-gray-700 dark:text-gray-300">${b.title}</span>
                         </div>
-                    \`).join('');
+                    `).join('');
                 }
             }
         }
