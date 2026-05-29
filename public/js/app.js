@@ -152,7 +152,9 @@ async function initApp() {
     initContextMenuListeners();
     initEditor();
 
-    const savedMode = localStorage.getItem('shifter_viewMode') || 'list';
+    const urlParams = new URLSearchParams(window.location.search);
+    const shortcut = urlParams.get('shortcut');
+    const savedMode = shortcut || localStorage.getItem('shifter_viewMode') || 'list';
     setMode(savedMode);
 }
 

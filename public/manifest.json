@@ -25,5 +25,28 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Наступна зміна",
+      "short_name": "Зміна",
+      "description": "Переглянути статус наступної зміни",
+      "url": "/widget.html",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Статистика",
+      "short_name": "Статистика",
+      "description": "Відкрити особисту статистику",
+      "url": "/?source=pwa&shortcut=stats",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Задачі",
+      "short_name": "Задачі",
+      "description": "Відкрити список задач",
+      "url": "/?source=pwa&shortcut=todo",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
   ]
 }
