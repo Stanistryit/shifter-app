@@ -1,8 +1,7 @@
-const CACHE_NAME = 'shifter-cache-v16';
+const CACHE_NAME = 'shifter-cache-v17';
 const urlsToCache = [
     '/',
     '/index.html',
-    '/widget.html',
     '/css/tailwind.css',
     '/css/style.css',
     '/js/app.js',
