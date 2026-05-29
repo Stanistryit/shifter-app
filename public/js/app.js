@@ -897,6 +897,15 @@ async function setMode(mode) {
                     }
                 }
 
+                if (badges.length > 0 && name === state.currentUser?.name) {
+                    badges.forEach(b => {
+                        if (state.currentUser.notifiedBadges && !state.currentUser.notifiedBadges.includes(b.title)) {
+                            state.currentUser.notifiedBadges.push(b.title);
+                            postJson('/api/user/notify-badge', { badgeTitle: b.title, emoji: b.emoji }).catch(console.error);
+                        }
+                    });
+                }
+
                 if (badges.length === 0) {
                     badgesContainer.innerHTML = '<span class="text-xs text-gray-400">Поки немає бейджів</span>';
                 } else {

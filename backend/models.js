@@ -65,7 +65,8 @@ const userSchema = new mongoose.Schema({
         name: String,
         issuedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         issuedAt: { type: Date, default: Date.now }
-    }]
+    }],
+    notifiedBadges: { type: [String], default: [] }
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword) {

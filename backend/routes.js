@@ -31,6 +31,7 @@ router.get('/user/calendar-token', catchAsync(authController.getCalendarToken));
 router.get('/users', catchAsync(authController.getUsers));
 router.get('/me', catchAsync(authController.getMe));
 router.post('/user/avatar', catchAsync(authController.uploadAvatar));
+router.post('/user/notify-badge', catchAsync(authController.notifyBadge));
 
 // --- WEB PUSH ---
 router.post('/push/subscribe', catchAsync(pushController.subscribe));

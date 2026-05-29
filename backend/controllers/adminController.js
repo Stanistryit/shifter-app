@@ -563,6 +563,26 @@ exports.addCustomBadge = async (req, res) => {
         await targetUser.save();
 
         logAction(u.name, 'add_badge', `Issued badge ${emoji} ${name} to ${targetUser.name}`);
+        
+        // Notify Store Group
+        try {
+            if (targetUser.storeId) {
+                const store = await Store.findById(targetUser.storeId);
+                if (store && store.telegram && store.telegram.chatId) {
+                    const bot = getBot();
+                    if (bot) {
+                        const msg = `🎉 <b>Нова нагорода!</b>\n\nSM нагородив <b>${targetUser.name}</b> новим бейджем:\n${emoji} <i>${name}</i>\n\nВітаємо! 👏`;
+                        await bot.telegram.sendMessage(store.telegram.chatId, msg, {
+                            message_thread_id: store.telegram.newsTopicId || undefined,
+                            parse_mode: 'HTML'
+                        });
+                    }
+                }
+            }
+        } catch (botErr) {
+            console.error("Bot Badge Notification Error:", botErr);
+        }
+
         res.json({ success: true, badges: targetUser.customBadges });
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });

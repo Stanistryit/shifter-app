@@ -294,6 +294,7 @@ exports.getMe = async (req, res) => {
             notificationPreference: user.notificationPreference || 'telegram',
             hasTelegram: !!user.telegramChatId,
             customBadges: user.customBadges || [],
+            notifiedBadges: user.notifiedBadges || [],
             createdAt: user.createdAt
         };
     }
@@ -434,6 +435,42 @@ exports.getCalendarToken = async (req, res) => {
         }
 
         res.json({ success: true, token: user.calendarToken });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
+exports.notifyBadge = async (req, res) => {
+    if (!req.session.userId) return res.status(403).json({ success: false });
+    
+    try {
+        const { badgeTitle, emoji } = req.body;
+        if (!badgeTitle) return res.json({ success: false });
+
+        const user = await User.findById(req.session.userId);
+        if (!user) return res.json({ success: false });
+
+        // Check if already notified
+        if (user.notifiedBadges && user.notifiedBadges.includes(badgeTitle)) {
+            return res.json({ success: true, alreadyNotified: true });
+        }
+
+        // Add to notified
+        if (!user.notifiedBadges) user.notifiedBadges = [];
+        user.notifiedBadges.push(badgeTitle);
+        await user.save();
+
+        // Send Notification
+        if (user.telegramChatId) {
+            const { getBot } = require('../bot');
+            const bot = getBot();
+            if (bot) {
+                const msg = `🏆 <b>Ви отримали новий бейдж!</b>\n\n${emoji} <i>${badgeTitle}</i>\n\nПродовжуйте в тому ж дусі! 🚀`;
+                await bot.telegram.sendMessage(user.telegramChatId, msg, { parse_mode: 'HTML' }).catch(e => console.error(e));
+            }
+        }
+
+        res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });
     }
