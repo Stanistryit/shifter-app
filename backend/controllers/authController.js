@@ -265,8 +265,8 @@ exports.getUsers = async (req, res) => {
         query.storeId = currentUser.storeId;
     }
 
-    // 🔥 НОВЕ: Додав sortOrder у вибірку
-    const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId sortOrder');
+    // 🔥 НОВЕ: Додав sortOrder, createdAt, customBadges у вибірку
+    const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId sortOrder createdAt customBadges');
     res.json(users);
 };
 
@@ -292,7 +292,9 @@ exports.getMe = async (req, res) => {
                 normHours: user.storeId.normHours
             } : null,
             notificationPreference: user.notificationPreference || 'telegram',
-            hasTelegram: !!user.telegramChatId
+            hasTelegram: !!user.telegramChatId,
+            customBadges: user.customBadges || [],
+            createdAt: user.createdAt
         };
     }
 

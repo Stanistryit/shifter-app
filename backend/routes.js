@@ -52,6 +52,10 @@ router.post('/admin/store/norm-hours', catchAsync(adminController.updateStoreNor
 router.get('/admin/store/export', catchAsync(adminController.exportSchedule));
 router.get('/admin/store/export-pdf', catchAsync(adminController.exportSchedulePdf));
 
+// --- BADGES ---
+router.post('/admin/badges/add', catchAsync(adminController.addCustomBadge));
+router.post('/admin/badges/remove', catchAsync(adminController.removeCustomBadge));
+
 
 
 // --- SHIFTS ---

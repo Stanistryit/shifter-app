@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { triggerHaptic, showToast } from './ui.js';
-import { fetchJson } from './api.js'; 
+import { fetchJson, postJson } from './api.js'; 
 
 // Імпортуємо розбиті модулі
 import { renderTimeline } from './render_timeline.js';
@@ -124,7 +124,25 @@ window.openEditUserProxy = (userId) => {
                 
                 ${storeSelectHtml}
 
-                <button onclick="saveUserChanges('${user._id}')" class="w-full py-3.5 bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 active:scale-95 transition-transform mt-2">💾 Зберегти зміни</button>
+                <div class="mt-4 p-3 bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30 rounded-xl">
+                    <label class="block text-xs font-bold text-purple-600 dark:text-purple-400 mb-2">🏅 Видати кастомний бейдж</label>
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" id="badgeEmoji" placeholder="🦇" class="w-12 p-2 bg-white dark:bg-[#1C1C1E] border border-purple-200 dark:border-purple-800 rounded-lg outline-none text-center text-lg">
+                        <input type="text" id="badgeName" placeholder="Назва бейджу" class="flex-1 p-2 bg-white dark:bg-[#1C1C1E] border border-purple-200 dark:border-purple-800 rounded-lg outline-none text-sm">
+                    </div>
+                    <button onclick="window.issueCustomBadge('${user._id}')" class="w-full py-2 bg-purple-500 text-white font-bold rounded-lg shadow-sm active:scale-95 transition-transform text-sm">Видати бейдж</button>
+                    
+                    <div id="userBadgesList" class="mt-2 space-y-1">
+                        ${user.customBadges && user.customBadges.length > 0 ? user.customBadges.map(b => `
+                            <div class="flex justify-between items-center text-xs p-1.5 bg-white dark:bg-[#1C1C1E] rounded-md border border-gray-100 dark:border-gray-800">
+                                <span>${b.emoji} ${b.name}</span>
+                                <button onclick="window.removeCustomBadge('${user._id}', '${b._id}')" class="text-red-500 hover:text-red-700 font-bold px-2 py-0.5 bg-red-50 dark:bg-red-900/20 rounded active:scale-95">✕</button>
+                            </div>
+                        `).join('') : '<div class="text-xs text-gray-500 text-center italic py-1">Немає бейджів</div>'}
+                    </div>
+                </div>
+
+                <button onclick="saveUserChanges('${user._id}')" class="w-full py-3.5 bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 active:scale-95 transition-transform mt-3">💾 Зберегти зміни</button>
                 
                 ${user.status !== 'blocked' ? 
                     `<button onclick="window.blockUser('${user._id}')" class="w-full py-3 text-red-500 font-bold bg-red-50 dark:bg-red-900/10 rounded-xl hover:bg-red-100 transition-colors mt-2">🚫 Звільнити співробітника</button>` 
@@ -209,7 +227,7 @@ window.saveUserChanges = async (id, overrideData = null) => {
             // Оновлюємо всі в'юшки через нові експорти
             renderTable(); 
             const listContainer = document.getElementById('listViewContainer');
-            if (!listContainer.classList.contains('hidden')) renderTimeline();
+            if (listContainer && !listContainer.classList.contains('hidden')) renderTimeline();
             
             if(!overrideData) showToast('✅ Дані оновлено!');
         } else {
@@ -217,5 +235,34 @@ window.saveUserChanges = async (id, overrideData = null) => {
         }
     } catch (e) {
         showToast('❌ Помилка з\'єднання', 'error');
+    }
+};
+
+window.issueCustomBadge = async (targetUserId) => {
+    const emoji = document.getElementById('badgeEmoji').value.trim();
+    const name = document.getElementById('badgeName').value.trim();
+    if (!emoji || !name) return showToast('Введіть емоджі та назву', 'error');
+
+    const res = await postJson('/api/admin/badges/add', { targetUserId, emoji, name });
+    if (res.success) {
+        showToast('Бейдж видано!');
+        const idx = state.users.findIndex(u => u._id === targetUserId);
+        if (idx !== -1) state.users[idx].customBadges = res.badges;
+        window.openEditUserProxy(targetUserId); // re-render modal
+    } else {
+        showToast(res.message || 'Помилка', 'error');
+    }
+};
+
+window.removeCustomBadge = async (targetUserId, badgeId) => {
+    if (!confirm("Видалити цей бейдж?")) return;
+    const res = await postJson('/api/admin/badges/remove', { targetUserId, badgeId });
+    if (res.success) {
+        showToast('Бейдж видалено');
+        const idx = state.users.findIndex(u => u._id === targetUserId);
+        if (idx !== -1) state.users[idx].customBadges = res.badges;
+        window.openEditUserProxy(targetUserId); // re-render modal
+    } else {
+        showToast(res.message || 'Помилка', 'error');
     }
 };

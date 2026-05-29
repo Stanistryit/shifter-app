@@ -539,3 +539,57 @@ exports.exportSchedulePdf = async (req, res) => {
         res.status(500).json({ success: false, message: "Server Error" });
     }
 };
+
+// --- BADGES ---
+exports.addCustomBadge = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (!['admin', 'SM'].includes(u?.role)) {
+        return res.status(403).json({ success: false, message: "Тільки для Admin / SM" });
+    }
+
+    try {
+        const { targetUserId, emoji, name } = req.body;
+        if (!targetUserId || !emoji || !name) return res.json({ success: false, message: "Всі поля обов'язкові" });
+
+        const targetUser = await User.findById(targetUserId);
+        if (!targetUser) return res.json({ success: false, message: "Користувача не знайдено" });
+
+        // SM може видавати значки лише своїм (якщо це не Admin)
+        if (u.role === 'SM' && targetUser.storeId?.toString() !== u.storeId?.toString()) {
+            return res.status(403).json({ success: false, message: "Ви можете видавати значки лише своїм працівникам" });
+        }
+
+        targetUser.customBadges.push({ emoji, name, issuedBy: u._id });
+        await targetUser.save();
+
+        logAction(u.name, 'add_badge', `Issued badge ${emoji} ${name} to ${targetUser.name}`);
+        res.json({ success: true, badges: targetUser.customBadges });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
+exports.removeCustomBadge = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (!['admin', 'SM'].includes(u?.role)) {
+        return res.status(403).json({ success: false, message: "Тільки для Admin / SM" });
+    }
+
+    try {
+        const { targetUserId, badgeId } = req.body;
+        const targetUser = await User.findById(targetUserId);
+        if (!targetUser) return res.json({ success: false, message: "Користувача не знайдено" });
+
+        if (u.role === 'SM' && targetUser.storeId?.toString() !== u.storeId?.toString()) {
+            return res.status(403).json({ success: false, message: "Ви можете видаляти значки лише у своїх працівників" });
+        }
+
+        targetUser.customBadges = targetUser.customBadges.filter(b => b._id.toString() !== badgeId);
+        await targetUser.save();
+
+        logAction(u.name, 'remove_badge', `Removed badge from ${targetUser.name}`);
+        res.json({ success: true, badges: targetUser.customBadges });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+};

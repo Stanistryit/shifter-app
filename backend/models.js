@@ -57,7 +57,15 @@ const userSchema = new mongoose.Schema({
     notificationPreference: { type: String, enum: ['telegram', 'push', 'both'], default: 'telegram' },
 
     // Для експорту розкладу
-    calendarToken: { type: String, default: null, unique: true, sparse: true }
+    calendarToken: { type: String, default: null, unique: true, sparse: true },
+
+    // Для гейміфікації (Бейджі)
+    customBadges: [{
+        emoji: String,
+        name: String,
+        issuedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        issuedAt: { type: Date, default: Date.now }
+    }]
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword) {

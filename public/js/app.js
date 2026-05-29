@@ -827,6 +827,87 @@ async function setMode(mode) {
             if (pfPlaceholder) pfPlaceholder.classList.remove('hidden');
         }
 
+        // --- BADGES RENDER ---
+        const badgesContainer = document.getElementById('profileBadgesContainer');
+        if (badgesContainer) {
+            badgesContainer.innerHTML = '';
+            if (state.currentUser && state.currentUser.role !== 'Guest') {
+                const badges = [];
+                const name = state.currentUser.name;
+
+                // 1. Custom badges from DB
+                if (state.currentUser.customBadges) {
+                    state.currentUser.customBadges.forEach(b => {
+                        badges.push({ emoji: b.emoji, title: b.name });
+                    });
+                }
+
+                // 2. Automatic Badges
+                let hasSickLeave = false;
+                let hasDonor = false;
+                let hasRepair = false;
+                const totalsByWorker = {};
+                const currentYear = new Date().getFullYear();
+                const currentMonth = new Date().getMonth();
+
+                if (state.shifts) {
+                    state.shifts.forEach(s => {
+                        if (s.name === name) {
+                            if (s.start === 'Лікарняний') hasSickLeave = true;
+                            if (s.start === 'Донорство') hasDonor = true;
+                            if (s.start === 'Ремонт' || (s.start === '22:00' && s.end === '06:00')) hasRepair = true;
+                        }
+
+                        const [sy, sm] = s.date.split('-');
+                        if (parseInt(sy) === currentYear && parseInt(sm) - 1 === currentMonth) {
+                            if (!totalsByWorker[s.name]) totalsByWorker[s.name] = 0;
+                            if (s.start && s.start.includes(':') && s.end && s.end.includes(':')) {
+                                let startH = parseInt(s.start.split(':')[0]);
+                                let endH = parseInt(s.end.split(':')[0]);
+                                if (endH <= startH) endH += 24;
+                                totalsByWorker[s.name] += (endH - startH);
+                            } else if (s.start === 'Донорство') {
+                                totalsByWorker[s.name] += 8;
+                            }
+                        }
+                    });
+                }
+
+                if (state.currentUser.createdAt) {
+                    const joinDate = new Date(state.currentUser.createdAt);
+                    const oneYearAgo = new Date();
+                    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+                    if (joinDate < oneYearAgo) badges.push({ emoji: '🎖️', title: 'Ветеран (1 рік+)' });
+                }
+
+                if (!hasSickLeave && state.shifts && state.shifts.some(s => s.name === name)) {
+                    badges.push({ emoji: '🛡️', title: 'Сталевий імунітет' });
+                }
+
+                if (hasDonor) badges.push({ emoji: '🩸', title: 'Донор' });
+                if (hasRepair) badges.push({ emoji: '🦉', title: 'Охоронець ТРЦ' });
+
+                const allHours = Object.values(totalsByWorker);
+                if (allHours.length > 0) {
+                    const maxHours = Math.max(...allHours);
+                    if (totalsByWorker[name] && totalsByWorker[name] === maxHours && maxHours > 0) {
+                        badges.push({ emoji: '🔥', title: 'Трудоголік місяця' });
+                    }
+                }
+
+                if (badges.length === 0) {
+                    badgesContainer.innerHTML = '<span class="text-xs text-gray-400">Поки немає бейджів</span>';
+                } else {
+                    badgesContainer.innerHTML = badges.map(b => \`
+                        <div class="flex items-center gap-1.5 bg-gray-100 dark:bg-[#2C2C2E] px-3 py-1.5 rounded-full shadow-sm border border-gray-200 dark:border-gray-700 hover:scale-105 transition-transform">
+                            <span class="text-lg">\${b.emoji}</span>
+                            <span class="text-xs font-bold text-gray-700 dark:text-gray-300">\${b.title}</span>
+                        </div>
+                    \`).join('');
+                }
+            }
+        }
+
         const btnChangeStore = document.getElementById('profileBtnChangeStore');
         const btnStoreSettings = document.getElementById('profileBtnStoreSettings');
         if (state.currentUser && state.currentUser.role !== 'Guest') {
