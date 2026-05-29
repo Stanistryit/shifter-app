@@ -150,16 +150,28 @@ const broadcastToUsers = async (users, text, files) => {
         
         try {
             if (files && files.length > 0) {
-                // Якщо є файли (беремо перший для спрощення, або відправляємо медіагрупу)
-                // Telegram bot api підтримує sendMediaGroup, але для надійності відправимо по одному 
-                // або sendDocument / sendPhoto. Тут для спрощення відправляємо перший файл як фото/документ
                 const file = files[0];
-                const fileOptions = { caption: text || '', parse_mode: 'HTML' };
+                let captionText = text || '';
+                let textToSendSeparately = null;
+
+                // Telegram caption limit is 1024 characters
+                // Parse mode HTML can add length, so we check safely
+                if (captionText.length > 1000) {
+                    textToSendSeparately = captionText;
+                    captionText = ''; // No caption, send text separately
+                }
+
+                const fileOptions = { caption: captionText, parse_mode: 'HTML' };
                 
                 if (file.mimetype.startsWith('image/')) {
                     await botInstance.sendPhoto(user.telegramChatId, file.buffer, fileOptions);
                 } else {
                     await botInstance.sendDocument(user.telegramChatId, file.buffer, fileOptions);
+                }
+
+                // If text was too long for caption, send it as a separate message
+                if (textToSendSeparately) {
+                    await botInstance.sendMessage(user.telegramChatId, textToSendSeparately, { parse_mode: 'HTML' });
                 }
             } else {
                 await botInstance.sendMessage(user.telegramChatId, text, { parse_mode: 'HTML' });
