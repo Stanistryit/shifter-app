@@ -14,7 +14,8 @@ exports.getPersonalStats = async (req, res) => {
         // Use local timezone or server timezone? Let's use standard JS date manipulation
         // Format of date in shift is YYYY-MM-DD
         const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Kyiv' }); // e.g. "2026-05-29"
-        const currentYear = todayStr.substring(0, 4);
+        const currentYearStr = todayStr.substring(0, 4);
+        const targetYear = req.query.year || currentYearStr;
 
         let workedDays = 0;
         let workedHours = 0;
@@ -25,26 +26,29 @@ exports.getPersonalStats = async (req, res) => {
         let lastSickDateStr = null;
 
         allShifts.forEach(shift => {
-            const isCurrentYear = shift.date.startsWith(currentYear);
+            const isTargetYear = shift.date.startsWith(targetYear);
+            
+            // "isPastOrToday" is useful for current year to not count future shifts,
+            // but for past years, all shifts are past. We should just check if it's <= todayStr
             const isPastOrToday = shift.date <= todayStr;
 
             if (shift.start === 'Лікарняний') {
                 if (isPastOrToday && (!lastSickDateStr || shift.date > lastSickDateStr)) {
                     lastSickDateStr = shift.date;
                 }
-                if (isCurrentYear && isPastOrToday) {
+                if (isTargetYear && isPastOrToday) {
                     sickDays++;
                 }
             } else if (shift.start === 'Відпустка') {
-                if (isCurrentYear && isPastOrToday) {
+                if (isTargetYear && isPastOrToday) {
                     vacationDays++;
                 }
             } else if (shift.start === 'Донорство') {
-                if (isCurrentYear && isPastOrToday) {
+                if (isTargetYear && isPastOrToday) {
                     donorDays++;
                 }
             } else if (shift.start && shift.end) {
-                if (isCurrentYear && isPastOrToday) {
+                if (isTargetYear && isPastOrToday) {
                     workedDays++;
                     const [h1, m1] = shift.start.split(':').map(Number);
                     const [h2, m2] = shift.end.split(':').map(Number);
@@ -71,12 +75,22 @@ exports.getPersonalStats = async (req, res) => {
             }
         }
 
-        // Calculate total weekends (days from Jan 1 to today MINUS all recorded shifts)
-        const startOfYear = new Date(`${currentYear}-01-01`);
-        const diffTimeYear = Math.abs(todayDate - startOfYear);
-        const daysPassedThisYear = Math.floor(diffTimeYear / (1000 * 60 * 60 * 24)) + 1; // +1 to include today
+        // Calculate total weekends
+        const startOfYear = new Date(`${targetYear}-01-01`);
+        let endOfYearDateForCalc = todayDate;
         
-        // Total days with ANY shift (work, vacation, sick, donor) in the current year up to today
+        if (targetYear < currentYearStr) {
+            endOfYearDateForCalc = new Date(`${targetYear}-12-31`);
+        } else if (targetYear > currentYearStr) {
+            endOfYearDateForCalc = startOfYear; // No days passed
+        }
+        
+        const diffTimeYear = Math.abs(endOfYearDateForCalc - startOfYear);
+        let daysPassedThisYear = Math.floor(diffTimeYear / (1000 * 60 * 60 * 24)) + 1; // +1 to include today
+        
+        if (targetYear > currentYearStr) daysPassedThisYear = 0;
+        
+        // Total days with ANY shift (work, vacation, sick, donor) in the target year up to end date
         const weekends = daysPassedThisYear - (workedDays + vacationDays + sickDays + donorDays);
 
         const vacationRemaining = Math.max(0, 24 - vacationDays);

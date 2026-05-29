@@ -1,5 +1,6 @@
 import { fetchJson } from './api.js';
-import { state } from './state.js';
+
+let currentStatsYear = new Date().getFullYear();
 
 export async function loadStatistics() {
     const skeleton = document.getElementById('statsSkeleton');
@@ -12,11 +13,10 @@ export async function loadStatistics() {
     skeleton.classList.remove('hidden');
     content.classList.add('hidden');
     
-    const currentYear = new Date().getFullYear();
-    if (yearBadge) yearBadge.innerText = currentYear;
+    if (yearBadge) yearBadge.innerText = currentStatsYear;
 
     try {
-        const data = await fetchJson('/api/statistics/personal');
+        const data = await fetchJson(`/api/statistics/personal?year=${currentStatsYear}`);
         
         if (data.success && data.stats) {
             const stats = data.stats;
@@ -50,5 +50,17 @@ export async function loadStatistics() {
     }
 }
 
-// Make it globally available for the refresh button
+export function changeStatsYear(delta) {
+    if (window.triggerHaptic) window.triggerHaptic('light', 'impact');
+    currentStatsYear += delta;
+    
+    // reset progress bar instantly
+    const vacBar = document.getElementById('statVacationProgress');
+    if (vacBar) vacBar.style.width = '0%';
+
+    loadStatistics();
+}
+
+// Make it globally available for the HTML buttons
 window.loadStatistics = loadStatistics;
+window.changeStatsYear = changeStatsYear;

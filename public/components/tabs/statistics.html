@@ -1,6 +1,13 @@
 <div class="px-2 animate-fade-in pb-20">
     <div class="flex items-center justify-between mb-4 mt-2 px-1">
-        <h2 class="text-xl font-extrabold tracking-tight">Статистика <span id="statsYearBadge" class="text-blue-500 font-mono"></span></h2>
+        <h2 class="text-xl font-extrabold tracking-tight flex items-center gap-2">
+            Статистика
+            <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg px-2 py-1 shadow-inner">
+                <button onclick="window.changeStatsYear(-1)" class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all">◀</button>
+                <span id="statsYearBadge" class="text-blue-500 font-mono text-lg px-1"></span>
+                <button onclick="window.changeStatsYear(1)" class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all">▶</button>
+            </div>
+        </h2>
         <button onclick="window.loadStatistics()" class="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-gray-800 rounded-full text-lg active:scale-95 transition-transform" title="Оновити">
             🔄
         </button>
