@@ -213,6 +213,20 @@ async function showApp(user) {
             document.getElementById('noteTypeToggle').classList.add('flex');
         }
 
+        // Show Statistics tab for SE, SSE, SM, admin
+        if (['SM', 'SSE', 'SE', 'admin'].includes(user.role)) {
+            const mobStatBtn = document.getElementById('tabModeStatistics');
+            const deskStatBtn = document.getElementById('deskModeStatistics');
+            if (mobStatBtn) {
+                mobStatBtn.classList.remove('hidden');
+                mobStatBtn.classList.add('flex');
+            }
+            if (deskStatBtn) {
+                deskStatBtn.classList.remove('hidden');
+                deskStatBtn.classList.add('flex');
+            }
+        }
+
         // 🔥 ВИПРАВЛЕНО: Прибрали автоматичне відкриття вкладки shifts, щоб показувало Bento-меню
     }
 

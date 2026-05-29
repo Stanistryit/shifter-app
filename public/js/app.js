@@ -36,6 +36,7 @@ import {
 
 import { updateDashboard } from './modules/dashboard.js';
 import { readNotifications, closeNotificationsModal, markAllNotificationsAsRead } from './modules/notifications.js';
+import { loadStatistics } from './modules/statistics.js';
 
 const tg = window.Telegram.WebApp;
 if (tg) { tg.ready(); if (tg.platform && tg.platform !== 'unknown') try { tg.expand() } catch (e) { } }
@@ -72,7 +73,8 @@ async function initApp() {
         loadComponent('grid-container', 'components/tabs/grid.html'),
 
         loadComponent('todo-container', 'components/tabs/todo.html'),
-        loadComponent('profile-container', 'components/tabs/profile.html')
+        loadComponent('profile-container', 'components/tabs/profile.html'),
+        loadComponent('statistics-container', 'components/tabs/statistics.html')
     ]);
 
     // Register Service Worker
@@ -687,12 +689,14 @@ async function setMode(mode) {
     const g = document.getElementById('grid-container');
     const t = document.getElementById('todo-container');
     const profileDiv = document.getElementById('profile-container');
+    const statDiv = document.getElementById('statistics-container');
 
     if (l) l.classList.add('hidden');
     if (c) c.classList.add('hidden');
     if (g) g.classList.add('hidden');
     if (t) t.classList.add('hidden');
     if (profileDiv) profileDiv.classList.add('hidden');
+    if (statDiv) statDiv.classList.add('hidden');
 
     const filtersContainer = document.getElementById('filtersContainer');
 
@@ -709,13 +713,15 @@ async function setMode(mode) {
     const tabGrid = document.getElementById('tabModeGrid');
     const tabTodo = document.getElementById('tabModeTodo');
     const tabProfile = document.getElementById('tabModeProfile');
+    const tabStat = document.getElementById('tabModeStatistics');
 
     const tabs = [
         { id: 'list', el: tabList },
         { id: 'calendar', el: tabCal },
         { id: 'grid', el: tabGrid },
         { id: 'todo', el: tabTodo },
-        { id: 'profile', el: tabProfile }
+        { id: 'profile', el: tabProfile },
+        { id: 'statistics', el: tabStat }
     ];
 
     tabs.forEach(tab => {
@@ -773,7 +779,7 @@ async function setMode(mode) {
         }
     });
 
-    [l, c, g, t, profileDiv].forEach(v => {
+    [l, c, g, t, profileDiv, statDiv].forEach(v => {
         if (v) {
             v.classList.remove('page-enter', 'animate-slide-up');
             void v.offsetWidth; // force reflow for restart
@@ -858,6 +864,9 @@ async function setMode(mode) {
                 btnConnectTelegram.classList.remove('flex');
             }
         }
+    } else if (mode === 'statistics') {
+        if (statDiv) { statDiv.classList.remove('hidden'); statDiv.classList.add('page-enter'); }
+        loadStatistics();
     }
 
     checkEditorButtonVisibility();

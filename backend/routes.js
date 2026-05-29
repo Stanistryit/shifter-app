@@ -13,6 +13,7 @@ const adminController = require('./controllers/adminController');
 const noteController = require('./controllers/noteController');
 const userController = require('./controllers/userController');
 const pushController = require('./controllers/pushController');
+const statsController = require('./controllers/statsController');
 
 // --- AUTH & USER ---
 router.get('/stores', catchAsync(authController.getStores));
@@ -60,6 +61,9 @@ router.post('/delete-shift', catchAsync(shiftController.deleteShift));
 router.post('/shifts/bulk', catchAsync(shiftController.bulkImport));
 router.post('/shifts/clear-day', catchAsync(shiftController.clearDay));
 router.post('/shifts/clear-month', catchAsync(shiftController.clearMonth));
+
+// --- STATISTICS ---
+router.get('/statistics/personal', catchAsync(statsController.getPersonalStats));
 
 // Масове збереження графіку (для Редактора)
 router.post('/shifts/save', validate(schemas.saveSchedule), catchAsync(shiftController.saveSchedule));
