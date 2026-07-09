@@ -267,7 +267,21 @@ async function sendDailyReports(stores) {
         const shifts = await Shift.find({ date: dateStr, name: { $in: userNames } }).sort({ start: 1 });
         const tasks = await Task.find({ date: dateStr, name: { $in: userNames } });
 
-        let msg = `🌙 <b>План на завтра (${display}):</b>\n\n`;
+        // Отримуємо шаблон або використовуємо дефолтний
+        const defaultTemplate = {
+            header: '🌙 <b>План на завтра ({date}):</b>\n',
+            footer: 'Good luck! 🚀',
+            blocks: [
+                { id: 'working', enabled: true, title: '👷‍♂️ <b>На зміні:</b>' },
+                { id: 'vacation', enabled: true, title: '🌴 <b>Відпустка:</b>' },
+                { id: 'donor', enabled: true, title: '🩸 <b>Донорство:</b>' },
+                { id: 'tasks', enabled: true, title: '📌 <b>Задачі:</b>' },
+                { id: 'off', enabled: true, title: '😴 <b>Вихідні:</b>' }
+            ]
+        };
+        const template = store.telegram?.reportTemplate || defaultTemplate;
+        
+        let msg = template.header ? template.header.replace('{date}', display) + '\n\n' : '';
 
         const workingShifts = [];
         const vacationShifts = [];
@@ -281,42 +295,59 @@ async function sendDailyReports(stores) {
             else workingShifts.push(s);
         });
 
-        if (workingShifts.length > 0) {
-            msg += `👷‍♂️ <b>На зміні:</b>\n`;
-            workingShifts.forEach(s => msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`);
-        } else if (vacationShifts.length === 0 && donorShifts.length === 0) {
-            msg += `🤷‍♂️ <b>Змін немає</b>\n`;
-        }
-
-        if (vacationShifts.length > 0) {
-            msg += `\n🌴 <b>Відпустка:</b>\n`;
-            vacationShifts.forEach(s => msg += `🔸 <b>${s.name}</b>\n`);
-        }
-
-        if (donorShifts.length > 0) {
-            msg += `\n🩸 <b>Донорство:</b>\n`;
-            donorShifts.forEach(s => msg += `🔸 <b>${s.name}</b>\n`);
-        }
-
-        if (tasks.length) {
-            msg += `\n📌 <b>Задачі:</b>\n`;
-            tasks.forEach(t => {
-                const time = t.isFullDay ? "Весь день" : `${t.start}-${t.end}`;
-                msg += `▫️ <b>${t.name}</b>: ${t.title} (${time})\n`;
+        // Генеруємо блоки по порядку
+        if (template.blocks && Array.isArray(template.blocks)) {
+            template.blocks.forEach(block => {
+                if (!block.enabled) return;
+                
+                if (block.id === 'working') {
+                    if (workingShifts.length > 0) {
+                        msg += `${block.title}\n`;
+                        workingShifts.forEach(s => msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`);
+                        msg += '\n';
+                    } else if (vacationShifts.length === 0 && donorShifts.length === 0) {
+                        msg += `🤷‍♂️ <b>Змін немає</b>\n\n`;
+                    }
+                }
+                
+                if (block.id === 'vacation' && vacationShifts.length > 0) {
+                    msg += `${block.title}\n`;
+                    vacationShifts.forEach(s => msg += `🔸 <b>${s.name}</b>\n`);
+                    msg += '\n';
+                }
+                
+                if (block.id === 'donor' && donorShifts.length > 0) {
+                    msg += `${block.title}\n`;
+                    donorShifts.forEach(s => msg += `🔸 <b>${s.name}</b>\n`);
+                    msg += '\n';
+                }
+                
+                if (block.id === 'tasks' && tasks.length > 0) {
+                    msg += `${block.title}\n`;
+                    tasks.forEach(t => {
+                        const time = t.isFullDay ? "Весь день" : `${t.start}-${t.end}`;
+                        msg += `▫️ <b>${t.name}</b>: ${t.title} (${time})\n`;
+                    });
+                    msg += '\n';
+                }
+                
+                if (block.id === 'off') {
+                    const offUsers = storeUsers.filter(u => !scheduledNames.includes(u.name));
+                    if (offUsers.length > 0) {
+                        msg += `${block.title}\n`;
+                        const names = offUsers.map(u => {
+                            const parts = u.name.split(' ');
+                            return `🏠 ${parts.length > 1 ? parts[1] : parts[0]}`;
+                        }).join('\n');
+                        msg += `${names}\n\n`;
+                    }
+                }
             });
         }
 
-        const offUsers = storeUsers.filter(u => !scheduledNames.includes(u.name));
-        if (offUsers.length > 0) {
-            msg += `\n😴 <b>Вихідні:</b>\n`;
-            const names = offUsers.map(u => {
-                const parts = u.name.split(' ');
-                return `🏠 ${parts.length > 1 ? parts[1] : parts[0]}`;
-            }).join('\n');
-            msg += `${names}\n`;
+        if (template.footer) {
+            msg += template.footer;
         }
-
-        msg += `\nGood luck! 🚀`;
 
         try {
             const opts = { parse_mode: 'HTML' };

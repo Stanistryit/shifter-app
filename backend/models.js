@@ -18,7 +18,21 @@ const storeSchema = new mongoose.Schema({
         newsTopicId: { type: Number, default: null },
         requestsTopicId: { type: Number, default: null },
         eveningTopicId: { type: Number, default: null },
-        reportTime: { type: String, default: "20:00" }
+        reportTime: { type: String, default: "20:00" },
+        reportTemplate: {
+            header: { type: String, default: '🌙 <b>План на завтра ({date}):</b>' },
+            footer: { type: String, default: 'Good luck! 🚀' },
+            blocks: {
+                type: [Object],
+                default: [
+                    { id: 'working', enabled: true, title: '👷‍♂️ <b>На зміні:</b>' },
+                    { id: 'vacation', enabled: true, title: '🌴 <b>Відпустка:</b>' },
+                    { id: 'donor', enabled: true, title: '🩸 <b>Донорство:</b>' },
+                    { id: 'tasks', enabled: true, title: '📌 <b>Задачі:</b>' },
+                    { id: 'off', enabled: true, title: '😴 <b>Вихідні:</b>' }
+                ]
+            }
+        }
     },
     createdAt: { type: Date, default: Date.now }
 });

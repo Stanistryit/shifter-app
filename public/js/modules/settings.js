@@ -67,6 +67,12 @@ export function openStoreSettingsModal() {
                 </button>
             </div>
 
+            <div class="h-px bg-gray-200 dark:bg-gray-700 my-4"></div>
+            
+            <button onclick="window.openReportConstructorModal()" class="w-full py-3 mb-4 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-xl text-sm font-bold active:scale-95 transition-transform border border-purple-100 dark:border-purple-800/50 flex items-center justify-center gap-2">
+                <span>🪄</span> Конструктор Вечірнього Звіту
+            </button>
+
             <button onclick="window.saveStoreSettings()" class="btn-primary bg-blue-600 shadow-lg shadow-blue-500/30 mb-2">💾 Зберегти</button>
             <button onclick="document.getElementById('storeSettingsModal').remove()" class="w-full py-3 text-gray-500 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">Скасувати</button>
         </div>
@@ -81,39 +87,179 @@ export async function saveStoreSettings() {
     const closeTime = document.getElementById('set_closeTime').value;
     const lunch_duration_minutes = parseInt(document.getElementById('set_lunchDuration').value, 10) || 0;
 
-
     const btn = document.querySelector('#storeSettingsModal .btn-primary');
     const oldText = btn.innerText;
     btn.innerText = "⏳ ...";
 
     try {
-        const res = await postJson('/api/admin/store/settings', { reportTime, openTime, closeTime, lunch_duration_minutes });
+        const payload = { reportTime, openTime, closeTime, lunch_duration_minutes };
+        if (window._tempReportTemplate) {
+            payload.reportTemplate = window._tempReportTemplate;
+        }
+
+        const res = await postJson('/api/admin/store/settings', payload);
         if (res.success) {
             showToast("Налаштування збережено! ✅");
 
-            // Оновлюємо локальний стейт, щоб графік перемалювався одразу
             if (state.currentUser.store) {
                 state.currentUser.store.reportTime = reportTime;
                 state.currentUser.store.openTime = openTime;
                 state.currentUser.store.closeTime = closeTime;
                 state.currentUser.store.lunch_duration_minutes = lunch_duration_minutes;
+                if (!state.currentUser.store.telegram) state.currentUser.store.telegram = {};
+                if (window._tempReportTemplate) {
+                    state.currentUser.store.telegram.reportTemplate = window._tempReportTemplate;
+                }
             }
+            window._tempReportTemplate = null;
 
-            // Якщо є функція для перевірки видимості кнопок, викликаємо її
-            if (window.checkEditorButtonVisibility) {
-                window.checkEditorButtonVisibility();
-            }
+            if (window.checkEditorButtonVisibility) window.checkEditorButtonVisibility();
 
             document.getElementById('storeSettingsModal').remove();
-            renderAll(); // Перемальовуємо графік з новими межами
+            renderAll();
         } else {
             showToast(res.message || "Помилка", 'error');
             btn.innerText = oldText;
         }
     } catch (e) {
-            showToast("Помилка мережі", 'error');
+        showToast("Помилка мережі", 'error');
         btn.innerText = oldText;
     }
+}
+
+window.openReportConstructorModal = function() {
+    triggerHaptic();
+    const s = state.currentUser.store || {};
+    let template = window._tempReportTemplate;
+    if (!template) {
+        template = (s.telegram && s.telegram.reportTemplate) ? s.telegram.reportTemplate : {
+            header: '🌙 <b>План на завтра ({date}):</b>\\n',
+            footer: 'Good luck! 🚀',
+            blocks: [
+                { id: 'working', enabled: true, title: '👷‍♂️ <b>На зміні:</b>' },
+                { id: 'vacation', enabled: true, title: '🌴 <b>Відпустка:</b>' },
+                { id: 'donor', enabled: true, title: '🩸 <b>Донорство:</b>' },
+                { id: 'tasks', enabled: true, title: '📌 <b>Задачі:</b>' },
+                { id: 'off', enabled: true, title: '😴 <b>Вихідні:</b>' }
+            ]
+        };
+    }
+
+    // deep copy to avoid mutating original state before save
+    const t = JSON.parse(JSON.stringify(template));
+    
+    // Fallback for missing blocks if older template is saved
+    const defaultBlocks = [
+        { id: 'working', title: '👷‍♂️ <b>На зміні:</b>' },
+        { id: 'vacation', title: '🌴 <b>Відпустка:</b>' },
+        { id: 'donor', title: '🩸 <b>Донорство:</b>' },
+        { id: 'tasks', title: '📌 <b>Задачі:</b>' },
+        { id: 'off', title: '😴 <b>Вихідні:</b>' }
+    ];
+    defaultBlocks.forEach(db => {
+        if (!t.blocks.find(b => b.id === db.id)) {
+            t.blocks.push({ id: db.id, enabled: true, title: db.title });
+        }
+    });
+
+    const modalHtml = `
+    <div id="reportConstructorModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="document.getElementById('reportConstructorModal').remove()"></div>
+        <div class="glass-modal rounded-2xl w-full max-w-md p-6 relative z-10 animate-slide-up max-h-[90vh] overflow-y-auto flex flex-col">
+            <h3 class="font-bold text-xl mb-2 flex items-center gap-2">🪄 Конструктор Звіту</h3>
+            <p class="text-xs text-gray-400 mb-4">Налаштуйте вигляд вечірнього звіту. Перетягуйте блоки, щоб змінити їх порядок.</p>
+            
+            <div class="space-y-4 mb-6 flex-1 overflow-y-auto pr-1 pb-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1">Заголовок звіту</label>
+                    <textarea id="set_reportHeader" class="ios-input w-full text-sm font-mono h-16 resize-none">${t.header}</textarea>
+                    <p class="text-[10px] text-gray-500 mt-1">{date} - буде замінено на завтрашню дату</p>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-2">Блоки звіту</label>
+                    <div id="reportBlocksContainer" class="space-y-2">
+                        ${t.blocks.map((b, idx) => `
+                        <div class="report-block-item flex items-center gap-2 bg-gray-50 dark:bg-[#1C1C1E] p-2 rounded-xl border border-gray-100 dark:border-gray-800" data-id="${b.id}">
+                            <div class="text-gray-400 cursor-move px-1 block-drag-handle">≡</div>
+                            <input type="checkbox" class="w-4 h-4 rounded text-blue-500 block-enabled" ${b.enabled ? 'checked' : ''}>
+                            <input type="text" class="ios-input flex-1 py-1 text-sm block-title" value="${b.title.replace(/"/g, '&quot;')}">
+                        </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1">Текст в кінці звіту</label>
+                    <textarea id="set_reportFooter" class="ios-input w-full text-sm font-mono h-16 resize-none">${t.footer}</textarea>
+                </div>
+            </div>
+
+            <div class="mt-auto pt-4 border-t border-gray-100 dark:border-gray-800 bg-white/5 dark:bg-black/5">
+                <button onclick="window.applyReportTemplate()" class="btn-primary bg-purple-600 shadow-lg shadow-purple-500/30 mb-2">Застосувати</button>
+                <button onclick="document.getElementById('reportConstructorModal').remove()" class="w-full py-3 text-gray-500 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">Скасувати</button>
+            </div>
+        </div>
+    </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Init simple Drag and Drop logic
+    initDragAndDrop(document.getElementById('reportBlocksContainer'));
+};
+
+window.applyReportTemplate = function() {
+    const header = document.getElementById('set_reportHeader').value;
+    const footer = document.getElementById('set_reportFooter').value;
+    
+    const blocksContainer = document.getElementById('reportBlocksContainer');
+    const blockEls = blocksContainer.querySelectorAll('.report-block-item');
+    const blocks = [];
+    
+    blockEls.forEach(el => {
+        blocks.push({
+            id: el.getAttribute('data-id'),
+            enabled: el.querySelector('.block-enabled').checked,
+            title: el.querySelector('.block-title').value
+        });
+    });
+    
+    window._tempReportTemplate = { header, footer, blocks };
+    document.getElementById('reportConstructorModal').remove();
+    showToast('Шаблон збережено локально. Натисніть "Зберегти" в основному вікні.');
+};
+
+function initDragAndDrop(container) {
+    let draggedItem = null;
+    
+    const items = container.querySelectorAll('.report-block-item');
+    items.forEach(item => {
+        const handle = item.querySelector('.block-drag-handle');
+        
+        handle.addEventListener('mousedown', () => item.setAttribute('draggable', true));
+        handle.addEventListener('mouseup', () => item.removeAttribute('draggable'));
+        
+        item.addEventListener('dragstart', (e) => {
+            draggedItem = item;
+            setTimeout(() => item.classList.add('opacity-50'), 0);
+        });
+        
+        item.addEventListener('dragend', () => {
+            draggedItem = null;
+            item.classList.remove('opacity-50');
+            item.removeAttribute('draggable');
+        });
+        
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (draggedItem !== item) {
+                const rect = item.getBoundingClientRect();
+                const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+                container.insertBefore(draggedItem, next ? item.nextSibling : item);
+            }
+        });
+    });
 }
 
 window.updateNormHoursInput = function() {

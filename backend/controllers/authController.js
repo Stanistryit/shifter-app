@@ -442,7 +442,7 @@ exports.getCalendarToken = async (req, res) => {
 
 exports.notifyBadge = async (req, res) => {
     if (!req.session.userId) return res.status(403).json({ success: false });
-    
+
     try {
         const { badgeTitle, emoji } = req.body;
         if (!badgeTitle) return res.json({ success: false });
