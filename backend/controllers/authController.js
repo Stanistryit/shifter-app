@@ -125,7 +125,8 @@ exports.login = async (req, res) => {
                     openTime: user.storeId.openTime,
                     closeTime: user.storeId.closeTime,
                     reportTime: user.storeId.telegram?.reportTime,
-                    normHours: user.storeId.normHours
+                    normHours: user.storeId.normHours,
+                    telegram: user.storeId.telegram
                 } : null,
                 hasTelegram: !!user.telegramChatId
             }
@@ -289,7 +290,8 @@ exports.getMe = async (req, res) => {
                 openTime: user.storeId.openTime,
                 closeTime: user.storeId.closeTime,
                 reportTime: user.storeId.telegram?.reportTime,
-                normHours: user.storeId.normHours
+                normHours: user.storeId.normHours,
+                telegram: user.storeId.telegram
             } : null,
             notificationPreference: user.notificationPreference || 'telegram',
             hasTelegram: !!user.telegramChatId,

@@ -180,8 +180,12 @@ window.openReportConstructorModal = function() {
                     <label class="block text-xs font-bold text-gray-400 mb-2">Блоки звіту</label>
                     <div id="reportBlocksContainer" class="space-y-2">
                         ${t.blocks.map((b, idx) => `
-                        <div class="report-block-item flex items-center gap-2 bg-gray-50 dark:bg-[#1C1C1E] p-2 rounded-xl border border-gray-100 dark:border-gray-800" data-id="${b.id}">
-                            <div class="text-gray-400 cursor-move px-1 block-drag-handle">≡</div>
+                        <div class="report-block-item flex items-center gap-2 bg-gray-50 dark:bg-[#1C1C1E] p-2 rounded-xl border border-gray-100 dark:border-gray-800 transition-all" data-id="${b.id}">
+                            <div class="text-gray-400 cursor-move px-1 block-drag-handle hidden md:block">≡</div>
+                            <div class="flex flex-col md:hidden items-center justify-center">
+                                <button type="button" onclick="window.moveBlockUp(this)" class="text-gray-400 active:bg-gray-200 dark:active:bg-gray-700 rounded w-6 h-6 flex items-center justify-center">▲</button>
+                                <button type="button" onclick="window.moveBlockDown(this)" class="text-gray-400 active:bg-gray-200 dark:active:bg-gray-700 rounded w-6 h-6 flex items-center justify-center">▼</button>
+                            </div>
                             <input type="checkbox" class="w-4 h-4 rounded text-blue-500 block-enabled" ${b.enabled ? 'checked' : ''}>
                             <input type="text" class="ios-input flex-1 py-1 text-sm block-title" value="${b.title.replace(/"/g, '&quot;')}">
                         </div>
@@ -228,6 +232,22 @@ window.applyReportTemplate = function() {
     window._tempReportTemplate = { header, footer, blocks };
     document.getElementById('reportConstructorModal').remove();
     showToast('Шаблон збережено локально. Натисніть "Зберегти" в основному вікні.');
+};
+
+window.moveBlockUp = function(btn) {
+    const item = btn.closest('.report-block-item');
+    if (item.previousElementSibling) {
+        item.parentNode.insertBefore(item, item.previousElementSibling);
+        triggerHaptic();
+    }
+};
+
+window.moveBlockDown = function(btn) {
+    const item = btn.closest('.report-block-item');
+    if (item.nextElementSibling) {
+        item.parentNode.insertBefore(item.nextElementSibling, item);
+        triggerHaptic();
+    }
 };
 
 function initDragAndDrop(container) {
