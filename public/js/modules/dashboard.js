@@ -307,7 +307,7 @@ export function updateDashboard() {
         if (dur > 0) totalHours += dur;
     });
 
-    let norm = parseInt(state.kpiData?.settings?.normHours || 160);
+    let norm = parseInt(state.currentUser?.store?.normHours || 160);
     const percentVal = Math.min(100, (totalHours / norm) * 100);
 
     const hoursEl = document.getElementById('dashHoursText');
