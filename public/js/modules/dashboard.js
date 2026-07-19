@@ -307,7 +307,9 @@ export function updateDashboard() {
         if (dur > 0) totalHours += dur;
     });
 
-    let norm = parseInt(state.currentUser?.store?.normHours || 160);
+    const pad = n => String(n).padStart(2, '0');
+    const monthKey = `${viewYear}-${pad(viewMonth + 1)}`;
+    let norm = parseInt(state.currentUser?.store?.normHours?.[monthKey] || 160);
     const percentVal = Math.min(100, (totalHours / norm) * 100);
 
     const hoursEl = document.getElementById('dashHoursText');
