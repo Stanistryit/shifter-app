@@ -67,6 +67,7 @@ export function renderTodo() {
 
 function buildTodoCard(t) {
     const isCompleted = t.status === 'completed';
+    const reqComp = t.requireCompletion !== false;
     let subInfo = '';
     if (t.subtasks && t.subtasks.length > 0) {
         const comp = t.subtasks.filter(s => s.completed).length;
@@ -79,12 +80,12 @@ function buildTodoCard(t) {
         ? `<div class="text-xs text-purple-500 font-medium mt-1 flex items-center gap-1">🔁 ${recurLabels[t.recurrence] || t.recurrence}</div>`
         : '';
 
-    const deadInfo = t.deadline ? `<div class="text-xs ${isCompleted ? 'text-gray-400' : 'text-red-500 font-medium'} mt-1 flex items-center gap-1">⏳ Дедлайн: ${new Date(t.deadline).toLocaleString('uk-UA', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}</div>` : '';
+    const deadInfo = t.deadline ? `<div class="text-xs ${isCompleted && reqComp ? 'text-gray-400' : 'text-red-500 font-medium'} mt-1 flex items-center gap-1">⏳ Дедлайн: ${new Date(t.deadline).toLocaleString('uk-UA', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}</div>` : '';
 
     return `
-    <div onclick="window.openTaskProxy('${t._id}')" class="relative overflow-hidden cursor-pointer bg-white dark:bg-[#2C2C2E] border ${isCompleted ? 'border-green-200 dark:border-green-900/30 opacity-70' : 'border-gray-100 dark:border-gray-800'} rounded-xl p-3 shadow-sm hover:shadow-md transition-all active:scale-[0.98]">
-        ${isCompleted ? '<div class="absolute top-0 right-0 w-8 h-8 bg-green-500 rounded-bl-xl flex items-center justify-center text-white text-xs font-bold shadow-sm">✓</div>' : ''}
-        <h4 class="font-bold text-gray-900 dark:text-white mb-1 ${isCompleted ? 'line-through text-gray-500' : ''} pr-6">${t.title}</h4>
+    <div onclick="window.openTaskProxy('${t._id}')" class="relative overflow-hidden cursor-pointer bg-white dark:bg-[#2C2C2E] border ${isCompleted && reqComp ? 'border-green-200 dark:border-green-900/30 opacity-70' : 'border-gray-100 dark:border-gray-800'} rounded-xl p-3 shadow-sm hover:shadow-md transition-all active:scale-[0.98]">
+        ${isCompleted && reqComp ? '<div class="absolute top-0 right-0 w-8 h-8 bg-green-500 rounded-bl-xl flex items-center justify-center text-white text-xs font-bold shadow-sm">✓</div>' : ''}
+        <h4 class="font-bold text-gray-900 dark:text-white mb-1 ${isCompleted && reqComp ? 'line-through text-gray-500' : ''} pr-6">${t.title}</h4>
         ${t.description ? `<p class="text-xs text-gray-500 line-clamp-2 mb-1">${t.description}</p>` : ''}
         ${subInfo}
         ${recurInfo}

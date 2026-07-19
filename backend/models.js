@@ -107,6 +107,8 @@ const taskSchema = new mongoose.Schema({
     end: { type: String, default: '' },
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
     status: { type: String, enum: ['pending', 'completed'], default: 'pending' },
+    includeHours: { type: Boolean, default: false },
+    requireCompletion: { type: Boolean, default: true },
     
     // Нові поля для ToDo List
     type: { type: String, enum: ['timeline', 'todo'], default: 'timeline' },

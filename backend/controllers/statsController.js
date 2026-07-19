@@ -1,5 +1,6 @@
 const Shift = require('../models').Shift;
 const User = require('../models').User;
+const Task = require('../models').Task;
 
 exports.getPersonalStats = async (req, res) => {
     try {
@@ -54,6 +55,22 @@ exports.getPersonalStats = async (req, res) => {
                     const [h2, m2] = shift.end.split(':').map(Number);
                     let hours = (h2 + m2 / 60) - (h1 + m1 / 60);
                     if (hours < 0) hours += 24; // Handle night shifts
+                    workedHours += hours;
+                }
+            }
+        });
+
+        // Add task durations where includeHours is true
+        const allTasks = await Task.find({ name: userName, includeHours: true });
+        allTasks.forEach(task => {
+            const isTargetYear = task.date.startsWith(targetYear);
+            const isPastOrToday = task.date <= todayStr;
+            if (task.start && task.end && !task.isFullDay) {
+                if (isTargetYear && isPastOrToday) {
+                    const [h1, m1] = task.start.split(':').map(Number);
+                    const [h2, m2] = task.end.split(':').map(Number);
+                    let hours = (h2 + m2 / 60) - (h1 + m1 / 60);
+                    if (hours < 0) hours += 24;
                     workedHours += hours;
                 }
             }

@@ -328,6 +328,15 @@ export function renderTable() {
 
         let totalHours = 0;
         let donorDays = 0;
+        
+        const userTasks = (state.tasks || []).filter(t => t.name === user.name && t.includeHours && !t.isFullDay && t.date && t.date.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`));
+        userTasks.forEach(t => {
+            if (t.start && t.end) {
+                let duration = timeToDec(t.end) - timeToDec(t.start);
+                if (duration < 0) duration += 24;
+                totalHours += duration;
+            }
+        });
 
         for (let d = 1; d <= daysInMonth; d++) {
             const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -415,7 +424,14 @@ export function renderTable() {
                 }
             }
 
-            html += `<td ${dataAttrs} class="shift-cell text-center p-0.5 border-r border-gray-100 dark:border-gray-800 ${cellClass} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">${content}</td>`;
+            let ctxAttr = '';
+            if (shift && !draft) {
+                ctxAttr = `oncontextmenu="window.contextMenuProxy(event, 'shift', '${shift._id}')"`;
+            } else {
+                ctxAttr = `oncontextmenu="window.contextMenuProxy(event, 'empty_shift', '${ds}|${user.name}')"`;
+            }
+
+            html += `<td ${dataAttrs} ${ctxAttr} class="shift-cell text-center p-0.5 border-r border-gray-100 dark:border-gray-800 ${cellClass} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">${content}</td>`;
         }
 
         let donorHours = donorDays * 8;

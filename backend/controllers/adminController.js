@@ -521,6 +521,26 @@ exports.exportSchedulePdf = async (req, res) => {
             }
         });
 
+        // Add task durations to totals
+        const tasks = await Task.find({ storeId: u.storeId, includeHours: true, date: { $regex: `^${prefix}` } });
+        tasks.forEach(t => {
+            if (t.start && t.end && !t.isFullDay && totals[t.name] !== undefined) {
+                const parseTime = (timeStr) => {
+                    const [h, m] = timeStr.split(':').map(Number);
+                    return (h || 0) + ((m || 0) / 60);
+                };
+                let startD = parseTime(t.start);
+                let endD = parseTime(t.end);
+                
+                if (endD <= 6 && startD > endD) endD += 24;
+                else if (endD === 0 && startD > 0) endD = 24;
+
+                let duration = endD - startD; // tasks probably don't include lunch break automatically, so we just add duration
+                if (duration < 0) duration = 0;
+                totals[t.name] += duration;
+            }
+        });
+
         const dates = Array.from(dateSet).sort();
         const names = Array.from(namesSet).sort((a, b) => a.localeCompare(b));
 

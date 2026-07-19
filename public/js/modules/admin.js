@@ -28,6 +28,7 @@ let tempSubtasks = [];
 export function toggleTaskTimeInputs() {
     const c = document.getElementById('taskFullDay').checked;
     document.getElementById('taskTimeInputs').className = c ? 'hidden' : 'flex gap-3';
+    document.getElementById('taskIncludeHoursContainer').className = c ? 'hidden' : 'flex items-center justify-between px-1 border-t border-gray-200 dark:border-gray-700 pt-2';
 }
 
 export function toggleTaskTypeUI(type) {
@@ -98,6 +99,9 @@ export function openAddTaskModal() {
     renderSubtasksBuilder();
     toggleTaskTypeUI('timeline');
     
+    document.getElementById('taskRequireCompletion').checked = true;
+    document.getElementById('taskIncludeHours').checked = false;
+    
     document.getElementById('taskFullDay').checked = false;
     toggleTaskTimeInputs();
     
@@ -123,15 +127,18 @@ export async function submitTaskModal() {
         return showToast("Введіть назву та оберіть співробітника", 'error');
     }
 
-    let payload = { title, name, description, type, subtasks };
+    const requireCompletion = document.getElementById('taskRequireCompletion').checked;
+
+    let payload = { title, name, description, type, subtasks, requireCompletion };
 
     if (type === 'timeline') {
         const date = document.getElementById('taskDate').value;
         const isFullDay = document.getElementById('taskFullDay').checked;
         const start = document.getElementById('taskStart').value;
         const end = document.getElementById('taskEnd').value;
+        const includeHours = !isFullDay && document.getElementById('taskIncludeHours').checked;
         if (!date) return showToast("Оберіть дату", 'error');
-        payload = { ...payload, date, isFullDay, start, end };
+        payload = { ...payload, date, isFullDay, start, end, includeHours };
     } else {
         const deadline = document.getElementById('taskDeadline').value;
         if (!deadline) {
@@ -287,12 +294,14 @@ export function openEditTaskModal(task) {
     document.getElementById('taskTitle').value = task.title || '';
     document.getElementById('taskDescription').value = task.description || '';
     document.getElementById('taskEmployee').value = task.name || '';
+    document.getElementById('taskRequireCompletion').checked = task.requireCompletion !== false;
     
     toggleTaskTypeUI(task.type || 'timeline');
     
     if (task.type === 'timeline' || !task.type) {
         document.getElementById('taskDate').value = task.date || '';
         document.getElementById('taskFullDay').checked = task.isFullDay || false;
+        document.getElementById('taskIncludeHours').checked = task.includeHours || false;
         document.getElementById('taskStart').value = task.start || '10:00';
         document.getElementById('taskEnd').value = task.end || '18:00';
         toggleTaskTimeInputs();

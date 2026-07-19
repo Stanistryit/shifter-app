@@ -233,12 +233,25 @@
                 <option disabled selected>Кому?</option>
             </select>
             
+            <div class="flex flex-col gap-2 bg-gray-50 dark:bg-gray-800 p-2 rounded-xl border border-gray-100 dark:border-gray-700">
+                <div class="flex items-center justify-between px-1">
+                    <span class="text-sm font-medium">Вимагає виконання</span>
+                    <input type="checkbox" id="taskRequireCompletion" checked class="w-5 h-5 accent-purple-500">
+                </div>
+            </div>
+
             <div id="taskTimelineFields" class="space-y-3 block">
                 <input type="date" id="taskDate" class="ios-input w-full">
-                <div class="flex items-center justify-between px-1">
-                    <span class="text-sm font-medium">Весь день</span>
-                    <input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()"
-                        class="w-5 h-5 accent-purple-500">
+                
+                <div class="flex flex-col gap-2 bg-gray-50 dark:bg-gray-800 p-2 rounded-xl border border-gray-100 dark:border-gray-700">
+                    <div class="flex items-center justify-between px-1">
+                        <span class="text-sm font-medium">Весь день</span>
+                        <input type="checkbox" id="taskFullDay" onchange="toggleTaskTimeInputs()" class="w-5 h-5 accent-purple-500">
+                    </div>
+                    <div class="flex items-center justify-between px-1 border-t border-gray-200 dark:border-gray-700 pt-2" id="taskIncludeHoursContainer">
+                        <span class="text-sm font-medium">Врахувати години</span>
+                        <input type="checkbox" id="taskIncludeHours" class="w-5 h-5 accent-purple-500">
+                    </div>
                 </div>
                 <div id="taskTimeInputs" class="flex gap-3">
                     <input type="time" id="taskStart" class="ios-input flex-1" value="12:00">

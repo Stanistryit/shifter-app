@@ -296,6 +296,16 @@ export function updateDashboard() {
         const dur = getDuration(s.start, s.end);
         if (dur > 0) { totalHours += dur; totalShifts++; }
     });
+    
+    const monthlyTasks = (state.tasks || []).filter(t => {
+        if (!t.date || t.name !== state.currentUser.name || !t.includeHours || t.isFullDay) return false;
+        const [y, m, d] = t.date.split('-').map(Number);
+        return y === viewYear && (m - 1) === viewMonth;
+    });
+    monthlyTasks.forEach(t => {
+        const dur = getDuration(t.start, t.end); // assuming getDuration works exactly the same
+        if (dur > 0) totalHours += dur;
+    });
 
     let norm = parseInt(state.kpiData?.settings?.normHours || 160);
     const percentVal = Math.min(100, (totalHours / norm) * 100);

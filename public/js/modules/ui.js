@@ -275,17 +275,22 @@ export function openTaskDetailsModal(task) {
     }
 
     const btnToggle = document.getElementById('btnToggleTaskStatus');
-    if (task.status === 'completed') {
-        btnToggle.innerHTML = '⏳ Повернути в роботу';
-        btnToggle.className = 'w-full py-3 text-white font-bold bg-orange-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-orange-500/30';
+    if (task.requireCompletion === false) {
+        btnToggle.classList.add('hidden');
     } else {
-        btnToggle.innerHTML = '✅ Відмітити як виконану';
-        btnToggle.className = 'w-full py-3 text-white font-bold bg-green-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-green-500/30';
+        btnToggle.classList.remove('hidden');
+        if (task.status === 'completed') {
+            btnToggle.innerHTML = '⏳ Повернути в роботу';
+            btnToggle.className = 'w-full py-3 text-white font-bold bg-orange-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-orange-500/30';
+        } else {
+            btnToggle.innerHTML = '✅ Відмітити як виконану';
+            btnToggle.className = 'w-full py-3 text-white font-bold bg-green-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-green-500/30';
+        }
+        
+        btnToggle.onclick = () => {
+            if (window.toggleTaskExecution) window.toggleTaskExecution(task._id);
+        };
     }
-
-    btnToggle.onclick = () => {
-        if (window.toggleTaskExecution) window.toggleTaskExecution(task._id);
-    };
 
     const btn = document.getElementById('btnDeleteTask');
     if (isManager) {
