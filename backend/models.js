@@ -115,6 +115,8 @@ const taskSchema = new mongoose.Schema({
     deadline: { type: String, default: '' }, // формат наприклад 'YYYY-MM-DD HH:mm'
     reminders: { type: [String], default: [] }, // '1h', '3h', '1d', '1w'
     notifiedReminders: { type: [String], default: [] },
+    deadlineNotified: { type: Boolean, default: false },
+    postponedDeadline: { type: String, default: '' },
     recurrence: { type: String, enum: ['none', 'weekly', 'monthly', 'yearly'], default: 'none' },
     recurrenceParentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', default: null },
     subtasks: [{

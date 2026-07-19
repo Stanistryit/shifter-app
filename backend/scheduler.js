@@ -106,6 +106,55 @@ const initScheduler = async (tgConfig) => {
                 }
             }
         }
+
+        // --- D. DEADLINE NOTIFICATIONS ---
+        const activeTasks = await Task.find({ status: 'pending', requireCompletion: { $ne: false }, deadlineNotified: false });
+        for (const t of activeTasks) {
+            let isDeadlineReached = false;
+            
+            if (t.postponedDeadline) {
+                const pTime = new Date(t.postponedDeadline).getTime();
+                if (!isNaN(pTime) && pTime <= now.getTime()) {
+                    isDeadlineReached = true;
+                }
+            } else {
+                if (t.type === 'todo') {
+                    if (t.deadline) {
+                        const dTime = new Date(t.deadline).getTime();
+                        if (!isNaN(dTime) && dTime <= now.getTime()) isDeadlineReached = true;
+                    }
+                } else {
+                    if (t.date) {
+                        if (t.isFullDay) {
+                            const dTime = new Date(`${t.date}T23:59:00`).getTime();
+                            if (!isNaN(dTime) && dTime <= now.getTime()) isDeadlineReached = true;
+                        } else if (t.end) {
+                            const dTime = new Date(`${t.date}T${t.end}:00`).getTime();
+                            if (!isNaN(dTime) && dTime <= now.getTime()) isDeadlineReached = true;
+                        }
+                    }
+                }
+            }
+            
+            if (isDeadlineReached) {
+                const user = await User.findOne({ name: t.name });
+                if (user) {
+                    const opts = {
+                        ignoreQuietHours: true,
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: "✅ Задача виконана", callback_data: `task_complete_${t._id}` }],
+                                [{ text: "⏳ Відкласти на 1 день", callback_data: `task_postpone_${t._id}` }]
+                            ]
+                        }
+                    };
+                    notifyUser(t.name, `🔔 <b>Дедлайн задачі настав!</b>\n\n📌 <b>${t.title}</b>\n${t.description ? `📝 ${t.description}` : ''}`, opts);
+                }
+                
+                t.deadlineNotified = true;
+                await t.save();
+            }
+        }
     });
 
     // 2. ЩОГОДИННИЙ JOB (Reminders)

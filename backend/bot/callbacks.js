@@ -55,6 +55,87 @@ const handleCallback = async (bot, q) => {
         bot.answerCallbackQuery(q.id, { text: `Дякую, ${shortName}! ✅` });
     }
 
+    // Обробка дедлайнів задач
+    else if (data.startsWith('task_complete_')) {
+        const taskId = data.replace('task_complete_', '');
+        try {
+            const t = await Task.findById(taskId);
+            if (!t) return bot.answerCallbackQuery(q.id, { text: 'Задача не знайдена', show_alert: true });
+            
+            t.status = 'completed';
+            
+            // Якщо задача повторювана, створюємо наступну
+            if (t.recurrence && t.recurrence !== 'none' && t.deadline) {
+                const nextDeadline = new Date(t.deadline);
+                if (!isNaN(nextDeadline.getTime())) {
+                    if (t.recurrence === 'weekly')  nextDeadline.setDate(nextDeadline.getDate() + 7);
+                    if (t.recurrence === 'monthly') nextDeadline.setMonth(nextDeadline.getMonth() + 1);
+                    if (t.recurrence === 'yearly')  nextDeadline.setFullYear(nextDeadline.getFullYear() + 1);
+
+                    const pad = n => String(n).padStart(2, '0');
+                    const dl = `${nextDeadline.getFullYear()}-${pad(nextDeadline.getMonth()+1)}-${pad(nextDeadline.getDate())} ${pad(nextDeadline.getHours())}:${pad(nextDeadline.getMinutes())}`;
+
+                    await Task.create({
+                        title: t.title,
+                        name: t.name,
+                        storeId: t.storeId,
+                        type: 'todo',
+                        description: t.description,
+                        date: new Date().toISOString().split('T')[0],
+                        deadline: dl,
+                        reminders: t.reminders,
+                        recurrence: t.recurrence,
+                        recurrenceParentId: t._id,
+                        subtasks: (t.subtasks || []).map(s => ({ title: s.title, completed: false })),
+                        status: 'pending'
+                    });
+                }
+            }
+            
+            await t.save();
+            
+            const u = await User.findOne({ telegramChatId: uid });
+            const managers = await User.find({ role: { $in: ['SM', 'admin'] }, storeId: t.storeId });
+            managers.forEach(m => {
+                notifyUser(m.name, `✅ <b>${u ? u.name : 'Співробітник'}</b> оновив статус задачі:\n\nЗадачу "${t.title}" відмічено як виконану ✅\n(Основна задача: ${t.title})`);
+            });
+
+            await bot.editMessageText(`✅ <b>Задача виконана!</b>\n\n📌 <b>${t.title}</b>`, {
+                chat_id: q.message.chat.id,
+                message_id: q.message.message_id,
+                parse_mode: 'HTML'
+            });
+            bot.answerCallbackQuery(q.id, { text: 'Відмічено як виконану' });
+        } catch (e) {
+            console.error(e);
+            bot.answerCallbackQuery(q.id, { text: 'Помилка', show_alert: true });
+        }
+    }
+    else if (data.startsWith('task_postpone_')) {
+        const taskId = data.replace('task_postpone_', '');
+        try {
+            const t = await Task.findById(taskId);
+            if (!t) return bot.answerCallbackQuery(q.id, { text: 'Задача не знайдена', show_alert: true });
+            
+            let current = new Date();
+            current.setDate(current.getDate() + 1);
+            
+            t.postponedDeadline = current.toISOString();
+            t.deadlineNotified = false;
+            await t.save();
+            
+            await bot.editMessageText(`⏳ <b>Задача відкладена на 1 день</b>\n\n📌 <b>${t.title}</b>`, {
+                chat_id: q.message.chat.id,
+                message_id: q.message.message_id,
+                parse_mode: 'HTML'
+            });
+            bot.answerCallbackQuery(q.id, { text: 'Відкладено на 1 день' });
+        } catch (e) {
+            console.error(e);
+            bot.answerCallbackQuery(q.id, { text: 'Помилка', show_alert: true });
+        }
+    }
+
     // 2. Налаштування нагадувань
     else if (data.startsWith('set_remind_')) {
         const val = data.replace('set_remind_', '');
