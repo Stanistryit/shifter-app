@@ -87,6 +87,15 @@ export function renderTable() {
 
     if (!state.currentUser) return;
 
+    const pdfExportWrapper = document.getElementById('pdfExportBtnWrapper');
+    if (pdfExportWrapper) {
+        if (state.currentUser.role === 'SM' || state.currentUser.role === 'admin') {
+            pdfExportWrapper.classList.remove('hidden');
+        } else {
+            pdfExportWrapper.classList.add('hidden');
+        }
+    }
+
     // Зберігаємо позицію скролу до перемальовування
     const previousScrollX = tableDiv.scrollLeft;
 
