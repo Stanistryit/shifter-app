@@ -80,7 +80,7 @@ function buildTodoCard(t) {
         ? `<div class="text-xs text-purple-500 font-medium mt-1 flex items-center gap-1">🔁 ${recurLabels[t.recurrence] || t.recurrence}</div>`
         : '';
 
-    const deadInfo = t.deadline ? `<div class="text-xs ${isCompleted && reqComp ? 'text-gray-400' : 'text-red-500 font-medium'} mt-1 flex items-center gap-1">⏳ Дедлайн: ${new Date(t.deadline).toLocaleString('uk-UA', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}</div>` : '';
+    const deadInfo = t.deadline ? `<div class="text-xs ${isCompleted && reqComp ? 'text-gray-400' : 'text-red-500 font-medium'} mt-1 flex items-center gap-1">⏳ Дедлайн: ${new Date(t.deadline).toLocaleString('uk-UA', {year: 'numeric', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}</div>` : '';
 
     return `
     <div onclick="window.openTaskProxy('${t._id}')" class="relative overflow-hidden cursor-pointer bg-white dark:bg-[#2C2C2E] border ${isCompleted && reqComp ? 'border-green-200 dark:border-green-900/30 opacity-70' : 'border-gray-100 dark:border-gray-800'} rounded-xl p-3 shadow-sm hover:shadow-md transition-all active:scale-[0.98]">

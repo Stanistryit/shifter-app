@@ -197,7 +197,7 @@ export function openTaskDetailsModal(task) {
     
     if (task.type === 'todo') {
         document.getElementById('taskModalDate').innerText = 'Дедлайн:';
-        document.getElementById('taskModalTime').innerText = task.deadline ? new Date(task.deadline).toLocaleString('uk-UA', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : 'Відсутній';
+        document.getElementById('taskModalTime').innerText = task.deadline ? new Date(task.deadline).toLocaleString('uk-UA', {year: 'numeric', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : 'Відсутній';
     } else {
         document.getElementById('taskModalDate').innerText = task.date;
         document.getElementById('taskModalTime').innerText = task.isFullDay ? 'Весь день' : `${task.start} - ${task.end}`;
