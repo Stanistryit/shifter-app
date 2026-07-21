@@ -343,7 +343,29 @@ export function renderTable() {
             if (t.start && t.end) {
                 let duration = timeToDec(t.end) - timeToDec(t.start);
                 if (duration < 0) duration += 24;
-                totalHours += duration;
+                
+                const draftKey = `${t.date}_${user.name}`;
+                const draft = state.pendingChanges ? state.pendingChanges[draftKey] : null;
+                const shift = state.shifts.find(s => s.date === t.date && s.name === user.name);
+                const activeShift = draft || shift;
+                
+                if (activeShift && activeShift.start !== 'Відпустка' && activeShift.start !== 'Лікарняний' && activeShift.start !== 'Донорство' && activeShift.start !== 'DELETE') {
+                    let ts = timeToDec(t.start);
+                    let te = timeToDec(t.end);
+                    if (te < ts) te += 24;
+                    
+                    let ss = timeToDec(activeShift.start);
+                    let se = timeToDec(activeShift.end);
+                    if (se < ss) se += 24;
+                    
+                    const overlapStart = Math.max(ts, ss);
+                    const overlapEnd = Math.min(te, se);
+                    if (overlapEnd > overlapStart) {
+                        duration -= (overlapEnd - overlapStart);
+                    }
+                }
+                
+                if (duration > 0) totalHours += duration;
             }
         });
 
