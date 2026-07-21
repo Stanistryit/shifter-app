@@ -303,8 +303,31 @@ export function updateDashboard() {
         return y === viewYear && (m - 1) === viewMonth;
     });
     monthlyTasks.forEach(t => {
-        const dur = getDuration(t.start, t.end); // assuming getDuration works exactly the same
-        if (dur > 0) totalHours += dur;
+        let taskDur = getDuration(t.start, t.end);
+        
+        const shift = monthlyShifts.find(s => s.date === t.date);
+        if (shift && shift.start !== 'Відпустка' && shift.start !== 'Лікарняний' && shift.start !== 'Донорство' && shift.start !== 'DELETE') {
+            const timeToNum = (timeStr) => {
+                if (!timeStr) return 0;
+                const [h, m] = timeStr.split(':').map(Number);
+                return h + (m / 60);
+            };
+            let ts = timeToNum(t.start);
+            let te = timeToNum(t.end);
+            if (te < ts) te += 24;
+            
+            let ss = timeToNum(shift.start);
+            let se = timeToNum(shift.end);
+            if (se < ss) se += 24;
+            
+            const overlapStart = Math.max(ts, ss);
+            const overlapEnd = Math.min(te, se);
+            if (overlapEnd > overlapStart) {
+                taskDur -= (overlapEnd - overlapStart);
+            }
+        }
+        
+        if (taskDur > 0) totalHours += taskDur;
     });
 
     const pad = n => String(n).padStart(2, '0');

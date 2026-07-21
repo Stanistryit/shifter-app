@@ -67,11 +67,29 @@ exports.getPersonalStats = async (req, res) => {
             const isPastOrToday = task.date <= todayStr;
             if (task.start && task.end && !task.isFullDay) {
                 if (isTargetYear && isPastOrToday) {
-                    const [h1, m1] = task.start.split(':').map(Number);
-                    const [h2, m2] = task.end.split(':').map(Number);
-                    let hours = (h2 + m2 / 60) - (h1 + m1 / 60);
-                    if (hours < 0) hours += 24;
-                    workedHours += hours;
+                    const timeToNum = (timeStr) => {
+                        if (!timeStr) return 0;
+                        const [h, m] = timeStr.split(':').map(Number);
+                        return h + (m / 60);
+                    };
+                    let ts = timeToNum(task.start);
+                    let te = timeToNum(task.end);
+                    if (te < ts) te += 24;
+                    let taskDur = te - ts;
+
+                    const shift = allShifts.find(s => s.date === task.date);
+                    if (shift && shift.start !== 'Відпустка' && shift.start !== 'Лікарняний' && shift.start !== 'Донорство' && shift.start !== 'DELETE') {
+                        let ss = timeToNum(shift.start);
+                        let se = timeToNum(shift.end);
+                        if (se < ss) se += 24;
+                        
+                        const overlapStart = Math.max(ts, ss);
+                        const overlapEnd = Math.min(te, se);
+                        if (overlapEnd > overlapStart) {
+                            taskDur -= (overlapEnd - overlapStart);
+                        }
+                    }
+                    if (taskDur > 0) workedHours += taskDur;
                 }
             }
         });
