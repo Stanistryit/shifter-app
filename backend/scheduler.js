@@ -155,6 +155,35 @@ const initScheduler = async (tgConfig) => {
                 await t.save();
             }
         }
+
+        // --- E. AUTO-COMPLETE NON-REQUIRED TASKS ---
+        const autoTasks = await Task.find({ status: 'pending', requireCompletion: false });
+        for (const t of autoTasks) {
+            let isDeadlineReached = false;
+            
+            if (t.type === 'todo') {
+                if (t.deadline) {
+                    const dTime = new Date(t.deadline).getTime();
+                    if (!isNaN(dTime) && dTime <= now.getTime()) isDeadlineReached = true;
+                }
+            } else {
+                if (t.date) {
+                    if (t.isFullDay) {
+                        const dTime = new Date(`${t.date}T23:59:00`).getTime();
+                        if (!isNaN(dTime) && dTime <= now.getTime()) isDeadlineReached = true;
+                    } else if (t.end) {
+                        const dTime = new Date(`${t.date}T${t.end}:00`).getTime();
+                        if (!isNaN(dTime) && dTime <= now.getTime()) isDeadlineReached = true;
+                    }
+                }
+            }
+            
+            if (isDeadlineReached) {
+                t.status = 'completed';
+                await t.save();
+                // We do not send a notification for auto-completed background tasks
+            }
+        }
     });
 
     // 2. ЩОГОДИННИЙ JOB (Reminders)
