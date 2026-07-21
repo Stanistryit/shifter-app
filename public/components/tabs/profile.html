@@ -34,19 +34,23 @@
             <span class="font-medium text-gray-700 dark:text-gray-200">Змінити пароль</span>
             <span>🔐</span>
         </button>
-        <button onclick="toggleTheme()"
-            class="w-full flex justify-between items-center ios-input p-4 active:scale-95 transition-transform border-b border-gray-100 dark:border-gray-800">
-            <span class="font-medium text-gray-700 dark:text-gray-200">Темний режим</span>
-            <span id="themeIcon">🌙</span>
-        </button>
-        <div class="w-full flex flex-col ios-input p-4 text-left border-t border-gray-100 dark:border-gray-800">
-            <label class="font-medium text-gray-700 dark:text-gray-200 w-full mb-3">Колірна схема</label>
-            <div id="profileColorThemeContainer" class="flex items-center justify-between px-1">
-                <button data-theme-value="default" onclick="changeColorTheme('default')" class="w-8 h-8 rounded-full bg-[#3b82f6] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
-                <button data-theme-value="emerald" onclick="changeColorTheme('emerald')" class="w-8 h-8 rounded-full bg-[#10b981] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
-                <button data-theme-value="purple" onclick="changeColorTheme('purple')" class="w-8 h-8 rounded-full bg-[#8b5cf6] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
-                <button data-theme-value="orange" onclick="changeColorTheme('orange')" class="w-8 h-8 rounded-full bg-[#f97316] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
-                <button data-theme-value="rose" onclick="changeColorTheme('rose')" class="w-8 h-8 rounded-full bg-[#f43f5e] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
+        <div class="ios-input p-4 w-full flex flex-col gap-4">
+            <div onclick="toggleTheme()" class="flex justify-between items-center cursor-pointer active:opacity-70 transition-opacity">
+                <span class="font-medium text-gray-700 dark:text-gray-200">Темний режим</span>
+                <span id="themeIcon">🌙</span>
+            </div>
+            
+            <div class="w-full h-px bg-gray-100 dark:bg-gray-800"></div>
+            
+            <div class="w-full flex flex-col text-left">
+                <label class="font-medium text-gray-700 dark:text-gray-200 w-full mb-3">Колірна схема</label>
+                <div id="profileColorThemeContainer" class="flex items-center justify-between px-1">
+                    <button data-theme-value="default" onclick="changeColorTheme('default')" class="w-8 h-8 rounded-full bg-[#3b82f6] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
+                    <button data-theme-value="emerald" onclick="changeColorTheme('emerald')" class="w-8 h-8 rounded-full bg-[#10b981] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
+                    <button data-theme-value="purple" onclick="changeColorTheme('purple')" class="w-8 h-8 rounded-full bg-[#8b5cf6] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
+                    <button data-theme-value="orange" onclick="changeColorTheme('orange')" class="w-8 h-8 rounded-full bg-[#f97316] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
+                    <button data-theme-value="rose" onclick="changeColorTheme('rose')" class="w-8 h-8 rounded-full bg-[#f43f5e] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
+                </div>
             </div>
         </div>
 
