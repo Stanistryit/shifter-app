@@ -60,6 +60,32 @@ exports.addTask = async (req, res) => {
         }
     };
 
+    const applyAutoComplete = (t) => {
+        if (t.requireCompletion === false) {
+            let isDeadlineReached = false;
+            const now = new Date();
+            if (t.type === 'todo') {
+                if (t.deadline) {
+                    const dTime = new Date(t.deadline).getTime();
+                    if (!isNaN(dTime) && dTime <= now.getTime()) isDeadlineReached = true;
+                }
+            } else {
+                if (t.date) {
+                    if (t.isFullDay) {
+                        const dTime = new Date(`${t.date}T23:59:00`).getTime();
+                        if (!isNaN(dTime) && dTime <= now.getTime()) isDeadlineReached = true;
+                    } else if (t.end) {
+                        const dTime = new Date(`${t.date}T${t.end}:00`).getTime();
+                        if (!isNaN(dTime) && dTime <= now.getTime()) isDeadlineReached = true;
+                    }
+                }
+            }
+            if (isDeadlineReached) {
+                t.status = 'completed';
+            }
+        }
+    };
+
     if (req.body.name === 'all') {
         let userQuery = { role: { $nin: ['admin', 'RRP'] } };
         if (perm.user.role !== 'admin') {
@@ -67,11 +93,15 @@ exports.addTask = async (req, res) => {
         }
 
         const users = await User.find(userQuery);
-        const tasksToCreate = users.map(u => ({
-            ...req.body,
-            name: u.name,
-            storeId: u.storeId
-        }));
+        const tasksToCreate = users.map(u => {
+            const tData = {
+                ...req.body,
+                name: u.name,
+                storeId: u.storeId
+            };
+            applyAutoComplete(tData);
+            return tData;
+        });
 
         if (tasksToCreate.length > 0) {
             await Task.insertMany(tasksToCreate);
@@ -88,6 +118,7 @@ exports.addTask = async (req, res) => {
             taskData.storeId = perm.user.storeId;
         }
 
+        applyAutoComplete(taskData);
         await Task.create(taskData);
         sendTaskNotification(name, title, date, start, end, isFullDay, description, type, deadline, subtasks);
         logAction(perm.user.name, 'add_task', title);
@@ -107,6 +138,31 @@ exports.editTask = async (req, res) => {
     if (!task) return res.json({ success: false, message: 'Task not found' });
 
     Object.assign(task, updateFields);
+
+    if (task.requireCompletion === false && task.status !== 'completed') {
+        let isDeadlineReached = false;
+        const now = new Date();
+        if (task.type === 'todo') {
+            if (task.deadline) {
+                const dTime = new Date(task.deadline).getTime();
+                if (!isNaN(dTime) && dTime <= now.getTime()) isDeadlineReached = true;
+            }
+        } else {
+            if (task.date) {
+                if (task.isFullDay) {
+                    const dTime = new Date(`${task.date}T23:59:00`).getTime();
+                    if (!isNaN(dTime) && dTime <= now.getTime()) isDeadlineReached = true;
+                } else if (task.end) {
+                    const dTime = new Date(`${task.date}T${task.end}:00`).getTime();
+                    if (!isNaN(dTime) && dTime <= now.getTime()) isDeadlineReached = true;
+                }
+            }
+        }
+        if (isDeadlineReached) {
+            task.status = 'completed';
+        }
+    }
+
     await task.save();
 
     notifyUser(task.name, `✏️ Задача змінена: <b>${task.title}</b>\n(Відредаговано ${u.name})`);
