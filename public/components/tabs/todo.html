@@ -5,19 +5,26 @@
 
     <!-- Filters -->
     <div class="flex flex-col sm:flex-row gap-3 mb-4 bg-gray-50 dark:bg-[#2C2C2E] p-3 rounded-xl border border-gray-100 dark:border-gray-800">
-        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 font-medium cursor-pointer">
+        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 font-medium cursor-pointer mb-2 sm:mb-0">
             <input type="checkbox" id="taskFilterHideCompleted" class="w-4 h-4 accent-blue-500 rounded border-gray-300 cursor-pointer" onchange="window.renderTodoProxy()">
             Приховати виконані
         </label>
         
-        <div id="taskFilterEmployeeContainer" class="hidden flex-1 sm:ml-auto flex items-center gap-2">
-            <span class="text-xs text-gray-500 font-medium whitespace-nowrap">Співробітник:</span>
-            <div class="relative w-full max-w-[200px]">
-                <select id="taskFilterEmployee" class="ios-input bg-white dark:bg-[#1C1C1E] appearance-none w-full py-1.5 px-3 text-sm h-auto cursor-pointer" onchange="window.renderTodoProxy()">
-                    <option value="all">Всі співробітники</option>
-                </select>
-                <div class="absolute right-3 top-2 text-gray-400 pointer-events-none text-xs">▼</div>
-            </div>
+        <div id="taskFilterEmployeeContainer" class="hidden flex-1 sm:ml-auto flex gap-3">
+            <button id="todoStoreFilterWrapper" onclick="window.openStoreFilterModal()" class="hidden ios-card flex-1 px-3 py-2 flex flex-col items-start justify-center relative glass-panel active:scale-[0.98] transition-transform">
+                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5 mt-0.5">Магазин (Admin)</span>
+                <div class="flex items-center justify-between w-full">
+                    <span class="currentStoreFilterLabelText text-blue-500 font-bold text-sm truncate">Всі</span>
+                    <span class="text-gray-300 text-[10px] ml-1 flex-shrink-0">▼</span>
+                </div>
+            </button>
+            <button onclick="window.openFilterModal()" class="ios-card flex-1 px-3 py-2 flex flex-col items-start justify-center relative glass-panel active:scale-[0.98] transition-transform bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-gray-800 rounded-xl">
+                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5 mt-0.5">Співробітник</span>
+                <div class="flex items-center justify-between w-full">
+                    <span class="currentFilterLabelText text-blue-500 font-bold text-sm truncate">Всі</span>
+                    <span class="text-gray-300 text-[10px] ml-1 flex-shrink-0">▼</span>
+                </div>
+            </button>
         </div>
     </div>
     

@@ -26,29 +26,29 @@ export function renderTodo() {
     if (isManager) {
         adminView.classList.remove('hidden');
         
-        // Показуємо селект вибору співробітника для SM
+        // Показуємо кнопки фільтрів
         const empFilterContainer = document.getElementById('taskFilterEmployeeContainer');
-        const empSelect = document.getElementById('taskFilterEmployee');
         if (empFilterContainer) empFilterContainer.classList.remove('hidden');
-        
-        // Populate select if empty (only 'all' exists)
-        if (empSelect && empSelect.options.length <= 1) {
-            const uniqueUsers = [...new Set(state.tasks.map(t => t.name))].filter(Boolean).sort();
-            uniqueUsers.forEach(u => {
-                const opt = document.createElement('option');
-                opt.value = u;
-                opt.textContent = u;
-                empSelect.appendChild(opt);
-            });
+
+        const storeFilterBtn = document.getElementById('todoStoreFilterWrapper');
+        if (storeFilterBtn) {
+            if (state.currentUser?.role === 'admin') {
+                storeFilterBtn.classList.remove('hidden');
+            } else {
+                storeFilterBtn.classList.add('hidden');
+            }
         }
-        
-        const selectedEmp = empSelect?.value || 'all';
+
+        const selectedEmp = state.filter || 'all';
+        const selectedStore = state.selectedStoreFilter || 'all';
 
         // Групування по співробітниках
         const grouped = {};
         tasks.forEach(t => {
             if (!t.name) return; // Пропускаємо задачі без виконавця
+            
             if (selectedEmp !== 'all' && t.name !== selectedEmp) return;
+            if (state.currentUser?.role === 'admin' && selectedStore !== 'all' && String(t.storeId) !== String(selectedStore)) return;
             
             if (!grouped[t.name]) grouped[t.name] = [];
             grouped[t.name].push(t);

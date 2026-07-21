@@ -516,10 +516,10 @@ window.changeStoreFilter = (storeId, storeName) => {
     state.selectedStoreFilter = storeId;
     localStorage.setItem('shifter_storeFilter', storeId);
 
+    const labelStr = storeId === 'all' ? '🌍 Всі магазини' : `🏪 ${storeName}`;
     const label = document.getElementById('currentStoreFilterLabel');
-    if (label) {
-        label.innerText = storeId === 'all' ? '🌍 Всі магазини' : `🏪 ${storeName}`;
-    }
+    if (label) label.innerText = labelStr;
+    document.querySelectorAll('.currentStoreFilterLabelText').forEach(el => el.innerText = labelStr);
 
     closeStoreFilterModal();
     const gridDiv = document.getElementById('gridViewContainer');
@@ -528,6 +528,7 @@ window.changeStoreFilter = (storeId, storeName) => {
     updateDashboard();
 
     renderAll();
+    if (window.renderTodoProxy) window.renderTodoProxy();
 };
 
 // --- LOGIC ---

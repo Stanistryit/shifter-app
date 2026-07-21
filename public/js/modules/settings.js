@@ -482,9 +482,13 @@ export function applyFilter(val) {
     triggerHaptic();
     state.filter = val;
     const label = val === 'all' ? 'Всі співробітники' : (val.split(' ')[1] || val);
-    document.getElementById('currentFilterLabel').innerText = label;
+    const elId = document.getElementById('currentFilterLabel');
+    if (elId) elId.innerText = label;
+    document.querySelectorAll('.currentFilterLabelText').forEach(el => el.innerText = label);
+
     closeFilterModal();
     renderAll();
+    if (window.renderTodoProxy) window.renderTodoProxy();
 }
 
 // --- STORE FILTER MODAL ---
