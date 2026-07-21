@@ -34,22 +34,35 @@
             <span class="font-medium text-gray-700 dark:text-gray-200">Змінити пароль</span>
             <span>🔐</span>
         </button>
-        <div class="ios-input p-4 w-full flex flex-col gap-4">
-            <div onclick="toggleTheme()" class="flex justify-between items-center cursor-pointer active:opacity-70 transition-opacity">
-                <span class="font-medium text-gray-700 dark:text-gray-200">Темний режим</span>
-                <span id="themeIcon">🌙</span>
+        <!-- Appearance Settings Block -->
+        <div class="w-full flex flex-col bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-3">
+            <div class="px-4 py-3 bg-gray-50/50 dark:bg-[#2C2C2E]/50 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+                <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Оформлення</span>
+                <span>🎨</span>
             </div>
             
-            <div class="w-full h-px bg-gray-100 dark:bg-gray-800"></div>
+            <button onclick="toggleTheme()" class="w-full p-4 flex justify-between items-center active:bg-gray-50 dark:active:bg-[#2C2C2E] transition-colors outline-none">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500">
+                        <span id="themeIcon">🌙</span>
+                    </div>
+                    <span class="font-medium text-gray-800 dark:text-gray-200">Темний режим</span>
+                </div>
+                <div class="w-12 h-6 bg-gray-200 dark:bg-blue-500 rounded-full relative transition-colors shadow-inner flex items-center p-0.5">
+                    <div class="w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform duration-300 dark:translate-x-6"></div>
+                </div>
+            </button>
             
-            <div class="w-full flex flex-col text-left">
-                <label class="font-medium text-gray-700 dark:text-gray-200 w-full mb-3">Колірна схема</label>
-                <div id="profileColorThemeContainer" class="flex items-center justify-between px-1">
-                    <button data-theme-value="default" onclick="changeColorTheme('default')" class="w-8 h-8 rounded-full bg-[#3b82f6] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
-                    <button data-theme-value="emerald" onclick="changeColorTheme('emerald')" class="w-8 h-8 rounded-full bg-[#10b981] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
-                    <button data-theme-value="purple" onclick="changeColorTheme('purple')" class="w-8 h-8 rounded-full bg-[#8b5cf6] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
-                    <button data-theme-value="orange" onclick="changeColorTheme('orange')" class="w-8 h-8 rounded-full bg-[#f97316] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
-                    <button data-theme-value="rose" onclick="changeColorTheme('rose')" class="w-8 h-8 rounded-full bg-[#f43f5e] shadow-sm ring-offset-2 dark:ring-offset-[#1C1C1E] active:scale-90 transition-all"></button>
+            <div class="w-full h-px bg-gray-100 dark:bg-gray-800 ml-4"></div>
+            
+            <div class="p-4 flex flex-col gap-3">
+                <span class="font-medium text-gray-800 dark:text-gray-200 text-left">Колірний акцент</span>
+                <div id="profileColorThemeContainer" class="flex items-center justify-between px-2 py-1">
+                    <button data-theme-value="default" onclick="changeColorTheme('default')" class="w-10 h-10 rounded-full bg-[#3b82f6] shadow-md active:scale-90 transition-all ring-2 ring-transparent ring-offset-2 dark:ring-offset-[#1C1C1E]"></button>
+                    <button data-theme-value="emerald" onclick="changeColorTheme('emerald')" class="w-10 h-10 rounded-full bg-[#10b981] shadow-md active:scale-90 transition-all ring-2 ring-transparent ring-offset-2 dark:ring-offset-[#1C1C1E]"></button>
+                    <button data-theme-value="purple" onclick="changeColorTheme('purple')" class="w-10 h-10 rounded-full bg-[#8b5cf6] shadow-md active:scale-90 transition-all ring-2 ring-transparent ring-offset-2 dark:ring-offset-[#1C1C1E]"></button>
+                    <button data-theme-value="orange" onclick="changeColorTheme('orange')" class="w-10 h-10 rounded-full bg-[#f97316] shadow-md active:scale-90 transition-all ring-2 ring-transparent ring-offset-2 dark:ring-offset-[#1C1C1E]"></button>
+                    <button data-theme-value="rose" onclick="changeColorTheme('rose')" class="w-10 h-10 rounded-full bg-[#f43f5e] shadow-md active:scale-90 transition-all ring-2 ring-transparent ring-offset-2 dark:ring-offset-[#1C1C1E]"></button>
                 </div>
             </div>
         </div>
