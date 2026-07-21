@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shifter-cache-v18';
+const CACHE_NAME = 'shifter-cache-v19';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -25,29 +25,22 @@ self.addEventListener('fetch', event => {
     }
 
     event.respondWith(
-        caches.match(event.request)
+        fetch(event.request)
             .then(response => {
-                if (response) {
-                    return response;
-                }
-
-                return fetch(event.request).then(
-                    function (response) {
-                        if (!response || response.status !== 200 || response.type !== 'basic') {
-                            return response;
+                // Мережевий запит успішний - оновлюємо кеш
+                if (response && response.status === 200 && response.type === 'basic') {
+                    const responseToCache = response.clone();
+                    caches.open(CACHE_NAME).then(cache => {
+                        if (event.request.url.startsWith('http')) {
+                            cache.put(event.request, responseToCache);
                         }
-
-                        var responseToCache = response.clone();
-                        caches.open(CACHE_NAME)
-                            .then(function (cache) {
-                                if (event.request.url.startsWith('http')) {
-                                    cache.put(event.request, responseToCache);
-                                }
-                            });
-
-                        return response;
-                    }
-                );
+                    });
+                }
+                return response;
+            })
+            .catch(() => {
+                // Якщо немає інтернету - дістаємо з кешу
+                return caches.match(event.request);
             })
     );
 });
