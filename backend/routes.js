@@ -36,7 +36,7 @@ router.post('/user/notify-badge', catchAsync(authController.notifyBadge));
 // --- WEB PUSH ---
 router.post('/push/subscribe', catchAsync(pushController.subscribe));
 router.post('/push/unsubscribe', catchAsync(pushController.unsubscribe));
-router.post('/push/test', catchAsync(pushController.testPush));
+
 
 // --- USER TRANSFERS ---
 router.post('/user/transfer/request', catchAsync(userController.requestTransfer));
