@@ -51,7 +51,9 @@ const schemas = {
             subtasks: z.array(z.object({
                 title: z.string(),
                 completed: z.boolean().optional()
-            })).optional()
+            })).optional(),
+            includeHours: z.boolean().optional(),
+            requireCompletion: z.boolean().optional()
         }).strict()
     }),
 
