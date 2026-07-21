@@ -99,6 +99,7 @@ const handleSettings = async (bot, chatId, user, messageId = null) => {
                 [{ text: '🏁 На початку зміни', callback_data: 'set_remind_start' }],
                 [{ text: '🌙 Щодня о 20:00', callback_data: 'set_remind_20' }],
                 [{ text: '🔕 Вимкнути', callback_data: 'set_remind_none' }],
+                [{ text: '💬 Зв\'язок з розробником', url: 'https://t.me/StanisLoveIt' }],
                 [{ text: '🔙 Назад у меню', callback_data: 'menu_back' }]
             ]
         }
