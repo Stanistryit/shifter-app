@@ -101,6 +101,10 @@ exports.updateStoreSettings = async (req, res) => {
         if (reportTemplate) {
             store.telegram.reportTemplate = reportTemplate;
         }
+        
+        if (req.body.requireSseApproval !== undefined) {
+            store.requireSseApproval = req.body.requireSseApproval;
+        }
 
         await store.save();
 

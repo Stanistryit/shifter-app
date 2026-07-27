@@ -1,4 +1,4 @@
-const { AuditLog, User, Shift, Task } = require('./models');
+const { AuditLog, User, Shift, Task, Store } = require('./models');
 const axios = require('axios');
 const bcrypt = require('bcryptjs'); // New import
 
@@ -11,6 +11,10 @@ async function handlePermission(req, userId, type, data, notifyRoleCallback) {
     if (!user) return 'unauthorized';
     if (user.role === 'RRP') return 'forbidden';
     if (user.role === 'SSE') {
+        const store = await Store.findById(user.storeId);
+        if (store && store.requireSseApproval === false) {
+            return { status: 'allowed', user };
+        }
         return { status: 'pending', user };
     }
     if (user.role === 'SM' || user.role === 'admin') return { status: 'allowed', user };

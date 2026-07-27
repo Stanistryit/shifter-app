@@ -12,7 +12,8 @@ export function openStoreSettingsModal() {
     const openTime = s.openTime || "10:00";
     const closeTime = s.closeTime || "22:00";
     const lunchDuration = s.lunch_duration_minutes || 0;
-    
+    const requireSseApproval = s.requireSseApproval !== false; // Default to true
+
     const now = new Date();
     const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const normObj = s.normHours || {};
@@ -45,6 +46,17 @@ export function openStoreSettingsModal() {
                     <label class="block text-xs font-bold text-gray-400 mb-1">Обід (хв)</label>
                     <input type="number" id="set_lunchDuration" value="${lunchDuration}" min="0" class="ios-input w-full">
                     <p class="text-[10px] text-gray-500 mt-1">Вкажіть час у хвилинах. Це значення буде автоматично відніматися від кожної зміни</p>
+                </div>
+                
+                <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                    <div>
+                        <div class="font-bold text-sm">Підтвердження від SM</div>
+                        <div class="text-[10px] text-gray-500 leading-tight">Вимагати підтвердження SM для створених графіків та задач від SSE</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="set_requireSseApproval" class="sr-only peer" ${requireSseApproval ? 'checked' : ''}>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-500"></div>
+                    </label>
                 </div>
             </div>
 
@@ -86,13 +98,14 @@ export async function saveStoreSettings() {
     const openTime = document.getElementById('set_openTime').value;
     const closeTime = document.getElementById('set_closeTime').value;
     const lunch_duration_minutes = parseInt(document.getElementById('set_lunchDuration').value, 10) || 0;
+    const requireSseApproval = document.getElementById('set_requireSseApproval').checked;
 
     const btn = document.querySelector('#storeSettingsModal .btn-primary');
     const oldText = btn.innerText;
     btn.innerText = "⏳ ...";
 
     try {
-        const payload = { reportTime, openTime, closeTime, lunch_duration_minutes };
+        const payload = { reportTime, openTime, closeTime, lunch_duration_minutes, requireSseApproval };
         if (window._tempReportTemplate) {
             payload.reportTemplate = window._tempReportTemplate;
         }
@@ -106,6 +119,7 @@ export async function saveStoreSettings() {
                 state.currentUser.store.openTime = openTime;
                 state.currentUser.store.closeTime = closeTime;
                 state.currentUser.store.lunch_duration_minutes = lunch_duration_minutes;
+                state.currentUser.store.requireSseApproval = requireSseApproval;
                 if (!state.currentUser.store.telegram) state.currentUser.store.telegram = {};
                 if (window._tempReportTemplate) {
                     state.currentUser.store.telegram.reportTemplate = window._tempReportTemplate;

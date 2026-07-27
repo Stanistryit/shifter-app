@@ -93,7 +93,15 @@ exports.saveSchedule = async (req, res) => {
     if (updates.length === 0) return res.json({ success: true });
 
     try {
+        let isSseRestricted = false;
         if (u.role === 'SSE') {
+            const store = await Store.findById(u.storeId);
+            if (!store || store.requireSseApproval !== false) {
+                isSseRestricted = true;
+            }
+        }
+
+        if (isSseRestricted) {
             let reqCount = 0;
             let changesText = [];
 

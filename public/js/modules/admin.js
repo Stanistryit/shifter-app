@@ -164,12 +164,20 @@ export async function submitTaskModal() {
         if (editId) {
             payload.id = editId;
             const res = await postJson('/api/tasks/edit', payload);
-            if (res.success) showToast("Збережено");
-            else return showToast("Помилка", 'error');
+            if (res.success) {
+                if (res.pending) showToast("Запит відправлено SM");
+                else showToast("Збережено");
+            } else {
+                return showToast("Помилка", 'error');
+            }
         } else {
             const res = await postJson('/api/tasks', payload);
-            if (res.success) showToast("Створено");
-            else return showToast("Помилка", 'error');
+            if (res.success) {
+                if (res.pending) showToast("Запит відправлено SM на підтвердження");
+                else showToast("Створено");
+            } else {
+                return showToast("Помилка", 'error');
+            }
         }
 
         triggerHaptic('success', 'notification');

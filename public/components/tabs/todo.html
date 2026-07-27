@@ -1,7 +1,10 @@
 <div id="todoViewContainer" class="space-y-4 pb-10 w-full">
-    <div class="flex items-center justify-between mb-2 mt-2">
+    <div class="flex items-center justify-between mb-4 mt-2">
         <h2 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-indigo-600">📌 Всі задачі</h2>
-        <button id="btnCreateTaskMain" onclick="window.openAddTaskModal()" class="hidden btn-primary text-xs px-4 py-2 w-auto shadow-md active:scale-95 transition-transform">+ Додати</button>
+        <button id="btnCreateTaskMain" onclick="window.openAddTaskModal()" class="hidden flex items-center gap-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-full text-sm font-bold active:scale-95 transition-transform border border-blue-200 dark:border-blue-800/50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+            Додати
+        </button>
     </div>
 
     <!-- Filters -->

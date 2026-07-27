@@ -87,9 +87,9 @@ const sendRequestToSM = async (requestDoc) => {
 
         if (!storeId) return console.log("⚠️ Магазин не визначено для запиту");
 
-        const smUser = await User.findOne({ storeId: storeId, role: 'SM' });
+        const smUsers = await User.find({ storeId: storeId, role: 'SM', telegramChatId: { $ne: null } });
 
-        if (!smUser || !smUser.telegramChatId) return console.log(`⚠️ SM не знайдено або немає ID (Store: ${storeId})`);
+        if (!smUsers || smUsers.length === 0) return console.log(`⚠️ SM з підключеним Telegram не знайдено (Store: ${storeId})`);
 
         let details = "";
         let typeIcon = "🔔";
@@ -133,10 +133,16 @@ const sendRequestToSM = async (requestDoc) => {
             }
         };
 
-        await sendMessageWithQuietHours(smUser.telegramChatId, txt, opts);
+        for (const u of smUsers) {
+            try {
+                await sendMessageWithQuietHours(u.telegramChatId, txt, opts);
+            } catch (err) {
+                console.error(`Error sending to SM ${u.name}:`, err.message);
+            }
+        }
 
     } catch (e) {
-        console.error("Error sending request to SM:", e.message);
+        console.error("Error processing request to SM:", e.message);
     }
 };
 
