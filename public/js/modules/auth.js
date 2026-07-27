@@ -175,11 +175,16 @@ async function showApp(user) {
 
     // Ролі та адмінські кнопки
     if (['admin', 'SM', 'SSE', 'RRP'].includes(user.role)) {
-        if (user.role !== 'RRP') {
+        if (user.role === 'admin') {
             document.getElementById('toggleEditWrapper').classList.remove('hidden');
         }
 
         if (['SM', 'admin'].includes(user.role)) {
+            const btnCreateTaskMain = document.getElementById('btnCreateTaskMain');
+            if (btnCreateTaskMain) {
+                btnCreateTaskMain.classList.remove('hidden');
+            }
+            
             const btnRequests = document.getElementById('btnTabRequests');
             if (btnRequests) {
                 btnRequests.classList.remove('hidden');

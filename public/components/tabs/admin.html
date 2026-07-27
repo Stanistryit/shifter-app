@@ -2,15 +2,6 @@
     <h2 class="text-xl font-bold mb-4">Панель управління</h2>
 
     <div id="adminMenu" class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-        <button id="btnTabTasks" onclick="showAdminTab('tasks')"
-            class="relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 bg-purple-500 text-white p-4 rounded-2xl shadow-lg shadow-purple-500/30 text-left transition-transform active:scale-95 flex flex-col justify-between h-32 group">
-            <div
-                class="absolute -bottom-4 -right-2 text-7xl opacity-20 group-hover:rotate-12 transition-transform pointer-events-none">
-                📌</div>
-            <div class="font-bold text-lg text-white relative z-10">Задачі</div>
-            <div class="text-xs text-white/80 font-medium relative z-10 mt-1">Призначити завдання</div>
-        </button>
-
         <button id="btnTabNews" onclick="showAdminTab('news')"
             class="relative overflow-hidden bg-gradient-to-br from-pink-500 to-rose-500 bg-pink-500 text-white p-4 rounded-2xl shadow-lg shadow-pink-500/30 text-left transition-transform active:scale-95 flex flex-col justify-between h-32 group">
             <div
@@ -26,26 +17,6 @@
             class="hidden col-span-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 p-3 rounded-xl text-xs font-bold items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
             🌍 Глобальні налаштування (Admin)
         </button>
-    </div>
-
-    <div id="adminTabTasks" class="hidden animate-slide-up relative min-h-[300px]">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="font-bold text-xl">📌 Задачі</h3>
-            <button
-                onclick="document.getElementById('adminTabTasks').classList.add('hidden'); document.getElementById('adminMenu').classList.remove('hidden');"
-                class="text-xs text-blue-500 font-bold bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">←
-                Назад</button>
-        </div>
-
-        <div
-            class="flex flex-col items-center justify-center p-8 text-center h-48 bg-gray-50 dark:bg-[#2C2C2E] rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 mt-4">
-            <span class="text-4xl mb-3 opacity-50">📋</span>
-            <p class="text-gray-500 font-medium text-sm mb-4">Тут можна створити нову задачу для
-                співробітників.</p>
-            <button onclick="window.openAddTaskModal()"
-                class="btn-primary bg-purple-600 shadow-purple-600/30 px-6 py-2 w-auto">Створити
-                задачу</button>
-        </div>
     </div>
 
     <div id="adminTabNews" class="hidden animate-slide-up relative min-h-[300px]">
