@@ -179,11 +179,14 @@ async function showApp(user) {
             document.getElementById('toggleEditWrapper').classList.remove('hidden');
         }
 
-        if (['SM', 'admin'].includes(user.role)) {
+        if (['SM', 'admin', 'SSE'].includes(user.role)) {
             const btnCreateTaskMain = document.getElementById('btnCreateTaskMain');
             if (btnCreateTaskMain) {
                 btnCreateTaskMain.classList.remove('hidden');
             }
+        }
+
+        if (['SM', 'admin'].includes(user.role)) {
             
             const btnRequests = document.getElementById('btnTabRequests');
             if (btnRequests) {
