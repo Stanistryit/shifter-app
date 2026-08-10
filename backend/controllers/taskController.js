@@ -18,6 +18,11 @@ exports.getTasks = async (req, res) => {
 
 exports.addTask = async (req, res) => {
     const perm = await handlePermission(req, req.session.userId);
+    
+    if (perm === 'unauthorized' || perm === 'forbidden') {
+        return res.status(403).json({ success: false, message: "Немає прав" });
+    }
+
     if (perm.status === 'pending') {
         const reqDoc = await Request.create({ type: 'add_task', data: req.body, createdBy: perm.user.name });
         sendRequestToSM(reqDoc);
