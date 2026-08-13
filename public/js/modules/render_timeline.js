@@ -187,7 +187,8 @@ export function renderTimeline() {
                     if (left < 0) { width += left; left = 0; } if (left + width > 100) width = 100 - left; if (width < 0) width = 0;
                     
                     const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : activeStoreId;
-                    if (String(sStoreId) !== String(activeStoreId)) {
+                    const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
+                    if (userHomeStoreId && String(sStoreId) !== String(userHomeStoreId)) {
                         const storeName = shift.storeId?.name || 'Інший магазин';
                         html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe ? 'text-orange-600 font-bold' : 'text-orange-900 dark:text-orange-400'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-mono">📍 ${storeName} (${shift.start}-${shift.end})</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment" style="left:${left}%; width:${width}%; background: repeating-linear-gradient(45deg, #f97316, #f97316 10px, #ea580c 10px, #ea580c 20px);"></div>${tasksHtml}</div></div>`;
                     } else {

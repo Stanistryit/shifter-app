@@ -159,7 +159,8 @@ export function renderTable() {
             if (draft) {
                 // Check store match
                 const dStoreId = draft.storeId ? (draft.storeId._id || draft.storeId) : activeStoreId;
-                if (String(dStoreId) === String(activeStoreId)) {
+                const matchesView = (state.selectedStoreFilter === 'all') || (String(dStoreId) === String(activeStoreId));
+                if (matchesView) {
                     if (draft.start !== 'DELETE' && draft.start !== 'Відпустка' && draft.start !== 'Лікарняний' && draft.start !== 'Донорство') { sStart = draft.start; sEnd = draft.end; }
                     if (draft.start === 'Донорство') storeTotalDonorHours += 8;
                 }
@@ -167,7 +168,8 @@ export function renderTable() {
                 const shift = state.shifts.find(s => s.date === ds && s.name === user.name);
                 if (shift) {
                     const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : activeStoreId;
-                    if (String(sStoreId) === String(activeStoreId)) {
+                    const matchesView = (state.selectedStoreFilter === 'all') || (String(sStoreId) === String(activeStoreId));
+                    if (matchesView) {
                         if (shift.start !== 'Відпустка' && shift.start !== 'Лікарняний' && shift.start !== 'Донорство') { sStart = shift.start; sEnd = shift.end; }
                         if (shift.start === 'Донорство') storeTotalDonorHours += 8;
                     }
@@ -439,7 +441,8 @@ export function renderTable() {
                     content = '<span class="text-lg">🩸</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div>';
                 } else {
                     const dStoreId = draft.storeId ? (draft.storeId._id || draft.storeId) : activeStoreId;
-                    if (String(dStoreId) !== String(activeStoreId)) {
+                    const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
+                    if (userHomeStoreId && String(dStoreId) !== String(userHomeStoreId)) {
                         const storeName = draft.storeId?.name || 'Інший магазин';
                         content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-bold leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-1 shadow-sm border border-orange-200 dark:border-orange-800 flex items-center justify-center gap-0.5 cursor-pointer transform scale-105">
                             📍 ${draft.start.split(':')[0]}-${draft.end.split(':')[0]}
@@ -462,8 +465,9 @@ export function renderTable() {
                 } else {
                     const opacity = isPast ? 'opacity-50 grayscale' : '';
                     const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : activeStoreId;
+                    const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
                     
-                    if (String(sStoreId) !== String(activeStoreId)) {
+                    if (userHomeStoreId && String(sStoreId) !== String(userHomeStoreId)) {
                         const storeName = shift.storeId?.name || 'Інший магазин';
                         content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-bold leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-1 shadow-sm border border-orange-200 dark:border-orange-800 flex items-center justify-center gap-0.5 cursor-pointer ${opacity}">
                             📍 ${shift.start.split(':')[0]}-${shift.end.split(':')[0]}
