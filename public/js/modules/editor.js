@@ -431,7 +431,7 @@ window.addSubstituteToGrid = function(name) {
         state.usersToShow.push(name);
     }
     window.closeSubstituteModal();
-    window.renderTable();
+    renderTable();
     showToast(`${name} додано до списку!`);
 };
 
@@ -486,7 +486,7 @@ window.createTempUser = async function() {
             if (!state.usersToShow.includes(res.user.name)) {
                 state.usersToShow.push(res.user.name);
             }
-            window.renderTable();
+            renderTable();
             
             // Show alert with Invite Code
             if (tg && tg.showAlert) {
