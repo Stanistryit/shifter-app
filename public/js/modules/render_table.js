@@ -474,8 +474,9 @@ export function renderTable() {
                     } else {
                         if (isSubstituteRender) {
                             const storeName = draft.storeId?.name || 'Інший магазин';
-                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-mono leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-0.5 shadow-sm border border-orange-200 dark:border-orange-800 cursor-pointer text-center transform scale-105">
-                                <span class="text-[8px]">📍</span><br>${draft.start.split(':')[0]}-${draft.end.split(':')[0]}
+                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-mono leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-0.5 shadow-sm border border-orange-200 dark:border-orange-800 cursor-pointer transform scale-105">
+                                <div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>
+                                ${draft.start}<br>${draft.end}
                             </div>`;
                         } else {
                             let guestIndicator = '';
@@ -519,8 +520,9 @@ export function renderTable() {
                         
                         if (isSubstituteRender) {
                             const storeName = shift.storeId?.name || 'Інший магазин';
-                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-mono leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-0.5 shadow-sm border border-orange-200 dark:border-orange-800 cursor-pointer text-center ${opacity}">
-                                <span class="text-[8px]">📍</span><br>${shift.start.split(':')[0]}-${shift.end.split(':')[0]}
+                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-mono leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-0.5 shadow-sm border border-orange-200 dark:border-orange-800 cursor-pointer ${opacity}">
+                                <div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>
+                                ${shift.start}<br>${shift.end}
                             </div>`;
                         } else {
                             const colorClass = getShiftColor(shift.start, shift.end, closeTime);
