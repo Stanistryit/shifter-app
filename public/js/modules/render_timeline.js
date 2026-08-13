@@ -118,7 +118,7 @@ export function renderTimeline() {
         html += `<div class="space-y-4">`;
 
         usersToShow.forEach(user => {
-            const shift = state.shifts.find(s => s.date === dateStr && s.name === user.name);
+            let shift = state.shifts.find(s => s.date === dateStr && s.name === user.name);
             const userTasks = state.tasks.filter(t => t.date === dateStr && t.name === user.name);
 
             const shortName = getDisplayName(user);
