@@ -70,9 +70,7 @@ export function toggleEditor() {
             if (bottomTab) bottomTab.classList.add('translate-y-32', 'opacity-0'); // Slide down out of screen and fade out
         }
 
-        if (document.getElementById('gridExtraButtons')) {
-            document.getElementById('gridExtraButtons').classList.remove('hidden');
-        }
+
 
         showToast('✏️ Режим редактора: Оберіть інструмент', 'info');
 
@@ -113,9 +111,7 @@ export function toggleEditor() {
             if (bottomTab) bottomTab.classList.remove('translate-y-32', 'opacity-0');
         }
 
-        if (document.getElementById('gridExtraButtons')) {
-            document.getElementById('gridExtraButtons').classList.add('hidden');
-        }
+
 
         tg.MainButton.hide();
         tg.MainButton.offClick(window.saveEditorChanges); // Cleanup
@@ -186,6 +182,23 @@ function renderToolbar() {
             `;
         });
         pcHtml += `</div></div>`;
+
+        // Співробітники
+        pcHtml += `
+            <div class="mb-3">
+                <h3 class="text-xs font-bold text-gray-500 mb-2">🧑‍🤝‍🧑 Співробітники</h3>
+                <div class="grid grid-cols-2 gap-1.5">
+                    <button onclick="window.openSubstituteModal()" 
+                        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs font-bold transition-all active:scale-95 bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300 shadow-sm border border-orange-200 dark:border-orange-800">
+                        <span>📍 Підміна</span>
+                    </button>
+                    <button onclick="window.openTempUserModal()" 
+                        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs font-bold transition-all active:scale-95 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300 shadow-sm border border-blue-200 dark:border-blue-800">
+                        <span>👤 Тимчасовий</span>
+                    </button>
+                </div>
+            </div>
+        `;
 
         // Спеціальні Інструменти
         pcHtml += `
@@ -261,6 +274,17 @@ function renderToolbar() {
                 </button>
             `;
         });
+
+        toolsHtml += `
+            <button onclick="window.openSubstituteModal()" 
+                class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+                <span>📍 Підміна</span>
+            </button>
+            <button onclick="window.openTempUserModal()" 
+                class="snap-start flex-shrink-0 flex flex-col items-center justify-center px-4 rounded-xl text-[11px] font-bold h-10 whitespace-nowrap transition-all active:scale-95 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <span>👤 Тимчасовий</span>
+            </button>
+        `;
 
         toolsHtml += `
             <button onclick="window.editorSelectTool('custom')" 
