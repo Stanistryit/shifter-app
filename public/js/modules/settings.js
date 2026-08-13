@@ -11,7 +11,7 @@ export function openStoreSettingsModal() {
     const reportTime = s.reportTime || "20:00";
     const openTime = s.openTime || "10:00";
     const closeTime = s.closeTime || "22:00";
-    const lunchDuration = s.lunch_duration_minutes || 0;
+    const lunchDuration = s.lunch_duration_minutes !== undefined ? s.lunch_duration_minutes : 60;
     const requireSseApproval = s.requireSseApproval !== false; // Default to true
 
     const now = new Date();

@@ -59,7 +59,18 @@ export function renderTimeline() {
         state.shifts.filter(s => s.name === u.name && s.date.startsWith(viewMonthStr) && s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство').forEach(s => {
             const [h1, m1] = s.start.split(':').map(Number);
             const [h2, m2] = s.end.split(':').map(Number);
-            h += (h2 + m2 / 60) - (h1 + m1 / 60);
+            
+            let lunchMins = 60;
+            if (state.currentUser.store && state.currentUser.store.lunch_duration_minutes !== undefined) {
+                lunchMins = state.currentUser.store.lunch_duration_minutes;
+            } else if (state.stores && state.currentUser.storeId) {
+                const foundStore = state.stores.find(st => String(st._id) === String(state.currentUser.storeId) || st.code === state.currentUser.storeId);
+                if (foundStore && foundStore.lunch_duration_minutes !== undefined) lunchMins = foundStore.lunch_duration_minutes;
+            }
+            
+            let dur = (h2 + m2 / 60) - (h1 + m1 / 60) - (lunchMins / 60);
+            if (dur < 0) dur = 0;
+            h += dur;
         });
         userHours[u.name] = h.toFixed(0);
     });

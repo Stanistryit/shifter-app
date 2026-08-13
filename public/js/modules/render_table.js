@@ -190,7 +190,18 @@ export function renderTable() {
             if (sStart && sEnd) {
                 const [h1, m1] = sStart.split(':').map(Number);
                 const [h2, m2] = sEnd.split(':').map(Number);
-                storeTotalHours += (h2 + m2 / 60) - (h1 + m1 / 60);
+                
+                let lunchMins = 60;
+                if (state.currentUser.store && state.currentUser.store.lunch_duration_minutes !== undefined) {
+                    lunchMins = state.currentUser.store.lunch_duration_minutes;
+                } else if (state.stores && state.currentUser.storeId) {
+                    const foundStore = state.stores.find(s => String(s._id) === String(state.currentUser.storeId) || s.code === state.currentUser.storeId);
+                    if (foundStore && foundStore.lunch_duration_minutes !== undefined) lunchMins = foundStore.lunch_duration_minutes;
+                }
+                
+                let dur = (h2 + m2 / 60) - (h1 + m1 / 60) - (lunchMins / 60);
+                if (dur < 0) dur = 0;
+                storeTotalHours += dur;
             }
         }
     });
@@ -419,12 +430,12 @@ export function renderTable() {
                 duration = timeToDec(sEnd) - timeToDec(sStart);
 
                 // Віднімання часу обіду (якщо є)
-                let lunchMins = 0;
-                if (state.currentUser.store && state.currentUser.store.lunch_duration_minutes) {
+                let lunchMins = 60;
+                if (state.currentUser.store && state.currentUser.store.lunch_duration_minutes !== undefined) {
                     lunchMins = state.currentUser.store.lunch_duration_minutes;
                 } else if (state.stores && state.currentUser.storeId) {
-                    const foundStore = state.stores.find(s => s._id === state.currentUser.storeId || s.code === state.currentUser.storeId);
-                    if (foundStore && foundStore.lunch_duration_minutes) lunchMins = foundStore.lunch_duration_minutes;
+                    const foundStore = state.stores.find(s => String(s._id) === String(state.currentUser.storeId) || s.code === state.currentUser.storeId);
+                    if (foundStore && foundStore.lunch_duration_minutes !== undefined) lunchMins = foundStore.lunch_duration_minutes;
                 }
 
                 duration -= (lunchMins / 60);
