@@ -1001,6 +1001,7 @@ async function registerUser() {
     const phone = document.getElementById('regPhone').value.trim();
     const email = document.getElementById('regEmail').value.trim();
     const storeCode = document.getElementById('regStore').value;
+    const inviteCode = document.getElementById('regInviteCode') ? document.getElementById('regInviteCode').value.trim() : '';
 
     if (!fullName || !username || !pass || !storeCode) {
         return showToast('Заповніть обов’язкові поля (ПІП, Логін, Пароль, Магазин)', 'error');
@@ -1015,7 +1016,7 @@ async function registerUser() {
     btn.disabled = true;
 
     try {
-        const res = await postJson('/api/register', { fullName, username, password: pass, phone, email, storeCode });
+        const res = await postJson('/api/register', { fullName, username, password: pass, phone, email, storeCode, inviteCode });
 
         if (res.success) {
             showToast('✅ Заявку надіслано! Очікуйте підтвердження SM.', 'info');
@@ -1187,7 +1188,8 @@ async function sendQuickShiftUpdate(shift, status, start, end) {
         name: shift.name,
         status: status,
         start: start,
-        end: end
+        end: end,
+        storeId: shift.storeId ? (typeof shift.storeId === 'object' ? shift.storeId._id : shift.storeId) : state.currentUser.storeId
     };
 
     try {

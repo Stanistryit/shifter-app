@@ -20,6 +20,10 @@ export function renderTimeline() {
         monthTitleEl.innerText = state.currentDate.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
     }
 
+    const activeStoreId = (state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
+        ? state.selectedStoreFilter
+        : (state.currentUser.storeId?._id || state.currentUser.storeId);
+
     // Збираємо всі унікальні дати (зміни + нотатки)
     let allDates = [...new Set([...state.shifts.map(s => s.date), ...state.notes.map(n => n.date)])];
 
@@ -181,7 +185,14 @@ export function renderTimeline() {
                     const startDecimal = sH + sM / 60; const endDecimal = eH + eM / 60;
                     let left = ((startDecimal - dayStart) / totalHours) * 100; let width = ((endDecimal - startDecimal) / totalHours) * 100;
                     if (left < 0) { width += left; left = 0; } if (left + width > 100) width = 100 - left; if (width < 0) width = 0;
-                    html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe ? 'text-blue-600 font-bold' : 'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe ? 'my-shift' : ''}" ${ctxAttr} style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
+                    
+                    const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : activeStoreId;
+                    if (String(sStoreId) !== String(activeStoreId)) {
+                        const storeName = shift.storeId?.name || 'Інший магазин';
+                        html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe ? 'text-orange-600 font-bold' : 'text-orange-900 dark:text-orange-400'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-mono">📍 ${storeName} (${shift.start}-${shift.end})</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment" style="left:${left}%; width:${width}%; background: repeating-linear-gradient(45deg, #f97316, #f97316 10px, #ea580c 10px, #ea580c 20px);"></div>${tasksHtml}</div></div>`;
+                    } else {
+                        html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe ? 'text-blue-600 font-bold' : 'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe ? 'my-shift' : ''}" ${ctxAttr} style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
+                    }
                 }
             } else if (userTasks.length > 0) {
                 const canEditContext = ['admin', 'SM', 'SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP';

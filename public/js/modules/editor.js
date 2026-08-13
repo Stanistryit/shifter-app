@@ -70,6 +70,10 @@ export function toggleEditor() {
             if (bottomTab) bottomTab.classList.add('translate-y-32', 'opacity-0'); // Slide down out of screen and fade out
         }
 
+        if (document.getElementById('gridExtraButtons')) {
+            document.getElementById('gridExtraButtons').classList.remove('hidden');
+        }
+
         showToast('✏️ Режим редактора: Оберіть інструмент', 'info');
 
         // Setup MainButton (Telegram)
@@ -107,6 +111,10 @@ export function toggleEditor() {
                 setTimeout(() => toolbar.classList.add('hidden'), 300);
             }
             if (bottomTab) bottomTab.classList.remove('translate-y-32', 'opacity-0');
+        }
+
+        if (document.getElementById('gridExtraButtons')) {
+            document.getElementById('gridExtraButtons').classList.add('hidden');
         }
 
         tg.MainButton.hide();
@@ -334,7 +342,143 @@ window.applyPcCustomShift = function () {
         state.activeTool = { type: 'custom', start: s, end: e };
         renderToolbar();
     }
-}
+};
+
+// --- СТВОРЕННЯ ТИМЧАСОВИХ ТА ПІДМІНА ---
+window.openSubstituteModal = async function() {
+    triggerHaptic();
+    const modal = document.getElementById('substituteModal');
+    modal.classList.remove('hidden');
+    
+    // Fetch all users to list
+    const res = await fetchJson('/api/users');
+    window._allUsersForSubstitute = res.users || [];
+    window.filterSubstituteUsers('');
+};
+
+window.closeSubstituteModal = function() {
+    triggerHaptic();
+    document.getElementById('substituteModal').classList.add('hidden');
+};
+
+window.filterSubstituteUsers = function(q) {
+    const query = (q || '').toLowerCase();
+    const list = document.getElementById('substituteUsersList');
+    list.innerHTML = '';
+    
+    let filtered = window._allUsersForSubstitute.filter(u => 
+        u.name.toLowerCase().includes(query) || (u.storeId && u.storeId.name && u.storeId.name.toLowerCase().includes(query))
+    );
+
+    if (filtered.length === 0) {
+        list.innerHTML = `<div class="text-gray-500 text-center py-4 text-sm">Не знайдено</div>`;
+        return;
+    }
+
+    // Don't show users already in the current view? Actually let's just show everyone for simplicity, 
+    // or maybe filter out those who are already in state.usersToShow
+    const currentNames = state.usersToShow || [];
+
+    filtered.forEach(u => {
+        // Skip users that already belong to this store directly if they are already in the list
+        if (currentNames.includes(u.name)) return;
+
+        const storeName = (u.storeId && u.storeId.name) ? u.storeId.name : 'Без магазину';
+        const tempBadge = u.isTemp ? `<span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full ml-2">Тимчасовий</span>` : '';
+        
+        list.innerHTML += `
+            <div class="flex items-center justify-between p-3 bg-white dark:bg-[#1C1C1E] rounded-xl shadow-sm mb-2">
+                <div>
+                    <div class="font-bold text-sm">${u.name} ${tempBadge}</div>
+                    <div class="text-[11px] text-gray-500">З магазину: ${storeName}</div>
+                </div>
+                <button onclick="window.addSubstituteToGrid('${u.name}')" class="bg-orange-50 text-orange-500 px-3 py-1 rounded-lg text-xs font-bold active:scale-95 transition-transform">
+                    Додати
+                </button>
+            </div>
+        `;
+    });
+};
+
+window.addSubstituteToGrid = function(name) {
+    triggerHaptic('success');
+    if (!state.usersToShow) state.usersToShow = [];
+    if (!state.usersToShow.includes(name)) {
+        state.usersToShow.push(name);
+    }
+    window.closeSubstituteModal();
+    window.renderTable();
+    showToast(`${name} додано до списку!`);
+};
+
+window.openTempUserModal = async function() {
+    triggerHaptic();
+    document.getElementById('tempUserName').value = '';
+    const modal = document.getElementById('tempUserModal');
+    const select = document.getElementById('tempUserStore');
+    
+    select.innerHTML = '<option value="">Завантаження...</option>';
+    modal.classList.remove('hidden');
+
+    try {
+        const stores = await fetchJson('/api/admin/stores');
+        select.innerHTML = '';
+        stores.forEach(s => {
+            select.innerHTML += `<option value="${s._id}">${s.name}</option>`;
+        });
+        
+        // Auto-select current store
+        if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
+            select.value = state.selectedStoreFilter;
+        } else if (state.currentUser && state.currentUser.storeId) {
+            select.value = state.currentUser.storeId;
+        }
+    } catch (e) {
+        select.innerHTML = '<option value="">Помилка завантаження</option>';
+    }
+};
+
+window.closeTempUserModal = function() {
+    triggerHaptic();
+    document.getElementById('tempUserModal').classList.add('hidden');
+};
+
+window.createTempUser = async function() {
+    const name = document.getElementById('tempUserName').value.trim();
+    const storeId = document.getElementById('tempUserStore').value;
+
+    if (!name) return showToast('Введіть ПІБ', 'error');
+    if (!storeId) return showToast('Оберіть магазин', 'error');
+
+    const tg = window.Telegram?.WebApp;
+    if(tg) tg.MainButton.showProgress();
+
+    try {
+        const res = await postJson('/api/admin/temp-user/create', { name, storeId });
+        if (res.success) {
+            triggerHaptic('success', 'notification');
+            window.closeTempUserModal();
+            // Automatically add them to the grid
+            if (!state.usersToShow.includes(res.user.name)) {
+                state.usersToShow.push(res.user.name);
+            }
+            window.renderTable();
+            
+            // Show alert with Invite Code
+            if (tg && tg.showAlert) {
+                tg.showAlert(`Тимчасовий співробітник "${res.user.name}" створений!\n\n🔑 КОД ЗАПРОШЕННЯ: ${res.user.inviteCode}\n\nКоли людина завантажить додаток, вона зможе ввести цей код при реєстрації.`);
+            } else {
+                alert(`Тимчасовий співробітник "${res.user.name}" створений!\n\n🔑 КОД ЗАПРОШЕННЯ: ${res.user.inviteCode}`);
+            }
+        } else {
+            showToast(res.message || 'Помилка', 'error');
+        }
+    } catch (e) {
+        showToast('Помилка з\'єднання', 'error');
+    } finally {
+        if(tg) tg.MainButton.hideProgress();
+    }
+};
 
 function updateSaveButtons() {
     const isDesktop = window.innerWidth >= 1024;
@@ -520,7 +664,8 @@ function handleGridClick(e) {
             date: date,
             name: name,
             start: state.activeTool.start,
-            end: state.activeTool.end
+            end: state.activeTool.end,
+            storeId: state.selectedStoreFilter && state.selectedStoreFilter !== 'all' ? state.selectedStoreFilter : state.currentUser.storeId
         };
     }
 

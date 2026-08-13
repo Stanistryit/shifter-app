@@ -56,6 +56,9 @@ router.get('/admin/store/export-pdf', catchAsync(adminController.exportScheduleP
 // --- BADGES ---
 router.post('/admin/badges/add', catchAsync(adminController.addCustomBadge));
 router.post('/admin/badges/remove', catchAsync(adminController.removeCustomBadge));
+// --- TEMP USERS ---
+router.post('/admin/temp-user/create', catchAsync(adminController.createTempUser));
+router.get('/admin/temp-users', catchAsync(adminController.getTempUsers));
 
 
 

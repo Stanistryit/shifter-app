@@ -420,3 +420,40 @@
         </div>
     </div>
 </div>
+
+<!-- Підміна: Вибір співробітника з іншого магазину -->
+<div id="substituteModal" class="hidden fixed inset-0 z-[70]">
+    <div class="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity" onclick="window.closeSubstituteModal()">
+    </div>
+    <div class="absolute bottom-0 left-0 right-0 glass-modal rounded-t-[24px] max-h-[80vh] flex flex-col p-4 animate-slide-up shadow-2xl">
+        <div class="flex justify-between items-center mb-4 px-2">
+            <h3 class="font-bold text-lg">Додати на підміну</h3>
+            <button onclick="window.closeSubstituteModal()" class="w-8 h-8 bg-gray-100 dark:bg-[#2C2C2E] rounded-full text-gray-500 text-sm font-bold">✕</button>
+        </div>
+        <div class="px-2 mb-3">
+            <input type="text" id="substituteSearch" oninput="window.filterSubstituteUsers(this.value)" placeholder="Пошук співробітника..." class="w-full bg-gray-100 dark:bg-[#2C2C2E] border-none rounded-xl px-4 py-3 text-[15px] focus:ring-2 focus:ring-blue-500 transition-shadow outline-none">
+        </div>
+        <div id="substituteUsersList" class="overflow-y-auto space-y-2 px-2 pb-4 custom-scrollbar flex-1">
+            <!-- Заповнюється динамічно -->
+        </div>
+    </div>
+</div>
+
+<!-- Створення Тимчасового співробітника -->
+<div id="tempUserModal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="window.closeTempUserModal()"></div>
+    <div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up shadow-2xl">
+        <h3 class="font-bold text-xl mb-4">Тимчасовий співробітник</h3>
+        <p class="text-xs text-gray-500 mb-4 leading-relaxed">Створіть обліковий запис для людини, яка ще не зареєстрована. Вона отримає код, за яким зможе активувати свій акаунт пізніше, не втративши історію змін.</p>
+        
+        <label class="block text-sm font-medium mb-1 pl-1">ПІБ</label>
+        <input type="text" id="tempUserName" placeholder="Напр. Олексій Коваленко" class="w-full bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 mb-4 text-[15px] focus:border-blue-500 outline-none transition-colors">
+        
+        <label class="block text-sm font-medium mb-1 pl-1">Рідний магазин</label>
+        <select id="tempUserStore" class="w-full bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 mb-6 text-[15px] focus:border-blue-500 outline-none transition-colors appearance-none">
+            <!-- Заповнюється динамічно -->
+        </select>
+
+        <button onclick="window.createTempUser()" class="btn-primary w-full shadow-lg shadow-blue-500/30">Створити та отримати Код</button>
+    </div>
+</div>

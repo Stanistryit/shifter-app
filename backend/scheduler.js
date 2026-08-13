@@ -204,11 +204,17 @@ const initScheduler = async (tgConfig) => {
         const tomorrowStr = `${yTom}-${mTom}-${dTom}`;
 
         // Shift Reminders
-        const shifts = await Shift.find({ date: { $in: [currentUADay, tomorrowStr] } });
+        const shifts = await Shift.find({ date: { $in: [currentUADay, tomorrowStr] } }).populate('storeId', 'name');
         for (const s of shifts) {
             if (s.start === 'Відпустка' || s.start === 'Лікарняний' || s.start === 'Донорство') continue;
             const user = await User.findOne({ name: s.name });
             if (!user || !user.reminderTime || user.reminderTime === 'none') continue;
+
+            const shiftStoreId = s.storeId?._id || s.storeId;
+            let subText = '';
+            if (shiftStoreId && user.storeId && String(shiftStoreId) !== String(user.storeId)) {
+                subText = `\n📍 Підміна в: <b>${s.storeId?.name || 'Інший магазин'}</b>`;
+            }
 
             const [sH, sM] = s.start.split(':').map(Number);
             let shouldNotify = false;
@@ -244,7 +250,7 @@ const initScheduler = async (tgConfig) => {
                 const pref = user.notificationPreference || 'telegram';
 
                 if (pref === 'telegram' || pref === 'both') {
-                    notifyUser(s.name, `🔔 <b>Нагадування!</b>\n\nВ тебе зміна: <b>${s.date}</b>\n⏰ Час: <b>${s.start} - ${s.end}</b>`, opts);
+                    notifyUser(s.name, `🔔 <b>Нагадування!</b>\n\nВ тебе зміна: <b>${s.date}</b>\n⏰ Час: <b>${s.start} - ${s.end}</b>${subText}`, opts);
                 }
 
                 // ВЕБ-ПУШ
@@ -342,7 +348,19 @@ async function sendDailyReports(stores) {
         const storeUsers = await User.find({ storeId: store._id, role: { $ne: 'RRP' } });
         const userNames = storeUsers.map(u => u.name);
 
-        const shifts = await Shift.find({ date: dateStr, name: { $in: userNames } }).sort({ start: 1 });
+        const shifts = await Shift.find({
+            date: dateStr,
+            $or: [
+                { name: { $in: userNames } },
+                { storeId: store._id }
+            ]
+        }).sort({ start: 1 }).populate('storeId', 'name');
+        
+        const shiftNames = [...new Set(shifts.map(s => s.name))];
+        const shiftUsers = await User.find({ name: { $in: shiftNames } }).populate('storeId', 'name');
+        const userHomeMap = {};
+        shiftUsers.forEach(u => { userHomeMap[u.name] = u.storeId?.name || 'Інший'; });
+
         const tasks = await Task.find({ date: dateStr, name: { $in: userNames } });
 
         // Отримуємо шаблон або використовуємо дефолтний
@@ -370,7 +388,22 @@ async function sendDailyReports(stores) {
             scheduledNames.push(s.name);
             if (s.start === 'Відпустка') vacationShifts.push(s);
             else if (s.start === 'Донорство') donorShifts.push(s);
-            else workingShifts.push(s);
+            else {
+                const isHomeUser = userNames.includes(s.name);
+                const shiftStoreIdStr = s.storeId ? (s.storeId._id || s.storeId).toString() : store._id.toString();
+                const isAtHomeStore = shiftStoreIdStr === store._id.toString();
+
+                let displayName = s.name;
+                if (isHomeUser && !isAtHomeStore) {
+                    const destStoreName = s.storeId?.name || 'Інший магазин';
+                    displayName = `${s.name} (📍 Підміна в ${destStoreName})`;
+                } else if (!isHomeUser && isAtHomeStore) {
+                    const srcStoreName = userHomeMap[s.name];
+                    displayName = `${s.name} (з ${srcStoreName})`;
+                }
+                s.displayName = displayName;
+                workingShifts.push(s);
+            }
         });
 
         // Генеруємо блоки по порядку
@@ -381,7 +414,7 @@ async function sendDailyReports(stores) {
                 if (block.id === 'working') {
                     if (workingShifts.length > 0) {
                         msg += `${block.title}\n`;
-                        workingShifts.forEach(s => msg += `🔹 <b>${s.name}</b>: ${s.start} - ${s.end}\n`);
+                        workingShifts.forEach(s => msg += `🔹 <b>${s.displayName || s.name}</b>: ${s.start} - ${s.end}\n`);
                         msg += '\n';
                     } else if (vacationShifts.length === 0 && donorShifts.length === 0) {
                         msg += `🤷‍♂️ <b>Змін немає</b>\n\n`;

@@ -36,10 +36,17 @@ exports.getShifts = async (req, res) => {
     let query = {};
 
     if (currentUser.role !== 'admin') {
-        query.storeId = currentUser.storeId;
+        const myUsers = await User.find({ storeId: currentUser.storeId });
+        const myUserNames = myUsers.map(u => u.name);
+        query = {
+            $or: [
+                { storeId: currentUser.storeId },
+                { name: { $in: myUserNames } }
+            ]
+        };
     }
 
-    const s = await Shift.find(query);
+    const s = await Shift.find(query).populate('storeId', 'name');
     res.json(s);
 };
 
@@ -169,7 +176,9 @@ exports.saveSchedule = async (req, res) => {
         const bulkOps = [];
 
         for (const upd of updates) {
-            const targetStoreId = userStoreMap[upd.name] || u.storeId;
+            // Якщо фронтенд передав storeId (наприклад, Global Admin редагує конкретний магазин), використовуємо його.
+            // Інакше використовуємо storeId того, хто зберігає (SM).
+            const targetStoreId = upd.storeId || u.storeId;
 
             if (u.role !== 'admin' && String(targetStoreId) !== String(u.storeId)) {
                 continue;

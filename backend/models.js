@@ -60,6 +60,10 @@ const userSchema = new mongoose.Schema({
     // Порядок сортування (чим менше число, тим вище у списку)
     sortOrder: { type: Number, default: 999 },
 
+    // Тимчасові співробітники
+    isTemp: { type: Boolean, default: false },
+    inviteCode: { type: String, default: '' },
+
     reminderTime: { type: String, default: 'none' },
     tSalesCookie: { type: String, default: null },
 
@@ -94,7 +98,11 @@ const shiftSchema = new mongoose.Schema({
     name: { type: String, required: true },
     start: { type: String, required: true },
     end: { type: String, required: true },
-    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
+    
+    // Підміна
+    isSubstitute: { type: Boolean, default: false },
+    substituteStoreId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }
 });
 
 // 3. Схема Задачі

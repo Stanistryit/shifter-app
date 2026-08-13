@@ -14,7 +14,7 @@ exports.getStores = async (req, res) => {
 
 exports.register = async (req, res) => {
     try {
-        const { fullName, username, password, phone, email, storeCode } = req.body;
+        const { fullName, username, password, phone, email, storeCode, inviteCode } = req.body;
 
         const existingUser = await User.findOne({ username });
         if (existingUser) return res.json({ success: false, message: "Цей логін вже зайнятий" });
@@ -26,19 +26,42 @@ exports.register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
         const shortName = fullName.split(' ')[0] || username;
 
-        const newUser = await User.create({
-            username,
-            password: hashedPassword,
-            fullName,
-            name: shortName,
-            phone,
-            email,
-            storeId: store._id,
-            role: 'Guest',
-            status: 'pending',
-            position: 'None',
-            grade: 0
-        });
+        let newUser;
+        if (inviteCode) {
+            const tempUser = await User.findOne({ inviteCode, isTemp: true });
+            if (!tempUser) {
+                return res.json({ success: false, message: "Невірний або використаний код запрошення" });
+            }
+            tempUser.username = username;
+            tempUser.password = hashedPassword;
+            tempUser.fullName = fullName;
+            // НЕ змінюємо tempUser.name, щоб не втратити прив'язку до існуючих змін!
+            tempUser.phone = phone;
+            tempUser.email = email;
+            tempUser.storeId = store._id;
+            tempUser.role = 'Guest';
+            tempUser.status = 'pending';
+            tempUser.position = 'None';
+            tempUser.grade = 0;
+            tempUser.isTemp = false;
+            tempUser.inviteCode = undefined;
+            await tempUser.save();
+            newUser = tempUser;
+        } else {
+            newUser = await User.create({
+                username,
+                password: hashedPassword,
+                fullName,
+                name: shortName,
+                phone,
+                email,
+                storeId: store._id,
+                role: 'Guest',
+                status: 'pending',
+                position: 'None',
+                grade: 0
+            });
+        }
 
         const bot = getBot();
         if (bot) {

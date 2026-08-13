@@ -641,3 +641,43 @@ exports.removeCustomBadge = async (req, res) => {
         res.status(500).json({ success: false, message: e.message });
     }
 };
+
+// --- TEMP USERS ---
+exports.createTempUser = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (!['admin', 'SM'].includes(u?.role)) {
+        return res.status(403).json({ success: false, message: "Тільки для Admin / SM" });
+    }
+
+    try {
+        const { name, storeId } = req.body;
+        if (!name || !storeId) return res.status(400).json({ success: false, message: "Вкажіть ім'я та магазин" });
+
+        const inviteCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const username = `temp_${Date.now()}`;
+        const password = await require('bcryptjs').hash(username, 10);
+
+        const tempUser = await User.create({
+            username: username,
+            password: password,
+            name: name,
+            storeId: storeId,
+            role: 'SE',
+            isTemp: true,
+            inviteCode: inviteCode
+        });
+
+        res.json({ success: true, user: tempUser });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
+exports.getTempUsers = async (req, res) => {
+    try {
+        const tempUsers = await User.find({ isTemp: true }).populate('storeId', 'name');
+        res.json({ success: true, users: tempUsers });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
