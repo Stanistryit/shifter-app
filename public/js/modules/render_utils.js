@@ -6,7 +6,7 @@ export function getUsersForView(viewMonthStr) {
 
     // 1. Фільтр по магазину (Для Global Admin)
     if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
-        users = users.filter(u => String(u.storeId) === String(state.selectedStoreFilter));
+        users = users.filter(u => String(u.storeId?._id || u.storeId) === String(state.selectedStoreFilter));
     }
 
     // 2. Фільтр по конкретному співробітнику (Local Filter)
