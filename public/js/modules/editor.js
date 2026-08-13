@@ -375,8 +375,8 @@ window.openSubstituteModal = async function() {
     modal.classList.remove('hidden');
     
     // Fetch all users to list
-    const res = await fetchJson('/api/users');
-    window._allUsersForSubstitute = res.users || [];
+    const usersData = await fetchJson('/api/users?all=true');
+    window._allUsersForSubstitute = Array.isArray(usersData) ? usersData : (usersData.users || []);
     window.filterSubstituteUsers('');
 };
 

@@ -285,12 +285,12 @@ exports.getUsers = async (req, res) => {
     const currentUser = await User.findById(req.session.userId);
     let query = {};
 
-    if (currentUser.role !== 'admin') {
+    if (currentUser.role !== 'admin' && req.query.all !== 'true') {
         query.storeId = currentUser.storeId;
     }
 
     // 🔥 НОВЕ: Додав sortOrder, createdAt, customBadges у вибірку
-    const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId sortOrder createdAt customBadges');
+    const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId sortOrder createdAt customBadges').populate('storeId', 'name');
     res.json(users);
 };
 
