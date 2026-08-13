@@ -156,20 +156,21 @@ export function renderTable() {
             const draft = state.pendingChanges ? state.pendingChanges[`${ds}|${user.name}`] : null;
             let sStart = null, sEnd = null;
             
+            const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
             if (draft) {
-                // Check store match
-                const dStoreId = draft.storeId ? (draft.storeId._id || draft.storeId) : activeStoreId;
-                const matchesView = (state.selectedStoreFilter === 'all') || (String(dStoreId) === String(activeStoreId));
-                if (matchesView) {
+                // Check store match for hours computation
+                const dStoreId = draft.storeId ? (draft.storeId._id || draft.storeId) : userHomeStoreId;
+                const countsForStore = (state.selectedStoreFilter === 'all') || (String(dStoreId) === String(activeStoreId));
+                if (countsForStore) {
                     if (draft.start !== 'DELETE' && draft.start !== 'Відпустка' && draft.start !== 'Лікарняний' && draft.start !== 'Донорство') { sStart = draft.start; sEnd = draft.end; }
                     if (draft.start === 'Донорство') storeTotalDonorHours += 8;
                 }
             } else {
                 const shift = state.shifts.find(s => s.date === ds && s.name === user.name);
                 if (shift) {
-                    const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : activeStoreId;
-                    const matchesView = (state.selectedStoreFilter === 'all') || (String(sStoreId) === String(activeStoreId));
-                    if (matchesView) {
+                    const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : userHomeStoreId;
+                    const countsForStore = (state.selectedStoreFilter === 'all') || (String(sStoreId) === String(activeStoreId));
+                    if (countsForStore) {
                         if (shift.start !== 'Відпустка' && shift.start !== 'Лікарняний' && shift.start !== 'Донорство') { sStart = shift.start; sEnd = shift.end; }
                         if (shift.start === 'Донорство') storeTotalDonorHours += 8;
                     }
@@ -429,56 +430,75 @@ export function renderTable() {
             const dataAttrs = `data-date="${ds}" data-name="${user.name}"`;
             let content = '';
 
+            const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
             if (draft) {
-                cellClass += ' bg-yellow-50 dark:bg-yellow-900/20';
-                if (draft.start === 'DELETE') {
-                    content = '<span class="text-red-400 font-bold opacity-50">✕</span>';
-                } else if (draft.start === 'Відпустка') {
-                    content = '<span class="text-lg">🌴</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>';
-                } else if (draft.start === 'Лікарняний') {
-                    content = '<span class="text-lg">💊</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>';
-                } else if (draft.start === 'Донорство') {
-                    content = '<span class="text-lg">🩸</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div>';
-                } else {
-                    const dStoreId = draft.storeId ? (draft.storeId._id || draft.storeId) : activeStoreId;
-                    const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
-                    if (userHomeStoreId && String(dStoreId) !== String(userHomeStoreId)) {
-                        const storeName = draft.storeId?.name || 'Інший магазин';
-                        content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-bold leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-1 shadow-sm border border-orange-200 dark:border-orange-800 flex items-center justify-center gap-0.5 cursor-pointer transform scale-105">
-                            📍 ${draft.start.split(':')[0]}-${draft.end.split(':')[0]}
-                        </div>`;
+                const dStoreId = draft.storeId ? (draft.storeId._id || draft.storeId) : userHomeStoreId;
+                const shouldRender = (state.selectedStoreFilter === 'all') || (String(dStoreId) === String(activeStoreId)) || (String(userHomeStoreId) === String(activeStoreId));
+                
+                if (shouldRender) {
+                    cellClass += ' bg-yellow-50 dark:bg-yellow-900/20';
+                    let isSubstituteRender = false;
+                    if (state.selectedStoreFilter === 'all') {
+                        isSubstituteRender = userHomeStoreId && String(dStoreId) !== String(userHomeStoreId);
                     } else {
-                        // Draft + Badge
-                        content = `<div class="relative text-[10px] font-mono leading-tight bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 border border-yellow-300 dark:border-yellow-600 shadow-sm transform scale-105">
-                            ${draft.start}<br>${draft.end}
-                            ${badgeHtml}
-                        </div>`;
+                        isSubstituteRender = String(dStoreId) !== String(activeStoreId);
+                    }
+
+                    if (draft.start === 'DELETE') {
+                        content = '<span class="text-red-400 font-bold opacity-50">✕</span>';
+                    } else if (draft.start === 'Відпустка') {
+                        content = '<span class="text-lg">🌴</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>';
+                    } else if (draft.start === 'Лікарняний') {
+                        content = '<span class="text-lg">💊</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>';
+                    } else if (draft.start === 'Донорство') {
+                        content = '<span class="text-lg">🩸</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div>';
+                    } else {
+                        if (isSubstituteRender) {
+                            const storeName = draft.storeId?.name || 'Інший магазин';
+                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-bold leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-1 shadow-sm border border-orange-200 dark:border-orange-800 flex items-center justify-center gap-0.5 cursor-pointer transform scale-105">
+                                📍 ${draft.start.split(':')[0]}-${draft.end.split(':')[0]}
+                            </div>`;
+                        } else {
+                            content = `<div class="relative text-[10px] font-mono leading-tight bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 border border-yellow-300 dark:border-yellow-600 shadow-sm transform scale-105">
+                                ${draft.start}<br>${draft.end}
+                                ${badgeHtml}
+                            </div>`;
+                        }
                     }
                 }
             } else if (shift) {
-                if (shift.start === 'Відпустка') {
-                    content = '<span class="text-lg">🌴</span>';
-                } else if (shift.start === 'Лікарняний') {
-                    content = '<span class="text-lg">💊</span>';
-                } else if (shift.start === 'Донорство') {
-                    content = '<span class="text-lg">🩸</span>';
-                } else {
-                    const opacity = isPast ? 'opacity-50 grayscale' : '';
-                    const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : activeStoreId;
-                    const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
-                    
-                    if (userHomeStoreId && String(sStoreId) !== String(userHomeStoreId)) {
-                        const storeName = shift.storeId?.name || 'Інший магазин';
-                        content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-bold leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-1 shadow-sm border border-orange-200 dark:border-orange-800 flex items-center justify-center gap-0.5 cursor-pointer ${opacity}">
-                            📍 ${shift.start.split(':')[0]}-${shift.end.split(':')[0]}
-                        </div>`;
+                const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : userHomeStoreId;
+                const shouldRender = (state.selectedStoreFilter === 'all') || (String(sStoreId) === String(activeStoreId)) || (String(userHomeStoreId) === String(activeStoreId));
+
+                if (shouldRender) {
+                    let isSubstituteRender = false;
+                    if (state.selectedStoreFilter === 'all') {
+                        isSubstituteRender = userHomeStoreId && String(sStoreId) !== String(userHomeStoreId);
                     } else {
-                        const colorClass = getShiftColor(shift.start, shift.end, closeTime);
-                        // Shift + Badge
-                        content = `<div class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity}">
-                            ${shift.start}<br>${shift.end}
-                            ${badgeHtml}
-                        </div>`;
+                        isSubstituteRender = String(sStoreId) !== String(activeStoreId);
+                    }
+
+                    if (shift.start === 'Відпустка') {
+                        content = '<span class="text-lg">🌴</span>';
+                    } else if (shift.start === 'Лікарняний') {
+                        content = '<span class="text-lg">💊</span>';
+                    } else if (shift.start === 'Донорство') {
+                        content = '<span class="text-lg">🩸</span>';
+                    } else {
+                        const opacity = isPast ? 'opacity-50 grayscale' : '';
+                        
+                        if (isSubstituteRender) {
+                            const storeName = shift.storeId?.name || 'Інший магазин';
+                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-bold leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-1 shadow-sm border border-orange-200 dark:border-orange-800 flex items-center justify-center gap-0.5 cursor-pointer ${opacity}">
+                                📍 ${shift.start.split(':')[0]}-${shift.end.split(':')[0]}
+                            </div>`;
+                        } else {
+                            const colorClass = getShiftColor(shift.start, shift.end, closeTime);
+                            content = `<div class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity}">
+                                ${shift.start}<br>${shift.end}
+                                ${badgeHtml}
+                            </div>`;
+                        }
                     }
                 }
             }
