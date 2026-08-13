@@ -6,7 +6,15 @@ export function getUsersForView(viewMonthStr) {
 
     // 1. Фільтр по магазину (Для Global Admin)
     if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
-        users = users.filter(u => String(u.storeId?._id || u.storeId) === String(state.selectedStoreFilter));
+        users = users.filter(u => {
+            if (String(u.storeId?._id || u.storeId) === String(state.selectedStoreFilter)) return true;
+            if (state.usersToShow && state.usersToShow.includes(u.name)) return true;
+            const hasShiftHere = state.shifts.some(s => s.name === u.name && s.date.startsWith(viewMonthStr) && String(s.storeId?._id || s.storeId) === String(state.selectedStoreFilter));
+            if (hasShiftHere) return true;
+            const hasDraftHere = state.pendingChanges && Object.values(state.pendingChanges).some(d => d.name === u.name && d.date.startsWith(viewMonthStr) && String(d.storeId?._id || d.storeId) === String(state.selectedStoreFilter));
+            if (hasDraftHere) return true;
+            return false;
+        });
     }
 
     // 2. Фільтр по конкретному співробітнику (Local Filter)
