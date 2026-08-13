@@ -455,8 +455,8 @@ export function renderTable() {
                     } else {
                         if (isSubstituteRender) {
                             const storeName = draft.storeId?.name || 'Інший магазин';
-                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-bold leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-1 shadow-sm border border-orange-200 dark:border-orange-800 flex items-center justify-center gap-0.5 cursor-pointer transform scale-105">
-                                📍 ${draft.start.split(':')[0]}-${draft.end.split(':')[0]}
+                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-mono leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-0.5 shadow-sm border border-orange-200 dark:border-orange-800 cursor-pointer text-center transform scale-105">
+                                <span class="text-[8px]">📍</span><br>${draft.start.split(':')[0]}-${draft.end.split(':')[0]}
                             </div>`;
                         } else {
                             content = `<div class="relative text-[10px] font-mono leading-tight bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 border border-yellow-300 dark:border-yellow-600 shadow-sm transform scale-105">
@@ -489,8 +489,8 @@ export function renderTable() {
                         
                         if (isSubstituteRender) {
                             const storeName = shift.storeId?.name || 'Інший магазин';
-                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-bold leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-1 shadow-sm border border-orange-200 dark:border-orange-800 flex items-center justify-center gap-0.5 cursor-pointer ${opacity}">
-                                📍 ${shift.start.split(':')[0]}-${shift.end.split(':')[0]}
+                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-mono leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-0.5 shadow-sm border border-orange-200 dark:border-orange-800 cursor-pointer text-center ${opacity}">
+                                <span class="text-[8px]">📍</span><br>${shift.start.split(':')[0]}-${shift.end.split(':')[0]}
                             </div>`;
                         } else {
                             const colorClass = getShiftColor(shift.start, shift.end, closeTime);
