@@ -198,9 +198,23 @@ export function renderTimeline() {
                     
                     const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
                     const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : userHomeStoreId;
-                    if (userHomeStoreId && String(sStoreId) !== String(userHomeStoreId)) {
+
+                    let isSubstituteRender = false;
+                    let isGuestRender = false;
+                    if (state.selectedStoreFilter === 'all') {
+                        isSubstituteRender = userHomeStoreId && String(sStoreId) !== String(userHomeStoreId);
+                    } else {
+                        isSubstituteRender = String(sStoreId) !== String(activeStoreId);
+                        isGuestRender = String(sStoreId) === String(activeStoreId) && userHomeStoreId && String(userHomeStoreId) !== String(activeStoreId);
+                    }
+
+                    if (isSubstituteRender) {
                         const storeName = shift.storeId?.name || 'Інший магазин';
-                        html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe ? 'text-orange-600 font-bold' : 'text-orange-900 dark:text-orange-400'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-mono">📍 ${storeName} (${shift.start}-${shift.end})</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment" style="left:${left}%; width:${width}%; background: repeating-linear-gradient(45deg, #f97316, #f97316 10px, #ea580c 10px, #ea580c 20px);"></div>${tasksHtml}</div></div>`;
+                        html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe ? 'text-orange-600 font-bold' : 'text-orange-900 dark:text-orange-400'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-orange-500 font-mono" title="Підміна в: ${storeName}">📍 ${storeName} (${shift.start}-${shift.end})</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment" style="left:${left}%; width:${width}%; background: repeating-linear-gradient(45deg, #f97316, #f97316 10px, #ea580c 10px, #ea580c 20px);"></div>${tasksHtml}</div></div>`;
+                    } else if (isGuestRender) {
+                        const homeStore = state.stores ? state.stores.find(s => String(s._id) === String(userHomeStoreId) || s.code === userHomeStoreId) : null;
+                        const homeStoreName = homeStore ? homeStore.name : 'Інший магазин';
+                        html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe ? 'text-yellow-600 font-bold' : 'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-yellow-500 font-mono cursor-help" title="Гість з: ${homeStoreName}">📍 Гість (${shift.start}-${shift.end})</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe ? 'my-shift' : ''}" ${ctxAttr} style="left:${left}%; width:${width}%"><div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div></div>${tasksHtml}</div></div>`;
                     } else {
                         html += `<div class="${blockedStyle}"><div class="flex items-center text-xs mb-1 font-medium ${isMe ? 'text-blue-600 font-bold' : 'text-gray-900 dark:text-gray-200'}">${avatarHtml} <span>${shortName}</span> ${hoursBadges} <span class="ml-2 text-gray-400 font-mono">${shift.start}-${shift.end}</span> ${badges}</div><div class="timeline-track shadow-inner"><div class="timeline-grid-overlay">${Array(totalHours).fill('<div class="timeline-line"></div>').join('')}</div><div class="shift-segment ${isMe ? 'my-shift' : ''}" ${ctxAttr} style="left:${left}%; width:${width}%"></div>${tasksHtml}</div></div>`;
                     }

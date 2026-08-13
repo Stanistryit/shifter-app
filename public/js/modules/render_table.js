@@ -438,10 +438,12 @@ export function renderTable() {
                 if (shouldRender) {
                     cellClass += ' bg-yellow-50 dark:bg-yellow-900/20';
                     let isSubstituteRender = false;
+                    let isGuestRender = false;
                     if (state.selectedStoreFilter === 'all') {
                         isSubstituteRender = userHomeStoreId && String(dStoreId) !== String(userHomeStoreId);
                     } else {
                         isSubstituteRender = String(dStoreId) !== String(activeStoreId);
+                        isGuestRender = String(dStoreId) === String(activeStoreId) && userHomeStoreId && String(userHomeStoreId) !== String(activeStoreId);
                     }
 
                     if (draft.start === 'DELETE') {
@@ -459,7 +461,16 @@ export function renderTable() {
                                 <span class="text-[8px]">📍</span><br>${draft.start.split(':')[0]}-${draft.end.split(':')[0]}
                             </div>`;
                         } else {
-                            content = `<div class="relative text-[10px] font-mono leading-tight bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 border border-yellow-300 dark:border-yellow-600 shadow-sm transform scale-105">
+                            let guestIndicator = '';
+                            let guestAttr = '';
+                            if (isGuestRender) {
+                                const homeStore = state.stores ? state.stores.find(s => String(s._id) === String(userHomeStoreId) || s.code === userHomeStoreId) : null;
+                                const homeStoreName = homeStore ? homeStore.name : 'Інший магазин';
+                                guestIndicator = '<div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>';
+                                guestAttr = `title="Гість з: ${homeStoreName}" onclick="window.showToast('Гість з: ${homeStoreName}')"`;
+                            }
+                            content = `<div ${guestAttr} class="relative text-[10px] font-mono leading-tight bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 border border-yellow-300 dark:border-yellow-600 shadow-sm transform scale-105 ${isGuestRender ? 'cursor-pointer' : ''}">
+                                ${guestIndicator}
                                 ${draft.start}<br>${draft.end}
                                 ${badgeHtml}
                             </div>`;
@@ -472,10 +483,12 @@ export function renderTable() {
 
                 if (shouldRender) {
                     let isSubstituteRender = false;
+                    let isGuestRender = false;
                     if (state.selectedStoreFilter === 'all') {
                         isSubstituteRender = userHomeStoreId && String(sStoreId) !== String(userHomeStoreId);
                     } else {
                         isSubstituteRender = String(sStoreId) !== String(activeStoreId);
+                        isGuestRender = String(sStoreId) === String(activeStoreId) && userHomeStoreId && String(userHomeStoreId) !== String(activeStoreId);
                     }
 
                     if (shift.start === 'Відпустка') {
@@ -494,7 +507,16 @@ export function renderTable() {
                             </div>`;
                         } else {
                             const colorClass = getShiftColor(shift.start, shift.end, closeTime);
-                            content = `<div class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity}">
+                            let guestIndicator = '';
+                            let guestAttr = '';
+                            if (isGuestRender) {
+                                const homeStore = state.stores ? state.stores.find(s => String(s._id) === String(userHomeStoreId) || s.code === userHomeStoreId) : null;
+                                const homeStoreName = homeStore ? homeStore.name : 'Інший магазин';
+                                guestIndicator = '<div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>';
+                                guestAttr = `title="Гість з: ${homeStoreName}" onclick="window.showToast('Гість з: ${homeStoreName}')"`;
+                            }
+                            content = `<div ${guestAttr} class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity} ${isGuestRender ? 'cursor-pointer' : ''}">
+                                ${guestIndicator}
                                 ${shift.start}<br>${shift.end}
                                 ${badgeHtml}
                             </div>`;
