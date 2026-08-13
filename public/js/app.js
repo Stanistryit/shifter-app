@@ -481,6 +481,7 @@ window.changeStoreFilter = (storeId, storeName) => {
     triggerHaptic();
     state.selectedStoreFilter = storeId;
     localStorage.setItem('shifter_storeFilter', storeId);
+    state.usersToShow = []; // Clear manually added substitutes when switching stores
 
     const labelStr = storeId === 'all' ? '🌍 Всі магазини' : `🏪 ${storeName}`;
     const label = document.getElementById('currentStoreFilterLabel');
