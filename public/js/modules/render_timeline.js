@@ -118,6 +118,13 @@ export function renderTimeline() {
         html += `<div class="space-y-4">`;
 
         usersToShow.forEach(user => {
+            if (state.hideSubstitutes && state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
+                const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
+                const activeStoreId = state.selectedStoreFilter;
+                if (String(userHomeStoreId) !== String(activeStoreId)) {
+                    return; // Skip rendering substitute row
+                }
+            }
             let shift = state.shifts.find(s => s.date === dateStr && s.name === user.name);
             const userTasks = state.tasks.filter(t => t.date === dateStr && t.name === user.name);
 

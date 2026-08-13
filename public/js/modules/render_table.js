@@ -109,6 +109,17 @@ export function renderTable() {
         tTitle.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
     }
 
+    const filterWrapper = document.getElementById('substitutesFilterWrapper');
+    if (filterWrapper) {
+        if (state.selectedStoreFilter !== 'all' && ['SM', 'admin'].includes(state.currentUser.role)) {
+            filterWrapper.classList.remove('hidden');
+            const cb = document.getElementById('hideSubstitutesCheckbox');
+            if (cb) cb.checked = !!state.hideSubstitutes;
+        } else {
+            filterWrapper.classList.add('hidden');
+        }
+    }
+
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     const now = new Date();
     const isCurrentMonth = now.getFullYear() === y && now.getMonth() === m;
@@ -331,6 +342,12 @@ export function renderTable() {
     const canEditUser = ['SM', 'admin'].includes(state.currentUser.role);
 
     usersToShow.forEach(user => {
+        if (state.hideSubstitutes && state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
+            const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
+            if (String(userHomeStoreId) !== String(activeStoreId)) {
+                return; // Skip rendering substitute row
+            }
+        }
         const shortName = getDisplayName(user);
 
         const editAction = canEditUser ? `onclick="window.openEditUserProxy('${user._id}')"` : '';

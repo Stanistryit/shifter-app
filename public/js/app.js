@@ -498,6 +498,14 @@ window.changeStoreFilter = (storeId, storeName) => {
     if (window.renderTodoProxy) window.renderTodoProxy();
 };
 
+window.toggleHideSubstitutes = (el) => {
+    state.hideSubstitutes = el.checked;
+    localStorage.setItem('shifter_hideSubstitutes', state.hideSubstitutes);
+    const gridDiv = document.getElementById('gridViewContainer');
+    if (gridDiv && !gridDiv.classList.contains('hidden')) renderTable();
+    if (document.getElementById('timelineContainer')) renderAll();
+};
+
 // --- LOGIC ---
 
 async function initGlobalAdminFilter() {

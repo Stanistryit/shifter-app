@@ -13,6 +13,7 @@ export const state = {
     filter: localStorage.getItem('shifter_filter') || 'all',
     selectedStoreFilter: localStorage.getItem('shifter_storeFilter') || 'all',
     viewMode: localStorage.getItem('shifter_viewMode') || 'list', // Зберігаємо режим (list/calendar/grid)
+    hideSubstitutes: localStorage.getItem('shifter_hideSubstitutes') === 'true',
 
     currentDate: new Date(),
 
