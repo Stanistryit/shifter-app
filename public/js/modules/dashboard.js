@@ -81,7 +81,14 @@ export function updateDashboard() {
     }
 
     const me = state.currentUser;
-    const myShifts = state.shifts.filter(s => s.name === me.name);
+    const activeStoreIdStr = String(state.activeStoreId || me.storeId?._id || me.storeId);
+    
+    // Фільтруємо зміни: лише мої, і лише ті, що відносяться до вибраного магазину
+    const myShifts = state.shifts.filter(s => {
+        if (s.name !== me.name) return false;
+        const shiftStoreId = s.storeId?._id || s.storeId;
+        return String(shiftStoreId) === activeStoreIdStr;
+    });
 
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
