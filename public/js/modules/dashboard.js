@@ -147,7 +147,12 @@ export function updateDashboard() {
         }
 
         // Колеги на СЬОГОДНІ
-        const colleagues = state.shifts.filter(s => s.date === todayStr && s.name !== me.name && s.start !== 'DELETE' && s.start !== 'Відпустка' && s.start !== 'Лікарняний');
+        const myStoreId = todayShift.storeId?._id || todayShift.storeId;
+        const colleagues = state.shifts.filter(s => {
+            if (s.date !== todayStr || s.name === me.name || s.start === 'DELETE' || s.start === 'Відпустка' || s.start === 'Лікарняний') return false;
+            const sStoreId = s.storeId?._id || s.storeId;
+            return String(sStoreId) === String(myStoreId);
+        });
         if (colleagues.length > 0) {
             const names = colleagues.map(c => {
                 const parts = c.name.trim().split(/\s+/);
@@ -193,7 +198,12 @@ export function updateDashboard() {
                     nextDateEl.innerText = `Наступна: ${nextShift.start} - ${nextShift.end}`;
                 }
 
-                const colleagues = state.shifts.filter(s => s.date === nextShift.date && s.name !== me.name && s.start !== 'DELETE' && s.start !== 'Відпустка' && s.start !== 'Лікарняний');
+                const myNextStoreId = nextShift.storeId?._id || nextShift.storeId;
+                const colleagues = state.shifts.filter(s => {
+                    if (s.date !== nextShift.date || s.name === me.name || s.start === 'DELETE' || s.start === 'Відпустка' || s.start === 'Лікарняний') return false;
+                    const sStoreId = s.storeId?._id || s.storeId;
+                    return String(sStoreId) === String(myNextStoreId);
+                });
                 if (colleagues.length > 0) {
                     const names = colleagues.map(c => {
                         const parts = c.name.trim().split(/\s+/);
