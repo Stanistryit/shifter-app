@@ -46,7 +46,8 @@ window.openEditUserProxy = (userId) => {
         let options = `<option value="null" ${!user.storeId ? 'selected' : ''}>Без магазину (Null)</option>`;
         if (state.stores) {
             state.stores.forEach(s => {
-                const isSelected = String(user.storeId) === String(s._id) ? 'selected' : '';
+                const uStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
+                const isSelected = String(uStoreId) === String(s._id) ? 'selected' : '';
                 options += `<option value="${s._id}" ${isSelected}>🏪 ${s.name}</option>`;
             });
         }
