@@ -76,7 +76,7 @@ const userSchema = new mongoose.Schema({
     notificationPreference: { type: String, enum: ['telegram', 'push', 'both'], default: 'telegram' },
 
     // Для експорту розкладу
-    calendarToken: { type: String, default: null, unique: true, sparse: true },
+    calendarToken: { type: String, default: () => require('crypto').randomBytes(16).toString('hex'), unique: true, sparse: true },
 
     // Для гейміфікації (Бейджі)
     customBadges: [{
