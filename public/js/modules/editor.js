@@ -483,6 +483,7 @@ window.createTempUser = async function() {
             triggerHaptic('success', 'notification');
             window.closeTempUserModal();
             // Automatically add them to the grid
+            if (!state.usersToShow) state.usersToShow = [];
             if (!state.usersToShow.includes(res.user.name)) {
                 state.usersToShow.push(res.user.name);
             }
@@ -498,7 +499,8 @@ window.createTempUser = async function() {
             showToast(res.message || 'Помилка', 'error');
         }
     } catch (e) {
-        showToast('Помилка з\'єднання', 'error');
+        console.error(e);
+        showToast('Помилка з\'єднання або виконання', 'error');
     } finally {
         if(tg) tg.MainButton.hideProgress();
     }

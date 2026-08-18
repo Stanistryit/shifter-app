@@ -152,7 +152,13 @@ window.openEditUserProxy = (userId) => {
                     <button onclick="window.restoreUser('${user._id}')" class="w-full py-3 text-green-600 font-bold bg-green-50 dark:bg-green-900/10 rounded-xl hover:bg-green-100 transition-colors mt-1">✅ Відновити співробітника</button>
                     `
                 }
-                
+                ${user.isTemp && user.inviteCode ? `
+                    <div class="mt-4 p-3 border-2 border-dashed border-blue-400 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-center">
+                        <div class="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">Код запрошення</div>
+                        <div class="text-2xl font-mono font-black text-gray-800 dark:text-gray-100 tracking-[0.2em]">${user.inviteCode}</div>
+                    </div>
+                ` : ''}
+
                 ${state.currentUser.role === 'admin' ? 
                     `<button onclick="window.deleteUser('${user._id}')" class="w-full py-3 text-red-600 font-bold bg-red-100 dark:bg-red-900/30 rounded-xl hover:bg-red-200 transition-colors mt-2 border border-red-200 dark:border-red-800">🗑 Остаточно видалити (Admin)</button>`
                     : ''

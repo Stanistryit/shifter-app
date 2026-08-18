@@ -290,8 +290,8 @@ exports.getUsers = async (req, res) => {
         query.storeId = currentUser.storeId;
     }
 
-    // 🔥 НОВЕ: Додав sortOrder, createdAt, customBadges у вибірку
-    const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId sortOrder createdAt customBadges').populate('storeId', 'name');
+    // 🔥 НОВЕ: Додав sortOrder, createdAt, customBadges, isTemp, inviteCode у вибірку
+    const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId sortOrder createdAt customBadges isTemp inviteCode').populate('storeId', 'name');
     res.json(users);
 };
 
