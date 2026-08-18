@@ -152,6 +152,11 @@ window.openEditUserProxy = (userId) => {
                     <button onclick="window.restoreUser('${user._id}')" class="w-full py-3 text-green-600 font-bold bg-green-50 dark:bg-green-900/10 rounded-xl hover:bg-green-100 transition-colors mt-1">✅ Відновити співробітника</button>
                     `
                 }
+                
+                ${state.currentUser.role === 'admin' ? 
+                    `<button onclick="window.deleteUser('${user._id}')" class="w-full py-3 text-red-600 font-bold bg-red-100 dark:bg-red-900/30 rounded-xl hover:bg-red-200 transition-colors mt-2 border border-red-200 dark:border-red-800">🗑 Остаточно видалити (Admin)</button>`
+                    : ''
+                }
             </div>
         </div>
     </div>
@@ -174,6 +179,28 @@ window.blockUser = async (id) => {
 window.restoreUser = async (id) => {
     if(!confirm("Ви впевнені, що хочете відновити цього співробітника?")) return;
     await window.saveUserChanges(id, { status: 'active' });
+};
+
+window.deleteUser = async (id) => {
+    if(!confirm("⚠️ УВАГА: Ви впевнені, що хочете ОСТАТОЧНО видалити цього співробітника? Всі його дані будуть втрачені!")) return;
+    
+    document.getElementById('editUserModal').remove();
+    try {
+        const res = await fetch('/api/admin/user/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id })
+        }).then(r => r.json());
+        
+        if(res.success) {
+            import('./ui.js').then(m => m.showToast("Користувача видалено"));
+            import('./auth.js').then(m => m.loadData().then(() => import('./render.js').then(r => r.renderAll())));
+        } else {
+            import('./ui.js').then(m => m.showToast(res.message || "Помилка", 'error'));
+        }
+    } catch (e) {
+        import('./ui.js').then(m => m.showToast("Помилка", 'error'));
+    }
 };
 
 window.saveUserChanges = async (id, overrideData = null) => {

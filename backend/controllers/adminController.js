@@ -667,7 +667,7 @@ exports.createTempUser = async (req, res) => {
             inviteCode: inviteCode
         });
 
-        res.json({ success: true, user: tempUser });
+        res.json({ success: true, user: { name: tempUser.name, inviteCode: tempUser.inviteCode } });
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });
     }
@@ -677,6 +677,34 @@ exports.getTempUsers = async (req, res) => {
     try {
         const tempUsers = await User.find({ isTemp: true }).populate('storeId', 'name');
         res.json({ success: true, users: tempUsers });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
+exports.deleteUser = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (u?.role !== 'admin') {
+        return res.status(403).json({ success: false, message: "Тільки для Admin" });
+    }
+
+    try {
+        const { id } = req.body;
+        if (!id) return res.status(400).json({ success: false, message: "Не вказано ID" });
+        
+        const userToDelete = await User.findById(id);
+        if (!userToDelete) return res.status(404).json({ success: false, message: "Користувача не знайдено" });
+        
+        await User.findByIdAndDelete(id);
+        const { Shift, Task, Request } = require('../models');
+        await Shift.deleteMany({ name: userToDelete.name });
+        await Task.deleteMany({ assignedTo: userToDelete.name });
+        await Request.deleteMany({ createdBy: userToDelete.name });
+
+        const { logAction } = require('../utils');
+        logAction(u.name, 'delete_user', `Deleted user: ${userToDelete.name} (${userToDelete.username})`);
+        
+        res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });
     }

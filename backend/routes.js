@@ -58,6 +58,7 @@ router.post('/admin/badges/add', catchAsync(adminController.addCustomBadge));
 router.post('/admin/badges/remove', catchAsync(adminController.removeCustomBadge));
 // --- TEMP USERS ---
 router.post('/admin/temp-user/create', catchAsync(adminController.createTempUser));
+router.post('/admin/user/delete', catchAsync(adminController.deleteUser));
 router.get('/admin/temp-users', catchAsync(adminController.getTempUsers));
 
 

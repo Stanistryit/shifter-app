@@ -148,6 +148,7 @@ exports.login = async (req, res) => {
                     openTime: user.storeId.openTime,
                     closeTime: user.storeId.closeTime,
                     reportTime: user.storeId.telegram?.reportTime,
+                    lunch_duration_minutes: user.storeId.lunch_duration_minutes,
                     normHours: user.storeId.normHours,
                     telegram: user.storeId.telegram
                 } : null,
@@ -313,6 +314,7 @@ exports.getMe = async (req, res) => {
                 openTime: user.storeId.openTime,
                 closeTime: user.storeId.closeTime,
                 reportTime: user.storeId.telegram?.reportTime,
+                lunch_duration_minutes: user.storeId.lunch_duration_minutes,
                 normHours: user.storeId.normHours,
                 telegram: user.storeId.telegram
             } : null,
