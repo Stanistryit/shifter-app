@@ -62,11 +62,28 @@ const shiftColors = [
     'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-800 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800'
 ];
 
+const popularShiftsMap = {
+    '10:00-19:00': 0, // blue
+    '09:30-18:30': 3, // green
+    '11:30-20:30': 2, // orange
+    '12:00-21:00': 1, // purple
+    '13:00-22:00': 6, // indigo
+    '14:00-22:00': 9, // cyan
+    '09:00-18:00': 5, // teal
+    '08:00-17:00': 7, // yellow
+    '10:30-19:30': 4, // pink
+    '11:00-20:00': 8  // rose
+};
+
 // 🔥 Кольорове кодування змін залежно від графіку (однакові зміни = однакові кольори)
 function getShiftColor(start, end) {
     if (!start || !end) return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700';
 
     const shiftKey = `${start}-${end}`;
+
+    if (popularShiftsMap[shiftKey] !== undefined) {
+        return shiftColors[popularShiftsMap[shiftKey]];
+    }
 
     // Простий генератор хешу з рядка (djb2 алгоритм)
     let hash = 5381;

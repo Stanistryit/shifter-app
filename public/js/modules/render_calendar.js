@@ -15,9 +15,27 @@ const shiftColors = [
     { bg: 'rgba(6,182,212,0.18)', border: 'rgba(6,182,212,0.4)', text: '#0e7490' },   // cyan
 ];
 
+const popularShiftsMap = {
+    '10:00-19:00': 0, // blue
+    '09:30-18:30': 3, // green
+    '11:30-20:30': 2, // orange
+    '12:00-21:00': 1, // purple
+    '13:00-22:00': 6, // indigo
+    '14:00-22:00': 9, // cyan
+    '09:00-18:00': 5, // teal
+    '08:00-17:00': 7, // yellow
+    '10:30-19:30': 4, // pink
+    '11:00-20:00': 8  // rose
+};
+
 function getCalendarShiftColor(start, end) {
     if (!start || !end) return null;
     const key = `${start}-${end}`;
+
+    if (popularShiftsMap[key] !== undefined) {
+        return shiftColors[popularShiftsMap[key]];
+    }
+
     let hash = 5381;
     for (let i = 0; i < key.length; i++) hash = (hash * 33) ^ key.charCodeAt(i);
     return shiftColors[Math.abs(hash) % shiftColors.length];
