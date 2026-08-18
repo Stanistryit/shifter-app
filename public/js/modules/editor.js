@@ -490,9 +490,13 @@ window.createTempUser = async function() {
             renderTable();
             
             // Show alert with Invite Code
-            if (tg && tg.showAlert) {
-                tg.showAlert(`Тимчасовий співробітник "${res.user.name}" створений!\n\n🔑 КОД ЗАПРОШЕННЯ: ${res.user.inviteCode}\n\nКоли людина завантажить додаток, вона зможе ввести цей код при реєстрації.`);
-            } else {
+            try {
+                if (tg && tg.showAlert && tg.isVersionAtLeast && tg.isVersionAtLeast('6.2')) {
+                    tg.showAlert(`Тимчасовий співробітник "${res.user.name}" створений!\n\n🔑 КОД ЗАПРОШЕННЯ: ${res.user.inviteCode}\n\nКоли людина завантажить додаток, вона зможе ввести цей код при реєстрації.`);
+                } else {
+                    alert(`Тимчасовий співробітник "${res.user.name}" створений!\n\n🔑 КОД ЗАПРОШЕННЯ: ${res.user.inviteCode}`);
+                }
+            } catch (err) {
                 alert(`Тимчасовий співробітник "${res.user.name}" створений!\n\n🔑 КОД ЗАПРОШЕННЯ: ${res.user.inviteCode}`);
             }
         } else {
