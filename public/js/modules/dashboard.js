@@ -370,7 +370,14 @@ export function updateDashboard() {
     // 5. LIVE STORE STATUS & NOTES
     // =========================================================
     const liveStatusEl = document.getElementById('dashLiveStatus');
-    const todayShiftsGlobal = state.shifts.filter(s => s.date === todayStr && s.start !== 'DELETE' && s.start !== 'Відпустка' && s.start !== 'Лікарняний');
+    const todayShiftsGlobal = state.shifts.filter(s => {
+        if (s.date !== todayStr || s.start === 'DELETE' || s.start === 'Відпустка' || s.start === 'Лікарняний') return false;
+        
+        const shiftStoreId = s.storeId?._id || s.storeId;
+        if (state.selectedStoreFilter === 'all') return true; // Якщо адмін вибрав Всі магазини
+        
+        return String(shiftStoreId) === activeStoreIdStr;
+    });
     const currentTimeVal = now.getHours() + now.getMinutes() / 60;
 
     const workingNow = todayShiftsGlobal.filter(s => {
