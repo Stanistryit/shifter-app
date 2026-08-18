@@ -23,7 +23,8 @@ export function openStoreSettingsModal() {
     <div id="storeSettingsModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="document.getElementById('storeSettingsModal').remove()"></div>
         <div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up max-h-[90vh] overflow-y-auto">
-            <h3 class="font-bold text-xl mb-4">⚙️ Налаштування Магазину</h3>
+            <h3 class="font-bold text-xl mb-1">⚙️ Налаштування</h3>
+            <p class="text-xs text-gray-500 mb-4">Магазин: <span class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded text-blue-500">${s.code || 'Невідомо'}</span></p>
             
             <div class="space-y-4 mb-6">
                 <div>

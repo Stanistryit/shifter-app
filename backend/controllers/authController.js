@@ -311,6 +311,8 @@ exports.getMe = async (req, res) => {
             storeId: user.storeId?._id || user.storeId,
 
             store: user.storeId ? {
+                code: user.storeId.code,
+                name: user.storeId.name,
                 openTime: user.storeId.openTime,
                 closeTime: user.storeId.closeTime,
                 reportTime: user.storeId.telegram?.reportTime,
