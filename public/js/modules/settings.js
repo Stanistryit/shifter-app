@@ -26,57 +26,77 @@ export function openStoreSettingsModal() {
             <h3 class="font-bold text-xl mb-1">⚙️ Налаштування</h3>
             <p class="text-xs text-gray-500 mb-4">Магазин: <span class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded text-blue-500">${s.code || 'Невідомо'}</span></p>
             
-            <div class="space-y-4 mb-6">
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-1">Час відправки звіту (Telegram)</label>
-                    <input type="time" id="set_reportTime" value="${reportTime}" class="ios-input w-full">
+            <div class="w-full flex flex-col bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-5">
+                <div class="px-4 py-2 bg-gray-50/50 dark:bg-[#2C2C2E]/50 border-b border-gray-100 dark:border-gray-800">
+                    <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Графік роботи</span>
                 </div>
                 
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">Відкриття</label>
-                        <input type="time" id="set_openTime" value="${openTime}" class="ios-input w-full">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">Закриття</label>
-                        <input type="time" id="set_closeTime" value="${closeTime}" class="ios-input w-full">
-                    </div>
+                <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
+                    <span class="font-medium text-sm text-gray-700 dark:text-gray-200">Відкриття</span>
+                    <input type="time" id="set_openTime" value="${openTime}" class="bg-transparent text-right font-bold text-blue-500 outline-none">
                 </div>
+                
+                <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
+                    <span class="font-medium text-sm text-gray-700 dark:text-gray-200">Закриття</span>
+                    <input type="time" id="set_closeTime" value="${closeTime}" class="bg-transparent text-right font-bold text-blue-500 outline-none">
+                </div>
+                
+                <div class="flex items-center justify-between p-4">
+                    <div class="flex flex-col">
+                        <span class="font-medium text-sm text-gray-700 dark:text-gray-200">Обід (хв)</span>
+                        <span class="text-[10px] text-gray-400">Віднімається від зміни</span>
+                    </div>
+                    <input type="number" id="set_lunchDuration" value="${lunchDuration}" min="0" class="w-16 bg-gray-100 dark:bg-[#2C2C2E] rounded px-2 py-1 text-center font-bold text-blue-500 outline-none">
+                </div>
+            </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-1">Обід (хв)</label>
-                    <input type="number" id="set_lunchDuration" value="${lunchDuration}" min="0" class="ios-input w-full">
-                    <p class="text-[10px] text-gray-500 mt-1">Вкажіть час у хвилинах. Це значення буде автоматично відніматися від кожної зміни</p>
+            <div class="w-full flex flex-col bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-5">
+                <div class="px-4 py-2 bg-gray-50/50 dark:bg-[#2C2C2E]/50 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Телеграм Звіт</span>
+                    <span>🌙</span>
                 </div>
                 
-                <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
-                    <div>
-                        <div class="font-bold text-sm">Підтвердження від SM</div>
-                        <div class="text-[10px] text-gray-500 leading-tight">Вимагати підтвердження SM для створених графіків та задач від SSE</div>
+                <div class="flex items-center justify-between p-4">
+                    <div class="flex flex-col">
+                        <span class="font-medium text-sm text-gray-700 dark:text-gray-200">Час відправки</span>
+                        <span class="text-[10px] text-gray-400">Авто-запит звіту</span>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="time" id="set_reportTime" value="${reportTime}" class="bg-transparent text-right font-bold text-blue-500 outline-none">
+                </div>
+            </div>
+
+            <div class="w-full flex flex-col bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-5">
+                <div class="px-4 py-2 bg-gray-50/50 dark:bg-[#2C2C2E]/50 border-b border-gray-100 dark:border-gray-800">
+                    <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Дозволи</span>
+                </div>
+                
+                <div class="flex items-center justify-between p-4">
+                    <div class="flex flex-col pr-4">
+                        <span class="font-medium text-sm text-gray-700 dark:text-gray-200">Підтвердження від SM</span>
+                        <span class="text-[10px] text-gray-400 leading-tight mt-1">Вимагати підтвердження графіків від заступників (SSE)</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
                         <input type="checkbox" id="set_requireSseApproval" class="sr-only peer" ${requireSseApproval ? 'checked' : ''}>
                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-500"></div>
                     </label>
                 </div>
             </div>
 
-            <div class="h-px bg-gray-200 dark:bg-gray-700 my-4"></div>
-            
-            <h4 class="font-bold text-md mb-3 text-indigo-500">⏳ Норма годин</h4>
-            <div class="space-y-4 mb-6 bg-gray-50 dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-gray-800">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">Місяць</label>
-                        <input type="month" id="set_normMonth" value="${defaultMonth}" class="ios-input w-full text-sm" onchange="window.updateNormHoursInput()">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">Години</label>
-                        <input type="number" id="set_normHours" value="${defaultNorm}" class="ios-input w-full text-sm" placeholder="Наприклад, 160">
-                    </div>
+            <div class="w-full flex flex-col bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-5">
+                <div class="px-4 py-2 bg-gray-50/50 dark:bg-[#2C2C2E]/50 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Норма годин</span>
+                    <span>⏳</span>
                 </div>
-                <button onclick="window.saveStoreNormHours()" id="btnSaveNormHours" class="w-full py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm font-bold active:scale-95 transition-transform">
-                    Зберегти норму годин
+                <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
+                    <span class="font-medium text-sm text-gray-700 dark:text-gray-200">Місяць</span>
+                    <input type="month" id="set_normMonth" value="${defaultMonth}" class="bg-transparent text-right font-bold text-blue-500 outline-none" onchange="window.updateNormHoursInput()">
+                </div>
+                <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
+                    <span class="font-medium text-sm text-gray-700 dark:text-gray-200">Години</span>
+                    <input type="number" id="set_normHours" value="${defaultNorm}" placeholder="160" class="w-20 bg-gray-100 dark:bg-[#2C2C2E] rounded px-2 py-1 text-center font-bold text-blue-500 outline-none">
+                </div>
+                <button onclick="window.saveStoreNormHours()" id="btnSaveNormHours" class="w-full p-3 bg-gray-50 dark:bg-[#2C2C2E]/30 text-indigo-500 text-sm font-medium active:bg-gray-100 dark:active:bg-gray-800 transition-colors">
+                    Зберегти норму
                 </button>
             </div>
 
