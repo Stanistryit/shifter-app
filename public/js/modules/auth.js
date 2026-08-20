@@ -172,7 +172,28 @@ async function showApp(user) {
     if (prefSelect) prefSelect.value = state.currentUser.notificationPreference || 'telegram';
 
     const remindSelect = document.getElementById('profileReminderTime');
-    if (remindSelect) remindSelect.value = state.currentUser.reminderTime || 'off';
+    const remindToggle = document.getElementById('profileReminderToggle');
+    const remindContainer = document.getElementById('profileReminderTimeContainer');
+    const remindHint = document.getElementById('profileReminderTimeHint');
+    if (remindSelect && remindToggle) {
+        const val = state.currentUser.reminderTime || 'off';
+        if (val === 'off' || val === 'none') {
+            remindToggle.checked = false;
+            if(remindContainer) remindContainer.classList.add('hidden');
+            if(remindHint) remindHint.classList.add('hidden');
+            remindSelect.value = '';
+        } else {
+            remindToggle.checked = true;
+            if(remindContainer) remindContainer.classList.remove('hidden');
+            if(remindHint) remindHint.classList.remove('hidden');
+            // If it's a legacy value like 1h, map it to a sensible default, otherwise just set it
+            if(!val.includes(':')) {
+                remindSelect.value = '20:00';
+            } else {
+                remindSelect.value = val;
+            }
+        }
+    }
 
     // Ролі та адмінські кнопки
     if (['admin', 'SM', 'SSE', 'RRP'].includes(user.role)) {

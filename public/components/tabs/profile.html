@@ -95,20 +95,25 @@
             </select>
         </div>
 
-        <div class="w-full flex justify-between items-center ios-input p-4 text-left mt-3">
-            <div class="flex flex-col w-full">
-                <label class="font-medium text-gray-700 dark:text-gray-200 mb-0.5">Нагадування про зміну</label>
-                <span class="text-[10px] text-gray-400">Час відправки нагадування</span>
+        <div class="w-full flex flex-col items-center ios-input p-4 mt-3">
+            <div class="flex justify-between items-center w-full">
+                <div class="flex flex-col">
+                    <label class="font-medium text-gray-700 dark:text-gray-200 mb-0.5">Нагадування про зміну</label>
+                    <span class="text-[10px] text-gray-400">Час відправки нагадування</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" id="profileReminderToggle" class="sr-only peer" onchange="toggleReminderTime(this.checked)">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-500"></div>
+                </label>
             </div>
-            <select id="profileReminderTime" onchange="saveReminderTime(this.value)"
-                class="bg-transparent font-bold text-blue-500 text-right outline-none text-sm appearance-none cursor-pointer">
-                <option value="1h">За 1 годину</option>
-                <option value="12h">За 12 годин</option>
-                <option value="start">На початку</option>
-                <option value="20:00">О 20:00 (за день)</option>
-                <option value="off">Вимкнути</option>
-                <option value="none" class="hidden"></option>
-            </select>
+            
+            <div id="profileReminderTimeContainer" class="w-full flex justify-between items-center mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 hidden">
+                <span class="font-medium text-sm text-gray-700 dark:text-gray-200">О котрій годині?</span>
+                <input type="time" id="profileReminderTime" onchange="saveReminderTime(this.value)" class="bg-transparent font-bold text-blue-500 text-right outline-none text-sm">
+            </div>
+            <p id="profileReminderTimeHint" class="w-full text-left text-[10px] text-gray-400 mt-2 hidden">
+                * Якщо час після 15:00 — нагадаємо про зміну на наступний день. Якщо до 15:00 — нагадаємо в день зміни.
+            </p>
         </div>
 
         <button onclick="togglePushNotifications()"

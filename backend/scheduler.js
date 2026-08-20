@@ -228,7 +228,15 @@ const initScheduler = async (tgConfig) => {
 
             if (user.reminderTime.includes(':')) {
                 const [rH, rM] = user.reminderTime.split(':').map(Number);
-                if (s.date === tomorrowStr && currentUAHour === rH) shouldNotify = true;
+                
+                // Якщо час нагадування після 15:00, нагадуємо про зміну на завтра
+                if (rH >= 15) {
+                    if (s.date === tomorrowStr && currentUAHour === rH) shouldNotify = true;
+                } 
+                // Якщо час нагадування до 15:00, нагадуємо про сьогоднішню зміну
+                else {
+                    if (s.date === currentUADay && currentUAHour === rH) shouldNotify = true;
+                }
             } else if (user.reminderTime === 'start' && hoursUntilShift === 0) {
                 shouldNotify = true;
             } else if (user.reminderTime === '1h' && hoursUntilShift === 1) {

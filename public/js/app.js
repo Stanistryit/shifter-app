@@ -277,6 +277,24 @@ window.saveReminderTime = async (val) => {
     }
 };
 
+window.toggleReminderTime = (isChecked) => {
+    const remindContainer = document.getElementById('profileReminderTimeContainer');
+    const remindHint = document.getElementById('profileReminderTimeHint');
+    if (isChecked) {
+        remindContainer.classList.remove('hidden');
+        remindHint.classList.remove('hidden');
+        const input = document.getElementById('profileReminderTime');
+        if (!input.value) {
+            input.value = "20:00"; // default value when enabled
+        }
+        window.saveReminderTime(input.value);
+    } else {
+        remindContainer.classList.add('hidden');
+        remindHint.classList.add('hidden');
+        window.saveReminderTime('off');
+    }
+};
+
 window.connectTelegram = async () => {
     triggerHaptic();
     try {
