@@ -270,6 +270,7 @@ exports.telegramLogin = async (req, res) => {
                     normHours: user.storeId.normHours
                 } : null,
                 notificationPreference: user.notificationPreference || 'telegram',
+                reminderTime: user.reminderTime || 'off',
                 hasTelegram: !!user.telegramChatId
             }
         });
@@ -321,6 +322,7 @@ exports.getMe = async (req, res) => {
                 telegram: user.storeId.telegram
             } : null,
             notificationPreference: user.notificationPreference || 'telegram',
+            reminderTime: user.reminderTime || 'off',
             hasTelegram: !!user.telegramChatId,
             customBadges: user.customBadges || [],
             notifiedBadges: user.notifiedBadges || [],
@@ -329,6 +331,24 @@ exports.getMe = async (req, res) => {
     }
 
     res.json({ loggedIn: !!user, user: userData });
+};
+
+exports.updateReminderTime = async (req, res) => {
+    try {
+        const { pref } = req.body;
+        if (!req.session.userId) return res.json({ success: false, message: 'Not logged in' });
+
+        const user = await User.findById(req.session.userId);
+        if (user) {
+            user.reminderTime = pref;
+            await user.save();
+            res.json({ success: true });
+        } else {
+            res.json({ success: false });
+        }
+    } catch (e) {
+        res.json({ success: false, message: e.message });
+    }
 };
 
 // --- СКИДАННЯ ПАРОЛЯ ЧЕРЕЗ TELEGRAM ---

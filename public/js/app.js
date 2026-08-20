@@ -262,6 +262,21 @@ window.saveNotificationPref = async (val) => {
     }
 };
 
+window.saveReminderTime = async (val) => {
+    triggerHaptic();
+    try {
+        const data = await postJson('/api/user/reminder-time', { pref: val });
+        if (data.success) {
+            showToast('Налаштування збережено ✅', 'success');
+            if (state.currentUser) state.currentUser.reminderTime = val;
+        } else {
+            showToast('Помилка збереження', 'error');
+        }
+    } catch (e) {
+        showToast('Помилка з\'єднання', 'error');
+    }
+};
+
 window.connectTelegram = async () => {
     triggerHaptic();
     try {

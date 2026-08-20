@@ -24,6 +24,7 @@ router.post('/reset-password', validate(schemas.resetPassword), catchAsync(authC
 router.post('/user/update', catchAsync(authController.updateUser));
 router.post('/user/change-password', catchAsync(authController.changePassword));
 router.post('/user/notification-pref', catchAsync(authController.updateNotificationPref));
+router.post('/user/reminder-time', catchAsync(authController.updateReminderTime));
 router.post('/login-telegram', catchAsync(authController.telegramLogin));
 router.post('/logout', catchAsync(authController.logout));
 router.get('/telegram-link', catchAsync(authController.getTelegramLink));

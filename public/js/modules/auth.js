@@ -169,9 +169,10 @@ async function showApp(user) {
     }
 
     const prefSelect = document.getElementById('profileNotificationPref');
-    if (prefSelect && user.notificationPreference) {
-        prefSelect.value = user.notificationPreference;
-    }
+    if (prefSelect) prefSelect.value = state.currentUser.notificationPreference || 'telegram';
+
+    const remindSelect = document.getElementById('profileReminderTime');
+    if (remindSelect) remindSelect.value = state.currentUser.reminderTime || 'off';
 
     // Ролі та адмінські кнопки
     if (['admin', 'SM', 'SSE', 'RRP'].includes(user.role)) {
