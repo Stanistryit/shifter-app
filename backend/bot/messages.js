@@ -91,30 +91,30 @@ const handleWhoIsWorking = async (bot, chatId, user, messageId = null) => {
 };
 
 const handleSettings = async (bot, chatId, user, messageId = null) => {
+    const appUrl = process.env.APP_URL || 'https://shifter-app.onrender.com';
     const opts = {
         parse_mode: 'HTML',
         reply_markup: {
             inline_keyboard: [
-                [{ text: '⏰ За 1 годину', callback_data: 'set_remind_1h' }, { text: '⏰ За 12 годин', callback_data: 'set_remind_12h' }],
-                [{ text: '🏁 На початку зміни', callback_data: 'set_remind_start' }],
-                [{ text: '🌙 Щодня о 20:00', callback_data: 'set_remind_20' }],
-                [{ text: '🔕 Вимкнути', callback_data: 'set_remind_none' }],
+                [{ text: '📱 Налаштувати точний час у додатку', web_app: { url: appUrl } }],
+                [{ text: '🔕 Вимкнути нагадування', callback_data: 'set_remind_off' }],
                 [{ text: '💬 Зв\'язок з розробником', url: 'https://t.me/StanisLoveIt' }],
                 [{ text: '🔙 Назад у меню', callback_data: 'menu_back' }]
             ]
         }
     };
-    let current = user.reminderTime;
-    if (current === '1h') current = 'За 1 годину';
-    else if (current === '12h') current = 'За 12 годин';
-    else if (current === 'start') current = 'На початку';
-    else if (current === 'none') current = 'Вимкнено';
+    
+    let current = user.reminderTime || 'off';
+    if (current === 'off' || current === 'none') {
+        current = 'Вимкнено 🔕';
+    } else if (current === '1h' || current === '12h' || current === 'start' || current === '20:00') {
+        current = `${current} (старий формат)`;
+    } else {
+        current = `${current} ⏰`;
+    }
 
-    const txt = `⚙️ <b>Налаштування сповіщень</b>\n\nПоточний режим: <b>${current}</b>`;
-
-    return messageId
-        ? bot.editMessageText(txt, { chat_id: chatId, message_id: messageId, ...opts })
-        : bot.sendMessage(chatId, txt, opts);
+    const txt = `⚙️ <b>Налаштування сповіщень</b>\nПоточний час нагадування: <b>${current}</b>\n\n<i>Щоб обрати точний час нагадування (наприклад, 21:30), відкрийте додаток та перейдіть у свій Профіль.</i>`;
+    return messageId ? bot.editMessageText(txt, { chat_id: chatId, message_id: messageId, ...opts }) : bot.sendMessage(chatId, txt, opts);
 };
 
 

@@ -188,20 +188,18 @@ const initScheduler = async (tgConfig) => {
 
     // 2. ЩОГОДИННИЙ JOB (Reminders)
     agenda.define('hourly-jobs', async (job) => {
-        const uaDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
-        const currentUAHour = uaDate.getHours();
+        const now = new Date();
+        
+        // Поточна година в Києві
+        const currentUAHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Kiev', hour: 'numeric', hour12: false }).format(now));
 
-        const yToday = uaDate.getFullYear();
-        const mToday = String(uaDate.getMonth() + 1).padStart(2, '0');
-        const dToday = String(uaDate.getDate()).padStart(2, '0');
-        const currentUADay = `${yToday}-${mToday}-${dToday}`;
+        // Поточна дата в Києві (YYYY-MM-DD)
+        const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kiev', year: 'numeric', month: '2-digit', day: '2-digit' });
+        const currentUADay = formatter.format(now);
 
-        const tomorrowDate = new Date(uaDate);
-        tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-        const yTom = tomorrowDate.getFullYear();
-        const mTom = String(tomorrowDate.getMonth() + 1).padStart(2, '0');
-        const dTom = String(tomorrowDate.getDate()).padStart(2, '0');
-        const tomorrowStr = `${yTom}-${mTom}-${dTom}`;
+        // Завтрашня дата в Києві (YYYY-MM-DD)
+        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const tomorrowStr = formatter.format(tomorrow);
 
         // Shift Reminders
         const shifts = await Shift.find({ date: { $in: [currentUADay, tomorrowStr] } }).populate('storeId', 'name');
@@ -340,14 +338,15 @@ async function sendDailyReports(stores) {
     const bot = getBot();
     if (!bot) return;
 
-    const tomorrow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const now = new Date();
+    // Додаємо 24 години для отримання завтрашнього дня
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-    const y = tomorrow.getFullYear();
-    const m = String(tomorrow.getMonth() + 1).padStart(2, '0');
-    const d = String(tomorrow.getDate()).padStart(2, '0');
-    const dateStr = `${y}-${m}-${d}`;
+    // Отримуємо дату у форматі YYYY-MM-DD для Києва
+    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kiev', year: 'numeric', month: '2-digit', day: '2-digit' });
+    const dateStr = formatter.format(tomorrow);
 
+    // Відображення для повідомлення
     const display = tomorrow.toLocaleDateString('uk-UA', { timeZone: 'Europe/Kiev', weekday: 'long', day: 'numeric', month: 'long' });
 
     for (const store of stores) {
