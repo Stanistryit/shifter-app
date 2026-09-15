@@ -288,7 +288,15 @@ exports.getUsers = async (req, res) => {
     let query = {};
 
     if (currentUser.role !== 'admin' && req.query.all !== 'true') {
-        query.storeId = currentUser.storeId;
+        const shifts = await Shift.find({ storeId: currentUser.storeId });
+        const userNames = shifts.map(s => s.name);
+
+        query = {
+            $or: [
+                { storeId: currentUser.storeId },
+                { name: { $in: userNames } }
+            ]
+        };
     }
 
     // 🔥 НОВЕ: Додав sortOrder, createdAt, customBadges, isTemp, inviteCode у вибірку
