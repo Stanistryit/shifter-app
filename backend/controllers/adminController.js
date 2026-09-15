@@ -124,7 +124,7 @@ exports.updateStoreNormHours = async (req, res) => {
     }
 
     try {
-        const { month, normHours } = req.body;
+        const { month, normHours, fte, baseHours } = req.body;
         if (!month) return res.json({ success: false, message: "Не вказано місяць" });
 
         const store = await Store.findById(u.storeId);
@@ -135,6 +135,11 @@ exports.updateStoreNormHours = async (req, res) => {
         }
 
         store.normHours.set(month, Number(normHours) || 0);
+        
+        if (fte !== undefined) {
+            store.fte = Number(fte) || 1;
+        }
+
         await store.save();
 
         logAction(u.name, 'update_norm_hours', `Set ${month} norm to ${normHours}`);

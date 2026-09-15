@@ -196,6 +196,13 @@ export function renderTimeline() {
                 }
             }
 
+            if (!shift && userTasks.length === 0 && state.selectedStoreFilter !== 'all') {
+                const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
+                if (String(userHomeStoreId) !== String(activeStoreId)) {
+                    return; // Skip rendering empty "Day off" row for substitute employees
+                }
+            }
+
             if (shift) {
                 const isMe = shift.name === state.currentUser.name;
                 const canEdit = ['admin', 'SM', 'SSE'].includes(state.currentUser.role) && state.currentUser.role !== 'RRP';

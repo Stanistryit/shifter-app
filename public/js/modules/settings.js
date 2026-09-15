@@ -92,8 +92,17 @@ export function openStoreSettingsModal() {
                     <input type="month" id="set_normMonth" value="${defaultMonth}" class="bg-transparent text-right font-bold text-blue-500 outline-none" onchange="window.updateNormHoursInput()">
                 </div>
                 <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
-                    <span class="font-medium text-sm text-gray-700 dark:text-gray-200">Години</span>
-                    <input type="number" id="set_normHours" value="${defaultNorm}" placeholder="160" class="w-20 bg-gray-100 dark:bg-[#2C2C2E] rounded px-2 py-1 text-center font-bold text-blue-500 outline-none">
+                    <span class="font-medium text-sm text-gray-700 dark:text-gray-200">FTE (Кількість ставок)</span>
+                    <input type="number" step="0.1" id="set_fte" value="${store.fte !== undefined ? store.fte : 1}" class="w-20 bg-gray-100 dark:bg-[#2C2C2E] rounded px-2 py-1 text-center font-bold text-blue-500 outline-none" oninput="window.calcStoreNormHours()">
+                </div>
+                <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
+                    <span class="font-medium text-sm text-gray-700 dark:text-gray-200">План на 1 ставку (год)</span>
+                    <input type="number" id="set_baseHours" value="${store.fte && store.fte > 0 && defaultNorm ? Math.round(defaultNorm / store.fte) : defaultNorm}" placeholder="176" class="w-20 bg-gray-100 dark:bg-[#2C2C2E] rounded px-2 py-1 text-center font-bold text-blue-500 outline-none" oninput="window.calcStoreNormHours()">
+                </div>
+                <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-blue-50 dark:bg-blue-900/10">
+                    <span class="font-bold text-sm text-blue-700 dark:text-blue-300">Загальна норма магазину</span>
+                    <span id="calcTotalNorm" class="font-bold text-blue-700 dark:text-blue-300">${defaultNorm}</span>
+                    <input type="hidden" id="set_normHours" value="${defaultNorm}">
                 </div>
                 <button onclick="window.saveStoreNormHours()" id="btnSaveNormHours" class="w-full p-3 bg-gray-50 dark:bg-[#2C2C2E]/30 text-indigo-500 text-sm font-medium active:bg-gray-100 dark:active:bg-gray-800 transition-colors">
                     Зберегти норму
@@ -322,12 +331,31 @@ window.updateNormHoursInput = function() {
     const s = state.currentUser.store || {};
     const normObj = s.normHours || {};
     const val = normObj[month] || 0;
+    const fte = s.fte || 1;
+    
     document.getElementById('set_normHours').value = val;
+    document.getElementById('calcTotalNorm').innerText = val;
+    
+    if (fte > 0 && val > 0) {
+        document.getElementById('set_baseHours').value = Math.round(val / fte);
+    } else {
+        document.getElementById('set_baseHours').value = 176;
+    }
+};
+
+window.calcStoreNormHours = function() {
+    const fte = parseFloat(document.getElementById('set_fte').value) || 0;
+    const base = parseFloat(document.getElementById('set_baseHours').value) || 0;
+    const total = Math.round(fte * base);
+    document.getElementById('set_normHours').value = total;
+    document.getElementById('calcTotalNorm').innerText = total;
 };
 
 window.saveStoreNormHours = async function() {
     const month = document.getElementById('set_normMonth').value;
     const normHours = parseInt(document.getElementById('set_normHours').value, 10) || 0;
+    const fte = parseFloat(document.getElementById('set_fte').value) || 1;
+    const baseHours = parseFloat(document.getElementById('set_baseHours').value) || 0;
 
     if (!month) return showToast("Оберіть місяць", 'error');
 
@@ -337,7 +365,7 @@ window.saveStoreNormHours = async function() {
     btn.disabled = true;
 
     try {
-        const res = await postJson('/api/admin/store/norm-hours', { month, normHours });
+        const res = await postJson('/api/admin/store/norm-hours', { month, normHours, fte, baseHours });
         if (res.success) {
             showToast(`Норму на ${month} збережено! ✅`);
             
@@ -346,6 +374,7 @@ window.saveStoreNormHours = async function() {
                     state.currentUser.store.normHours = {};
                 }
                 state.currentUser.store.normHours[month] = normHours;
+                state.currentUser.store.fte = fte;
             }
             
             // Якщо є інші магазини в state.stores, їх теж треба оновити, щоб таблиця перемалювалась правильно
@@ -354,6 +383,7 @@ window.saveStoreNormHours = async function() {
                 if (s) {
                     if (!s.normHours) s.normHours = {};
                     s.normHours[month] = normHours;
+                    s.fte = fte;
                 }
             }
 
