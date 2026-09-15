@@ -97,11 +97,11 @@ export function openStoreSettingsModal() {
                 </div>
                 <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
                     <span class="font-medium text-sm text-gray-700 dark:text-gray-200">План на 1 ставку (год)</span>
-                    <input type="number" id="set_baseHours" value="${s.fte && s.fte > 0 && defaultNorm ? Math.round(defaultNorm / s.fte) : defaultNorm}" placeholder="176" class="w-20 bg-gray-100 dark:bg-[#2C2C2E] rounded px-2 py-1 text-center font-bold text-blue-500 outline-none" oninput="window.calcStoreNormHours()">
+                    <input type="number" id="set_baseHours" value="${defaultNorm || 176}" placeholder="176" class="w-20 bg-gray-100 dark:bg-[#2C2C2E] rounded px-2 py-1 text-center font-bold text-blue-500 outline-none" oninput="window.calcStoreNormHours()">
                 </div>
                 <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-blue-50 dark:bg-blue-900/10">
                     <span class="font-bold text-sm text-blue-700 dark:text-blue-300">Загальна норма магазину</span>
-                    <span id="calcTotalNorm" class="font-bold text-blue-700 dark:text-blue-300">${defaultNorm}</span>
+                    <span id="calcTotalNorm" class="font-bold text-blue-700 dark:text-blue-300">${Math.round((defaultNorm || 176) * (s.fte || 1))}</span>
                     <input type="hidden" id="set_normHours" value="${defaultNorm}">
                 </div>
                 <button onclick="window.saveStoreNormHours()" id="btnSaveNormHours" class="w-full p-3 bg-gray-50 dark:bg-[#2C2C2E]/30 text-indigo-500 text-sm font-medium active:bg-gray-100 dark:active:bg-gray-800 transition-colors">
@@ -337,9 +337,12 @@ window.updateNormHoursInput = function() {
     document.getElementById('calcTotalNorm').innerText = val;
     
     if (fte > 0 && val > 0) {
-        document.getElementById('set_baseHours').value = Math.round(val / fte);
+        // Here val is the base hours
+        document.getElementById('set_baseHours').value = val;
+        document.getElementById('calcTotalNorm').innerText = Math.round(val * fte);
     } else {
         document.getElementById('set_baseHours').value = 176;
+        document.getElementById('calcTotalNorm').innerText = Math.round(176 * fte);
     }
 };
 
@@ -347,15 +350,15 @@ window.calcStoreNormHours = function() {
     const fte = parseFloat(document.getElementById('set_fte').value) || 0;
     const base = parseFloat(document.getElementById('set_baseHours').value) || 0;
     const total = Math.round(fte * base);
-    document.getElementById('set_normHours').value = total;
+    document.getElementById('set_normHours').value = base; // Save base as normHours
     document.getElementById('calcTotalNorm').innerText = total;
 };
 
 window.saveStoreNormHours = async function() {
     const month = document.getElementById('set_normMonth').value;
-    const normHours = parseInt(document.getElementById('set_normHours').value, 10) || 0;
+    const normHours = parseInt(document.getElementById('set_baseHours').value, 10) || 0; // Save base hours
     const fte = parseFloat(document.getElementById('set_fte').value) || 1;
-    const baseHours = parseFloat(document.getElementById('set_baseHours').value) || 0;
+    const baseHours = normHours;
 
     if (!month) return showToast("Оберіть місяць", 'error');
 

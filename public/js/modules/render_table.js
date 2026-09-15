@@ -223,7 +223,25 @@ export function renderTable() {
         }
     });
 
-    let storeTotalNorm = monthNorm > 0 ? (monthNorm * usersToShow.length) : 0;
+    let storeTotalNorm = 0;
+    if (monthNorm > 0) {
+        // Find store FTE
+        let storeFte = 1;
+        if (state.stores && activeStoreId) {
+            const foundStore = state.stores.find(s => String(s._id) === String(activeStoreId) || String(s.code) === String(activeStoreId));
+            if (foundStore && foundStore.fte) storeFte = foundStore.fte;
+        } else if (state.currentUser && state.currentUser.store && state.currentUser.store.fte) {
+            storeFte = state.currentUser.store.fte;
+        }
+        
+        // If FTE is specified, use it for total norm. If not, fallback to usersToShow.length
+        if (storeFte > 0) {
+            storeTotalNorm = Math.round(monthNorm * storeFte);
+        } else {
+            storeTotalNorm = monthNorm * usersToShow.length;
+        }
+    }
+
     let storeHoursText = `<span class="text-gray-600 dark:text-gray-300">${storeTotalHours}</span>`;
     if (storeTotalDonorHours > 0) storeHoursText += `<span class="text-indigo-500 text-[8px] ml-0.5">+${storeTotalDonorHours}</span>`;
     if (storeTotalNorm > 0) storeHoursText += `<span class="text-gray-400 font-normal mx-0.5">\\</span><span class="text-gray-500">${storeTotalNorm}</span>`;
