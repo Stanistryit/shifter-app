@@ -93,11 +93,11 @@ export function openStoreSettingsModal() {
                 </div>
                 <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
                     <span class="font-medium text-sm text-gray-700 dark:text-gray-200">FTE (Кількість ставок)</span>
-                    <input type="number" step="0.1" id="set_fte" value="${store.fte !== undefined ? store.fte : 1}" class="w-20 bg-gray-100 dark:bg-[#2C2C2E] rounded px-2 py-1 text-center font-bold text-blue-500 outline-none" oninput="window.calcStoreNormHours()">
+                    <input type="number" step="0.1" id="set_fte" value="${s.fte !== undefined ? s.fte : 1}" class="w-20 bg-gray-100 dark:bg-[#2C2C2E] rounded px-2 py-1 text-center font-bold text-blue-500 outline-none" oninput="window.calcStoreNormHours()">
                 </div>
                 <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
                     <span class="font-medium text-sm text-gray-700 dark:text-gray-200">План на 1 ставку (год)</span>
-                    <input type="number" id="set_baseHours" value="${store.fte && store.fte > 0 && defaultNorm ? Math.round(defaultNorm / store.fte) : defaultNorm}" placeholder="176" class="w-20 bg-gray-100 dark:bg-[#2C2C2E] rounded px-2 py-1 text-center font-bold text-blue-500 outline-none" oninput="window.calcStoreNormHours()">
+                    <input type="number" id="set_baseHours" value="${s.fte && s.fte > 0 && defaultNorm ? Math.round(defaultNorm / s.fte) : defaultNorm}" placeholder="176" class="w-20 bg-gray-100 dark:bg-[#2C2C2E] rounded px-2 py-1 text-center font-bold text-blue-500 outline-none" oninput="window.calcStoreNormHours()">
                 </div>
                 <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-blue-50 dark:bg-blue-900/10">
                     <span class="font-bold text-sm text-blue-700 dark:text-blue-300">Загальна норма магазину</span>
