@@ -408,8 +408,17 @@ export function updateDashboard() {
 function getDuration(start, end) {
     if (!start || !end || start === 'Відпустка' || start === 'Лікарняний' || start === 'DELETE') return 0;
     const s = timeToVal(start);
-    const e = timeToVal(end);
-    return (e - s) > 0 ? (e - s) : 0;
+    let e = timeToVal(end);
+    if (e < s) e += 24; // Handle overnight shifts if any
+    
+    // Враховуємо обід
+    let lunchMins = 60;
+    if (state.currentUser && state.currentUser.store && state.currentUser.store.lunch_duration_minutes !== undefined) {
+        lunchMins = state.currentUser.store.lunch_duration_minutes;
+    }
+    
+    let dur = (e - s) - (lunchMins / 60);
+    return dur > 0 ? dur : 0;
 }
 
 function timeToVal(t) {
