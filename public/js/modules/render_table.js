@@ -502,7 +502,8 @@ export function renderTable() {
                     } else {
                         if (isSubstituteRender) {
                             const storeName = draft.storeId?.name || 'Інший магазин';
-                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-mono leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-0.5 shadow-sm border border-orange-200 dark:border-orange-800 cursor-pointer transform scale-105">
+                            const safeStoreName = storeName.replace(/'/g, "\\'");
+                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${safeStoreName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-mono leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-0.5 shadow-sm border border-orange-200 dark:border-orange-800 cursor-pointer transform scale-105">
                                 <div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>
                                 ${draft.start}<br>${draft.end}
                             </div>`;
@@ -512,8 +513,9 @@ export function renderTable() {
                             if (isGuestRender) {
                                 const homeStore = state.stores ? state.stores.find(s => String(s._id) === String(userHomeStoreId) || s.code === userHomeStoreId) : null;
                                 const homeStoreName = homeStore ? homeStore.name : 'Інший магазин';
+                                const safeHomeStoreName = homeStoreName.replace(/'/g, "\\'");
                                 guestIndicator = '<div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>';
-                                guestAttr = `title="Гість з: ${homeStoreName}" onclick="window.showToast('Гість з: ${homeStoreName}')"`;
+                                guestAttr = `title="Гість з: ${homeStoreName}" onclick="window.showToast('Гість з: ${safeHomeStoreName}')"`;
                             }
                             content = `<div ${guestAttr} class="relative text-[10px] font-mono leading-tight bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 border border-yellow-300 dark:border-yellow-600 shadow-sm transform scale-105 ${isGuestRender ? 'cursor-pointer' : ''}">
                                 ${guestIndicator}
@@ -548,7 +550,8 @@ export function renderTable() {
                         
                         if (isSubstituteRender) {
                             const storeName = shift.storeId?.name || 'Інший магазин';
-                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${storeName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-mono leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-0.5 shadow-sm border border-orange-200 dark:border-orange-800 cursor-pointer ${opacity}">
+                            const safeStoreName = storeName.replace(/'/g, "\\'");
+                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${safeStoreName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-mono leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-0.5 shadow-sm border border-orange-200 dark:border-orange-800 cursor-pointer ${opacity}">
                                 <div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>
                                 ${shift.start}<br>${shift.end}
                             </div>`;
@@ -559,8 +562,9 @@ export function renderTable() {
                             if (isGuestRender) {
                                 const homeStore = state.stores ? state.stores.find(s => String(s._id) === String(userHomeStoreId) || s.code === userHomeStoreId) : null;
                                 const homeStoreName = homeStore ? homeStore.name : 'Інший магазин';
+                                const safeHomeStoreName = homeStoreName.replace(/'/g, "\\'");
                                 guestIndicator = '<div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>';
-                                guestAttr = `title="Гість з: ${homeStoreName}" onclick="window.showToast('Гість з: ${homeStoreName}')"`;
+                                guestAttr = `title="Гість з: ${homeStoreName}" onclick="window.showToast('Гість з: ${safeHomeStoreName}')"`;
                             }
                             content = `<div ${guestAttr} class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity} ${isGuestRender ? 'cursor-pointer' : ''}">
                                 ${guestIndicator}
@@ -573,10 +577,11 @@ export function renderTable() {
             }
 
             let ctxAttr = '';
+            const safeUserName = user.name.replace(/'/g, "\\'");
             if (shift && !draft) {
                 ctxAttr = `oncontextmenu="window.contextMenuProxy(event, 'shift', '${shift._id}')"`;
             } else {
-                ctxAttr = `oncontextmenu="window.contextMenuProxy(event, 'empty_shift', '${ds}|${user.name}')"`;
+                ctxAttr = `oncontextmenu="window.contextMenuProxy(event, 'empty_shift', '${ds}|${safeUserName}')"`;
             }
 
             const hasTask = (state.tasks || []).some(t => t.name === user.name && t.date === ds && t.status !== 'completed');

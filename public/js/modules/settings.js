@@ -503,8 +503,9 @@ export function renderFilterList() {
     // Використовуємо відфільтрований список usersToShow
     usersToShow.forEach(u => {
         const isSelected = state.filter === u.name;
+        const safeName = u.name.replace(/'/g, "\\'");
         html += `
-            <button onclick="window.applyFilter('${u.name}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}">
+            <button onclick="window.applyFilter('${safeName}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}">
                 <span class="font-medium">${u.name}</span>
                 ${isSelected ? '<span>✓</span>' : ''}
             </button>`;

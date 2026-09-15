@@ -409,6 +409,7 @@ window.filterSubstituteUsers = function(q) {
 
         const storeName = (u.storeId && u.storeId.name) ? u.storeId.name : 'Без магазину';
         const tempBadge = u.isTemp ? `<span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full ml-2">Тимчасовий</span>` : '';
+        const safeName = u.name.replace(/'/g, "\\'");
         
         list.innerHTML += `
             <div class="flex items-center justify-between p-3 bg-white dark:bg-[#1C1C1E] rounded-xl shadow-sm mb-2">
@@ -416,7 +417,7 @@ window.filterSubstituteUsers = function(q) {
                     <div class="font-bold text-sm">${u.name} ${tempBadge}</div>
                     <div class="text-[11px] text-gray-500">З магазину: ${storeName}</div>
                 </div>
-                <button onclick="window.addSubstituteToGrid('${u.name}')" class="bg-orange-50 text-orange-500 px-3 py-1 rounded-lg text-xs font-bold active:scale-95 transition-transform">
+                <button onclick="window.addSubstituteToGrid('${safeName}')" class="bg-orange-50 text-orange-500 px-3 py-1 rounded-lg text-xs font-bold active:scale-95 transition-transform">
                     Додати
                 </button>
             </div>
