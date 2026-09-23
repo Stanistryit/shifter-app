@@ -14,6 +14,7 @@ const noteController = require('./controllers/noteController');
 const userController = require('./controllers/userController');
 const pushController = require('./controllers/pushController');
 const statsController = require('./controllers/statsController');
+const sparkController = require('./controllers/sparkController');
 
 // --- AUTH & USER ---
 router.get('/stores', catchAsync(authController.getStores));
@@ -108,6 +109,7 @@ router.get('/notes', catchAsync(noteController.getNotes));
 router.post('/notes', catchAsync(noteController.addNote));
 router.post('/notes/delete', catchAsync(noteController.deleteNote));
 
-
+// --- GEMINI SPARK ---
+router.post('/spark/sync', validate(schemas.sparkSync), catchAsync(sparkController.syncSchedule));
 
 module.exports = router;
