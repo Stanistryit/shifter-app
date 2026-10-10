@@ -129,9 +129,8 @@ export function renderTimeline() {
         html += `<div class="space-y-4">`;
 
         usersToShow.forEach(user => {
-            if (state.hideSubstitutes && state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
+            if (state.hideSubstitutes && activeStoreId) {
                 const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
-                const activeStoreId = state.selectedStoreFilter;
                 if (String(userHomeStoreId) !== String(activeStoreId)) {
                     return; // Skip rendering substitute row
                 }
