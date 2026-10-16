@@ -194,9 +194,10 @@ exports.updateUser = async (req, res) => {
             userToEdit.status = status;
 
             if (status === 'blocked') {
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                const tomorrowStr = tomorrow.toISOString().split('T')[0];
+                const now = new Date();
+                const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kiev', year: 'numeric', month: '2-digit', day: '2-digit' });
+                const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                const tomorrowStr = formatter.format(tomorrow);
 
                 await Shift.deleteMany({ name: userToEdit.name, date: { $gte: tomorrowStr } });
                 await Task.deleteMany({ name: userToEdit.name, date: { $gte: tomorrowStr } });
