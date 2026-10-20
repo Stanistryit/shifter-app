@@ -292,3 +292,364 @@ exports.clearMonth = async (req, res) => {
     logAction(u.name, 'clear_month', req.body.month);
     res.json({ success: true });
 };
+
+// ==============================================================================
+// GOOGLE SHEETS SYNC & ROLLBACK
+// ==============================================================================
+const axios = require('axios');
+const bcrypt = require('bcryptjs');
+
+exports.syncGoogleSheets = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (!u || !['SM', 'admin'].includes(u.role)) {
+        return res.status(403).json({ success: false, message: "Тільки для SM та Admin" });
+    }
+
+    const mode = req.body.mode || 'sync'; // 'sync' | 'reload'
+    const targetStoreId = req.body.storeId || u.storeId;
+    const store = await Store.findById(targetStoreId);
+    if (!store) {
+        return res.status(404).json({ success: false, message: "Магазин не знайдено" });
+    }
+
+    const scriptUrl = (req.body.scriptUrl || store.googleSheetsUrl || process.env.GOOGLE_SHEETS_SCRIPT_URL || '').trim();
+    if (!scriptUrl) {
+        return res.status(400).json({
+            success: false,
+            message: "Не вказано URL Google Apps Script. Вкажіть його в налаштуваннях магазину."
+        });
+    }
+
+    try {
+        // 1. Отримуємо дані з Google Apps Script
+        const response = await axios.get(scriptUrl, {
+            params: {
+                month: req.body.month,
+                year: req.body.year
+            },
+            timeout: 30000,
+            maxRedirects: 5
+        });
+
+        const sheetData = response.data;
+        if (!sheetData || !sheetData.success) {
+            return res.status(400).json({
+                success: false,
+                message: sheetData?.error || "Помилка при читанні Google Таблиці"
+            });
+        }
+
+        const dates = sheetData.dates || [];
+        const rawShifts = sheetData.shifts || [];
+        const errors = sheetData.errors || [];
+
+        if (dates.length === 0) {
+            return res.status(400).json({ success: false, message: "У таблиці не знайдено дат" });
+        }
+
+        // 2. Завантажуємо магазини та користувачів для зіставлення
+        const allStores = await Store.find({});
+        const allUsers = await User.find({});
+
+        const resolveStore = (nameOrCode) => {
+            if (!nameOrCode) return store;
+            const clean = nameOrCode.trim().toLowerCase();
+            const found = allStores.find(s => 
+                s.name.toLowerCase() === clean || 
+                s.code.toLowerCase() === clean ||
+                s.name.toLowerCase().includes(clean) ||
+                clean.includes(s.name.toLowerCase())
+            );
+            return found || store;
+        };
+
+        const normalizeNameForSearch = (str) => {
+            return (str || '')
+                .toLowerCase()
+                .replace(/['"`ʼ’]/g, '')
+                .replace(/є/g, 'е')
+                .replace(/і/g, 'и')
+                .replace(/\s+/g, ' ')
+                .trim();
+        };
+
+        const resolveUser = async (rawName, defaultStoreId) => {
+            const clean = normalizeNameForSearch(rawName);
+            const parts = clean.split(' ').filter(Boolean);
+
+            // 1. Точний збіг по fullName або name
+            let user = allUsers.find(usr => 
+                normalizeNameForSearch(usr.fullName) === clean || 
+                normalizeNameForSearch(usr.name) === clean
+            );
+
+            // 2. Збіг за частинами імені (якщо переставлені прізвище та ім'я)
+            if (!user && parts.length >= 2) {
+                user = allUsers.find(usr => {
+                    const uFull = normalizeNameForSearch(usr.fullName);
+                    const uName = normalizeNameForSearch(usr.name);
+                    return parts.every(p => uFull.includes(p) || uName.includes(p));
+                });
+            }
+
+            // 3. Збіг за прізвищем (першим словом)
+            if (!user && parts.length >= 1) {
+                user = allUsers.find(usr => {
+                    const uName = normalizeNameForSearch(usr.name);
+                    const uFull = normalizeNameForSearch(usr.fullName);
+                    return uName === parts[0] || uFull.startsWith(parts[0]);
+                });
+            }
+
+            // 4. Якщо не знайдено - створюємо тимчасового користувача
+            if (!user) {
+                const inviteCode = Math.floor(100000 + Math.random() * 900000).toString();
+                const username = `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                const shortName = rawName.trim().split(/\s+/)[0] || rawName;
+                const password = await bcrypt.hash(username, 10);
+                user = await User.create({
+                    username,
+                    password,
+                    name: shortName,
+                    fullName: rawName.trim(),
+                    storeId: defaultStoreId || store._id,
+                    role: 'SE',
+                    isTemp: true,
+                    inviteCode
+                });
+                allUsers.push(user);
+            }
+            return user;
+        };
+
+        // 3. Зберігаємо SNAPSHOT для відкату ("Відмінити останні зміни")
+        const myUsers = await User.find({ storeId: store._id });
+        const myUserNames = myUsers.map(usr => usr.name);
+
+        const currentShifts = await Shift.find({
+            date: { $in: dates },
+            $or: [
+                { storeId: store._id },
+                { name: { $in: myUserNames } }
+            ]
+        }).lean();
+
+        const targetMonth = dates[0].slice(0, 7);
+        store.lastScheduleSnapshot = {
+            timestamp: new Date(),
+            month: targetMonth,
+            shifts: currentShifts
+        };
+        await store.save();
+
+        // 4. Підготовка документів змін із таблиці
+        const parsedShifts = [];
+        for (const item of rawShifts) {
+            let defaultStoreId = store._id;
+            if (item.homeStoreName) {
+                const homeSt = resolveStore(item.homeStoreName);
+                if (homeSt) defaultStoreId = homeSt._id;
+            }
+
+            const user = await resolveUser(item.name, defaultStoreId);
+
+            if (item.type === 'OFF') {
+                parsedShifts.push({
+                    date: item.date,
+                    name: user.name,
+                    type: 'OFF'
+                });
+                continue;
+            }
+
+            let shiftStoreId = store._id;
+            let substituteStoreId = null;
+
+            if (item.isSubstitute) {
+                if (item.substituteStoreName) {
+                    const subSt = resolveStore(item.substituteStoreName);
+                    shiftStoreId = subSt._id;
+                    substituteStoreId = subSt._id;
+                } else if (item.isGuest) {
+                    shiftStoreId = store._id;
+                    const homeSt = resolveStore(item.homeStoreName);
+                    substituteStoreId = homeSt ? homeSt._id : null;
+                }
+            }
+
+            parsedShifts.push({
+                date: item.date,
+                name: user.name,
+                start: item.start,
+                end: item.end,
+                storeId: shiftStoreId,
+                isSubstitute: !!item.isSubstitute,
+                substituteStoreId: substituteStoreId,
+                type: item.type
+            });
+        }
+
+        // 5. Виконання оновлення бази
+        if (mode === 'reload') {
+            await Shift.deleteMany({
+                date: { $in: dates },
+                $or: [
+                    { storeId: store._id },
+                    { name: { $in: myUserNames } }
+                ]
+            });
+
+            const toInsert = parsedShifts.filter(s => s.type !== 'OFF');
+            if (toInsert.length > 0) {
+                await Shift.insertMany(toInsert);
+            }
+
+            logAction(u.name, 'sheets_reload', `Reloaded ${toInsert.length} shifts for ${targetMonth} from Google Sheets`);
+
+            return res.json({
+                success: true,
+                mode: 'reload',
+                count: toInsert.length,
+                errors: errors,
+                message: `Графік за ${targetMonth} успішно перезаписано! Завантажено ${toInsert.length} змін.`
+            });
+
+        } else {
+            // Режим 'sync' (Diff)
+            const existingMap = new Map();
+            currentShifts.forEach(s => {
+                existingMap.set(`${s.date}_${s.name}`, s);
+            });
+
+            const bulkOps = [];
+            let addedCount = 0;
+            let updatedCount = 0;
+            let deletedCount = 0;
+
+            for (const item of parsedShifts) {
+                const key = `${item.date}_${item.name}`;
+                const existing = existingMap.get(key);
+
+                if (item.type === 'OFF') {
+                    if (existing) {
+                        bulkOps.push({
+                            deleteOne: { filter: { _id: existing._id } }
+                        });
+                        deletedCount++;
+                    }
+                } else {
+                    const shiftDoc = {
+                        date: item.date,
+                        name: item.name,
+                        start: item.start,
+                        end: item.end,
+                        storeId: item.storeId,
+                        isSubstitute: item.isSubstitute,
+                        substituteStoreId: item.substituteStoreId
+                    };
+
+                    if (!existing) {
+                        bulkOps.push({
+                            insertOne: { document: shiftDoc }
+                        });
+                        addedCount++;
+                    } else {
+                        const isDiff = existing.start !== item.start ||
+                                       existing.end !== item.end ||
+                                       String(existing.storeId) !== String(item.storeId) ||
+                                       Boolean(existing.isSubstitute) !== Boolean(item.isSubstitute);
+
+                        if (isDiff) {
+                            bulkOps.push({
+                                updateOne: {
+                                    filter: { _id: existing._id },
+                                    update: { $set: shiftDoc }
+                                }
+                            });
+                            updatedCount++;
+                        }
+                    }
+                }
+            }
+
+            if (bulkOps.length > 0) {
+                await Shift.bulkWrite(bulkOps);
+            }
+
+            logAction(u.name, 'sheets_sync', `Sync diff for ${targetMonth}: +${addedCount}, ~${updatedCount}, -${deletedCount}`);
+
+            return res.json({
+                success: true,
+                mode: 'sync',
+                added: addedCount,
+                updated: updatedCount,
+                deleted: deletedCount,
+                totalChanges: bulkOps.length,
+                errors: errors,
+                message: bulkOps.length > 0
+                    ? `Синхронізація успішна! Додано: ${addedCount}, Оновлено: ${updatedCount}, Видалено: ${deletedCount}`
+                    : `Графік уже повністю відповідає таблиці. Змін не виявлено.`
+            });
+        }
+
+    } catch (e) {
+        console.error("Sheets sync error:", e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
+exports.rollbackGoogleSheetsSync = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (!u || !['SM', 'admin'].includes(u.role)) {
+        return res.status(403).json({ success: false, message: "Тільки для SM та Admin" });
+    }
+
+    const targetStoreId = req.body.storeId || u.storeId;
+    const store = await Store.findById(targetStoreId);
+    if (!store || !store.lastScheduleSnapshot || !store.lastScheduleSnapshot.shifts || !store.lastScheduleSnapshot.month) {
+        return res.status(400).json({ success: false, message: "Немає збереженої резервної копії для скасування" });
+    }
+
+    try {
+        const snapshot = store.lastScheduleSnapshot;
+        const backupShifts = snapshot.shifts || [];
+        const month = snapshot.month;
+
+        const myUsers = await User.find({ storeId: store._id });
+        const myUserNames = myUsers.map(usr => usr.name);
+
+        // 1. Очищаємо поточні зміни за цей місяць
+        await Shift.deleteMany({
+            date: { $regex: `^${month}` },
+            $or: [
+                { storeId: store._id },
+                { name: { $in: myUserNames } }
+            ]
+        });
+
+        // 2. Відновлюємо зміни зі знімка
+        if (backupShifts.length > 0) {
+            const cleanBackup = backupShifts.map(s => {
+                const { _id, __v, ...rest } = s;
+                return rest;
+            });
+            await Shift.insertMany(cleanBackup);
+        }
+
+        // Очищаємо знімок після успішного відкату
+        store.lastScheduleSnapshot = { timestamp: null, month: '', shifts: [] };
+        await store.save();
+
+        logAction(u.name, 'sheets_rollback', `Restored ${backupShifts.length} shifts for ${month}`);
+
+        res.json({
+            success: true,
+            restoredCount: backupShifts.length,
+            message: `Останні зміни успішно скасовано! Відновлено ${backupShifts.length} змін за ${month}.`
+        });
+
+    } catch (e) {
+        console.error("Rollback error:", e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+};

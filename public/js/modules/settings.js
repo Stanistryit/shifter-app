@@ -109,6 +109,18 @@ export function openStoreSettingsModal() {
                 </button>
             </div>
 
+            <div class="w-full flex flex-col bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-5">
+                <div class="px-4 py-2 bg-gray-50/50 dark:bg-[#2C2C2E]/50 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Google Таблиці (Синхронізація)</span>
+                    <span>📊</span>
+                </div>
+                <div class="p-4 flex flex-col gap-2">
+                    <span class="font-medium text-sm text-gray-700 dark:text-gray-200">URL веб-додатка Google Apps Script</span>
+                    <input type="url" id="set_googleSheetsUrl" value="${s.googleSheetsUrl || ''}" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-blue-500 outline-none focus:ring-2 focus:ring-blue-500/20 font-mono">
+                    <span class="text-[10px] text-gray-400">Вставте сюди Web App URL з Apps Script (/exec)</span>
+                </div>
+            </div>
+
             <div class="h-px bg-gray-200 dark:bg-gray-700 my-4"></div>
             
             <button onclick="window.openReportConstructorModal()" class="w-full py-3 mb-4 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-xl text-sm font-bold active:scale-95 transition-transform border border-purple-100 dark:border-purple-800/50 flex items-center justify-center gap-2">
@@ -129,13 +141,14 @@ export async function saveStoreSettings() {
     const closeTime = document.getElementById('set_closeTime').value;
     const lunch_duration_minutes = parseInt(document.getElementById('set_lunchDuration').value, 10) || 0;
     const requireSseApproval = document.getElementById('set_requireSseApproval').checked;
+    const googleSheetsUrl = document.getElementById('set_googleSheetsUrl')?.value?.trim() || '';
 
     const btn = document.querySelector('#storeSettingsModal .btn-primary');
     const oldText = btn.innerText;
     btn.innerText = "⏳ ...";
 
     try {
-        const payload = { reportTime, openTime, closeTime, lunch_duration_minutes, requireSseApproval };
+        const payload = { reportTime, openTime, closeTime, lunch_duration_minutes, requireSseApproval, googleSheetsUrl };
         if (window._tempReportTemplate) {
             payload.reportTemplate = window._tempReportTemplate;
         }
@@ -150,6 +163,7 @@ export async function saveStoreSettings() {
                 state.currentUser.store.closeTime = closeTime;
                 state.currentUser.store.lunch_duration_minutes = lunch_duration_minutes;
                 state.currentUser.store.requireSseApproval = requireSseApproval;
+                state.currentUser.store.googleSheetsUrl = googleSheetsUrl;
                 if (!state.currentUser.store.telegram) state.currentUser.store.telegram = {};
                 if (window._tempReportTemplate) {
                     state.currentUser.store.telegram.reportTemplate = window._tempReportTemplate;

@@ -104,12 +104,22 @@ export function renderTable() {
 
     if (!state.currentUser) return;
 
+    const isManager = state.currentUser.role === 'SM' || state.currentUser.role === 'admin';
     const pdfExportWrapper = document.getElementById('pdfExportBtnWrapper');
     if (pdfExportWrapper) {
-        if (state.currentUser.role === 'SM' || state.currentUser.role === 'admin') {
+        if (isManager) {
             pdfExportWrapper.classList.remove('hidden');
         } else {
             pdfExportWrapper.classList.add('hidden');
+        }
+    }
+
+    const sheetsSyncWrapper = document.getElementById('sheetsSyncBtnWrapper');
+    if (sheetsSyncWrapper) {
+        if (isManager) {
+            sheetsSyncWrapper.classList.remove('hidden');
+        } else {
+            sheetsSyncWrapper.classList.add('hidden');
         }
     }
 

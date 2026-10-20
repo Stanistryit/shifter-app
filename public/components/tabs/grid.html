@@ -12,11 +12,27 @@
             class="absolute right-0 top-1/2 -translate-y-1/2 text-blue-500 text-3xl font-bold p-2 active:scale-90 transition-transform">›</button>
     </div>
 
-    <div id="pdfExportBtnWrapper" class="hidden flex justify-center mb-4">
-        <button onclick="window.exportCurrentMonthPdf()"
-            class="text-[10px] bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 active:scale-95 transition-transform shadow-sm">
-            <span>📥</span> Завантажити PDF
-        </button>
+    <div class="flex flex-wrap items-center justify-center gap-2 mb-4">
+        <div id="pdfExportBtnWrapper" class="hidden">
+            <button onclick="window.exportCurrentMonthPdf()"
+                class="text-[10px] bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 active:scale-95 transition-transform shadow-sm">
+                <span>📥</span> PDF
+            </button>
+        </div>
+        <div id="sheetsSyncBtnWrapper" class="hidden flex flex-wrap items-center gap-1.5">
+            <button onclick="window.syncSheetsSchedule('sync')" title="Оновити графік з Google Таблиці (пошук різниці)"
+                class="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 active:scale-95 transition-transform shadow-sm">
+                <span>🔄</span> Оновити з таблиці
+            </button>
+            <button onclick="window.syncSheetsSchedule('reload')" title="Повністю перезаписати графік за цей місяць з Google Таблиці"
+                class="text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 font-bold px-2.5 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 flex items-center gap-1 active:scale-95 transition-transform shadow-sm">
+                <span>📥</span> Завантажити графік
+            </button>
+            <button onclick="window.rollbackSheetsSchedule()" title="Відмінити останні зміни та повернути попередній графік"
+                class="text-[10px] bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 font-bold px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center gap-1 active:scale-95 transition-transform shadow-sm">
+                <span>↩️</span> Відмінити
+            </button>
+        </div>
     </div>
 
     <div class="flex justify-between items-center mb-2 px-2">

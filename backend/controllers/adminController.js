@@ -97,11 +97,11 @@ exports.updateStoreSettings = async (req, res) => {
                 store.lunch_duration_minutes = parsedLunch;
             }
         }
-        
+
         if (reportTemplate) {
             store.telegram.reportTemplate = reportTemplate;
         }
-        
+
         if (req.body.requireSseApproval !== undefined) {
             store.requireSseApproval = req.body.requireSseApproval;
         }
@@ -135,7 +135,7 @@ exports.updateStoreNormHours = async (req, res) => {
         }
 
         store.normHours.set(month, Number(normHours) || 0);
-        
+
         if (fte !== undefined) {
             store.fte = Number(fte) || 1;
         }
@@ -540,7 +540,7 @@ exports.exportSchedulePdf = async (req, res) => {
                 };
                 let startD = parseTime(t.start);
                 let endD = parseTime(t.end);
-                
+
                 if (endD <= 6 && startD > endD) endD += 24;
                 else if (endD === 0 && startD > 0) endD = 24;
 
@@ -696,10 +696,10 @@ exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.body;
         if (!id) return res.status(400).json({ success: false, message: "Не вказано ID" });
-        
+
         const userToDelete = await User.findById(id);
         if (!userToDelete) return res.status(404).json({ success: false, message: "Користувача не знайдено" });
-        
+
         await User.findByIdAndDelete(id);
         const { Shift, Task, Request } = require('../models');
         await Shift.deleteMany({ name: userToDelete.name });
@@ -708,7 +708,7 @@ exports.deleteUser = async (req, res) => {
 
         const { logAction } = require('../utils');
         logAction(u.name, 'delete_user', `Deleted user: ${userToDelete.name} (${userToDelete.username})`);
-        
+
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });

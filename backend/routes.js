@@ -69,6 +69,8 @@ router.get('/shifts', catchAsync(shiftController.getShifts));
 router.post('/shifts', validate(schemas.addShift), catchAsync(shiftController.addShift));
 router.post('/delete-shift', catchAsync(shiftController.deleteShift));
 router.post('/shifts/bulk', catchAsync(shiftController.bulkImport));
+router.post('/shifts/sync-sheets', catchAsync(shiftController.syncGoogleSheets));
+router.post('/shifts/sync-rollback', catchAsync(shiftController.rollbackGoogleSheetsSync));
 router.post('/shifts/clear-day', catchAsync(shiftController.clearDay));
 router.post('/shifts/clear-month', catchAsync(shiftController.clearMonth));
 

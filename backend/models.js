@@ -14,6 +14,12 @@ const storeSchema = new mongoose.Schema({
     normHours: { type: Map, of: Number, default: {} },
     fte: { type: Number, default: 1 },
     requireSseApproval: { type: Boolean, default: true },
+    googleSheetsUrl: { type: String, default: '' },
+    lastScheduleSnapshot: {
+        timestamp: { type: Date, default: null },
+        month: { type: String, default: '' },
+        shifts: { type: [Object], default: [] }
+    },
 
     telegram: {
         chatId: { type: Number, default: null },
@@ -100,7 +106,7 @@ const shiftSchema = new mongoose.Schema({
     start: { type: String, required: true },
     end: { type: String, required: true },
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
-    
+
     // Підміна
     isSubstitute: { type: Boolean, default: false },
     substituteStoreId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null }
@@ -119,7 +125,7 @@ const taskSchema = new mongoose.Schema({
     status: { type: String, enum: ['pending', 'completed'], default: 'pending' },
     includeHours: { type: Boolean, default: false },
     requireCompletion: { type: Boolean, default: true },
-    
+
     // Нові поля для ToDo List
     type: { type: String, enum: ['timeline', 'todo'], default: 'timeline' },
     deadline: { type: String, default: '' }, // формат наприклад 'YYYY-MM-DD HH:mm'

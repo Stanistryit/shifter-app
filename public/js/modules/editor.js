@@ -229,6 +229,27 @@ function renderToolbar() {
             </div>
         `;
 
+        // Google Таблиця
+        pcHtml += `
+            <div class="mb-3">
+                <h3 class="text-xs font-bold text-gray-500 mb-2">📊 Google Таблиця</h3>
+                <div class="flex flex-col gap-1.5">
+                    <button onclick="window.syncSheetsSchedule('sync')" 
+                        class="flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-bold transition-all active:scale-95 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-sm">
+                        <span>🔄 Оновити з таблиці</span>
+                    </button>
+                    <button onclick="window.syncSheetsSchedule('reload')" 
+                        class="flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-bold transition-all active:scale-95 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-sm">
+                        <span>📥 Завантажити графік</span>
+                    </button>
+                    <button onclick="window.rollbackSheetsSchedule()" 
+                        class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all active:scale-95 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+                        <span>↩️ Відмінити останні</span>
+                    </button>
+                </div>
+            </div>
+        `;
+
         // Інструкція до кастомної зміни (одразу формається)
         let defaultS = "10:00"; let defaultE = "19:00";
         if (state.activeTool?.type === 'custom' && state.activeTool.start) {

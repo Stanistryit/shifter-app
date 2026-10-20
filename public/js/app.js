@@ -37,6 +37,7 @@ import {
 import { updateDashboard } from './modules/dashboard.js';
 import { readNotifications, closeNotificationsModal, markAllNotificationsAsRead } from './modules/notifications.js';
 import { loadStatistics } from './modules/statistics.js';
+import { syncSheetsSchedule, rollbackSheetsSchedule } from './modules/sheets_sync.js';
 
 const tg = window.Telegram.WebApp;
 if (tg) { tg.ready(); if (tg.platform && tg.platform !== 'unknown') try { tg.expand() } catch (e) { } }
