@@ -153,8 +153,10 @@ export function renderTable() {
     let openTime = "10:00";
     let closeTime = "22:00";
 
+    const isAllStoresAdmin = state.currentUser?.role === 'admin' && state.selectedStoreFilter === 'all';
+
     // Надійно беремо час роботи з масиву всіх магазинів (state.stores)
-    const activeStoreId = (state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
+    const activeStoreId = (state.selectedStoreFilter && !isAllStoresAdmin)
         ? state.selectedStoreFilter
         : (state.currentUser.storeId?._id || state.currentUser.storeId);
 
@@ -187,7 +189,7 @@ export function renderTable() {
     let homeUsers = [];
     let guestUsers = [];
 
-    if (activeStoreId && state.selectedStoreFilter !== 'all') {
+    if (activeStoreId && !isAllStoresAdmin) {
         usersToShow.forEach(user => {
             const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
             const isGuest = userHomeStoreId && String(userHomeStoreId) !== String(activeStoreId);
@@ -217,7 +219,7 @@ export function renderTable() {
     }
 
     if (filterWrapper) {
-        if (guestUsers.length > 0) {
+        if (!isAllStoresAdmin) {
             filterWrapper.classList.remove('hidden');
             const cb = document.getElementById('hideSubstitutesCheckbox');
             if (cb) cb.checked = !!state.hideSubstitutes;
@@ -239,7 +241,7 @@ export function renderTable() {
             if (draft) {
                 // Check store match for hours computation
                 const dStoreId = draft.storeId ? (draft.storeId._id || draft.storeId) : userHomeStoreId;
-                const countsForStore = (state.selectedStoreFilter === 'all') || (String(dStoreId) === String(activeStoreId));
+                const countsForStore = isAllStoresAdmin || (String(dStoreId) === String(activeStoreId));
                 if (countsForStore) {
                     if (draft.start !== 'DELETE' && draft.start !== 'Відпустка' && draft.start !== 'Лікарняний' && draft.start !== 'Донорство') { sStart = draft.start; sEnd = draft.end; }
                     if (draft.start === 'Донорство') storeTotalDonorHours += 8;
@@ -248,7 +250,7 @@ export function renderTable() {
                 const shift = state.shifts.find(s => s.date === ds && s.name === user.name);
                 if (shift) {
                     const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : userHomeStoreId;
-                    const countsForStore = (state.selectedStoreFilter === 'all') || (String(sStoreId) === String(activeStoreId));
+                    const countsForStore = isAllStoresAdmin || (String(sStoreId) === String(activeStoreId));
                     if (countsForStore) {
                         if (shift.start !== 'Відпустка' && shift.start !== 'Лікарняний' && shift.start !== 'Донорство') { sStart = shift.start; sEnd = shift.end; }
                         if (shift.start === 'Донорство') storeTotalDonorHours += 8;
@@ -359,10 +361,10 @@ export function renderTable() {
         });
 
         let relevantShifts = finalShifts;
-        if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
+        if (!isAllStoresAdmin && activeStoreId) {
             relevantShifts = finalShifts.filter(s => {
-                const u = state.users.find(usr => usr.name === s.name);
-                return u && String(u.storeId) === String(state.selectedStoreFilter);
+                const sStoreId = s.storeId?._id || s.storeId;
+                return sStoreId && String(sStoreId) === String(activeStoreId);
             });
         }
 
@@ -542,13 +544,13 @@ export function renderTable() {
             const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
             if (draft) {
                 const dStoreId = draft.storeId ? (draft.storeId._id || draft.storeId) : userHomeStoreId;
-                const shouldRender = (state.selectedStoreFilter === 'all') || (String(dStoreId) === String(activeStoreId)) || (String(userHomeStoreId) === String(activeStoreId));
+                const shouldRender = isAllStoresAdmin || (String(dStoreId) === String(activeStoreId)) || (String(userHomeStoreId) === String(activeStoreId));
                 
                 if (shouldRender) {
                     cellClass += ' bg-yellow-50 dark:bg-yellow-900/20';
                     let isSubstituteRender = false;
                     let isGuestRender = false;
-                    if (state.selectedStoreFilter === 'all') {
+                    if (isAllStoresAdmin) {
                         isSubstituteRender = userHomeStoreId && String(dStoreId) !== String(userHomeStoreId);
                     } else {
                         isSubstituteRender = String(dStoreId) !== String(activeStoreId);
@@ -597,12 +599,12 @@ export function renderTable() {
                 }
             } else if (shift) {
                 const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : userHomeStoreId;
-                const shouldRender = (state.selectedStoreFilter === 'all') || (String(sStoreId) === String(activeStoreId)) || (String(userHomeStoreId) === String(activeStoreId));
+                const shouldRender = isAllStoresAdmin || (String(sStoreId) === String(activeStoreId)) || (String(userHomeStoreId) === String(activeStoreId));
 
                 if (shouldRender) {
                     let isSubstituteRender = false;
                     let isGuestRender = false;
-                    if (state.selectedStoreFilter === 'all') {
+                    if (isAllStoresAdmin) {
                         isSubstituteRender = userHomeStoreId && String(sStoreId) !== String(userHomeStoreId);
                     } else {
                         isSubstituteRender = String(sStoreId) !== String(activeStoreId);

@@ -257,6 +257,11 @@ async function showApp(user) {
             }
         }
 
+        // 🔥 Для не-адмінів фільтр магазину завжди прив'язаний до їхнього рідного магазину
+        if (user.role !== 'admin' && user.storeId) {
+            state.selectedStoreFilter = user.storeId._id || user.storeId;
+        }
+
         // 🔥 ВИПРАВЛЕНО: Прибрали автоматичне відкриття вкладки shifts, щоб показувало Bento-меню
     }
 
