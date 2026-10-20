@@ -609,7 +609,15 @@ exports.syncGoogleSheets = async (req, res) => {
 
     } catch (e) {
         console.error("Sheets sync error:", e);
-        res.status(500).json({ success: false, message: e.message });
+        let errorMsg = e.message;
+        if (e.response && e.response.data) {
+            if (typeof e.response.data === 'string' && e.response.data.includes('unexpected error')) {
+                errorMsg = "Google Apps Script повернув внутрішню помилку (Error INTERNAL). Перевірте розгортання скрипту або спробуйте ще раз.";
+            } else if (typeof e.response.data === 'object' && e.response.data.error) {
+                errorMsg = e.response.data.error;
+            }
+        }
+        res.status(500).json({ success: false, message: errorMsg });
     }
 };
 

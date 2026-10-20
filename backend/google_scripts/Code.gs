@@ -98,32 +98,94 @@ function testParser() {
  */
 function parseSchedule(sheetName, yearInput, monthFilter) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = sheetName ? ss.getSheetByName(sheetName) : null;
+  if (!ss) {
+    return { 
+      success: false, 
+      error: 'Не вдалося відкрити активну таблицю. Переконайтеся, що Apps Script створено через: Розширення (Extensions) -> Apps Script у вашій Google Таблиці.' 
+    };
+  }
+
+  const allSheets = ss.getSheets();
+  let sheet = null;
+
+  // 1. Пошук за переданою назвою (наприклад, "Графік")
+  if (sheetName) {
+    sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      const clean = sheetName.trim().toLowerCase();
+      sheet = allSheets.find(s => s.getName().trim().toLowerCase() === clean);
+    }
+  }
+
+  // 2. Якщо не знайдено - шукаємо будь-який аркуш зі словом "графік" або "график"
   if (!sheet) {
-    sheet = ss.getActiveSheet();
+    sheet = allSheets.find(s => {
+      const n = s.getName().toLowerCase();
+      return n.includes('графік') || n.includes('график') || n.includes('schedule');
+    });
+  }
+
+  // 3. Якщо все ще не знайдено - шукаємо аркуш, де в перших трьох рядках є дати
+  if (!sheet) {
+    for (let s of allSheets) {
+      const numRows = Math.min(3, s.getLastRow());
+      const numCols = Math.min(35, s.getLastColumn());
+      if (numRows > 0 && numCols > 0) {
+        const sample = s.getRange(1, 1, numRows, numCols).getDisplayValues();
+        const hasDates = sample.some(row => row.some(cell => /(\d{1,2})[\s./]+(\d{1,2})/.test(cell)));
+        if (hasDates) {
+          sheet = s;
+          break;
+        }
+      }
+    }
+  }
+
+  // 4. Fallback на перший (активний) аркуш
+  if (!sheet) {
+    sheet = ss.getActiveSheet() || (allSheets.length > 0 ? allSheets[0] : null);
   }
 
   if (!sheet) {
-    return { success: false, error: 'Аркуш не знайдено' };
+    return { success: false, error: 'У таблиці не знайдено жодного аркуша' };
   }
 
   // Отримуємо текстові значення саме так, як вони відображаються користувачу
   const data = sheet.getDataRange().getDisplayValues();
   if (!data || data.length < 3) {
-    return { success: false, error: 'Таблиця містить замало рядків' };
+    return { success: false, error: `Аркуш "${sheet.getName()}" містить замало рядків (${data ? data.length : 0})` };
   }
 
   const currentYear = parseInt(yearInput, 10) || new Date().getFullYear();
 
-  // 1. Назва магазину з комірки B1 (рядок 0, стовпець 1)
-  const storeName = String(data[0][1] || 'Проспект').trim();
+  // Автоматично визначаємо, в якому рядку знаходяться дати (перевіряємо перші 4 рядки)
+  let dateRowIndex = 0;
+  let maxDateMatches = 0;
+  for (let rIdx = 0; rIdx < Math.min(4, data.length); rIdx++) {
+    const matchCount = data[rIdx].filter(cell => /(\d{1,2})[\s./]+(\d{1,2})/.test(cell)).length;
+    if (matchCount > maxDateMatches) {
+      maxDateMatches = matchCount;
+      dateRowIndex = rIdx;
+    }
+  }
 
-  // 2. Парсинг дат (Рядок 1, починаючи з колонки C / індекс 2)
+  // 1. Назва магазину з колонки B вище або на рівні заголовка
+  let storeName = 'Проспект';
+  for (let rIdx = 0; rIdx <= dateRowIndex; rIdx++) {
+    const candidate = String(data[rIdx][1] || '').trim();
+    if (candidate && !candidate.toLowerCase().includes('на зміні')) {
+      storeName = candidate;
+      break;
+    }
+  }
+
+  // 2. Парсинг дат із знайденого рядка дат
+  const headerRow = data[dateRowIndex];
   const dateCols = [];
   const dates = [];
 
-  for (let col = 2; col < data[0].length; col++) {
-    const header = String(data[0][col] || '').trim();
+  for (let col = 1; col < headerRow.length; col++) {
+    const header = String(headerRow[col] || '').trim();
     if (!header) continue;
 
     // Шаблон: "четвер, 1 10", "п'ятниця, 2 10", "1 10", "01.10", "1/10"
@@ -137,9 +199,11 @@ function parseSchedule(sheetName, yearInput, monthFilter) {
 
         // Якщо передано фільтр місяця (наприклад, "10" або "2026-10")
         if (monthFilter) {
-          const cleanFilter = String(monthFilter).replace('-', '');
+          const cleanFilter = String(monthFilter).replace('-', '').trim();
           const cleanDate = dateStr.slice(0, 7).replace('-', '');
-          if (!cleanDate.includes(cleanFilter) && month !== parseInt(monthFilter, 10)) {
+          const filterMonthNum = parseInt(String(monthFilter).split('-').pop(), 10);
+          const isMatch = cleanDate.includes(cleanFilter) || month === filterMonthNum;
+          if (!isMatch) {
             continue;
           }
         }
@@ -157,14 +221,19 @@ function parseSchedule(sheetName, yearInput, monthFilter) {
   }
 
   if (dateCols.length === 0) {
-    return { success: false, error: 'Не знайдено жодної дати в 1-му рядку таблиці' };
+    const availableSheets = allSheets.map(s => `"${s.getName()}"`).join(', ');
+    const rowSample = headerRow.slice(0, 8).map(c => String(c).trim()).filter(Boolean).join(' | ');
+    return { 
+      success: false, 
+      error: `Не знайдено дат на аркуші "${sheet.getName()}". Доступні аркуші в таблиці: [${availableSheets}]. Рядок ${dateRowIndex + 1}: [${rowSample}]` 
+    };
   }
 
   // 3. Сканування рядків співробітників
   const shifts = [];
   const errors = [];
   let isUnderSubstitutesSection = false;
-  let r = 2; // Починаємо з 3-го рядка (індекс 2), після заголовків та рядка "На зміні"
+  let r = dateRowIndex + 1; // Починаємо з рядка після заголовка дат
 
   while (r < data.length) {
     const colB = String(data[r][1] || '').trim();

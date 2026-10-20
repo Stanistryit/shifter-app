@@ -106,6 +106,10 @@ exports.updateStoreSettings = async (req, res) => {
             store.requireSseApproval = req.body.requireSseApproval;
         }
 
+        if (req.body.googleSheetsUrl !== undefined) {
+            store.googleSheetsUrl = req.body.googleSheetsUrl.trim();
+        }
+
         await store.save();
 
         logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}, Lunch=${store.lunch_duration_minutes}, TemplateUpdated=${!!reportTemplate}`);

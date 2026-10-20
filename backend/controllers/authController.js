@@ -321,6 +321,7 @@ exports.getMe = async (req, res) => {
             storeId: user.storeId?._id || user.storeId,
 
             store: user.storeId ? {
+                _id: user.storeId._id,
                 code: user.storeId.code,
                 name: user.storeId.name,
                 openTime: user.storeId.openTime,
@@ -328,7 +329,9 @@ exports.getMe = async (req, res) => {
                 reportTime: user.storeId.telegram?.reportTime,
                 lunch_duration_minutes: user.storeId.lunch_duration_minutes,
                 normHours: user.storeId.normHours,
-                telegram: user.storeId.telegram
+                telegram: user.storeId.telegram,
+                requireSseApproval: user.storeId.requireSseApproval,
+                googleSheetsUrl: user.storeId.googleSheetsUrl
             } : null,
             notificationPreference: user.notificationPreference || 'telegram',
             reminderTime: user.reminderTime || 'off',
