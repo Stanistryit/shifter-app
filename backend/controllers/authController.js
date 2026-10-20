@@ -331,7 +331,8 @@ exports.getMe = async (req, res) => {
                 normHours: user.storeId.normHours,
                 telegram: user.storeId.telegram,
                 requireSseApproval: user.storeId.requireSseApproval,
-                googleSheetsUrl: user.storeId.googleSheetsUrl
+                googleSheetsUrl: user.storeId.googleSheetsUrl,
+                googleSheetsTab: user.storeId.googleSheetsTab
             } : null,
             notificationPreference: user.notificationPreference || 'telegram',
             reminderTime: user.reminderTime || 'off',

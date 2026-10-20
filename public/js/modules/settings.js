@@ -114,10 +114,15 @@ export function openStoreSettingsModal() {
                     <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Google Таблиці (Синхронізація)</span>
                     <span>📊</span>
                 </div>
-                <div class="p-4 flex flex-col gap-2">
+                <div class="p-4 flex flex-col gap-2 border-b border-gray-100 dark:border-gray-800">
                     <span class="font-medium text-sm text-gray-700 dark:text-gray-200">URL веб-додатка Google Apps Script</span>
                     <input type="url" id="set_googleSheetsUrl" value="${s.googleSheetsUrl || ''}" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-blue-500 outline-none focus:ring-2 focus:ring-blue-500/20 font-mono">
                     <span class="text-[10px] text-gray-400">Вставте сюди Web App URL з Apps Script (/exec)</span>
+                </div>
+                <div class="p-4 flex flex-col gap-2">
+                    <span class="font-medium text-sm text-gray-700 dark:text-gray-200">Назва аркуша (вкладки) в таблиці</span>
+                    <input type="text" id="set_googleSheetsTab" value="${s.googleSheetsTab || ''}" placeholder="Графік (або вкажіть конкретну назву)" class="w-full bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-blue-500 outline-none focus:ring-2 focus:ring-blue-500/20">
+                    <span class="text-[10px] text-gray-400">Точна назва вкладки (наприклад: "Графік", "Проспект", "Жовтень").</span>
                 </div>
             </div>
 
@@ -142,13 +147,14 @@ export async function saveStoreSettings() {
     const lunch_duration_minutes = parseInt(document.getElementById('set_lunchDuration').value, 10) || 0;
     const requireSseApproval = document.getElementById('set_requireSseApproval').checked;
     const googleSheetsUrl = document.getElementById('set_googleSheetsUrl')?.value?.trim() || '';
+    const googleSheetsTab = document.getElementById('set_googleSheetsTab')?.value?.trim() || '';
 
     const btn = document.querySelector('#storeSettingsModal .btn-primary');
     const oldText = btn.innerText;
     btn.innerText = "⏳ ...";
 
     try {
-        const payload = { reportTime, openTime, closeTime, lunch_duration_minutes, requireSseApproval, googleSheetsUrl };
+        const payload = { reportTime, openTime, closeTime, lunch_duration_minutes, requireSseApproval, googleSheetsUrl, googleSheetsTab };
         if (window._tempReportTemplate) {
             payload.reportTemplate = window._tempReportTemplate;
         }
@@ -164,6 +170,7 @@ export async function saveStoreSettings() {
                 state.currentUser.store.lunch_duration_minutes = lunch_duration_minutes;
                 state.currentUser.store.requireSseApproval = requireSseApproval;
                 state.currentUser.store.googleSheetsUrl = googleSheetsUrl;
+                state.currentUser.store.googleSheetsTab = googleSheetsTab;
                 if (!state.currentUser.store.telegram) state.currentUser.store.telegram = {};
                 if (window._tempReportTemplate) {
                     state.currentUser.store.telegram.reportTemplate = window._tempReportTemplate;

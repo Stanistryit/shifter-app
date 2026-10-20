@@ -110,6 +110,10 @@ exports.updateStoreSettings = async (req, res) => {
             store.googleSheetsUrl = req.body.googleSheetsUrl.trim();
         }
 
+        if (req.body.googleSheetsTab !== undefined) {
+            store.googleSheetsTab = req.body.googleSheetsTab.trim();
+        }
+
         await store.save();
 
         logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}, Lunch=${store.lunch_duration_minutes}, TemplateUpdated=${!!reportTemplate}`);

@@ -45,7 +45,8 @@ export async function syncSheetsSchedule(mode = 'sync') {
             month: monthStr,
             year: y,
             storeId: storeId,
-            scriptUrl: googleSheetsUrl
+            scriptUrl: googleSheetsUrl,
+            sheetName: store?.googleSheetsTab || ''
         });
 
         if (res.success) {

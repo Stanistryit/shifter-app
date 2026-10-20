@@ -320,12 +320,15 @@ exports.syncGoogleSheets = async (req, res) => {
         });
     }
 
+    const sheetName = (req.body.sheetName || store.googleSheetsTab || '').trim();
+
     try {
         // 1. Отримуємо дані з Google Apps Script
         const response = await axios.get(scriptUrl, {
             params: {
                 month: req.body.month,
-                year: req.body.year
+                year: req.body.year,
+                sheet: sheetName || undefined
             },
             timeout: 30000,
             maxRedirects: 5

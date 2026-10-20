@@ -15,6 +15,7 @@ const storeSchema = new mongoose.Schema({
     fte: { type: Number, default: 1 },
     requireSseApproval: { type: Boolean, default: true },
     googleSheetsUrl: { type: String, default: '' },
+    googleSheetsTab: { type: String, default: '' },
     lastScheduleSnapshot: {
         timestamp: { type: Date, default: null },
         month: { type: String, default: '' },
