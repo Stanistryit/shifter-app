@@ -352,15 +352,22 @@ exports.syncGoogleSheets = async (req, res) => {
         const allUsers = await User.find({});
 
         const resolveStore = (nameOrCode) => {
-            if (!nameOrCode) return store;
+            if (!nameOrCode) return null;
             const clean = nameOrCode.trim().toLowerCase();
-            const found = allStores.find(s => 
+
+            // 1. Точний збіг по назві або коду
+            let found = allStores.find(s => 
                 s.name.toLowerCase() === clean || 
-                s.code.toLowerCase() === clean ||
-                s.name.toLowerCase().includes(clean) ||
+                s.code.toLowerCase() === clean
+            );
+            if (found) return found;
+
+            // 2. Частковий збіг (наприклад "Пірам" та "Піраміда")
+            found = allStores.find(s => 
+                s.name.toLowerCase().includes(clean) || 
                 clean.includes(s.name.toLowerCase())
             );
-            return found || store;
+            return found || null;
         };
 
         const normalizeNameForSearch = (str) => {
@@ -468,12 +475,20 @@ exports.syncGoogleSheets = async (req, res) => {
             if (item.isSubstitute) {
                 if (item.substituteStoreName) {
                     const subSt = resolveStore(item.substituteStoreName);
-                    shiftStoreId = subSt._id;
-                    substituteStoreId = subSt._id;
+                    if (subSt) {
+                        shiftStoreId = subSt._id;
+                        substituteStoreId = subSt._id;
+                    } else {
+                        shiftStoreId = store._id;
+                        errors.push(`[Підміна] Магазин "${item.substituteStoreName}" не знайдено в системі (${item.name}, ${item.date})`);
+                    }
                 } else if (item.isGuest) {
                     shiftStoreId = store._id;
                     const homeSt = resolveStore(item.homeStoreName);
                     substituteStoreId = homeSt ? homeSt._id : null;
+                    if (!homeSt && item.homeStoreName) {
+                        errors.push(`[Гість] Рідний магазин "${item.homeStoreName}" не знайдено в системі (${item.name}, ${item.date})`);
+                    }
                 }
             }
 
