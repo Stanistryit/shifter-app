@@ -652,7 +652,6 @@ export function renderTable() {
             }
 
             let ctxAttr = '';
-            const safeUserName = user.name.replace(/'/g, "\\'");
             if (shift && !draft) {
                 ctxAttr = `oncontextmenu="window.contextMenuProxy(event, 'shift', '${shift._id}')"`;
             } else {
