@@ -60,7 +60,7 @@ const handleWhoIsWorking = async (bot, chatId, user, messageId = null) => {
     let storeUserNames = [];
 
     if (user.storeId) {
-        const colleagues = await User.find({ storeId: user.storeId });
+        const colleagues = await User.find({ storeId: user.storeId, status: { $ne: 'blocked' } });
         storeUserNames = colleagues.map(c => c.name);
     }
 
@@ -77,6 +77,7 @@ const handleWhoIsWorking = async (bot, chatId, user, messageId = null) => {
 
         if (curMin >= st && curMin < en) {
             const u = await User.findOne({ name: s.name });
+            if (u && u.status === 'blocked') continue;
             const nameDisplay = u?.telegramChatId ? `<a href="tg://user?id=${u.telegramChatId}">${s.name}</a>` : `<b>${s.name}</b>`;
             active.push(`👤 ${nameDisplay} (${s.end})`);
         }

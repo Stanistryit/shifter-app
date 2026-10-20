@@ -97,7 +97,7 @@ const initScheduler = async (tgConfig) => {
 
                 if (reminderMinutes > 0 && diffMinutes <= reminderMinutes && diffMinutes >= 0) {
                     const user = await User.findOne({ name: t.name });
-                    if (user) {
+                    if (user && user.status !== 'blocked') {
                         notifyUser(t.name, `⏳ <b>Нагадування!</b>\n\nДедлайн задачі <b>${t.title}</b> вже скоро: ${t.deadline}`);
                     }
                     if (!t.notifiedReminders) t.notifiedReminders = [];
@@ -138,7 +138,7 @@ const initScheduler = async (tgConfig) => {
             
             if (isDeadlineReached) {
                 const user = await User.findOne({ name: t.name });
-                if (user) {
+                if (user && user.status !== 'blocked') {
                     const opts = {
                         ignoreQuietHours: true,
                         reply_markup: {
@@ -206,7 +206,7 @@ const initScheduler = async (tgConfig) => {
         for (const s of shifts) {
             if (s.start === 'Відпустка' || s.start === 'Лікарняний' || s.start === 'Донорство') continue;
             const user = await User.findOne({ name: s.name });
-            if (!user || !user.reminderTime || user.reminderTime === 'none') continue;
+            if (!user || user.status === 'blocked' || !user.reminderTime || user.reminderTime === 'none') continue;
 
             const shiftStoreId = s.storeId?._id || s.storeId;
             let subText = '';
@@ -295,7 +295,8 @@ const initScheduler = async (tgConfig) => {
                     }
                 };
                 const user = await User.findOne({ name: t.name });
-                const pref = user ? (user.notificationPreference || 'telegram') : 'telegram';
+                if (!user || user.status === 'blocked') continue;
+                const pref = user.notificationPreference || 'telegram';
 
                 if (pref === 'telegram' || pref === 'both') {
                     notifyUser(t.name, `📌 <b>Нагадування про задачу!</b>\n\n📝 ${t.title}\n⏰ Початок: ${t.start}`, opts);
@@ -352,7 +353,7 @@ async function sendDailyReports(stores) {
     for (const store of stores) {
         if (!store.telegram.chatId) continue;
 
-        const storeUsers = await User.find({ storeId: store._id, role: { $ne: 'RRP' } });
+        const storeUsers = await User.find({ storeId: store._id, role: { $ne: 'RRP' }, status: { $ne: 'blocked' } });
         const userNames = storeUsers.map(u => u.name);
 
         const shifts = await Shift.find({
@@ -366,7 +367,16 @@ async function sendDailyReports(stores) {
         const shiftNames = [...new Set(shifts.map(s => s.name))];
         const shiftUsers = await User.find({ name: { $in: shiftNames } }).populate('storeId', 'name');
         const userHomeMap = {};
-        shiftUsers.forEach(u => { userHomeMap[u.name] = u.storeId?.name || 'Інший'; });
+        const blockedShiftUserNames = new Set();
+        shiftUsers.forEach(u => {
+            userHomeMap[u.name] = u.storeId?.name || 'Інший';
+            if (u.status === 'blocked') {
+                blockedShiftUserNames.add(u.name);
+            }
+        });
+
+        // Виключаємо зміни звільнених/заблокованих співробітників
+        const activeShifts = shifts.filter(s => !blockedShiftUserNames.has(s.name));
 
         const tasks = await Task.find({ date: dateStr, name: { $in: userNames } });
 
@@ -391,7 +401,7 @@ async function sendDailyReports(stores) {
         const donorShifts = [];
         const scheduledNames = [];
 
-        shifts.forEach(s => {
+        activeShifts.forEach(s => {
             scheduledNames.push(s.name);
             if (s.start === 'Відпустка') vacationShifts.push(s);
             else if (s.start === 'Донорство') donorShifts.push(s);
