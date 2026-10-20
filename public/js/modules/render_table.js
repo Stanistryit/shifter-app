@@ -440,6 +440,8 @@ export function renderTable() {
 
     homeUsers.forEach(user => {
         const shortName = getDisplayName(user);
+        const safeUserFullName = (user.fullName || user.name || '').replace(/'/g, "\\'");
+        const safeUserName = (user.name || '').replace(/'/g, "\\'");
 
         const editAction = canEditUser ? `onclick="window.openEditUserProxy('${user._id}')"` : '';
         const editClasses = canEditUser ? "cursor-pointer hover:text-blue-500" : "";
@@ -506,28 +508,27 @@ export function renderTable() {
             }
 
             let duration = 0;
+            let durStr = 0;
+            let lunchMins = 60;
+            if (state.currentUser.store && state.currentUser.store.lunch_duration_minutes !== undefined) {
+                lunchMins = state.currentUser.store.lunch_duration_minutes;
+            } else if (state.stores && state.currentUser.storeId) {
+                const foundStore = state.stores.find(s => String(s._id) === String(state.currentUser.storeId) || s.code === state.currentUser.storeId);
+                if (foundStore && foundStore.lunch_duration_minutes !== undefined) lunchMins = foundStore.lunch_duration_minutes;
+            }
+
             if (sStart && sEnd) {
-                duration = timeToDec(sEnd) - timeToDec(sStart);
-
-                // Віднімання часу обіду (якщо є)
-                let lunchMins = 60;
-                if (state.currentUser.store && state.currentUser.store.lunch_duration_minutes !== undefined) {
-                    lunchMins = state.currentUser.store.lunch_duration_minutes;
-                } else if (state.stores && state.currentUser.storeId) {
-                    const foundStore = state.stores.find(s => String(s._id) === String(state.currentUser.storeId) || s.code === state.currentUser.storeId);
-                    if (foundStore && foundStore.lunch_duration_minutes !== undefined) lunchMins = foundStore.lunch_duration_minutes;
-                }
-
-                duration -= (lunchMins / 60);
+                let rawDur = timeToDec(sEnd) - timeToDec(sStart);
+                if (rawDur < 0) rawDur += 24;
+                duration = rawDur - (lunchMins / 60);
                 if (duration < 0) duration = 0;
-
                 totalHours += duration;
+                durStr = parseFloat(duration.toFixed(1));
             }
 
             // 🔥 Бейдж з годинами
             let badgeHtml = '';
             if (duration > 0) {
-                const durStr = parseFloat(duration.toFixed(1));
                 badgeHtml = `<div class="absolute -top-1.5 -right-1.5 z-10 bg-white dark:bg-[#3A3A3C] text-black dark:text-white text-[8px] font-bold px-1 rounded-full shadow-sm border border-gray-200 dark:border-gray-600 flex items-center justify-center min-w-[14px] h-[14px] leading-none">${durStr}</div>`;
             }
 
@@ -609,11 +610,11 @@ export function renderTable() {
                     }
 
                     if (shift.start === 'Відпустка') {
-                        content = '<span class="text-lg">🌴</span>';
+                        content = `<div onclick="if(!window.state?.isEditMode) window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', date: '${ds}', start: 'Відпустка', shiftId: '${shift._id || ''}' })" class="cursor-pointer text-lg active:scale-95 transition-transform">🌴</div>`;
                     } else if (shift.start === 'Лікарняний') {
-                        content = '<span class="text-lg">💊</span>';
+                        content = `<div onclick="if(!window.state?.isEditMode) window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', date: '${ds}', start: 'Лікарняний', shiftId: '${shift._id || ''}' })" class="cursor-pointer text-lg active:scale-95 transition-transform">💊</div>`;
                     } else if (shift.start === 'Донорство') {
-                        content = '<span class="text-lg">🩸</span>';
+                        content = `<div onclick="if(!window.state?.isEditMode) window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', date: '${ds}', start: 'Донорство', shiftId: '${shift._id || ''}' })" class="cursor-pointer text-lg active:scale-95 transition-transform">🩸</div>`;
                     } else {
                         const opacity = isPast ? 'opacity-50 grayscale' : '';
                         
@@ -623,7 +624,7 @@ export function renderTable() {
                                 : shift.storeId;
                             const storeName = subStoreObj?.name || 'Інший магазин';
                             const safeStoreName = storeName.replace(/'/g, "\\'");
-                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${safeStoreName}')" title="Підміна в магазині: ${storeName}" class="relative text-[9.5px] font-mono leading-tight bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-200 rounded px-1 py-0.5 shadow-sm border border-orange-300 dark:border-orange-800 cursor-pointer ${opacity}">
+                            content = `<div onclick="if(!window.state?.isEditMode) window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', avatar: '${user.avatar || ''}', position: '${user.position || ''}', type: 'substitute', targetStoreName: '${safeStoreName}', date: '${ds}', start: '${shift.start}', end: '${shift.end}', duration: ${durStr}, lunchMins: ${lunchMins}, shiftId: '${shift._id || ''}' })" title="Підміна в магазині: ${storeName}" class="relative text-[9.5px] font-mono leading-tight bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-200 rounded px-1 py-0.5 shadow-sm border border-orange-300 dark:border-orange-800 cursor-pointer active:scale-95 ${opacity}">
                                 <div class="text-[7.5px] font-sans font-bold truncate text-orange-700 dark:text-orange-300 leading-none mb-0.5 flex items-center justify-center gap-0.5">
                                     <span class="text-[8px] leading-none">📍</span>
                                     <span class="truncate">${storeName}</span>
@@ -634,15 +635,13 @@ export function renderTable() {
                         } else {
                             const colorClass = getShiftColor(shift.start, shift.end, closeTime);
                             let guestIndicator = '';
-                            let guestAttr = '';
                             if (isGuestRender) {
                                 const homeStore = state.stores ? state.stores.find(s => String(s._id) === String(userHomeStoreId) || s.code === userHomeStoreId) : null;
                                 const homeStoreName = homeStore ? homeStore.name : 'Інший магазин';
                                 const safeHomeStoreName = homeStoreName.replace(/'/g, "\\'");
                                 guestIndicator = '<div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>';
-                                guestAttr = `title="Гість з: ${homeStoreName}" onclick="window.showToast('Гість з: ${safeHomeStoreName}')"`;
                             }
-                            content = `<div ${guestAttr} class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity} ${isGuestRender ? 'cursor-pointer' : ''}">
+                            content = `<div onclick="if(!window.state?.isEditMode) window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', avatar: '${user.avatar || ''}', position: '${user.position || ''}', type: 'regular', date: '${ds}', start: '${shift.start}', end: '${shift.end}', duration: ${durStr}, lunchMins: ${lunchMins}, shiftId: '${shift._id || ''}' })" title="${user.fullName || user.name}&#10;⏰ ${shift.start} - ${shift.end} (${durStr} год)" class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity} cursor-pointer active:scale-95">
                                 ${guestIndicator}
                                 ${shift.start}<br>${shift.end}
                                 ${badgeHtml}
@@ -773,9 +772,23 @@ export function renderTable() {
                         <div ${ctxAttr}
                              data-date="${ds}" 
                              data-name="${item.user.name}"
-                             onclick="if(!window.state?.isEditMode) window.showToast('👤 ${safeFullName} (Гість з: ${safeHomeStoreName}) — ${item.shift.start}-${item.shift.end} (${durStr} год)')"
+                             onclick="if(!window.state?.isEditMode) window.openShiftDetailsModal({
+                                 fullName: '${safeFullName}',
+                                 userName: '${safeGUserName}',
+                                 shortName: '${gShortName}',
+                                 avatar: '${item.user.avatar || ''}',
+                                 position: '${item.user.position || ''}',
+                                 type: 'guest',
+                                 homeStoreName: '${safeHomeStoreName}',
+                                 date: '${ds}',
+                                 start: '${item.shift.start}',
+                                 end: '${item.shift.end}',
+                                 duration: ${durStr},
+                                 lunchMins: ${lunchMins},
+                                 shiftId: '${item.shift._id || ''}'
+                             })"
                              title="${gFullName}&#10;📍 Гість з: ${gHomeStoreName}&#10;⏰ ${item.shift.start} - ${item.shift.end} (${durStr} год)"
-                             class="relative text-[9px] font-mono leading-tight bg-amber-100/90 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 rounded px-1 py-0.5 border ${borderStyle} shadow-sm cursor-pointer hover:scale-105 transition-transform ${opacity}">
+                             class="relative text-[9px] font-mono leading-tight bg-amber-100/90 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 rounded px-1 py-0.5 border ${borderStyle} shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-transform ${opacity}">
                             <div class="text-[7.5px] font-sans font-bold truncate text-amber-800 dark:text-amber-300 leading-none mb-0.5 flex items-center justify-center gap-0.5">
                                 <span class="text-[8px] leading-none">👤</span>
                                 <span class="truncate">${gShortName}</span>

@@ -310,6 +310,137 @@ export function closeTaskDetailsModal() {
     document.getElementById('taskDetailsModal').classList.add('hidden');
 }
 
+// --- ЗМІНИ (MODAL) ---
+export function openShiftDetailsModal(info) {
+    if (window.triggerHaptic) window.triggerHaptic();
+
+    const existing = document.getElementById('shiftDetailsModal');
+    if (existing) existing.remove();
+
+    const isGuest = info.type === 'guest';
+    const isOutbound = info.type === 'substitute';
+    const isSpecial = ['Відпустка', 'Лікарняний', 'Донорство'].includes(info.start);
+    const canEdit = ['SM', 'admin'].includes(state.currentUser?.role);
+
+    let typeBadge = '';
+    if (isGuest) {
+        typeBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200 border border-amber-300 dark:border-amber-700/80 shadow-sm">
+            <span>👤</span> Гість з магазину: <span class="font-extrabold underline">${info.homeStoreName || 'Інший магазин'}</span>
+        </span>`;
+    } else if (isOutbound) {
+        typeBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-900 dark:bg-orange-900/50 dark:text-orange-200 border border-orange-300 dark:border-orange-700/80 shadow-sm">
+            <span>📍</span> Підміна в магазині: <span class="font-extrabold underline">${info.targetStoreName || 'Інший магазин'}</span>
+        </span>`;
+    } else if (!isSpecial) {
+        typeBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+            <span>🏪</span> Основний штат магазину
+        </span>`;
+    }
+
+    let editBtnHtml = '';
+    if (canEdit && info.shiftId) {
+        editBtnHtml = `
+            <button onclick="window.closeShiftDetailsModal(); window.contextMenuProxy(event, 'shift', '${info.shiftId}')" 
+                    class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+                <span>✏️</span> Редагувати або видалити
+            </button>
+        `;
+    }
+
+    let dateFormatted = info.date;
+    try {
+        const [y, m, d] = info.date.split('-').map(Number);
+        const dt = new Date(y, m - 1, d);
+        dateFormatted = dt.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
+        dateFormatted = dateFormatted.charAt(0).toUpperCase() + dateFormatted.slice(1);
+    } catch(e) {}
+
+    let contentRows = '';
+    if (isSpecial) {
+        let icon = '🌴';
+        let title = 'Відпустка';
+        if (info.start === 'Лікарняний') { icon = '💊'; title = 'Лікарняний'; }
+        else if (info.start === 'Донорство') { icon = '🩸'; title = 'Донорство (8 год)'; }
+
+        contentRows = `
+            <div class="flex items-center gap-3 p-4 bg-gray-50 dark:bg-[#1C1C1E] rounded-xl border border-gray-100 dark:border-gray-800">
+                <span class="text-3xl">${icon}</span>
+                <div class="flex flex-col">
+                    <span class="font-bold text-base text-gray-900 dark:text-white">${title}</span>
+                    <span class="text-xs text-gray-400">Статус на цей день</span>
+                </div>
+            </div>
+        `;
+    } else {
+        contentRows = `
+            <div class="flex items-center justify-between text-xs">
+                <span class="text-gray-400 flex items-center gap-1.5 font-medium"><span>📅</span> Дата:</span>
+                <span class="font-bold text-gray-800 dark:text-gray-200 text-right">${dateFormatted}</span>
+            </div>
+            <div class="flex items-center justify-between text-xs border-t border-gray-100 dark:border-gray-800/80 pt-2.5">
+                <span class="text-gray-400 flex items-center gap-1.5 font-medium"><span>⏰</span> Час зміни:</span>
+                <span class="font-bold text-blue-600 dark:text-blue-400 font-mono text-sm">${info.start} – ${info.end}</span>
+            </div>
+            <div class="flex items-center justify-between text-xs border-t border-gray-100 dark:border-gray-800/80 pt-2.5">
+                <span class="text-gray-400 flex items-center gap-1.5 font-medium"><span>⏳</span> Тривалість:</span>
+                <span class="font-bold text-gray-800 dark:text-gray-200">${info.duration} год ${info.lunchMins ? `<span class="text-[10px] text-gray-400 font-normal">(-${info.lunchMins} хв обід)</span>` : ''}</span>
+            </div>
+        `;
+    }
+
+    const firstLetter = (info.fullName || info.userName || '👤').trim()[0].toUpperCase();
+    const avatarContent = info.avatar 
+        ? `<img src="${info.avatar}" class="w-full h-full object-cover rounded-full">`
+        : firstLetter;
+
+    const modalHtml = `
+    <div id="shiftDetailsModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onclick="window.closeShiftDetailsModal()"></div>
+        <div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up shadow-2xl border border-gray-100 dark:border-gray-800">
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold shadow-md shadow-blue-500/30 flex-shrink-0">
+                        ${avatarContent}
+                    </div>
+                    <div class="min-w-0">
+                        <h3 class="font-bold text-lg text-gray-900 dark:text-white leading-tight truncate">${info.fullName || info.userName}</h3>
+                        ${info.position ? `<span class="text-xs text-gray-400 font-medium">${info.position}</span>` : ''}
+                    </div>
+                </div>
+                <button onclick="window.closeShiftDetailsModal()" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-[#2C2C2E] text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center text-sm font-bold leading-none transition-colors ml-2">✕</button>
+            </div>
+
+            <div class="mb-4">
+                ${typeBadge}
+            </div>
+
+            <div class="bg-gray-50/70 dark:bg-[#1C1C1E] rounded-xl p-3.5 space-y-2.5 mb-5 border border-gray-100 dark:border-gray-800">
+                ${contentRows}
+            </div>
+
+            <div class="space-y-2">
+                ${editBtnHtml}
+                <button onclick="window.closeShiftDetailsModal()" class="w-full py-2.5 bg-gray-100 dark:bg-[#2C2C2E] hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium text-sm transition-colors text-center">
+                    Закрити
+                </button>
+            </div>
+        </div>
+    </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+export function closeShiftDetailsModal() {
+    const m = document.getElementById('shiftDetailsModal');
+    if (m) m.remove();
+}
+
+window.openShiftDetailsModal = openShiftDetailsModal;
+window.closeShiftDetailsModal = closeShiftDetailsModal;
+window.showToast = showToast;
+window.triggerHaptic = triggerHaptic;
+
 // --- КОНТЕКСТНЕ МЕНЮ (Long Press) ---
 export let activeContext = { id: null, type: null, data: null };
 

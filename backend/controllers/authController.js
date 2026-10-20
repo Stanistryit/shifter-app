@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 
 exports.getStores = async (req, res) => {
     try {
-        const stores = await Store.find({}, 'name code type openTime closeTime normHours');
+        const stores = await Store.find({}, 'name code type openTime closeTime normHours fte lunch_duration_minutes requireSseApproval googleSheetsUrl googleSheetsTab');
         res.json(stores);
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -145,12 +145,19 @@ exports.login = async (req, res) => {
                 status: user.status,
                 storeId: user.storeId?._id || user.storeId,
                 store: user.storeId ? {
+                    _id: user.storeId._id,
+                    code: user.storeId.code,
+                    name: user.storeId.name,
                     openTime: user.storeId.openTime,
                     closeTime: user.storeId.closeTime,
                     reportTime: user.storeId.telegram?.reportTime,
                     lunch_duration_minutes: user.storeId.lunch_duration_minutes,
                     normHours: user.storeId.normHours,
-                    telegram: user.storeId.telegram
+                    fte: user.storeId.fte !== undefined ? user.storeId.fte : 1,
+                    telegram: user.storeId.telegram,
+                    requireSseApproval: user.storeId.requireSseApproval,
+                    googleSheetsUrl: user.storeId.googleSheetsUrl,
+                    googleSheetsTab: user.storeId.googleSheetsTab
                 } : null,
                 hasTelegram: !!user.telegramChatId
             }
@@ -329,6 +336,7 @@ exports.getMe = async (req, res) => {
                 reportTime: user.storeId.telegram?.reportTime,
                 lunch_duration_minutes: user.storeId.lunch_duration_minutes,
                 normHours: user.storeId.normHours,
+                fte: user.storeId.fte !== undefined ? user.storeId.fte : 1,
                 telegram: user.storeId.telegram,
                 requireSseApproval: user.storeId.requireSseApproval,
                 googleSheetsUrl: user.storeId.googleSheetsUrl,

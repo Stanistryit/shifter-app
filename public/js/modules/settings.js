@@ -7,7 +7,17 @@ import { renderAll } from './render.js';
 
 export function openStoreSettingsModal() {
     triggerHaptic();
-    const s = state.currentUser.store || {};
+    const activeStoreId = (state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
+        ? state.selectedStoreFilter
+        : (state.currentUser.storeId?._id || state.currentUser.storeId);
+    let s = state.currentUser.store || {};
+    if (state.stores && activeStoreId) {
+        const found = state.stores.find(x => String(x._id) === String(activeStoreId) || x.code === activeStoreId);
+        if (found) {
+            s = { ...found, ...s };
+            if (found.fte !== undefined) s.fte = found.fte;
+        }
+    }
     const reportTime = s.reportTime || "20:00";
     const openTime = s.openTime || "10:00";
     const closeTime = s.closeTime || "22:00";
@@ -148,13 +158,18 @@ export async function saveStoreSettings() {
     const requireSseApproval = document.getElementById('set_requireSseApproval').checked;
     const googleSheetsUrl = document.getElementById('set_googleSheetsUrl')?.value?.trim() || '';
     const googleSheetsTab = document.getElementById('set_googleSheetsTab')?.value?.trim() || '';
+    const fte = parseFloat(document.getElementById('set_fte')?.value) || 1;
+
+    const activeStoreId = (state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
+        ? state.selectedStoreFilter
+        : (state.currentUser.storeId?._id || state.currentUser.storeId);
 
     const btn = document.querySelector('#storeSettingsModal .btn-primary');
     const oldText = btn.innerText;
     btn.innerText = "⏳ ...";
 
     try {
-        const payload = { reportTime, openTime, closeTime, lunch_duration_minutes, requireSseApproval, googleSheetsUrl, googleSheetsTab };
+        const payload = { reportTime, openTime, closeTime, lunch_duration_minutes, requireSseApproval, googleSheetsUrl, googleSheetsTab, fte, storeId: activeStoreId };
         if (window._tempReportTemplate) {
             payload.reportTemplate = window._tempReportTemplate;
         }
@@ -171,9 +186,22 @@ export async function saveStoreSettings() {
                 state.currentUser.store.requireSseApproval = requireSseApproval;
                 state.currentUser.store.googleSheetsUrl = googleSheetsUrl;
                 state.currentUser.store.googleSheetsTab = googleSheetsTab;
+                state.currentUser.store.fte = fte;
                 if (!state.currentUser.store.telegram) state.currentUser.store.telegram = {};
                 if (window._tempReportTemplate) {
                     state.currentUser.store.telegram.reportTemplate = window._tempReportTemplate;
+                }
+            }
+            if (state.stores && activeStoreId) {
+                const foundStore = state.stores.find(x => String(x._id) === String(activeStoreId) || x.code === activeStoreId);
+                if (foundStore) {
+                    foundStore.fte = fte;
+                    foundStore.openTime = openTime;
+                    foundStore.closeTime = closeTime;
+                    foundStore.lunch_duration_minutes = lunch_duration_minutes;
+                    foundStore.requireSseApproval = requireSseApproval;
+                    foundStore.googleSheetsUrl = googleSheetsUrl;
+                    foundStore.googleSheetsTab = googleSheetsTab;
                 }
             }
             window._tempReportTemplate = null;
@@ -349,10 +377,20 @@ function initDragAndDrop(container) {
 
 window.updateNormHoursInput = function() {
     const month = document.getElementById('set_normMonth').value;
-    const s = state.currentUser.store || {};
+    const activeStoreId = (state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
+        ? state.selectedStoreFilter
+        : (state.currentUser.storeId?._id || state.currentUser.storeId);
+    let s = state.currentUser.store || {};
+    if (state.stores && activeStoreId) {
+        const found = state.stores.find(x => String(x._id) === String(activeStoreId) || x.code === activeStoreId);
+        if (found) {
+            s = { ...found, ...s };
+            if (found.fte !== undefined) s.fte = found.fte;
+        }
+    }
     const normObj = s.normHours || {};
     const val = normObj[month] || 0;
-    const fte = s.fte || 1;
+    const fte = parseFloat(document.getElementById('set_fte')?.value) || s.fte || 1;
     
     document.getElementById('set_normHours').value = val;
     document.getElementById('calcTotalNorm').innerText = val;
@@ -383,13 +421,17 @@ window.saveStoreNormHours = async function() {
 
     if (!month) return showToast("Оберіть місяць", 'error');
 
+    const activeStoreId = (state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
+        ? state.selectedStoreFilter
+        : (state.currentUser.storeId?._id || state.currentUser.storeId);
+
     const btn = document.getElementById('btnSaveNormHours');
     const oldText = btn.innerText;
     btn.innerText = "⏳ ...";
     btn.disabled = true;
 
     try {
-        const res = await postJson('/api/admin/store/norm-hours', { month, normHours, fte, baseHours });
+        const res = await postJson('/api/admin/store/norm-hours', { month, normHours, fte, baseHours, storeId: activeStoreId });
         if (res.success) {
             showToast(`Норму на ${month} збережено! ✅`);
             
@@ -402,8 +444,8 @@ window.saveStoreNormHours = async function() {
             }
             
             // Якщо є інші магазини в state.stores, їх теж треба оновити, щоб таблиця перемалювалась правильно
-            if (state.stores) {
-                const s = state.stores.find(x => String(x._id) === String(state.currentUser.storeId?._id || state.currentUser.storeId));
+            if (state.stores && activeStoreId) {
+                const s = state.stores.find(x => String(x._id) === String(activeStoreId) || x.code === activeStoreId);
                 if (s) {
                     if (!s.normHours) s.normHours = {};
                     s.normHours[month] = normHours;

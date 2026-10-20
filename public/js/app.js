@@ -498,6 +498,8 @@ window.handleCalendarDayClick = (ds) => {
     openNotesModal(ds);
 };
 
+window.showToast = showToast;
+window.triggerHaptic = triggerHaptic;
 window.openTransferModal = openTransferModal;
 window.openStoreSettingsModal = openStoreSettingsModal;
 

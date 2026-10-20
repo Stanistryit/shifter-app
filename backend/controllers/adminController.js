@@ -85,7 +85,8 @@ exports.updateStoreSettings = async (req, res) => {
             return res.json({ success: false, message: "Невірний формат часу роботи (HH:MM)" });
         }
 
-        const store = await Store.findById(u.storeId);
+        const targetStoreId = (u.role === 'admin' && req.body.storeId) ? req.body.storeId : u.storeId;
+        const store = await Store.findById(targetStoreId);
         if (!store) return res.json({ success: false, message: "Магазин не знайдено" });
 
         if (reportTime) store.telegram.reportTime = reportTime;
@@ -114,6 +115,13 @@ exports.updateStoreSettings = async (req, res) => {
             store.googleSheetsTab = req.body.googleSheetsTab.trim();
         }
 
+        if (req.body.fte !== undefined) {
+            const parsedFte = parseFloat(req.body.fte);
+            if (!isNaN(parsedFte) && parsedFte > 0) {
+                store.fte = parsedFte;
+            }
+        }
+
         await store.save();
 
         logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}, Lunch=${store.lunch_duration_minutes}, TemplateUpdated=${!!reportTemplate}`);
@@ -132,10 +140,11 @@ exports.updateStoreNormHours = async (req, res) => {
     }
 
     try {
-        const { month, normHours, fte, baseHours } = req.body;
+        const { month, normHours, fte, baseHours, storeId } = req.body;
         if (!month) return res.json({ success: false, message: "Не вказано місяць" });
 
-        const store = await Store.findById(u.storeId);
+        const targetStoreId = (u.role === 'admin' && storeId) ? storeId : u.storeId;
+        const store = await Store.findById(targetStoreId);
         if (!store) return res.json({ success: false, message: "Магазин не знайдено" });
 
         if (!store.normHours) {
@@ -145,9 +154,13 @@ exports.updateStoreNormHours = async (req, res) => {
         store.normHours.set(month, Number(normHours) || 0);
 
         if (fte !== undefined) {
-            store.fte = Number(fte) || 1;
+            const parsedFte = parseFloat(fte);
+            if (!isNaN(parsedFte) && parsedFte > 0) {
+                store.fte = parsedFte;
+            }
         }
 
+        store.markModified('normHours');
         await store.save();
 
         logAction(u.name, 'update_norm_hours', `Set ${month} norm to ${normHours}`);
