@@ -689,7 +689,7 @@ export async function applyCustomShiftTime() {
 function handleGridClick(e) {
     if (!state.isEditMode) return;
 
-    const cell = e.target.closest('td');
+    const cell = e.target.closest('[data-date][data-name]') || e.target.closest('td');
     if (!cell) return;
 
     const date = cell.getAttribute('data-date');

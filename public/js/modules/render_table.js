@@ -180,6 +180,51 @@ export function renderTable() {
     }
 
     let usersToShow = getUsersForView(viewMonthStr);
+
+    // Розділяємо співробітників на:
+    // - Основний штат поточного магазину (homeUsers)
+    // - Гості з інших магазинів, які мають зміни в цьому магазині в поточному місяці (guestUsers)
+    let homeUsers = [];
+    let guestUsers = [];
+
+    if (activeStoreId && state.selectedStoreFilter !== 'all') {
+        usersToShow.forEach(user => {
+            const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
+            const isGuest = userHomeStoreId && String(userHomeStoreId) !== String(activeStoreId);
+
+            if (isGuest) {
+                const hasShiftHere = (state.shifts || []).some(s => 
+                    s.name === user.name && 
+                    s.date.startsWith(viewMonthStr) && 
+                    String(s.storeId?._id || s.storeId) === String(activeStoreId)
+                );
+                const hasDraftHere = state.pendingChanges && Object.values(state.pendingChanges).some(d => 
+                    d.name === user.name && 
+                    d.date.startsWith(viewMonthStr) && 
+                    String(d.storeId?._id || d.storeId) === String(activeStoreId)
+                );
+
+                if (hasShiftHere || hasDraftHere) {
+                    guestUsers.push(user);
+                }
+            } else {
+                homeUsers.push(user);
+            }
+        });
+    } else {
+        homeUsers = usersToShow;
+        guestUsers = [];
+    }
+
+    if (filterWrapper) {
+        if (guestUsers.length > 0) {
+            filterWrapper.classList.remove('hidden');
+            const cb = document.getElementById('hideSubstitutesCheckbox');
+            if (cb) cb.checked = !!state.hideSubstitutes;
+        } else {
+            filterWrapper.classList.add('hidden');
+        }
+    }
     
     let storeTotalHours = 0;
     let storeTotalDonorHours = 0;
@@ -187,7 +232,7 @@ export function renderTable() {
     usersToShow.forEach(user => {
         for (let d = 1; d <= daysInMonth; d++) {
             const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            const draft = state.pendingChanges ? state.pendingChanges[`${ds}|${user.name}`] : null;
+            const draft = state.pendingChanges ? state.pendingChanges[`${ds}_${user.name}`] : null;
             let sStart = null, sEnd = null;
             
             const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
@@ -244,7 +289,7 @@ export function renderTable() {
         if (storeFte > 0) {
             storeTotalNorm = Math.round(monthNorm * storeFte);
         } else {
-            storeTotalNorm = monthNorm * usersToShow.length;
+            storeTotalNorm = monthNorm * homeUsers.length;
         }
     }
 
@@ -393,13 +438,7 @@ export function renderTable() {
 
     const canEditUser = ['SM', 'admin'].includes(state.currentUser.role);
 
-    usersToShow.forEach(user => {
-        if (state.hideSubstitutes && activeStoreId) {
-            const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
-            if (String(userHomeStoreId) !== String(activeStoreId)) {
-                return; // Skip rendering substitute row
-            }
-        }
+    homeUsers.forEach(user => {
         const shortName = getDisplayName(user);
 
         const editAction = canEditUser ? `onclick="window.openEditUserProxy('${user._id}')"` : '';
@@ -525,11 +564,17 @@ export function renderTable() {
                         content = '<span class="text-lg">🩸</span><div class="absolute top-1 right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div>';
                     } else {
                         if (isSubstituteRender) {
-                            const storeName = draft.storeId?.name || 'Інший магазин';
+                            const subStoreObj = (state.stores && draft.storeId) 
+                                ? state.stores.find(s => String(s._id) === String(draft.storeId._id || draft.storeId) || s.code === draft.storeId) 
+                                : draft.storeId;
+                            const storeName = subStoreObj?.name || 'Інший магазин';
                             const safeStoreName = storeName.replace(/'/g, "\\'");
-                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${safeStoreName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-mono leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-0.5 shadow-sm border border-orange-200 dark:border-orange-800 cursor-pointer transform scale-105">
-                                <div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>
-                                ${draft.start}<br>${draft.end}
+                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${safeStoreName}')" title="Підміна в магазині: ${storeName}" class="relative text-[9.5px] font-mono leading-tight bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-200 rounded px-1 py-0.5 shadow-sm border border-orange-300 dark:border-orange-800 cursor-pointer transform scale-105">
+                                <div class="text-[7.5px] font-sans font-bold truncate text-orange-700 dark:text-orange-300 leading-none mb-0.5 flex items-center justify-center gap-0.5">
+                                    <span class="text-[8px] leading-none">📍</span>
+                                    <span class="truncate">${storeName}</span>
+                                </div>
+                                <div class="leading-none font-bold">${draft.start}<br>${draft.end}</div>
                             </div>`;
                         } else {
                             let guestIndicator = '';
@@ -573,11 +618,18 @@ export function renderTable() {
                         const opacity = isPast ? 'opacity-50 grayscale' : '';
                         
                         if (isSubstituteRender) {
-                            const storeName = shift.storeId?.name || 'Інший магазин';
+                            const subStoreObj = (state.stores && shift.storeId) 
+                                ? state.stores.find(s => String(s._id) === String(shift.storeId._id || shift.storeId) || s.code === shift.storeId) 
+                                : shift.storeId;
+                            const storeName = subStoreObj?.name || 'Інший магазин';
                             const safeStoreName = storeName.replace(/'/g, "\\'");
-                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${safeStoreName}')" title="Підміна в магазині: ${storeName}" class="relative text-[10px] font-mono leading-tight bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded px-1 py-0.5 shadow-sm border border-orange-200 dark:border-orange-800 cursor-pointer ${opacity}">
-                                <div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>
-                                ${shift.start}<br>${shift.end}
+                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${safeStoreName}')" title="Підміна в магазині: ${storeName}" class="relative text-[9.5px] font-mono leading-tight bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-200 rounded px-1 py-0.5 shadow-sm border border-orange-300 dark:border-orange-800 cursor-pointer ${opacity}">
+                                <div class="text-[7.5px] font-sans font-bold truncate text-orange-700 dark:text-orange-300 leading-none mb-0.5 flex items-center justify-center gap-0.5">
+                                    <span class="text-[8px] leading-none">📍</span>
+                                    <span class="truncate">${storeName}</span>
+                                </div>
+                                <div class="leading-none font-bold">${shift.start}<br>${shift.end}</div>
+                                ${badgeHtml}
                             </div>`;
                         } else {
                             const colorClass = getShiftColor(shift.start, shift.end, closeTime);
@@ -637,6 +689,132 @@ export function renderTable() {
         html += `<td class="${hsClass} ${meStyleSticky} border-l border-gray-200 dark:border-gray-700 text-center px-1 shadow-sm">${hoursHtml}</td>`;
         html += '</tr>';
     });
+
+    // ================= UNIFIED GUESTS / SUBSTITUTES ROW =================
+    if (guestUsers.length > 0 && !state.hideSubstitutes) {
+        let totalGuestsHours = 0;
+        let totalGuestsShifts = 0;
+        let guestCellsHtml = '';
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const isToday = isCurrentMonth && d === todayDate;
+            const isPast = ds < todayStr;
+
+            let cellClass = '';
+            if (isPast) cellClass = 'bg-gray-50/50 dark:bg-[#121212] text-gray-300';
+            if (isToday) cellClass = 'bg-blue-50/50 dark:bg-blue-900/20 border-x-2 border-blue-200 dark:border-blue-800 relative z-0';
+
+            const dayGuestItems = [];
+            guestUsers.forEach(gUser => {
+                const draftKey = `${ds}_${gUser.name}`;
+                const draft = state.pendingChanges ? state.pendingChanges[draftKey] : null;
+                const shift = (state.shifts || []).find(s => s.date === ds && s.name === gUser.name);
+
+                if (draft) {
+                    const dStoreId = draft.storeId ? (draft.storeId._id || draft.storeId) : (gUser.storeId?._id || gUser.storeId);
+                    if (String(dStoreId) === String(activeStoreId) && !['DELETE', 'Відпустка', 'Лікарняний', 'Донорство'].includes(draft.start)) {
+                        dayGuestItems.push({ user: gUser, shift: draft, isDraft: true });
+                    }
+                } else if (shift) {
+                    const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : (gUser.storeId?._id || gUser.storeId);
+                    if (String(sStoreId) === String(activeStoreId) && !['Відпустка', 'Лікарняний', 'Донорство'].includes(shift.start)) {
+                        dayGuestItems.push({ user: gUser, shift: shift, isDraft: false });
+                    }
+                }
+            });
+
+            if (dayGuestItems.length === 0) {
+                guestCellsHtml += `<td data-date="${ds}" class="shift-cell relative text-center p-0.5 border-r border-gray-100 dark:border-gray-800/60 ${cellClass}"><span class="opacity-15 text-[8px] text-gray-400">·</span></td>`;
+            } else {
+                let badgesHtml = '<div class="flex flex-col gap-1 w-full justify-center">';
+                dayGuestItems.forEach(item => {
+                    const [h1, m1] = item.shift.start.split(':').map(Number);
+                    const [h2, m2] = item.shift.end.split(':').map(Number);
+                    let lunchMins = 60;
+                    if (state.currentUser.store && state.currentUser.store.lunch_duration_minutes !== undefined) {
+                        lunchMins = state.currentUser.store.lunch_duration_minutes;
+                    } else if (state.stores && activeStoreId) {
+                        const foundStore = state.stores.find(s => String(s._id) === String(activeStoreId) || s.code === activeStoreId);
+                        if (foundStore && foundStore.lunch_duration_minutes !== undefined) lunchMins = foundStore.lunch_duration_minutes;
+                    }
+                    let rawDur = (h2 + m2 / 60) - (h1 + m1 / 60);
+                    if (rawDur < 0) rawDur += 24;
+                    let dur = rawDur - (lunchMins / 60);
+                    if (dur < 0) dur = 0;
+                    totalGuestsHours += dur;
+                    totalGuestsShifts++;
+
+                    const durStr = parseFloat(dur.toFixed(1));
+                    const gDisplayName = getDisplayName(item.user);
+                    const parts = gDisplayName.split(' ');
+                    const gShortName = parts.length > 1 ? `${parts[0]} ${parts[1][0]}.` : parts[0];
+                    const gFullName = item.user.fullName || item.user.name;
+
+                    const gHomeStoreId = item.user.storeId ? (item.user.storeId._id || item.user.storeId) : null;
+                    const gHomeStore = state.stores ? state.stores.find(s => String(s._id) === String(gHomeStoreId) || s.code === gHomeStoreId) : null;
+                    const gHomeStoreName = gHomeStore ? gHomeStore.name : 'Інший магазин';
+
+                    const opacity = isPast ? 'opacity-60 grayscale' : '';
+                    const safeFullName = gFullName.replace(/'/g, "\\'");
+                    const safeHomeStoreName = gHomeStoreName.replace(/'/g, "\\'");
+
+                    let ctxAttr = '';
+                    const safeGUserName = item.user.name.replace(/'/g, "\\'");
+                    if (!item.isDraft && item.shift._id) {
+                        ctxAttr = `oncontextmenu="window.contextMenuProxy(event, 'shift', '${item.shift._id}')"`;
+                    } else {
+                        ctxAttr = `oncontextmenu="window.contextMenuProxy(event, 'empty_shift', '${ds}|${safeGUserName}')"`;
+                    }
+
+                    const borderStyle = item.isDraft ? 'border-dashed border-amber-500 animate-pulse' : 'border-amber-300 dark:border-amber-700/80';
+
+                    badgesHtml += `
+                        <div ${ctxAttr}
+                             data-date="${ds}" 
+                             data-name="${item.user.name}"
+                             onclick="if(!window.state?.isEditMode) window.showToast('👤 ${safeFullName} (Гість з: ${safeHomeStoreName}) — ${item.shift.start}-${item.shift.end} (${durStr} год)')"
+                             title="${gFullName}&#10;📍 Гість з: ${gHomeStoreName}&#10;⏰ ${item.shift.start} - ${item.shift.end} (${durStr} год)"
+                             class="relative text-[9px] font-mono leading-tight bg-amber-100/90 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 rounded px-1 py-0.5 border ${borderStyle} shadow-sm cursor-pointer hover:scale-105 transition-transform ${opacity}">
+                            <div class="text-[7.5px] font-sans font-bold truncate text-amber-800 dark:text-amber-300 leading-none mb-0.5 flex items-center justify-center gap-0.5">
+                                <span class="text-[8px] leading-none">👤</span>
+                                <span class="truncate">${gShortName}</span>
+                            </div>
+                            <div class="leading-none font-bold">${item.shift.start}<br>${item.shift.end}</div>
+                            <div class="absolute -top-1.5 -right-1.5 z-10 bg-amber-500 text-white text-[7.5px] font-bold px-1 rounded-full shadow-sm min-w-[13px] h-[13px] flex items-center justify-center leading-none">${durStr}</div>
+                        </div>
+                    `;
+                });
+                badgesHtml += '</div>';
+
+                guestCellsHtml += `<td data-date="${ds}" class="shift-cell relative text-center p-0.5 border-r border-gray-100 dark:border-gray-800/60 ${cellClass}">${badgesHtml}</td>`;
+            }
+        }
+
+        const rightSideStickyClass = state.isHoursPinned ? 'sticky right-0 z-30' : '';
+        const guestHoursHtml = `
+            <div class="flex flex-col items-center justify-center leading-tight">
+                <span class="text-[7.5px] uppercase tracking-wider text-amber-700 dark:text-amber-400 font-bold">Гості</span>
+                <span class="font-bold text-amber-900 dark:text-amber-200 text-xs">${parseFloat(totalGuestsHours.toFixed(1))}</span>
+                <span class="text-[8px] text-gray-400">${totalGuestsShifts} змін</span>
+            </div>
+        `;
+
+        html += `<tr class="min-h-10 border-t-2 border-dashed border-amber-200 dark:border-amber-800/60 bg-[#FFFDF9] dark:bg-[#1A1816] transition-colors">`;
+        html += `<td class="sticky left-0 z-30 bg-[#FFFDF9] dark:bg-[#1A1816] px-2 py-1.5 border-r border-amber-200 dark:border-amber-800/60 font-medium text-[11px] shadow-sm">
+            <div class="flex items-center gap-1.5">
+                <span class="text-sm">🤝</span>
+                <div class="flex flex-col leading-tight">
+                    <span class="font-bold text-amber-900 dark:text-amber-200">Підміни / Гості</span>
+                    <span class="text-[8.5px] text-gray-400 font-normal">${guestUsers.length} співроб.</span>
+                </div>
+            </div>
+        </td>`;
+        html += guestCellsHtml;
+        html += `<td class="${rightSideStickyClass} bg-[#FFFDF9] dark:bg-[#1A1816] border-l border-amber-200 dark:border-amber-800/60 text-center px-1 shadow-sm">${guestHoursHtml}</td>`;
+        html += `</tr>`;
+    }
+
     html += '</tbody></table>';
     tableDiv.innerHTML = html;
 
