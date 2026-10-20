@@ -1,5 +1,6 @@
 import { state } from './state.js';
-import { postJson, fetchJson, showToast } from './ui.js';
+import { postJson, fetchJson } from './api.js';
+import { showToast } from './ui.js';
 import { renderTable } from './render_table.js';
 
 /**
