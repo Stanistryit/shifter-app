@@ -808,7 +808,7 @@ export function renderTable() {
         const rightSideStickyClass = state.isHoursPinned ? 'sticky right-0 z-30' : '';
         const guestHoursHtml = `
             <div class="flex flex-col items-center justify-center leading-tight">
-                <span class="text-[7.5px] uppercase tracking-wider text-amber-700 dark:text-amber-400 font-bold">Гості</span>
+                <span class="text-[7.5px] uppercase tracking-wider text-amber-700 dark:text-amber-400 font-bold">Підміни</span>
                 <span class="font-bold text-amber-900 dark:text-amber-200 text-xs">${parseFloat(totalGuestsHours.toFixed(1))}</span>
                 <span class="text-[8px] text-gray-400">${totalGuestsShifts} змін</span>
             </div>
@@ -819,7 +819,7 @@ export function renderTable() {
             <div class="flex items-center gap-1.5">
                 <span class="text-sm">🤝</span>
                 <div class="flex flex-col leading-tight">
-                    <span class="font-bold text-amber-900 dark:text-amber-200">Підміни / Гості</span>
+                    <span class="font-bold text-amber-900 dark:text-amber-200">Підміни</span>
                     <span class="text-[8.5px] text-gray-400 font-normal">${guestUsers.length} співроб.</span>
                 </div>
             </div>
