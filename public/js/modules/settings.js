@@ -578,12 +578,6 @@ export function openFilterModal() {
     renderFilterList();
 }
 
-export function openFilterModal() {
-    triggerHaptic();
-    document.getElementById('filterModal').classList.remove('hidden');
-    renderFilterList();
-}
-
 export function closeFilterModal() {
     document.getElementById('filterModal').classList.add('hidden');
 }

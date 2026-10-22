@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shifter-cache-v23';
+const CACHE_NAME = 'shifter-cache-v24';
 const urlsToCache = [
     '/',
     '/index.html',
