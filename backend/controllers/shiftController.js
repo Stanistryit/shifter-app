@@ -46,7 +46,7 @@ exports.getShifts = async (req, res) => {
         };
     }
 
-    const s = await Shift.find(query).populate('storeId', 'name');
+    const s = await Shift.find(query).select('date name start end storeId isSubstitute substituteStoreId').populate('storeId', 'name').lean();
     res.json(s);
 };
 

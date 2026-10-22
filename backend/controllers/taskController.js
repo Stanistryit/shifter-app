@@ -12,7 +12,7 @@ exports.getTasks = async (req, res) => {
         query.storeId = currentUser.storeId;
     }
 
-    const t = await Task.find(query);
+    const t = await Task.find(query).lean();
     res.json(t);
 };
 

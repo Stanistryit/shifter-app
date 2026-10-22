@@ -19,7 +19,7 @@ function hideTopProgress() {
     }
 }
 
-export async function fetchJson(url, options = {}) {
+export async function fetchJson(url, options = {}, retries = 2) {
     showTopProgress();
     try {
         const res = await fetch(url, options);
@@ -35,8 +35,14 @@ export async function fetchJson(url, options = {}) {
         }
         return await res.json();
     } catch (e) {
-        console.error("API Error:", e);
+        console.error(`API Error for ${url}:`, e);
         hideTopProgress();
+        const isGet = !options.method || options.method.toUpperCase() === 'GET';
+        if (retries > 0 && isGet) {
+            console.warn(`🔄 Повторна спроба для ${url} (${retries} залишилось)...`);
+            await new Promise(r => setTimeout(r, 350));
+            return fetchJson(url, options, retries - 1);
+        }
         return { success: false, message: "Network Error" };
     }
 }
