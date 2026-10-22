@@ -122,6 +122,18 @@ exports.updateStoreSettings = async (req, res) => {
             }
         }
 
+        if (req.body.terminalPin !== undefined) {
+            store.terminalPin = String(req.body.terminalPin).trim();
+        }
+
+        if (req.body.dailyAnnouncement !== undefined) {
+            store.dailyAnnouncement = String(req.body.dailyAnnouncement).trim();
+        }
+
+        if (req.body.emergencyContacts !== undefined && Array.isArray(req.body.emergencyContacts)) {
+            store.emergencyContacts = req.body.emergencyContacts;
+        }
+
         await store.save();
 
         logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}, Lunch=${store.lunch_duration_minutes}, TemplateUpdated=${!!reportTemplate}`);

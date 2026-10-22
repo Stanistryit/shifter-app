@@ -115,4 +115,15 @@ router.post('/notes/delete', catchAsync(noteController.deleteNote));
 // --- GEMINI SPARK ---
 router.post('/spark/sync', validate(schemas.sparkSync), catchAsync(sparkController.syncSchedule));
 
+// --- TERMINAL / PC DASHBOARD ---
+const terminalController = require('./controllers/terminalController');
+router.post('/terminal/login', catchAsync(terminalController.terminalLogin));
+router.get('/terminal/session', catchAsync(terminalController.getTerminalSession));
+router.get('/terminal/data', catchAsync(terminalController.getTerminalData));
+router.post('/terminal/cash-count', catchAsync(terminalController.saveCashCount));
+router.get('/terminal/cash-count/history', catchAsync(terminalController.getCashCountHistory));
+router.post('/terminal/stock-count', catchAsync(terminalController.saveStockCount));
+router.get('/terminal/stock-count/history', catchAsync(terminalController.getStockCountHistory));
+router.post('/terminal/settings', catchAsync(terminalController.updateTerminalSettings));
+
 module.exports = router;

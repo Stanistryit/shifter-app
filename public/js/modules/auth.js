@@ -34,6 +34,18 @@ export async function checkAuth() {
         return;
     }
 
+    // Перевірка на режим робочого ПК / Термінал
+    const isTerminalMode = localStorage.getItem('shifter_viewMode') === 'terminal' || 
+                           localStorage.getItem('shifter_terminal_storeId') || 
+                           window.location.pathname.includes('/terminal') || 
+                           params.get('terminal') === '1' ||
+                           window.location.hash === '#terminal';
+
+    if (isTerminalMode) {
+        enterTerminalMode();
+        return;
+    }
+
     // Якщо це Telegram WebApp
     if (!tg.initDataUnsafe?.user?.id) {
         document.getElementById('loginScreen').classList.remove('hidden');
@@ -312,3 +324,19 @@ export async function loadData() {
         if (s2Val && s2Val !== 'Кому?') s2.value = s2Val;
     }
 }
+
+export function enterTerminalMode() {
+    document.getElementById('loginScreen')?.classList.add('hidden');
+    const app = document.getElementById('appScreen');
+    if (app) {
+        app.classList.remove('hidden');
+        app.classList.remove('opacity-0');
+    }
+    if (!state.currentUser) {
+        state.currentUser = { name: 'ПК Магазину', role: 'Terminal' };
+    }
+    if (window.setMode) {
+        window.setMode('terminal');
+    }
+}
+window.enterTerminalMode = enterTerminalMode;

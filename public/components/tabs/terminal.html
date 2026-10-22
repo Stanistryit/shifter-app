@@ -1,0 +1,304 @@
+<!-- ТЕРМІНАЛ РОБОЧОГО ПК МАГАЗИНУ -->
+<div id="terminalContainer" class="w-full space-y-4 animate-fade-in text-gray-900 dark:text-white pb-10">
+
+    <!-- 1. ШАПКА ТЕРМІНАЛУ -->
+    <div class="ios-card p-4 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-md border border-gray-200/80 dark:border-gray-800 shadow-lg flex flex-col md:flex-row justify-between items-center gap-3">
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xl shadow-md shadow-blue-500/20">
+                🏪
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 id="termStoreName" class="font-extrabold text-lg leading-tight text-gray-900 dark:text-white">Завантаження точки...</h2>
+                    <span id="termStoreCode" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 font-mono font-bold">---</span>
+                </div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                    <span>🕒 Режим роботи: <b id="termStoreHours">10:00 - 22:00</b></span>
+                    <span>•</span>
+                    <span id="termLiveClock" class="font-mono font-bold text-blue-500">--:--:--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Оголошення від SM у шапці -->
+        <div id="termAnnouncementBox" class="flex-1 max-w-xl mx-2 hidden md:block">
+            <div class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs text-amber-900 dark:text-amber-200">
+                <span class="text-base">📢</span>
+                <span id="termAnnouncementText" class="truncate font-medium">Немає важливих оголошень на сьогодні</span>
+            </div>
+        </div>
+
+        <!-- Кнопки швидких дій -->
+        <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+            <button onclick="window.terminalRefresh()" title="Оновити дані" class="px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold active:scale-95 transition-all flex items-center gap-1.5 shadow-sm">
+                <span>🔄</span> <span class="hidden sm:inline">Оновити</span>
+            </button>
+            <button onclick="window.terminalLogout()" title="Змінити точку" class="px-3 py-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold active:scale-95 transition-all flex items-center gap-1.5 shadow-sm">
+                <span>🚪</span> <span class="hidden sm:inline">Змінити ПК</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Мобільне оголошення (якщо вузький екран) -->
+    <div id="termAnnouncementBoxMob" class="md:hidden">
+        <div class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl p-3 flex items-start gap-2 text-xs text-amber-900 dark:text-amber-200 shadow-sm">
+            <span class="text-base">📢</span>
+            <span id="termAnnouncementTextMob" class="font-medium">Немає важливих оголошень</span>
+        </div>
+    </div>
+
+    <!-- 2. ОСНОВНА СІТКА 3 КОЛОНКИ ДЛЯ ПК -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+
+        <!-- КОЛОНКА 1 (4 з 12): ГРАФІК, ЗАВТРА ТА СКЛАД -->
+        <div class="lg:col-span-4 space-y-4">
+            
+            <!-- Блок: Хто зараз на зміні -->
+            <div class="ios-card p-4 bg-white dark:bg-[#1C1C1E] border border-gray-200/80 dark:border-gray-800 shadow-md">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                        <span>👥</span> ЗАРАЗ НА ЗМІНІ
+                    </h3>
+                    <span id="termActiveCountBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">0 на зміні</span>
+                </div>
+                <div id="termActiveShiftsList" class="space-y-2">
+                    <div class="text-center text-xs text-gray-400 py-3">Завантаження змін...</div>
+                </div>
+
+                <!-- Хто завтра відкриває -->
+                <div class="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800/80">
+                    <div class="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <span>🌅</span> ЗАВТРА НА ВІДКРИТТЯ
+                    </div>
+                    <div id="termTomorrowOpenerBox" class="p-2.5 rounded-xl bg-orange-50/80 dark:bg-orange-950/30 border border-orange-200/70 dark:border-orange-800/50 flex items-center justify-between">
+                        <span class="text-xs text-gray-400">Перевірка графіка на завтра...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Блок: Вечірній перерахунок складу (SE) -->
+            <div class="ios-card p-4 bg-white dark:bg-[#1C1C1E] border border-gray-200/80 dark:border-gray-800 shadow-md">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                        <span>📦</span> ВЕЧІРНІЙ ПЕРЕРАХУНОК СКЛАДУ
+                    </h3>
+                    <button onclick="window.openStockHistoryModal()" class="text-[10px] text-blue-500 hover:underline font-bold">Історія</button>
+                </div>
+                <p class="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
+                    Заповнюється СЕ перед закриттям зміни (залишки дорогих товарів, девайсів, інше):
+                </p>
+                <div class="space-y-2">
+                    <textarea id="termStockText" rows="3" placeholder="Введіть підсумки перерахунку (напр. iPhone: 12 шт, AirPods: 8 шт, чохли пораховано...)" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-y custom-scrollbar"></textarea>
+                    
+                    <div class="flex items-center gap-2">
+                        <select id="termStockAuthorSelect" class="flex-1 p-2 text-xs bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold">
+                            <option value="">👤 Хто заповнив...</option>
+                        </select>
+                        <button onclick="window.submitStockCount()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 active:scale-95 transition-all">
+                            💾 Зберегти
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Блок: Важливі контакти -->
+            <div class="ios-card p-4 bg-white dark:bg-[#1C1C1E] border border-gray-200/80 dark:border-gray-800 shadow-md">
+                <h3 class="text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1.5">
+                    <span>📞</span> ВАЖЛИВІ КОНТАКТИ
+                </h3>
+                <div id="termEmergencyContactsList" class="space-y-1.5 text-xs">
+                    <div class="text-gray-400 text-center py-2 text-[11px]">Контакти ще не налаштовані в SM</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- КОЛОНКА 2 (4 з 12): ЧЕК-ЛІСТИ ТА ЗАДАЧІ -->
+        <div class="lg:col-span-4 space-y-4">
+            
+            <!-- Блок: Чек-лісти відкриття / закриття за часом -->
+            <div class="ios-card p-4 bg-white dark:bg-[#1C1C1E] border border-gray-200/80 dark:border-gray-800 shadow-md">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 id="termChecklistTitle" class="text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                        <span>⏰</span> ЧЕК-ЛІСТ ЗМІНИ
+                    </h3>
+                    <span id="termChecklistBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300">Активний</span>
+                </div>
+                <div id="termChecklistItems" class="space-y-1.5 mt-2">
+                    <!-- Checklists will render here -->
+                </div>
+            </div>
+
+            <!-- Блок: Оперативні задачі від SM на день -->
+            <div class="ios-card p-4 bg-white dark:bg-[#1C1C1E] border border-gray-200/80 dark:border-gray-800 shadow-md">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                        <span>📌</span> ОПЕРАТИВНІ ЗАДАЧІ
+                    </h3>
+                    <span id="termTasksCountBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300">0</span>
+                </div>
+                <div id="termTasksList" class="space-y-2 mt-2">
+                    <div class="text-center text-xs text-gray-400 py-4">Немає активних задач на сьогодні</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- КОЛОНКА 3 (4 з 12): ПОКУПЮРНИК ТА КАСА -->
+        <div class="lg:col-span-4 space-y-4">
+            <div class="ios-card p-4 bg-white dark:bg-[#1C1C1E] border border-gray-200/80 dark:border-gray-800 shadow-md">
+                
+                <!-- Перемикач вкладок Покупюрника -->
+                <div class="flex rounded-xl bg-gray-100 dark:bg-[#2C2C2E] p-1 mb-3">
+                    <button id="termTabCashBtn" onclick="window.switchTermCashTab('cash')" class="flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all shadow-sm bg-white dark:bg-[#1C1C1E] text-blue-600 dark:text-blue-400">
+                        💵 Каса
+                    </button>
+                    <button id="termTabEncashBtn" onclick="window.switchTermCashTab('encashment')" class="flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all text-gray-500 hover:text-gray-900 dark:hover:text-white">
+                        💼 Інкасація
+                    </button>
+                </div>
+
+                <!-- Таблиця купюр (Номінали від 2000 до 1 грн) -->
+                <div class="max-h-[310px] overflow-y-auto custom-scrollbar pr-1 space-y-1">
+                    <!-- Заголовок -->
+                    <div class="grid grid-cols-12 text-[10px] uppercase font-bold text-gray-400 pb-1 border-b border-gray-100 dark:border-gray-800">
+                        <div class="col-span-4">Номінал</div>
+                        <div class="col-span-4 text-center">Кількість</div>
+                        <div class="col-span-4 text-right">Сума</div>
+                    </div>
+
+                    <!-- Рядки номіналів -->
+                    <div id="termDenominationsRows" class="space-y-1">
+                        <!-- Generates dynamically via JS (2000, 1000, 500, 200, 100, 50, 20, 10, 5, 2, 1) -->
+                    </div>
+                </div>
+
+                <!-- Підсумок купюр -->
+                <div class="mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-baseline">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">Пораховано в касі:</span>
+                    <span id="termTotalCountedText" class="text-lg font-black text-blue-600 dark:text-blue-400">0 грн</span>
+                </div>
+
+                <!-- БЛОК ДЛЯ ВКЛАДКИ КАСА: Мульти-ввід очікуваних сум (Z-звіти/дні) -->
+                <div id="termCashExpectedSection" class="mt-3 pt-3 border-t border-dashed border-gray-200 dark:border-gray-700/80 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[11px] font-bold text-gray-700 dark:text-gray-300">Очікувано за звітами:</span>
+                        <button onclick="window.addExpectedAmountRow()" class="text-[10px] font-bold text-blue-500 hover:underline flex items-center gap-0.5">
+                            <span>+ Додати день/суму</span>
+                        </button>
+                    </div>
+
+                    <div id="termExpectedRowsContainer" class="space-y-1.5">
+                        <!-- Dynamic expected rows -->
+                    </div>
+
+                    <!-- Загальна очікувана сума та Розбіжність -->
+                    <div class="p-2.5 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200/80 dark:border-gray-700 space-y-1.5 mt-2">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-gray-500">Всього очікувано:</span>
+                            <span id="termTotalExpectedText" class="font-bold">0 грн</span>
+                        </div>
+                        <div class="flex justify-between text-xs pt-1 border-t border-gray-200 dark:border-gray-700 items-center">
+                            <span class="font-bold">Розбіжність:</span>
+                            <span id="termDifferenceBadge" class="px-2 py-0.5 rounded-lg text-xs font-black bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">
+                                0 грн ✅
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Хто рахував та кнопки збереження -->
+                <div class="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 space-y-2">
+                    <div class="flex items-center gap-2">
+                        <select id="termCashAuthorSelect" class="flex-1 p-2 text-xs bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold">
+                            <option value="">👤 Хто проводив перерахунок...</option>
+                        </select>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button onclick="window.submitCashCount()" id="termSubmitCashBtn" class="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white font-extrabold text-xs rounded-xl shadow-md shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5">
+                            <span>💾</span> <span>Зберегти та в Telegram</span>
+                        </button>
+                        <button onclick="window.resetCashCountInputs()" title="Очистити поля" class="px-3 py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 rounded-xl text-xs font-bold active:scale-95 transition-all">
+                            ✕
+                        </button>
+                    </div>
+
+                    <div class="text-center pt-1">
+                        <button onclick="window.openCashHistoryModal()" class="text-[11px] text-blue-500 hover:underline font-bold">
+                            📋 Історія перерахунків каси та інкасацій
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- МОДАЛКА АВТОРИЗАЦІЇ ТЕРМІНАЛУ (якщо ПК ще не налаштований) -->
+<div id="terminalLoginModal" class="hidden fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="ios-card w-full max-w-sm p-6 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-800 shadow-2xl text-center space-y-4 animate-scale-up">
+        <div class="w-14 h-14 rounded-3xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-3xl mx-auto shadow-inner">
+            🏪
+        </div>
+        <div>
+            <h3 class="text-xl font-black text-gray-900 dark:text-white">Підключення ПК магазину</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Один вхід для комп'ютера точки без використання особистого акаунту</p>
+        </div>
+
+        <div class="space-y-3 text-left">
+            <div>
+                <label class="text-[10px] uppercase font-bold text-gray-400 block mb-1">Код магазину</label>
+                <input type="text" id="termInputStoreCode" placeholder="Наприклад: 101 або dafi" class="w-full p-3 text-sm bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold uppercase tracking-wider focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label class="text-[10px] uppercase font-bold text-gray-400 block mb-1">PIN-код терміналу (4 цифри)</label>
+                <input type="password" maxlength="6" id="termInputPin" placeholder="••••" class="w-full p-3 text-sm bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold text-center tracking-widest text-lg focus:ring-2 focus:ring-blue-500">
+                <span class="text-[10px] text-gray-400 block mt-1">Встановлюється керівником (SM) у налаштуваннях</span>
+            </div>
+
+            <button onclick="window.submitTerminalLogin()" class="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-black text-sm rounded-xl shadow-lg shadow-blue-500/30 active:scale-95 transition-all mt-2">
+                Увійти на цьому ПК
+            </button>
+            <button onclick="window.cancelTerminalLogin()" class="w-full py-2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                ← Скасувати / Звичайний вхід
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛКА ІСТОРІЇ ПЕРЕРАХУНКІВ КАСИ ТА ІНКАСАЦІЙ -->
+<div id="cashHistoryModal" class="hidden fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="ios-card w-full max-w-xl max-h-[85vh] flex flex-col p-5 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-800 shadow-2xl space-y-3 animate-scale-up">
+        <div class="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-gray-800">
+            <h3 class="font-extrabold text-base text-gray-900 dark:text-white flex items-center gap-2">
+                <span>📋</span> Історія каси та інкасацій
+            </h3>
+            <button onclick="window.closeCashHistoryModal()" class="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-black dark:hover:text-white flex items-center justify-center font-bold">✕</button>
+        </div>
+
+        <div id="cashHistoryListContainer" class="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+            <div class="text-center text-xs text-gray-400 py-6">Завантаження історії...</div>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛКА ІСТОРІЇ СКЛАДУ -->
+<div id="stockHistoryModal" class="hidden fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="ios-card w-full max-w-xl max-h-[85vh] flex flex-col p-5 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-800 shadow-2xl space-y-3 animate-scale-up">
+        <div class="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-gray-800">
+            <h3 class="font-extrabold text-base text-gray-900 dark:text-white flex items-center gap-2">
+                <span>📦</span> Історія перерахунків складу
+            </h3>
+            <button onclick="window.closeStockHistoryModal()" class="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-black dark:hover:text-white flex items-center justify-center font-bold">✕</button>
+        </div>
+
+        <div id="stockHistoryListContainer" class="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+            <div class="text-center text-xs text-gray-400 py-6">Завантаження історії...</div>
+        </div>
+    </div>
+</div>

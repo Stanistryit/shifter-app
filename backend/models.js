@@ -22,11 +22,16 @@ const storeSchema = new mongoose.Schema({
         shifts: { type: [Object], default: [] }
     },
 
+    terminalPin: { type: String, default: '1234' },
+    emergencyContacts: { type: [Object], default: [] },
+    dailyAnnouncement: { type: String, default: '' },
+
     telegram: {
         chatId: { type: Number, default: null },
         newsTopicId: { type: Number, default: null },
         requestsTopicId: { type: Number, default: null },
         eveningTopicId: { type: Number, default: null },
+        cashTopicId: { type: Number, default: null },
         reportTime: { type: String, default: "20:00" },
         reportTemplate: {
             header: { type: String, default: '🌙 <b>План на завтра ({date}):</b>' },
@@ -229,6 +234,30 @@ const notificationSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 notificationSchema.index({ userId: 1, isRead: 1 });
-const Notification = mongoose.models.Notification || mongoose.model('Notification', notificationSchema);
+// 16. Схема Перерахунку Каси та Інкасації
+const cashCountSchema = new mongoose.Schema({
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true },
+    type: { type: String, enum: ['cash', 'encashment'], default: 'cash' },
+    countedBy: { type: String, required: true },
+    denominations: { type: Map, of: Number, default: {} },
+    totalCounted: { type: Number, required: true },
+    expectedAmounts: { type: [Object], default: [] },
+    totalExpected: { type: Number, default: 0 },
+    difference: { type: Number, default: 0 },
+    note: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now }
+});
+cashCountSchema.index({ storeId: 1, createdAt: -1 });
+const CashCount = mongoose.models.CashCount || mongoose.model('CashCount', cashCountSchema);
 
-module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, MonthSettings, PendingNotification, Notification };
+// 17. Схема Вечірнього Перерахунку Складу
+const stockCountSchema = new mongoose.Schema({
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true },
+    countedBy: { type: String, required: true },
+    content: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+});
+stockCountSchema.index({ storeId: 1, createdAt: -1 });
+const StockCount = mongoose.models.StockCount || mongoose.model('StockCount', stockCountSchema);
+
+module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, MonthSettings, PendingNotification, Notification, CashCount, StockCount };

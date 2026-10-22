@@ -129,4 +129,16 @@ const handleSetReportTime = async (bot, msg, match) => {
     } catch (e) { bot.sendMessage(chatId, "❌ Помилка"); }
 };
 
-module.exports = { handleStart, handleLogin, handleLinkStore, handleSetNews, handleSetEvening, handleSetReportTime };
+// Топік каси, інкасації та складу
+const handleSetCash = async (bot, msg) => {
+    const chatId = msg.chat.id;
+    const threadId = msg.message_thread_id;
+    const store = await Store.findOne({ 'telegram.chatId': chatId });
+    if (!store) return bot.sendMessage(chatId, '❌ Спочатку прив\'яжіть магазин командою /link_store КОД', { message_thread_id: threadId });
+
+    store.telegram.cashTopicId = threadId;
+    await store.save();
+    bot.sendMessage(chatId, `💵 Цей топік встановлено для <b>Звітів Каси, Інкасації та Складу</b>.`, { parse_mode: 'HTML', message_thread_id: threadId });
+};
+
+module.exports = { handleStart, handleLogin, handleLinkStore, handleSetNews, handleSetEvening, handleSetReportTime, handleSetCash };

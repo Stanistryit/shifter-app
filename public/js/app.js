@@ -38,6 +38,7 @@ import { updateDashboard } from './modules/dashboard.js';
 import { readNotifications, closeNotificationsModal, markAllNotificationsAsRead } from './modules/notifications.js';
 import { loadStatistics } from './modules/statistics.js';
 import { syncSheetsSchedule, rollbackSheetsSchedule } from './modules/sheets_sync.js';
+import { initTerminal } from './modules/terminal.js';
 
 const tg = window.Telegram.WebApp;
 if (tg) { tg.ready(); if (tg.platform && tg.platform !== 'unknown') try { tg.expand() } catch (e) { } }
@@ -72,6 +73,7 @@ async function initApp() {
         loadComponent('list-container', 'components/tabs/list.html'),
         loadComponent('calendar-container', 'components/tabs/calendar.html'),
         loadComponent('grid-container', 'components/tabs/grid.html'),
+        loadComponent('terminal-container', 'components/tabs/terminal.html'),
 
         loadComponent('todo-container', 'components/tabs/todo.html'),
         loadComponent('profile-container', 'components/tabs/profile.html'),
@@ -155,7 +157,11 @@ async function initApp() {
 
     const urlParams = new URLSearchParams(window.location.search);
     const shortcut = urlParams.get('shortcut');
-    const savedMode = shortcut || localStorage.getItem('shifter_viewMode') || 'list';
+    const isTerminalURL = window.location.pathname.includes('/terminal') || 
+                          urlParams.get('terminal') === '1' || 
+                          urlParams.get('mode') === 'terminal' || 
+                          window.location.hash === '#terminal';
+    const savedMode = isTerminalURL ? 'terminal' : (shortcut || localStorage.getItem('shifter_viewMode') || 'list');
     setMode(savedMode);
 }
 
@@ -713,6 +719,9 @@ async function setMode(mode) {
     const t = document.getElementById('todo-container');
     const profileDiv = document.getElementById('profile-container');
     const statDiv = document.getElementById('statistics-container');
+    const termDiv = document.getElementById('terminal-container');
+    const dashDiv = document.getElementById('dashboard-container');
+    const adminDiv = document.getElementById('admin-container');
 
     if (l) l.classList.add('hidden');
     if (c) c.classList.add('hidden');
@@ -720,6 +729,14 @@ async function setMode(mode) {
     if (t) t.classList.add('hidden');
     if (profileDiv) profileDiv.classList.add('hidden');
     if (statDiv) statDiv.classList.add('hidden');
+    if (termDiv) termDiv.classList.add('hidden');
+    if (adminDiv) adminDiv.classList.add('hidden');
+
+    if (mode === 'terminal') {
+        if (dashDiv) dashDiv.classList.add('hidden');
+    } else {
+        if (dashDiv) dashDiv.classList.remove('hidden');
+    }
 
     const filtersContainer = document.getElementById('filtersContainer');
 
@@ -802,7 +819,7 @@ async function setMode(mode) {
         }
     });
 
-    [l, c, g, t, profileDiv, statDiv].forEach(v => {
+    [l, c, g, t, profileDiv, statDiv, termDiv].forEach(v => {
         if (v) {
             v.classList.remove('page-enter', 'animate-slide-up');
             void v.offsetWidth; // force reflow for restart
@@ -980,6 +997,12 @@ async function setMode(mode) {
     } else if (mode === 'statistics') {
         if (statDiv) { statDiv.classList.remove('hidden'); statDiv.classList.add('page-enter'); }
         loadStatistics();
+    } else if (mode === 'terminal') {
+        if (termDiv) {
+            termDiv.classList.remove('hidden');
+            termDiv.classList.add('page-enter');
+        }
+        initTerminal();
     }
 
     checkEditorButtonVisibility();

@@ -194,4 +194,20 @@ const broadcastToUsers = async (users, text, files) => {
     return successCount;
 };
 
-module.exports = { setBot, notifyUser, notifyAll, sendRequestToSM, broadcastToUsers };
+const sendStoreCashReport = async (storeId, text) => {
+    if (!botInstance) return;
+    try {
+        const store = await Store.findById(storeId);
+        if (!store || !store.telegram || !store.telegram.chatId) return;
+
+        const topicId = store.telegram.cashTopicId || store.telegram.eveningTopicId || null;
+        const options = { parse_mode: 'HTML' };
+        if (topicId) options.message_thread_id = topicId;
+
+        await botInstance.sendMessage(store.telegram.chatId, text, options);
+    } catch (e) {
+        console.error("sendStoreCashReport error:", e.message);
+    }
+};
+
+module.exports = { setBot, notifyUser, notifyAll, sendRequestToSM, broadcastToUsers, sendStoreCashReport };

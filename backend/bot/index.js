@@ -46,6 +46,8 @@ const initBot = (token, appUrl) => {
     bot.onText(/\/link_store (.+)/, (msg, match) => commands.handleLinkStore(bot, msg, match));
     bot.onText(/\/set_news/, (msg) => commands.handleSetNews(bot, msg));
     bot.onText(/\/set_evening/, (msg) => commands.handleSetEvening(bot, msg));
+    bot.onText(/\/set_cash/, (msg) => commands.handleSetCash(bot, msg));
+    bot.onText(/\/set_kasa/, (msg) => commands.handleSetCash(bot, msg));
     bot.onText(/\/set_time (.+)/, (msg, match) => commands.handleSetReportTime(bot, msg, match));
     bot.onText(/\/my_id/, (msg) => bot.sendMessage(msg.chat.id, `Ваш ID: <code>${msg.from.id}</code>`, { parse_mode: 'HTML' }));
 
