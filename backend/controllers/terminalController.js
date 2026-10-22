@@ -324,3 +324,66 @@ exports.updateTerminalSettings = async (req, res) => {
         }
     });
 };
+
+// 9. Отримання графіку змін магазину на місяць для модалки терміналу
+exports.getTerminalSchedule = async (req, res) => {
+    let storeId = req.query.storeId || req.session?.terminalStoreId;
+    if (!storeId) {
+        return res.status(400).json({ success: false, message: "storeId обов'язковий" });
+    }
+
+    const store = await Store.findById(storeId);
+    if (!store) {
+        return res.status(404).json({ success: false, message: "Магазин не знайдено" });
+    }
+
+    // Визначаємо поточну дату та запрошений місяць/рік за Києвом
+    const nowKiev = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
+    const year = parseInt(req.query.year) || nowKiev.getFullYear();
+    const month = parseInt(req.query.month) || (nowKiev.getMonth() + 1);
+
+    const monthStr = String(month).padStart(2, '0');
+    const dateRegex = new RegExp(`^${year}-${monthStr}`);
+
+    // Співробітники цього магазину
+    const storeUsers = await User.find({ storeId: store._id }, 'name fullName position avatar role').sort({ name: 1 }).lean();
+    const storeUserNames = storeUsers.map(u => u.name);
+
+    // Зміни цього магазину або його працівників (або підміни)
+    const shifts = await Shift.find({
+        date: { $regex: dateRegex },
+        $or: [
+            { storeId: store._id },
+            { name: { $in: storeUserNames } },
+            { substituteStoreId: store._id }
+        ],
+        start: { $ne: 'DELETE' }
+    }).select('date name start end storeId isSubstitute substituteStoreId').lean();
+
+    // Додаємо запрошених співробітників (якщо хтось із іншого магазину має зміну тут)
+    const shiftUserNames = [...new Set(shifts.map(s => s.name))];
+    const missingNames = shiftUserNames.filter(n => !storeUserNames.includes(n));
+    if (missingNames.length > 0) {
+        const guestUsers = await User.find({ name: { $in: missingNames } }, 'name fullName position avatar role').lean();
+        storeUsers.push(...guestUsers);
+    }
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const todayStr = `${nowKiev.getFullYear()}-${String(nowKiev.getMonth() + 1).padStart(2, '0')}-${String(nowKiev.getDate()).padStart(2, '0')}`;
+
+    res.json({
+        success: true,
+        store: {
+            _id: store._id,
+            name: store.name,
+            code: store.code
+        },
+        year,
+        month,
+        daysInMonth,
+        todayStr,
+        employees: storeUsers,
+        shifts
+    });
+};
+

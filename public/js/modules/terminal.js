@@ -929,3 +929,387 @@ window.exitTerminalMode = function () {
         window.location.href = '/';
     }
 };
+
+// ==========================================
+// 19. ГРАФІК ЗМІН МАГАЗИНУ (МОДАЛЬНЕ ВІКНО)
+// ==========================================
+
+let terminalScheduleState = {
+    year: null,
+    month: null,
+    data: null,
+    loading: false
+};
+
+const monthNamesUa = [
+    'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
+    'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'
+];
+
+function calcTerminalShiftHours(start, end) {
+    if (!start || !end || start === 'Відпустка' || start === 'Лікарняний' || start === 'Донорство' || start === 'DELETE') return 0;
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    if (isNaN(sh) || isNaN(eh)) return 0;
+    let diff = (eh + (em || 0) / 60) - (sh + (sm || 0) / 60);
+    if (diff < 0) diff += 24;
+    return diff;
+}
+
+function getTerminalShiftColorClass(start, end) {
+    const key = `${start}-${end}`;
+    const map = {
+        '10:00-19:00': 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-700',
+        '09:30-18:30': 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700',
+        '11:30-20:30': 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700',
+        '12:00-21:00': 'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 border border-purple-300 dark:border-purple-700',
+        '13:00-22:00': 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700',
+        '14:00-22:00': 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border border-cyan-300 dark:border-cyan-700',
+        '09:00-18:00': 'bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-200 border border-teal-300 dark:border-teal-700',
+        '08:00-17:00': 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 border border-yellow-300 dark:border-yellow-700'
+    };
+    if (map[key]) return map[key];
+    return 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800';
+}
+
+async function loadTerminalSchedule() {
+    const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+    const container = document.getElementById('termScheduleBody');
+    const monthLabel = document.getElementById('termSchedCurrentMonthLabel');
+    const badge = document.getElementById('termSchedStoreBadge');
+
+    if (monthLabel) {
+        monthLabel.innerText = `${monthNamesUa[terminalScheduleState.month - 1]} ${terminalScheduleState.year}`;
+    }
+    if (badge && terminalState.store) {
+        badge.innerText = terminalState.store.name || terminalState.store.code || '---';
+    }
+
+    if (container) {
+        container.innerHTML = `
+            <div class="text-center text-xs text-gray-400 py-16 flex flex-col items-center justify-center gap-2">
+                <div class="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <span>Завантаження розкладу...</span>
+            </div>
+        `;
+    }
+
+    try {
+        const res = await fetchJson(`/api/terminal/schedule?storeId=${storeId}&year=${terminalScheduleState.year}&month=${terminalScheduleState.month}`);
+        if (res && res.success) {
+            terminalScheduleState.data = res;
+            renderTerminalScheduleTable(res);
+        } else {
+            if (container) container.innerHTML = `<div class="text-center text-xs text-red-500 py-16">${res?.message || 'Помилка завантаження графіку'}</div>`;
+        }
+    } catch (e) {
+        if (container) container.innerHTML = `<div class="text-center text-xs text-red-500 py-16">Не вдалося завантажити розклад</div>`;
+    }
+}
+
+function renderTerminalScheduleTable(data) {
+    const container = document.getElementById('termScheduleBody');
+    if (!container) return;
+
+    const { year, month, daysInMonth, todayStr, employees, shifts } = data;
+
+    if (!employees || employees.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-xs text-gray-400 py-16">
+                У цьому магазині поки немає доданих співробітників
+            </div>
+        `;
+        return;
+    }
+
+    const daysOfWeekUa = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+    const monthStr = String(month).padStart(2, '0');
+
+    // Рахуємо статистику по днях і по співробітниках
+    const dailyCounts = {};
+    for (let d = 1; d <= daysInMonth; d++) dailyCounts[d] = 0;
+
+    let totalMonthShifts = 0;
+    let totalMonthHours = 0;
+
+    const empStats = employees.map(emp => {
+        let hours = 0;
+        let count = 0;
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dStr = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
+            const s = shifts.find(item => item.name === emp.name && item.date === dStr);
+            if (s && s.start && s.start !== 'DELETE') {
+                if (s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство') {
+                    const h = calcTerminalShiftHours(s.start, s.end);
+                    hours += h;
+                    count++;
+                    dailyCounts[d]++;
+                    totalMonthShifts++;
+                    totalMonthHours += h;
+                }
+            }
+        }
+        return { emp, hours, count };
+    });
+
+    // Сортуємо: керівники/більше змін зверху
+    empStats.sort((a, b) => b.count - a.count || a.emp.name.localeCompare(b.emp.name));
+
+    let html = `
+    <div class="inline-block min-w-full align-middle">
+        <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm bg-white dark:bg-[#1C1C1E]">
+            <table class="min-w-full border-collapse text-left text-xs">
+                <thead>
+                    <tr class="bg-gray-100/90 dark:bg-[#252528] backdrop-blur sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+                        <th scope="col" class="sticky left-0 z-40 bg-gray-100 dark:bg-[#252528] px-3 py-2.5 font-black text-gray-700 dark:text-gray-200 border-b border-r border-gray-200 dark:border-gray-800 min-w-[170px] max-w-[200px]">
+                            Співробітник
+                        </th>
+    `;
+
+    // Заголовки днів
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dStr = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
+        const dateObj = new Date(year, month - 1, d);
+        const dow = daysOfWeekUa[dateObj.getDay()];
+        const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+        const isToday = dStr === todayStr;
+
+        let thClass = 'border-b border-r border-gray-200 dark:border-gray-800 text-center py-2 px-1 min-w-[76px] transition-colors ';
+        if (isToday) {
+            thClass += 'bg-blue-500 text-white font-extrabold shadow-sm';
+        } else if (isWeekend) {
+            thClass += 'bg-rose-50/50 dark:bg-rose-950/20 text-rose-500 font-bold';
+        } else {
+            thClass += 'text-gray-600 dark:text-gray-300 font-semibold';
+        }
+
+        html += `
+            <th scope="col" class="${thClass}" ${isToday ? 'data-sched-today="true"' : ''}>
+                <div class="text-[10px] ${isToday ? 'text-blue-100' : 'text-gray-400 dark:text-gray-400'} uppercase font-bold tracking-tight">${dow}</div>
+                <div class="text-xs ${isToday ? 'text-white' : ''}">${d}</div>
+            </th>
+        `;
+    }
+
+    // Колонка "Всього"
+    html += `
+                        <th scope="col" class="sticky right-0 z-40 bg-gray-100 dark:bg-[#252528] px-3 py-2.5 text-center font-black text-gray-700 dark:text-gray-200 border-b border-l border-gray-200 dark:border-gray-800 min-w-[90px]">
+                            Всього
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800/60 font-medium">
+    `;
+
+    // Рядки для кожного співробітника
+    empStats.forEach(({ emp, hours, count }, idx) => {
+        const rowBg = idx % 2 === 0 ? 'bg-white dark:bg-[#1C1C1E]' : 'bg-gray-50/40 dark:bg-[#202022]';
+        html += `<tr class="${rowBg} hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">`;
+
+        // Ліва закріплена колонка (ПІБ, посада)
+        const initial = (emp.fullName || emp.name).charAt(0).toUpperCase();
+        html += `
+            <td class="sticky left-0 z-20 ${rowBg} px-3 py-2 border-r border-gray-200 dark:border-gray-800 shadow-[2px_0_4px_rgba(0,0,0,0.03)]">
+                <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center font-bold text-[10px] flex-shrink-0">
+                        ${initial}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="font-bold text-xs truncate text-gray-900 dark:text-white" title="${emp.fullName || emp.name}">
+                            ${emp.fullName || emp.name}
+                        </div>
+                        <div class="text-[10px] text-gray-400 truncate leading-none mt-0.5">
+                            ${emp.position || 'Співробітник'}
+                        </div>
+                    </div>
+                </div>
+            </td>
+        `;
+
+        // Клітинки днів
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dStr = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
+            const s = shifts.find(item => item.name === emp.name && item.date === dStr);
+            const isToday = dStr === todayStr;
+
+            let tdClass = `border-r border-gray-100 dark:border-gray-800/80 text-center p-1 relative `;
+            if (isToday) {
+                tdClass += `bg-blue-50/60 dark:bg-blue-950/30 `;
+            }
+
+            html += `<td class="${tdClass}">`;
+
+            if (s && s.start && s.start !== 'DELETE') {
+                if (s.start === 'Відпустка') {
+                    html += `
+                        <div class="py-1 px-1 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-[10px] font-bold" title="Відпустка">
+                            🌴 Відп
+                        </div>
+                    `;
+                } else if (s.start === 'Лікарняний') {
+                    html += `
+                        <div class="py-1 px-1 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 text-[10px] font-bold" title="Лікарняний">
+                            💊 Лік
+                        </div>
+                    `;
+                } else if (s.start === 'Донорство') {
+                    html += `
+                        <div class="py-1 px-1 rounded-lg bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/60 text-[10px] font-bold" title="Донорство">
+                            🩸 Дон
+                        </div>
+                    `;
+                } else {
+                    const shiftH = calcTerminalShiftHours(s.start, s.end);
+                    const pillColor = getTerminalShiftColorClass(s.start, s.end);
+                    const isSubBadge = s.isSubstitute ? '<span class="text-[9px] text-indigo-500 font-bold" title="Підміна">🔄</span>' : '';
+                    html += `
+                        <div class="py-1 px-1.5 rounded-lg ${pillColor} text-[11px] font-black leading-tight shadow-xs active:scale-95 transition-transform" title="${emp.fullName || emp.name}: ${s.start} - ${s.end} (${shiftH} год)">
+                            <div class="font-extrabold tracking-tight flex items-center justify-center gap-0.5">${s.start} ${isSubBadge}</div>
+                            <div class="text-[10px] opacity-80">${s.end}</div>
+                        </div>
+                    `;
+                }
+            } else {
+                html += `<span class="text-gray-300 dark:text-gray-600 text-xs select-none">•</span>`;
+            }
+
+            html += `</td>`;
+        }
+
+        // Права закріплена колонка (Всього годин та змін)
+        html += `
+            <td class="sticky right-0 z-20 ${rowBg} px-2 py-2 text-center border-l border-gray-200 dark:border-gray-800 shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
+                <div class="font-black text-xs text-blue-600 dark:text-blue-400">
+                    ${hours % 1 === 0 ? hours : hours.toFixed(1)}г
+                </div>
+                <div class="text-[10px] text-gray-400 font-medium">
+                    ${count} зм
+                </div>
+            </td>
+        `;
+
+        html += `</tr>`;
+    });
+
+    // Підсумковий рядок: кількість людей на зміні кожного дня
+    html += `
+                </tbody>
+                <tfoot>
+                    <tr class="bg-gray-100/90 dark:bg-[#252528] sticky bottom-0 z-30 font-bold border-t-2 border-gray-300 dark:border-gray-700">
+                        <td class="sticky left-0 z-40 bg-gray-100 dark:bg-[#252528] px-3 py-2 text-xs text-gray-700 dark:text-gray-300 border-r border-gray-200 dark:border-gray-800 shadow-[2px_0_4px_rgba(0,0,0,0.03)] font-black">
+                            👥 На зміні
+                        </td>
+    `;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const count = dailyCounts[d];
+        const dStr = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
+        const isToday = dStr === todayStr;
+
+        let tdClass = `border-r border-gray-200 dark:border-gray-800 text-center py-2 px-1 `;
+        if (isToday) tdClass += `bg-blue-100 dark:bg-blue-900/40 `;
+
+        html += `
+            <td class="${tdClass}">
+                <span class="inline-block px-1.5 py-0.5 rounded-md text-[10px] font-black ${count > 0 ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}">
+                    ${count}
+                </span>
+            </td>
+        `;
+    }
+
+    html += `
+                        <td class="sticky right-0 z-40 bg-gray-100 dark:bg-[#252528] px-2 py-2 text-center text-xs text-blue-600 dark:text-blue-400 font-black border-l border-gray-200 dark:border-gray-800 shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
+                            ${totalMonthHours % 1 === 0 ? totalMonthHours : totalMonthHours.toFixed(1)}г
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    `;
+
+    container.innerHTML = html;
+
+    // Оновлюємо статистику в підвалі
+    const statsEl = document.getElementById('termSchedSummaryStats');
+    if (statsEl) {
+        statsEl.innerHTML = `Всього на місяць: <span class="text-blue-600 dark:text-blue-400 font-black">${totalMonthShifts}</span> змін • <span class="text-blue-600 dark:text-blue-400 font-black">${totalMonthHours % 1 === 0 ? totalMonthHours : totalMonthHours.toFixed(1)}</span> год`;
+    }
+
+    // Автоматично прокручуємо до сьогодні, якщо дивимося поточний місяць
+    const nowKiev = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
+    if (year === nowKiev.getFullYear() && month === (nowKiev.getMonth() + 1)) {
+        setTimeout(() => {
+            const todayEl = container.querySelector('[data-sched-today="true"]');
+            if (todayEl) {
+                todayEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }
+        }, 120);
+    }
+}
+
+window.openTerminalScheduleModal = function () {
+    triggerHaptic();
+    const modal = document.getElementById('terminalScheduleModal');
+    if (!modal) return;
+
+    modal.classList.remove('hidden');
+
+    if (!terminalScheduleState.year || !terminalScheduleState.month) {
+        const nowKiev = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
+        terminalScheduleState.year = nowKiev.getFullYear();
+        terminalScheduleState.month = nowKiev.getMonth() + 1;
+    }
+
+    loadTerminalSchedule();
+};
+
+window.closeTerminalScheduleModal = function () {
+    triggerHaptic();
+    document.getElementById('terminalScheduleModal')?.classList.add('hidden');
+};
+
+window.changeTerminalScheduleMonth = function (delta) {
+    triggerHaptic();
+    terminalScheduleState.month += delta;
+    if (terminalScheduleState.month > 12) {
+        terminalScheduleState.month = 1;
+        terminalScheduleState.year += 1;
+    } else if (terminalScheduleState.month < 1) {
+        terminalScheduleState.month = 12;
+        terminalScheduleState.year -= 1;
+    }
+    loadTerminalSchedule();
+};
+
+window.jumpTerminalScheduleToToday = async function () {
+    triggerHaptic();
+    const nowKiev = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
+    const currYear = nowKiev.getFullYear();
+    const currMonth = nowKiev.getMonth() + 1;
+
+    if (terminalScheduleState.year !== currYear || terminalScheduleState.month !== currMonth) {
+        terminalScheduleState.year = currYear;
+        terminalScheduleState.month = currMonth;
+        await loadTerminalSchedule();
+    }
+
+    setTimeout(() => {
+        const todayEl = document.querySelector('#termScheduleBody [data-sched-today="true"]');
+        if (todayEl) {
+            todayEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+    }, 150);
+};
+
+// Закриття модалки розкладу по Esc
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const schedModal = document.getElementById('terminalScheduleModal');
+        if (schedModal && !schedModal.classList.contains('hidden')) {
+            window.closeTerminalScheduleModal();
+        }
+    }
+});
+
