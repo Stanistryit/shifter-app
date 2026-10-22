@@ -234,6 +234,8 @@ const notificationSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 notificationSchema.index({ userId: 1, isRead: 1 });
+const Notification = mongoose.models.Notification || mongoose.model('Notification', notificationSchema);
+
 // 16. Схема Перерахунку Каси та Інкасації
 const cashCountSchema = new mongoose.Schema({
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true },
