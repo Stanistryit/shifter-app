@@ -157,23 +157,21 @@ export function renderTable() {
 
     let monthNorm = 0;
 
+    let currentStore = null;
     if (state.stores && activeStoreId) {
-        const foundStore = state.stores.find(s => String(s._id) === String(activeStoreId) || String(s.code) === String(activeStoreId));
-        if (foundStore) {
-            if (foundStore.openTime) openTime = foundStore.openTime;
-            if (foundStore.closeTime) closeTime = foundStore.closeTime;
-            if (foundStore.normHours) monthNorm = foundStore.normHours[viewMonthStr] || 0;
+        currentStore = state.stores.find(s => String(s._id) === String(activeStoreId) || String(s.code) === String(activeStoreId));
+    }
+    if (!currentStore) {
+        const userStoreObj = state.currentUser?.store || state.currentUser?.storeId;
+        if (userStoreObj && typeof userStoreObj === 'object') {
+            currentStore = userStoreObj;
         }
     }
 
-    // Якщо в state.stores не знайшло (або його ще немає), пробуємо взяти з populated currentUser
-    if (openTime === "10:00" && closeTime === "22:00" && monthNorm === 0) {
-        const userStoreObj = state.currentUser?.store || state.currentUser?.storeId;
-        if (userStoreObj && typeof userStoreObj === 'object') {
-            if (userStoreObj.openTime) openTime = userStoreObj.openTime;
-            if (userStoreObj.closeTime) closeTime = userStoreObj.closeTime;
-            if (userStoreObj.normHours) monthNorm = userStoreObj.normHours[viewMonthStr] || 0;
-        }
+    if (currentStore) {
+        if (currentStore.openTime) openTime = currentStore.openTime;
+        if (currentStore.closeTime) closeTime = currentStore.closeTime;
+        if (currentStore.normHours) monthNorm = currentStore.normHours[viewMonthStr] || 0;
     }
 
     let usersToShow = getUsersForView(viewMonthStr);
@@ -350,12 +348,16 @@ export function renderTable() {
         let relevantShifts = finalShifts;
         if (!isAllStoresAdmin && activeStoreId) {
             relevantShifts = finalShifts.filter(s => {
-                const sStoreId = s.storeId?._id || s.storeId;
+                let sStoreId = s.storeId?._id || s.storeId;
+                if (!sStoreId) {
+                    const u = state.users ? state.users.find(usr => usr.name === s.name) : null;
+                    sStoreId = u?.storeId?._id || u?.storeId;
+                }
                 return sStoreId && String(sStoreId) === String(activeStoreId);
             });
         }
 
-        // Покращений розрахунок (хто закриває, хто відкриває)
+        // Розрахунок (хто закриває, хто відкриває за графіком роботи магазину)
         const openTimeDec = timeToDec(openTime);
         let closeTimeDec = timeToDec(closeTime);
 
@@ -384,14 +386,10 @@ export function renderTable() {
                 if (startD > 0) endD = 24;
             }
 
-            // Людина вважається "відкриваючою", якщо прийшла до або рівно в час відкриття
+            // Людина вважається "відкриваючою", якщо прийшла до або рівно в час відкриття магазину
             if (s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство') {
-                // Допуск 15 хвилин для закриття та відкриття:
-                // Якщо прийшов трошки пізніше відкриття (наприклад відкриття 10:00, прийшов о 10:00 - рахується)
-                if (startD <= openTimeDec) openers++;
-
-                // Якщо пішов рівно в час закриття або пізніше
-                if (endD >= closeTimeDec) closers++;
+                if (startD <= openTimeDec && endD > openTimeDec) openers++;
+                if (endD >= closeTimeDec && startD < closeTimeDec) closers++;
             }
         });
 
@@ -399,18 +397,20 @@ export function renderTable() {
         let badgeClass = "text-gray-500";
         let contentHtml = count > 0 ? count : '-';
 
-        if (count > 0 && (openers < 2 || closers < 2)) {
-            badgeClass = "bg-red-100 text-red-600 font-bold";
+        // Перевірка: чи є хоча б одна людина на відкриття та закриття магазину
+        if (count > 0 && (openers < 1 || closers < 1)) {
+            badgeClass = "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400 font-bold";
             // Якщо не вистачає і відкриваючих, і закриваючих
-            if (openers < 2 && closers < 2) {
-                contentHtml = `<div class="flex items-center justify-center gap-0.5" title="Не вистачає відкриваючих та закриваючих"><span>${count}</span><span class="text-[8px]">⚠️</span></div>`;
-            } else if (openers < 2) {
-                contentHtml = `<div class="flex items-center justify-center gap-0.5" title="Не вистачає тих, хто відкриває"><span>${count}</span><span class="text-[8px]">🌅</span></div>`;
+            if (openers < 1 && closers < 1) {
+                contentHtml = `<div class="flex items-center justify-center gap-0.5" title="Немає співробітників на відкриття (до ${openTime}) та закриття (після ${closeTime})"><span>${count}</span><span class="text-[8px]">⚠️</span></div>`;
+            } else if (openers < 1) {
+                contentHtml = `<div class="flex items-center justify-center gap-0.5" title="Немає співробітника на відкриття (до ${openTime})"><span>${count}</span><span class="text-[8px]">🌅</span></div>`;
             } else {
-                contentHtml = `<div class="flex items-center justify-center gap-0.5" title="Не вистачає тих, хто закриває"><span>${count}</span><span class="text-[8px]">🌙</span></div>`;
+                contentHtml = `<div class="flex items-center justify-center gap-0.5" title="Немає співробітника на закриття (після ${closeTime})"><span>${count}</span><span class="text-[8px]">🌙</span></div>`;
             }
         } else if (count > 0) {
-            badgeClass = "text-green-600 font-medium";
+            badgeClass = "text-green-600 dark:text-green-400 font-medium";
+            contentHtml = `<span title="Відкриття: ${openers}, Закриття: ${closers}">${count}</span>`;
         }
 
         html += `<td class="text-center border-r border-gray-100 dark:border-gray-800 text-[10px] ${badgeClass}">
