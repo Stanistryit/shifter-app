@@ -32,6 +32,7 @@ router.get('/telegram-link', catchAsync(authController.getTelegramLink));
 router.get('/user/calendar-token', catchAsync(authController.getCalendarToken));
 router.get('/users', catchAsync(authController.getUsers));
 router.get('/me', catchAsync(authController.getMe));
+router.get('/avatar/:userId', catchAsync(authController.getAvatar));
 router.post('/user/avatar', catchAsync(authController.uploadAvatar));
 router.post('/user/notify-badge', catchAsync(authController.notifyBadge));
 

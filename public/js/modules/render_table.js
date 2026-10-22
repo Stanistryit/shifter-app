@@ -613,7 +613,7 @@ export function renderTable() {
                                 : shift.storeId;
                             const storeName = subStoreObj?.name || 'Інший магазин';
                             const safeStoreName = storeName.replace(/'/g, "\\'");
-                            content = `<div onclick="if(!window.state?.isEditMode) window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', avatar: '${user.avatar || ''}', position: '${user.position || ''}', type: 'substitute', targetStoreName: '${safeStoreName}', date: '${ds}', start: '${shift.start}', end: '${shift.end}', duration: ${durStr}, lunchMins: ${lunchMins}, shiftId: '${shift._id || ''}' })" title="Підміна в магазині: ${storeName}" class="relative text-[9.5px] font-mono leading-tight bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-200 rounded px-1 py-0.5 shadow-sm border border-orange-300 dark:border-orange-800 cursor-pointer active:scale-95 ${opacity}">
+                            content = `<div onclick="if(!window.state?.isEditMode) window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', position: '${user.position || ''}', type: 'substitute', targetStoreName: '${safeStoreName}', date: '${ds}', start: '${shift.start}', end: '${shift.end}', duration: ${durStr}, lunchMins: ${lunchMins}, shiftId: '${shift._id || ''}' })" title="Підміна в магазині: ${storeName}" class="relative text-[9.5px] font-mono leading-tight bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-200 rounded px-1 py-0.5 shadow-sm border border-orange-300 dark:border-orange-800 cursor-pointer active:scale-95 ${opacity}">
                                 <div class="text-[7.5px] font-sans font-bold truncate text-orange-700 dark:text-orange-300 leading-none mb-0.5 flex items-center justify-center gap-0.5">
                                     <span class="text-[8px] leading-none">📍</span>
                                     <span class="truncate">${storeName}</span>
@@ -630,7 +630,7 @@ export function renderTable() {
                                 const safeHomeStoreName = homeStoreName.replace(/'/g, "\\'");
                                 guestIndicator = '<div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>';
                             }
-                            content = `<div onclick="if(!window.state?.isEditMode) window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', avatar: '${user.avatar || ''}', position: '${user.position || ''}', type: 'regular', date: '${ds}', start: '${shift.start}', end: '${shift.end}', duration: ${durStr}, lunchMins: ${lunchMins}, shiftId: '${shift._id || ''}' })" title="${user.fullName || user.name}&#10;⏰ ${shift.start} - ${shift.end} (${durStr} год)" class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity} cursor-pointer active:scale-95">
+                            content = `<div onclick="if(!window.state?.isEditMode) window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', position: '${user.position || ''}', type: 'regular', date: '${ds}', start: '${shift.start}', end: '${shift.end}', duration: ${durStr}, lunchMins: ${lunchMins}, shiftId: '${shift._id || ''}' })" title="${user.fullName || user.name}&#10;⏰ ${shift.start} - ${shift.end} (${durStr} год)" class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity} cursor-pointer active:scale-95">
                                 ${guestIndicator}
                                 ${shift.start}<br>${shift.end}
                                 ${badgeHtml}
@@ -764,7 +764,7 @@ export function renderTable() {
                                  fullName: '${safeFullName}',
                                  userName: '${safeGUserName}',
                                  shortName: '${gShortName}',
-                                 avatar: '${item.user.avatar || ''}',
+
                                  position: '${item.user.position || ''}',
                                  type: 'guest',
                                  homeStoreName: '${safeHomeStoreName}',

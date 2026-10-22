@@ -810,6 +810,15 @@ export function uploadAvatar() {
 
         postJson('/api/user/avatar', { avatar: dataUrl }).then(data => {
             if (data.success) {
+                const newAvatarUrl = data.avatarUrl || dataUrl;
+                if (state.currentUser) {
+                    state.currentUser.avatar = newAvatarUrl;
+                }
+                if (Array.isArray(state.users)) {
+                    const myU = state.users.find(u => u.name === state.currentUser?.name);
+                    if (myU) myU.avatar = newAvatarUrl;
+                }
+
                 // Update top-right small avatar (if it still exists somewhere)
                 const smallImg = document.getElementById('userAvatarImg');
                 if (smallImg) {

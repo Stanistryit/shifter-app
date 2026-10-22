@@ -389,8 +389,9 @@ export function openShiftDetailsModal(info) {
     }
 
     const firstLetter = (info.fullName || info.userName || '👤').trim()[0].toUpperCase();
-    const avatarContent = info.avatar 
-        ? `<img src="${info.avatar}" class="w-full h-full object-cover rounded-full">`
+    const resolvedAvatar = info.avatar || (window.state?.users && window.state.users.find(u => u.name === info.userName)?.avatar) || null;
+    const avatarContent = resolvedAvatar 
+        ? `<img src="${resolvedAvatar}" class="w-full h-full object-cover rounded-full">`
         : firstLetter;
 
     const modalHtml = `

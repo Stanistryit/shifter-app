@@ -24,23 +24,42 @@ export async function fetchJson(url, options = {}, retries = 2) {
     try {
         const res = await fetch(url, options);
         hideTopProgress();
+        const text = await res.text();
+        
         if (!res.ok) {
             console.error(`HTTP ${res.status} error for ${url}`);
             try {
-                const text = await res.text();
                 return JSON.parse(text);
             } catch {
                 return { success: false, status: res.status, message: `HTTP ${res.status}` };
             }
         }
-        return await res.json();
+
+        try {
+            return JSON.parse(text);
+        } catch (parseErr) {
+            console.error(`JSON Parse error for ${url}:`, parseErr, `(length: ${text.length})`);
+            // Відновлення обірваного JSON масиву [ {...}, {...}
+            const trimmed = text.trim();
+            if (trimmed.startsWith('[') && trimmed.lastIndexOf('}') > 0) {
+                try {
+                    const repaired = trimmed.slice(0, trimmed.lastIndexOf('}') + 1) + ']';
+                    const data = JSON.parse(repaired);
+                    console.warn(`⚠️ Auto-repaired truncated JSON array for ${url} (recovered ${data.length} items)`);
+                    return data;
+                } catch (repairErr) {
+                    // ignore and throw original parseErr
+                }
+            }
+            throw parseErr;
+        }
     } catch (e) {
         console.error(`API Error for ${url}:`, e);
         hideTopProgress();
         const isGet = !options.method || options.method.toUpperCase() === 'GET';
         if (retries > 0 && isGet) {
             console.warn(`🔄 Повторна спроба для ${url} (${retries} залишилось)...`);
-            await new Promise(r => setTimeout(r, 350));
+            await new Promise(r => setTimeout(r, 400));
             return fetchJson(url, options, retries - 1);
         }
         return { success: false, message: "Network Error" };

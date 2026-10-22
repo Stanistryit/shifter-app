@@ -1,7 +1,16 @@
+const mongoose = require('mongoose');
 const { User, Store, Shift, Task } = require('../models');
 const { logAction } = require('../utils');
 const { getBot } = require('../bot');
 const bcrypt = require('bcryptjs');
+
+function resolveAvatarUrl(user) {
+    if (!user || !user.avatar) return null;
+    if (typeof user.avatar === 'string' && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://'))) {
+        return user.avatar;
+    }
+    return `/api/avatar/${user._id}`;
+}
 
 exports.getStores = async (req, res) => {
     try {
@@ -141,7 +150,7 @@ exports.login = async (req, res) => {
                 _id: user._id,
                 name: user.name,
                 role: user.role,
-                avatar: user.avatar,
+                avatar: resolveAvatarUrl(user),
                 status: user.status,
                 storeId: user.storeId?._id || user.storeId,
                 store: user.storeId ? {
@@ -268,7 +277,7 @@ exports.telegramLogin = async (req, res) => {
                 _id: user._id,
                 name: user.name,
                 role: user.role,
-                avatar: user.avatar,
+                avatar: resolveAvatarUrl(user),
                 status: user.status,
                 storeId: user.storeId?._id || user.storeId,
                 store: user.storeId ? {
@@ -292,11 +301,12 @@ exports.logout = (req, res) => {
 
 exports.getUsers = async (req, res) => {
     if (!req.session.userId) return res.status(403).json([]);
-    const currentUser = await User.findById(req.session.userId);
+    const currentUser = await User.findById(req.session.userId).lean();
+    if (!currentUser) return res.status(403).json([]);
     let query = {};
 
     if (currentUser.role !== 'admin' && req.query.all !== 'true') {
-        const shifts = await Shift.find({ storeId: currentUser.storeId });
+        const shifts = await Shift.find({ storeId: currentUser.storeId }, 'name').lean();
         const userNames = shifts.map(s => s.name);
 
         query = {
@@ -307,15 +317,23 @@ exports.getUsers = async (req, res) => {
         };
     }
 
-    // 🔥 НОВЕ: Додав sortOrder, createdAt, customBadges, isTemp, inviteCode у вибірку
-    const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId sortOrder createdAt customBadges isTemp inviteCode').populate('storeId', 'name');
-    res.json(users);
+    // 🔥 Оптимізовано: lean() та легкий resolveAvatarUrl замість величезного base64 у відповіді
+    const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId sortOrder createdAt customBadges isTemp inviteCode')
+        .populate('storeId', 'name')
+        .lean();
+
+    const sanitizedUsers = users.map(u => ({
+        ...u,
+        avatar: resolveAvatarUrl(u)
+    }));
+
+    res.json(sanitizedUsers);
 };
 
 exports.getMe = async (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
     // 🔥 НОВЕ: populate storeId щоб отримати графік роботи магазину
-    const user = await User.findById(req.session.userId).populate('storeId');
+    const user = await User.findById(req.session.userId).populate('storeId').lean();
 
     let userData = null;
     if (user) {
@@ -323,7 +341,7 @@ exports.getMe = async (req, res) => {
             _id: user._id, // Додали ID для надійності
             name: user.name,
             role: user.role,
-            avatar: user.avatar,
+            avatar: resolveAvatarUrl(user),
             status: user.status,
             storeId: user.storeId?._id || user.storeId,
 
@@ -476,7 +494,43 @@ exports.uploadAvatar = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Зображення завелике. Максимальний розмір: ~500 KB' });
     }
     await User.findByIdAndUpdate(req.session.userId, { avatar });
-    res.json({ success: true });
+    res.json({ success: true, avatarUrl: `/api/avatar/${req.session.userId}?t=${Date.now()}` });
+};
+
+exports.getAvatar = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).send('Invalid user ID');
+        }
+        const user = await User.findById(userId, 'avatar').lean();
+        if (!user || !user.avatar) {
+            return res.status(404).send('Avatar not found');
+        }
+
+        const avatarStr = String(user.avatar).trim();
+
+        if (avatarStr.startsWith('data:')) {
+            const matches = avatarStr.match(/^data:([A-Za-z0-9\/\+\-]+);base64,(.+)$/s);
+            if (matches && matches.length === 3) {
+                const contentType = matches[1];
+                const base64Data = matches[2].replace(/\s+/g, '');
+                const buffer = Buffer.from(base64Data, 'base64');
+                res.set('Content-Type', contentType);
+                res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+                return res.send(buffer);
+            }
+        }
+
+        if (avatarStr.startsWith('http://') || avatarStr.startsWith('https://')) {
+            return res.redirect(avatarStr);
+        }
+
+        return res.status(404).send('Invalid avatar format');
+    } catch (err) {
+        console.error('getAvatar error:', err);
+        return res.status(500).send('Server error');
+    }
 };
 
 exports.getTelegramLink = async (req, res) => {
