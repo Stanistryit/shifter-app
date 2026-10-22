@@ -779,3 +779,34 @@ window.cancelTerminalLogin = function () {
     localStorage.removeItem('shifter_viewMode');
     window.location.href = '/';
 };
+
+window.toggleTerminalFullscreen = function () {
+    triggerHaptic();
+    if (!document.fullscreenElement) {
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        }
+        const icon = document.getElementById('termFullscreenIcon');
+        if (icon) icon.innerText = '🗗';
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+        }
+        const icon = document.getElementById('termFullscreenIcon');
+        if (icon) icon.innerText = '⛶';
+    }
+};
+
+window.exitTerminalMode = function () {
+    triggerHaptic();
+    localStorage.removeItem('shifter_viewMode');
+    if (state.currentUser && state.currentUser.role && state.currentUser.role !== 'Terminal' && state.currentUser.role !== 'Guest') {
+        if (window.setMode) {
+            window.setMode('list');
+        } else {
+            window.location.href = '/';
+        }
+    } else {
+        window.location.href = '/';
+    }
+};

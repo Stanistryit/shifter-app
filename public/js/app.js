@@ -708,6 +708,41 @@ function exportCurrentMonthPdf() {
 // Expose function to global scope for HTML onclick
 window.exportCurrentMonthPdf = exportCurrentMonthPdf;
 
+export function applyTerminalLayout(isTerminal) {
+    const appScreen = document.getElementById('appScreen');
+    const deskSidebar = document.getElementById('desktop-sidebar-container');
+    const mobNavbar = document.getElementById('mobile-navbar-container');
+    const botNav = document.getElementById('bottom-navbar-container');
+    const mainContainer = document.getElementById('mainContentContainer');
+
+    if (isTerminal) {
+        if (deskSidebar) deskSidebar.classList.add('hidden');
+        if (mobNavbar) mobNavbar.classList.add('hidden');
+        if (botNav) botNav.classList.add('hidden');
+        if (appScreen) {
+            appScreen.classList.remove('lg:pl-64', 'pb-36', 'lg:pb-safe');
+            appScreen.classList.add('p-0', 'm-0', 'w-full');
+        }
+        if (mainContainer) {
+            mainContainer.classList.remove('lg:max-w-4xl', 'max-w-[95%]', 'space-y-4');
+            mainContainer.classList.add('w-full', 'max-w-none', 'p-2', 'lg:p-3', 'space-y-0');
+        }
+    } else {
+        if (deskSidebar) deskSidebar.classList.remove('hidden');
+        if (mobNavbar) mobNavbar.classList.remove('hidden');
+        if (botNav) botNav.classList.remove('hidden');
+        if (appScreen) {
+            appScreen.classList.add('lg:pl-64', 'pb-36', 'lg:pb-safe');
+            appScreen.classList.remove('p-0', 'm-0');
+        }
+        if (mainContainer) {
+            mainContainer.classList.add('lg:max-w-4xl', 'max-w-[95%]', 'space-y-4');
+            mainContainer.classList.remove('w-full', 'max-w-none', 'p-2', 'lg:p-3', 'space-y-0');
+        }
+    }
+}
+window.applyTerminalLayout = applyTerminalLayout;
+
 async function setMode(mode) {
     if (window.triggerHaptic) window.triggerHaptic('light', 'impact');
     state.currentMode = mode;
@@ -733,8 +768,10 @@ async function setMode(mode) {
     if (adminDiv) adminDiv.classList.add('hidden');
 
     if (mode === 'terminal') {
+        applyTerminalLayout(true);
         if (dashDiv) dashDiv.classList.add('hidden');
     } else {
+        applyTerminalLayout(false);
         if (dashDiv) dashDiv.classList.remove('hidden');
     }
 

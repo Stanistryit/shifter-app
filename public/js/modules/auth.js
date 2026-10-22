@@ -332,6 +332,9 @@ export function enterTerminalMode() {
         app.classList.remove('hidden');
         app.classList.remove('opacity-0');
     }
+    if (window.applyTerminalLayout) {
+        window.applyTerminalLayout(true);
+    }
     if (!state.currentUser) {
         state.currentUser = { name: 'ПК Магазину', role: 'Terminal' };
     }
