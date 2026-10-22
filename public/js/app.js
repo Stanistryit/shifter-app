@@ -21,7 +21,7 @@ import {
 import { loadRequests, handleRequest, approveAllRequests } from './modules/requests.js';
 import { openNotesModal, closeNotesModal, toggleNoteType, saveNote, deleteNote } from './modules/notes.js';
 import {
-    openFilterModal, closeFilterModal, applyFilter,
+    openFilterModal, closeFilterModal, applyFilter, updateFilterUI,
     openStoreFilterModal, closeStoreFilterModal, renderStoreFilterList,
     openAvatarModal, closeAvatarModal, uploadAvatar, handleAvatarSelect, openChangePasswordModal, closeChangePasswordModal, submitChangePassword,
     openTransferModal, updateStoreDisplay,
@@ -471,6 +471,7 @@ window.handleRequest = handleRequest;
 window.openFilterModal = openFilterModal;
 window.closeFilterModal = closeFilterModal;
 window.applyFilter = applyFilter;
+window.updateFilterUI = updateFilterUI;
 window.openStoreFilterModal = openStoreFilterModal;
 window.closeStoreFilterModal = closeStoreFilterModal;
 window.openAvatarModal = openAvatarModal;
@@ -535,8 +536,15 @@ window.changeStoreFilter = (storeId, storeName) => {
 };
 
 window.toggleHideSubstitutes = (el) => {
-    state.hideSubstitutes = el.checked;
+    triggerHaptic();
+    state.hideSubstitutes = typeof el === 'boolean' ? el : el.checked;
     localStorage.setItem('shifter_hideSubstitutes', state.hideSubstitutes);
+
+    const modalCb = document.getElementById('modalHideSubstitutesToggle');
+    if (modalCb && modalCb !== el) modalCb.checked = state.hideSubstitutes;
+
+    updateFilterUI();
+
     const gridDiv = document.getElementById('gridViewContainer');
     if (gridDiv && !gridDiv.classList.contains('hidden')) renderTable();
     if (document.getElementById('timelineContainer')) renderAll();

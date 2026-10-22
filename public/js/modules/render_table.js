@@ -136,12 +136,7 @@ export function renderTable() {
         tTitle.innerText = new Date(y, m).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
     }
 
-    const filterWrapper = document.getElementById('substitutesFilterWrapper');
-    if (filterWrapper) {
-        filterWrapper.classList.remove('hidden');
-        const cb = document.getElementById('hideSubstitutesCheckbox');
-        if (cb) cb.checked = !!state.hideSubstitutes;
-    }
+    if (window.updateFilterUI) window.updateFilterUI();
 
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     const now = new Date();
@@ -218,15 +213,7 @@ export function renderTable() {
         guestUsers = [];
     }
 
-    if (filterWrapper) {
-        if (!isAllStoresAdmin) {
-            filterWrapper.classList.remove('hidden');
-            const cb = document.getElementById('hideSubstitutesCheckbox');
-            if (cb) cb.checked = !!state.hideSubstitutes;
-        } else {
-            filterWrapper.classList.add('hidden');
-        }
-    }
+
     
     let storeTotalHours = 0;
     let storeTotalDonorHours = 0;

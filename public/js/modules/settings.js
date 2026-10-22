@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { fetchJson, postJson } from './api.js';
 import { showToast, triggerHaptic } from './ui.js';
 import { renderAll } from './render.js';
+import { getDisplayName } from './render_utils.js';
 
 // --- STORE SETTINGS (🔥 НОВЕ: Графік роботи) ---
 
@@ -577,47 +578,147 @@ export function openFilterModal() {
     renderFilterList();
 }
 
+export function openFilterModal() {
+    triggerHaptic();
+    document.getElementById('filterModal').classList.remove('hidden');
+    renderFilterList();
+}
+
 export function closeFilterModal() {
     document.getElementById('filterModal').classList.add('hidden');
 }
 
-export function renderFilterList() {
-    const list = document.getElementById('filterList');
+export function updateFilterUI() {
+    const isFiltered = state.filter && state.filter !== 'all';
+    const isSubstitutesHidden = !!state.hideSubstitutes;
 
-    // 🔥 ОНОВЛЕНО: Фільтруємо список користувачів, якщо обрано магазин (для Global Admin)
-    let usersToShow = state.users;
-    if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
-        usersToShow = state.users.filter(u => String(u.storeId) === String(state.selectedStoreFilter));
+    const label = !isFiltered ? 'Всі співробітники' : (state.filter.split(' ')[1] || state.filter);
+    const elId = document.getElementById('currentFilterLabel');
+    if (elId) elId.innerText = label;
+    document.querySelectorAll('.currentFilterLabelText').forEach(el => el.innerText = label);
+
+    // Індикатор "Без підмін" на картці фільтра
+    const subIndicator = document.getElementById('filterSubstitutesIndicator');
+    if (subIndicator) {
+        if (isSubstitutesHidden) {
+            subIndicator.classList.remove('hidden');
+        } else {
+            subIndicator.classList.add('hidden');
+        }
     }
 
-    let html = `
-        <button onclick="window.applyFilter('all')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${state.filter === 'all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}">
-            <span class="font-medium">Всі співробітники</span>
-            ${state.filter === 'all' ? '<span>✓</span>' : ''}
-        </button>`;
+    // Текст і бейдж у таблиці
+    const gridBtnText = document.getElementById('gridFilterBtnText');
+    if (gridBtnText) {
+        if (isFiltered) {
+            gridBtnText.innerText = label;
+        } else if (isSubstitutesHidden) {
+            gridBtnText.innerText = 'Без підмін';
+        } else {
+            gridBtnText.innerText = 'Фільтр';
+        }
+    }
 
-    // Використовуємо відфільтрований список usersToShow
+    const gridBadge = document.getElementById('gridFilterBadge');
+    if (gridBadge) {
+        let count = 0;
+        if (isFiltered) count++;
+        if (isSubstitutesHidden) count++;
+        if (count > 0) {
+            gridBadge.innerText = count;
+            gridBadge.classList.remove('hidden');
+        } else {
+            gridBadge.classList.add('hidden');
+        }
+    }
+}
+
+export function renderFilterList() {
+    const list = document.getElementById('filterList');
+    if (!list) return;
+
+    const isAllStoresAdmin = state.currentUser?.role === 'admin' && state.selectedStoreFilter === 'all';
+    const effectiveStoreFilter = (state.currentUser?.role === 'admin' && state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
+        ? state.selectedStoreFilter
+        : (!isAllStoresAdmin ? (state.currentUser?.storeId?._id || state.currentUser?.storeId) : null);
+
+    let usersToShow = Array.isArray(state.users) ? [...state.users] : [];
+    if (effectiveStoreFilter && effectiveStoreFilter !== 'all') {
+        usersToShow = usersToShow.filter(u => String(u.storeId?._id || u.storeId) === String(effectiveStoreFilter));
+    }
+
+    // Сортуємо як у головній таблиці
+    usersToShow.sort((a, b) => {
+        if (state.currentUser && a.name === state.currentUser.name) return -1;
+        if (state.currentUser && b.name === state.currentUser.name) return 1;
+        const roleWeights = { 'SM': 1, 'SSE': 2, 'SE': 3, 'RRP': 4, 'Intern': 5 };
+        const wA = roleWeights[a.position] || 99;
+        const wB = roleWeights[b.position] || 99;
+        if (wA !== wB) return wA - wB;
+        return (a.name || '').localeCompare(b.name || '');
+    });
+
+    let html = `
+        <!-- Блок Підмін -->
+        <div class="mb-4 p-3 rounded-2xl bg-gray-50 dark:bg-[#2C2C2E]/80 border border-gray-100 dark:border-gray-800 flex items-center justify-between shadow-sm">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center text-base shadow-sm">
+                    🤝
+                </div>
+                <div>
+                    <div class="font-semibold text-xs text-gray-900 dark:text-gray-100">Приховати підміни</div>
+                    <div class="text-[10px] text-gray-400">Сховати співробітників з інших магазинів</div>
+                </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="modalHideSubstitutesToggle" onchange="window.toggleHideSubstitutes(this)" ${state.hideSubstitutes ? 'checked' : ''} class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+        </div>
+
+        <!-- Секція Співробітники -->
+        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5">
+            <span>👤</span> Співробітник
+        </div>
+
+        <div class="space-y-1.5 max-h-[48vh] overflow-y-auto pr-1">
+            <button onclick="window.applyFilter('all')" class="w-full text-left p-2.5 rounded-xl flex justify-between items-center transition-colors ${state.filter === 'all' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold border border-blue-200 dark:border-blue-800' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-transparent'}">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs">👥</div>
+                    <span class="font-medium text-xs">Всі співробітники</span>
+                </div>
+                ${state.filter === 'all' ? '<span class="text-blue-500 font-bold">✓</span>' : ''}
+            </button>
+    `;
+
     usersToShow.forEach(u => {
         const isSelected = state.filter === u.name;
         const safeName = u.name.replace(/'/g, "\\'");
+        const displayName = getDisplayName(u);
+        const avatarHtml = u.avatar
+            ? `<img src="${u.avatar}" class="w-7 h-7 rounded-full object-cover">`
+            : `<div class="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 flex items-center justify-center text-[10px]">👤</div>`;
+
         html += `
-            <button onclick="window.applyFilter('${safeName}')" class="w-full text-left p-3 rounded-xl flex justify-between items-center ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E]'}">
-                <span class="font-medium">${u.name}</span>
-                ${isSelected ? '<span>✓</span>' : ''}
-            </button>`;
+            <button onclick="window.applyFilter('${safeName}')" class="w-full text-left p-2.5 rounded-xl flex justify-between items-center transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold border border-blue-200 dark:border-blue-800' : 'hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-transparent'}">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    ${avatarHtml}
+                    <span class="font-medium text-xs truncate">${displayName}</span>
+                </div>
+                ${isSelected ? '<span class="text-blue-500 font-bold">✓</span>' : ''}
+            </button>
+        `;
     });
 
+    html += `</div>`;
     list.innerHTML = html;
 }
 
 export function applyFilter(val) {
     triggerHaptic();
     state.filter = val;
-    const label = val === 'all' ? 'Всі співробітники' : (val.split(' ')[1] || val);
-    const elId = document.getElementById('currentFilterLabel');
-    if (elId) elId.innerText = label;
-    document.querySelectorAll('.currentFilterLabelText').forEach(el => el.innerText = label);
-
+    localStorage.setItem('shifter_filter', val);
+    updateFilterUI();
     closeFilterModal();
     renderAll();
     if (window.renderTodoProxy) window.renderTodoProxy();

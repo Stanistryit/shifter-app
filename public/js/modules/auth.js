@@ -275,6 +275,9 @@ async function showApp(user) {
     // Перший рендер графіку
     renderAll();
 
+    // Оновлюємо бейджі та підписи фільтрів
+    if (window.updateFilterUI) window.updateFilterUI();
+
     // Оновлюємо поточну вкладку, щоб підтягнулись права та інтерфейс
     if (window.setMode) {
         const currentMode = localStorage.getItem('shifter_viewMode') || 'list';
