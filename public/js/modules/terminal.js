@@ -525,19 +525,38 @@ window.switchTermCashTab = function (tab) {
 
     const cashBtn = document.getElementById('termTabCashBtn');
     const encashBtn = document.getElementById('termTabEncashBtn');
-    const expectedSec = document.getElementById('termCashExpectedSection');
+    const cashExpectedSec = document.getElementById('termCashExpectedSection');
+    const encashExpectedSec = document.getElementById('termEncashExpectedSection');
     const submitBtn = document.getElementById('termSubmitCashBtn');
+    const countedLabel = document.getElementById('termCountedLabel');
+    const totalCountedText = document.getElementById('termTotalCountedText');
 
     if (tab === 'cash') {
         cashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all shadow-sm bg-white dark:bg-[#1C1C1E] text-blue-600 dark:text-blue-400";
         encashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all text-gray-500 hover:text-gray-900 dark:hover:text-white";
-        expectedSec?.classList.remove('hidden');
-        if (submitBtn) submitBtn.innerHTML = `<span>💾</span> <span>Зберегти касу та в TG</span>`;
+        cashExpectedSec?.classList.remove('hidden');
+        encashExpectedSec?.classList.add('hidden');
+        if (countedLabel) countedLabel.innerText = "Пораховано в касі:";
+        if (totalCountedText) {
+            totalCountedText.className = "text-lg font-black text-blue-600 dark:text-blue-400";
+        }
+        if (submitBtn) {
+            submitBtn.className = "flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white font-extrabold text-xs rounded-xl shadow-md shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5";
+            submitBtn.innerHTML = `<span>💾</span> <span>Зберегти касу та в TG</span>`;
+        }
     } else {
-        encashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all shadow-sm bg-white dark:bg-[#1C1C1E] text-blue-600 dark:text-blue-400";
+        encashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all shadow-sm bg-white dark:bg-[#1C1C1E] text-purple-600 dark:text-purple-400";
         cashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all text-gray-500 hover:text-gray-900 dark:hover:text-white";
-        expectedSec?.classList.add('hidden');
-        if (submitBtn) submitBtn.innerHTML = `<span>💼</span> <span>Зберегти інкасацію та в TG</span>`;
+        cashExpectedSec?.classList.add('hidden');
+        encashExpectedSec?.classList.remove('hidden');
+        if (countedLabel) countedLabel.innerText = "Зібрано в інкасацію:";
+        if (totalCountedText) {
+            totalCountedText.className = "text-lg font-black text-purple-600 dark:text-purple-400";
+        }
+        if (submitBtn) {
+            submitBtn.className = "flex-1 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white font-extrabold text-xs rounded-xl shadow-md shadow-purple-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5";
+            submitBtn.innerHTML = `<span>💼</span> <span>Зберегти інкасацію та в TG</span>`;
+        }
     }
 
     calculateCashTotals();
@@ -578,7 +597,7 @@ window.calculateCashTotals = function () {
     const totalEl = document.getElementById('termTotalCountedText');
     if (totalEl) totalEl.innerText = `${totalCounted.toLocaleString('uk-UA')} грн`;
 
-    // Якщо це Каса — рахуємо очікувану суму та різницю
+    // 1) Якщо це Каса — рахуємо очікувану суму та різницю за Z-звітами
     if (terminalState.activeTab === 'cash') {
         let totalExpected = 0;
         terminalState.expectedAmounts.forEach(row => {
@@ -601,6 +620,41 @@ window.calculateCashTotals = function () {
             } else {
                 diffBadge.className = "px-2 py-0.5 rounded-lg text-xs font-black bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300";
                 diffBadge.innerText = `${diff.toLocaleString('uk-UA')} грн (Нестача ⚠️)`;
+            }
+        }
+    } else {
+        // 2) Якщо це Інкасація — рахуємо прогрес від цільової суми до збору
+        const targetInput = document.getElementById('termEncashTargetInput');
+        const target = parseFloat(targetInput?.value) || 0;
+
+        const targetDisplay = document.getElementById('termEncashTargetDisplay');
+        if (targetDisplay) targetDisplay.innerText = `${target.toLocaleString('uk-UA')} грн`;
+
+        const statusBadge = document.getElementById('termEncashStatusBadge');
+        const progressBar = document.getElementById('termEncashProgressBar');
+
+        if (target <= 0) {
+            if (statusBadge) {
+                statusBadge.className = "px-2 py-0.5 rounded-lg text-xs font-black bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400";
+                statusBadge.innerText = "Вкажіть суму для контролю";
+            }
+            if (progressBar) progressBar.style.width = '0%';
+        } else {
+            const diff = totalCounted - target;
+            const pct = Math.min(100, Math.round((totalCounted / target) * 100));
+            if (progressBar) progressBar.style.width = `${pct}%`;
+
+            if (statusBadge) {
+                if (diff === 0) {
+                    statusBadge.className = "px-2 py-0.5 rounded-lg text-xs font-black bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300";
+                    statusBadge.innerText = "Суму зібрано точно 100% ✅";
+                } else if (diff < 0) {
+                    statusBadge.className = "px-2 py-0.5 rounded-lg text-xs font-black bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200";
+                    statusBadge.innerText = `Залишилось зібрати: ${Math.abs(diff).toLocaleString('uk-UA')} грн (${pct}%) ⏳`;
+                } else {
+                    statusBadge.className = "px-2 py-0.5 rounded-lg text-xs font-black bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300";
+                    statusBadge.innerText = `Зібрано більше: +${diff.toLocaleString('uk-UA')} грн ⚠️`;
+                }
             }
         }
     }
@@ -658,6 +712,9 @@ window.resetCashCountInputs = function () {
     if (!confirm("Очистити всі введені суми та купюри?")) return;
 
     document.querySelectorAll('.cash-input').forEach(i => i.value = '');
+    const encashTarget = document.getElementById('termEncashTargetInput');
+    if (encashTarget) encashTarget.value = '';
+
     terminalState.expectedAmounts = [{ id: 1, label: 'Z-звіт сьогодні', amount: 0 }];
     renderExpectedRows();
     calculateCashTotals();
@@ -683,8 +740,20 @@ window.submitCashCount = async function () {
     });
 
     let totalExpected = 0;
-    terminalState.expectedAmounts.forEach(r => totalExpected += (Number(r.amount) || 0));
-    const difference = totalCounted - totalExpected;
+    let expectedAmounts = [];
+    let difference = 0;
+
+    if (terminalState.activeTab === 'cash') {
+        terminalState.expectedAmounts.forEach(r => totalExpected += (Number(r.amount) || 0));
+        difference = totalCounted - totalExpected;
+        expectedAmounts = terminalState.expectedAmounts;
+    } else {
+        const targetInput = document.getElementById('termEncashTargetInput');
+        const targetVal = parseFloat(targetInput?.value) || 0;
+        totalExpected = targetVal;
+        difference = targetVal > 0 ? (totalCounted - targetVal) : 0;
+        expectedAmounts = targetVal > 0 ? [{ id: 1, label: 'Ціль інкасації', amount: targetVal }] : [];
+    }
 
     const payload = {
         storeId: store._id,
@@ -692,9 +761,9 @@ window.submitCashCount = async function () {
         countedBy,
         denominations: terminalState.denominationsCount,
         totalCounted,
-        expectedAmounts: terminalState.activeTab === 'cash' ? terminalState.expectedAmounts : [],
-        totalExpected: terminalState.activeTab === 'cash' ? totalExpected : 0,
-        difference: terminalState.activeTab === 'cash' ? difference : 0
+        expectedAmounts,
+        totalExpected,
+        difference
     };
 
     try {
@@ -772,6 +841,10 @@ window.openCashHistoryModal = async function () {
                     statusBadge = item.difference === 0
                         ? `<span class="text-green-600 dark:text-green-400 font-bold text-xs">0 грн ✅</span>`
                         : `<span class="text-red-500 font-bold text-xs">${item.difference > 0 ? '+' : ''}${item.difference.toLocaleString('uk-UA')} грн ⚠️</span>`;
+                } else if (item.totalExpected > 0) {
+                    statusBadge = item.difference === 0
+                        ? `<span class="text-green-600 dark:text-green-400 font-bold text-xs">Ціль: ${item.totalExpected.toLocaleString('uk-UA')} грн ✅</span>`
+                        : `<span class="text-purple-600 dark:text-purple-400 font-bold text-xs">Ціль: ${item.totalExpected.toLocaleString('uk-UA')} грн (${item.difference > 0 ? '+' : ''}${item.difference.toLocaleString('uk-UA')})</span>`;
                 }
 
                 return `

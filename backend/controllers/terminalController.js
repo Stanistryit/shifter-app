@@ -197,8 +197,19 @@ exports.saveCashCount = async (req, res) => {
 
     // Відправка повідомлення ботом у Telegram (без назви магазину, як просив користувач)
     if (newCashCount.type === 'encashment') {
+        let targetLine = '';
+        if (newCashCount.totalExpected > 0) {
+            const diff = newCashCount.totalCounted - newCashCount.totalExpected;
+            let statusText = '';
+            if (diff === 0) statusText = ' (100% зібрано ✅)';
+            else if (diff > 0) statusText = ` (+${diff.toLocaleString('uk-UA')} грн більше)`;
+            else statusText = ` (ще треба ${Math.abs(diff).toLocaleString('uk-UA')} грн)`;
+            targetLine = `\n🎯 До збору: <b>${newCashCount.totalExpected.toLocaleString('uk-UA')} грн</b>${statusText}`;
+        }
+
         const msg = `💼 <b>Інкасація зібрана!</b>\n` +
-                    `💰 Сума: <b>${newCashCount.totalCounted.toLocaleString('uk-UA')} грн</b>\n` +
+                    `💰 Зібрано: <b>${newCashCount.totalCounted.toLocaleString('uk-UA')} грн</b>` +
+                    targetLine + `\n` +
                     `👤 Співробітник: <b>${newCashCount.countedBy}</b>\n` +
                     `🕒 Час: <b>${timeStr}</b>`;
         sendStoreCashReport(store._id, msg);
