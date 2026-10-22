@@ -16,7 +16,7 @@ export function renderTodo() {
     const hideCompleted = document.getElementById('taskFilterHideCompleted')?.checked;
     
     // Всі задачі (прибираємо фільтр t.type === 'todo')
-    let tasks = [...state.tasks];
+    let tasks = [...(Array.isArray(state.tasks) ? state.tasks : [])];
 
     // Фільтр "Приховати виконані"
     if (hideCompleted) {

@@ -19,12 +19,20 @@ function hideTopProgress() {
     }
 }
 
-// Всі запити до сервера
 export async function fetchJson(url, options = {}) {
     showTopProgress();
     try {
         const res = await fetch(url, options);
         hideTopProgress();
+        if (!res.ok) {
+            console.error(`HTTP ${res.status} error for ${url}`);
+            try {
+                const text = await res.text();
+                return JSON.parse(text);
+            } catch {
+                return { success: false, status: res.status, message: `HTTP ${res.status}` };
+            }
+        }
         return await res.json();
     } catch (e) {
         console.error("API Error:", e);

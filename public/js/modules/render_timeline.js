@@ -20,12 +20,17 @@ export function renderTimeline() {
         monthTitleEl.innerText = state.currentDate.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
     }
 
-    const activeStoreId = (state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
+    const isAllStoresAdmin = state.currentUser?.role === 'admin' && state.selectedStoreFilter === 'all';
+    const activeStoreId = (state.currentUser?.role === 'admin' && state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
         ? state.selectedStoreFilter
-        : (state.currentUser.storeId?._id || state.currentUser.storeId);
+        : (state.currentUser?.storeId?._id || state.currentUser?.storeId || (state.selectedStoreFilter !== 'all' ? state.selectedStoreFilter : null));
+
+    const shiftsArr = Array.isArray(state.shifts) ? state.shifts : [];
+    const tasksArr = Array.isArray(state.tasks) ? state.tasks : [];
+    const notesArr = Array.isArray(state.notes) ? state.notes : [];
 
     // Збираємо всі унікальні дати (зміни + нотатки)
-    let allDates = [...new Set([...state.shifts.map(s => s.date), ...state.notes.map(n => n.date)])];
+    let allDates = [...new Set([...shiftsArr.map(s => s.date), ...notesArr.map(n => n.date)])];
 
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -56,7 +61,7 @@ export function renderTimeline() {
     const userHours = {};
     usersToShow.forEach(u => {
         let h = 0;
-        state.shifts.filter(s => s.name === u.name && s.date.startsWith(viewMonthStr) && s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство').forEach(s => {
+        shiftsArr.filter(s => s.name === u.name && s.date && s.date.startsWith(viewMonthStr) && s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство').forEach(s => {
             const [h1, m1] = s.start.split(':').map(Number);
             const [h2, m2] = s.end.split(':').map(Number);
             
@@ -84,13 +89,13 @@ export function renderTimeline() {
         let dayEnd = storeClose;
 
         // Розширюємо межі, якщо є ранні/пізні зміни/задачі
-        state.tasks.filter(t => t.date === dateStr).forEach(t => {
+        tasksArr.filter(t => t.date === dateStr).forEach(t => {
             if (!t.isFullDay && t.start) {
                 const h = parseInt(t.start.split(':')[0]); if (h < dayStart) dayStart = h;
                 if (t.end) { const parts = t.end.split(':'); const hEnd = parseInt(parts[0]) + (parseInt(parts[1]) > 0 ? 1 : 0); if (hEnd > dayEnd) dayEnd = hEnd; }
             }
         });
-        state.shifts.filter(s => s.date === dateStr && s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство').forEach(s => {
+        shiftsArr.filter(s => s.date === dateStr && s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство').forEach(s => {
             const h = parseInt(s.start.split(':')[0]); if (h < dayStart) dayStart = h;
             const parts = s.end.split(':'); const hEnd = parseInt(parts[0]) + (parseInt(parts[1]) > 0 ? 1 : 0); if (hEnd > dayEnd) dayEnd = hEnd;
         });
@@ -135,8 +140,8 @@ export function renderTimeline() {
                     return; // Skip rendering substitute row
                 }
             }
-            let shift = state.shifts.find(s => s.date === dateStr && s.name === user.name);
-            const userTasks = state.tasks.filter(t => t.date === dateStr && t.name === user.name);
+            let shift = shiftsArr.find(s => s.date === dateStr && s.name === user.name);
+            const userTasks = tasksArr.filter(t => t.date === dateStr && t.name === user.name);
 
             const shortName = getDisplayName(user);
             const hoursBadges = ` <span class="text-[9px] text-gray-400 font-normal">(${userHours[user.name]} год.)</span>`;

@@ -2,16 +2,22 @@ import { state } from './state.js';
 
 // Фільтрація користувачів для відображення
 export function getUsersForView(viewMonthStr) {
-    let users = state.users;
+    let users = Array.isArray(state.users) ? state.users : [];
+    const shifts = Array.isArray(state.shifts) ? state.shifts : [];
 
-    // 1. Фільтр по магазину (Для Global Admin)
-    if (state.selectedStoreFilter && state.selectedStoreFilter !== 'all') {
+    const isAllStoresAdmin = state.currentUser?.role === 'admin' && state.selectedStoreFilter === 'all';
+    const effectiveStoreFilter = (state.currentUser?.role === 'admin' && state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
+        ? state.selectedStoreFilter
+        : (!isAllStoresAdmin ? (state.currentUser?.storeId?._id || state.currentUser?.storeId) : null);
+
+    // 1. Фільтр по магазину
+    if (effectiveStoreFilter && effectiveStoreFilter !== 'all') {
         users = users.filter(u => {
-            if (String(u.storeId?._id || u.storeId) === String(state.selectedStoreFilter)) return true;
+            if (String(u.storeId?._id || u.storeId) === String(effectiveStoreFilter)) return true;
             if (state.usersToShow && state.usersToShow.includes(u.name)) return true;
-            const hasShiftHere = state.shifts.some(s => s.name === u.name && s.date.startsWith(viewMonthStr) && String(s.storeId?._id || s.storeId) === String(state.selectedStoreFilter));
+            const hasShiftHere = shifts.some(s => s.name === u.name && s.date && s.date.startsWith(viewMonthStr) && String(s.storeId?._id || s.storeId) === String(effectiveStoreFilter));
             if (hasShiftHere) return true;
-            const hasDraftHere = state.pendingChanges && Object.values(state.pendingChanges).some(d => d.name === u.name && d.date.startsWith(viewMonthStr) && String(d.storeId?._id || d.storeId) === String(state.selectedStoreFilter));
+            const hasDraftHere = state.pendingChanges && Object.values(state.pendingChanges).some(d => d.name === u.name && d.date && d.date.startsWith(viewMonthStr) && String(d.storeId?._id || d.storeId) === String(effectiveStoreFilter));
             if (hasDraftHere) return true;
             return false;
         });
@@ -23,11 +29,11 @@ export function getUsersForView(viewMonthStr) {
     }
 
     let filtered = users.filter(u => {
-        if (u.name === state.currentUser.name) return true;
+        if (state.currentUser && u.name === state.currentUser.name) return true;
         if (u.status !== 'blocked') return true;
 
         // Показуємо заблокованих, якщо у них є зміни в цьому місяці
-        const hasShifts = state.shifts.some(s => s.name === u.name && s.date.startsWith(viewMonthStr));
+        const hasShifts = shifts.some(s => s.name === u.name && s.date && s.date.startsWith(viewMonthStr));
         return hasShifts;
     });
 
@@ -38,8 +44,8 @@ export function getUsersForView(viewMonthStr) {
         if (orderA !== orderB) return orderA - orderB;
 
         // 2. "Я" завжди перший серед рівних
-        if (a.name === state.currentUser.name) return -1;
-        if (b.name === state.currentUser.name) return 1;
+        if (state.currentUser && a.name === state.currentUser.name) return -1;
+        if (state.currentUser && b.name === state.currentUser.name) return 1;
 
         // 3. Групування за посадою (SM -> SSE -> SE -> Інші)
         const roleWeights = { 'SM': 1, 'SSE': 2, 'SE': 3, 'RRP': 4, 'Intern': 5 };
@@ -48,7 +54,7 @@ export function getUsersForView(viewMonthStr) {
         if (wA !== wB) return wA - wB;
 
         // 4. Алфавітне сортування
-        return a.name.localeCompare(b.name);
+        return (a.name || '').localeCompare(b.name || '');
     });
 }
 

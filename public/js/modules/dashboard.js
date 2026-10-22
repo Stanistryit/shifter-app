@@ -82,9 +82,11 @@ export function updateDashboard() {
 
     const me = state.currentUser;
     const activeStoreIdStr = String(state.activeStoreId || me.storeId?._id || me.storeId);
+    const shiftsArr = Array.isArray(state.shifts) ? state.shifts : [];
+    const tasksArr = Array.isArray(state.tasks) ? state.tasks : [];
     
     // Фільтруємо зміни: лише мої, і лише ті, що відносяться до вибраного магазину
-    const myShifts = state.shifts.filter(s => {
+    const myShifts = shiftsArr.filter(s => {
         if (s.name !== me.name) return false;
         const shiftStoreId = s.storeId?._id || s.storeId;
         return String(shiftStoreId) === activeStoreIdStr;
@@ -155,7 +157,7 @@ export function updateDashboard() {
 
         // Колеги на СЬОГОДНІ
         const myStoreId = todayShift.storeId?._id || todayShift.storeId;
-        const colleagues = state.shifts.filter(s => {
+        const colleagues = shiftsArr.filter(s => {
             if (s.date !== todayStr || s.name === me.name || s.start === 'DELETE' || s.start === 'Відпустка' || s.start === 'Лікарняний') return false;
             const sStoreId = s.storeId?._id || s.storeId;
             return String(sStoreId) === String(myStoreId);
@@ -206,7 +208,7 @@ export function updateDashboard() {
                 }
 
                 const myNextStoreId = nextShift.storeId?._id || nextShift.storeId;
-                const colleagues = state.shifts.filter(s => {
+                const colleagues = shiftsArr.filter(s => {
                     if (s.date !== nextShift.date || s.name === me.name || s.start === 'DELETE' || s.start === 'Відпустка' || s.start === 'Лікарняний') return false;
                     const sStoreId = s.storeId?._id || s.storeId;
                     return String(sStoreId) === String(myNextStoreId);
@@ -236,7 +238,7 @@ export function updateDashboard() {
     
     if (dashTasksContent) {
         // Only active tasks assigned to the current user
-        const myTasks = state.tasks.filter(t => t.name === me.name && t.status !== 'completed');
+        const myTasks = tasksArr.filter(t => t.name === me.name && t.status !== 'completed');
         
         // Sort: Timeline (date + start), ToDo (deadline)
         myTasks.sort((a, b) => {
@@ -314,7 +316,7 @@ export function updateDashboard() {
         if (dur > 0) { totalHours += dur; totalShifts++; }
     });
     
-    const monthlyTasks = (state.tasks || []).filter(t => {
+    const monthlyTasks = tasksArr.filter(t => {
         if (!t.date || t.name !== state.currentUser.name || !t.includeHours || t.isFullDay) return false;
         const [y, m, d] = t.date.split('-').map(Number);
         return y === viewYear && (m - 1) === viewMonth;
@@ -370,7 +372,7 @@ export function updateDashboard() {
     // 5. LIVE STORE STATUS & NOTES
     // =========================================================
     const liveStatusEl = document.getElementById('dashLiveStatus');
-    const todayShiftsGlobal = state.shifts.filter(s => {
+    const todayShiftsGlobal = shiftsArr.filter(s => {
         if (s.date !== todayStr || s.start === 'DELETE' || s.start === 'Відпустка' || s.start === 'Лікарняний') return false;
         
         const shiftStoreId = s.storeId?._id || s.storeId;
@@ -430,7 +432,7 @@ function timeToVal(t) {
 // Global function to open a specific task directly
 window.openTaskFromDash = async (id) => {
     triggerHaptic();
-    const task = state.tasks.find(t => t._id === id);
+    const task = (Array.isArray(state.tasks) ? state.tasks : []).find(t => t._id === id);
     if (!task) return;
     
     // Lazy load UI functions if needed, though they should be readily available 

@@ -80,10 +80,13 @@ export function renderCalendar() {
         g.innerHTML += `<div class="calendar-day opacity-0 pointer-events-none"></div>`;
     }
 
+    const shiftsArr = Array.isArray(state.shifts) ? state.shifts : [];
+    const tasksArr = Array.isArray(state.tasks) ? state.tasks : [];
+
     for (let d = 1; d <= ld; d++) {
         const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const shift = state.shifts.find(s => s.date === ds && s.name === state.currentUser.name);
-        const tasks = state.tasks.filter(t => t.date === ds && t.name === state.currentUser.name);
+        const shift = shiftsArr.find(s => s.date === ds && s.name === state.currentUser.name);
+        const tasks = tasksArr.filter(t => t.date === ds && t.name === state.currentUser.name);
 
         const dateObj = new Date(ds);
         const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;

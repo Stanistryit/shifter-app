@@ -156,9 +156,9 @@ export function renderTable() {
     const isAllStoresAdmin = state.currentUser?.role === 'admin' && state.selectedStoreFilter === 'all';
 
     // Надійно беремо час роботи з масиву всіх магазинів (state.stores)
-    const activeStoreId = (state.selectedStoreFilter && !isAllStoresAdmin)
+    const activeStoreId = (state.currentUser?.role === 'admin' && state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
         ? state.selectedStoreFilter
-        : (state.currentUser.storeId?._id || state.currentUser.storeId);
+        : (state.currentUser?.storeId?._id || state.currentUser?.storeId || (state.selectedStoreFilter !== 'all' ? state.selectedStoreFilter : null));
 
     let monthNorm = 0;
 

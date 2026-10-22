@@ -242,27 +242,28 @@ async function showApp(user) {
             document.getElementById('noteTypeToggle').classList.remove('hidden');
             document.getElementById('noteTypeToggle').classList.add('flex');
         }
+    }
 
-        // Show Statistics tab for SE, SSE, SM, admin
-        if (['SM', 'SSE', 'SE', 'admin'].includes(user.role)) {
-            const mobStatBtn = document.getElementById('tabModeStatistics');
-            const deskStatBtn = document.getElementById('deskModeStatistics');
-            if (mobStatBtn) {
-                mobStatBtn.classList.remove('hidden');
-                mobStatBtn.classList.add('flex');
-            }
-            if (deskStatBtn) {
-                deskStatBtn.classList.remove('hidden');
-                deskStatBtn.classList.add('flex');
-            }
+    // Show Statistics tab for SE, SSE, SM, admin
+    if (['SM', 'SSE', 'SE', 'admin'].includes(user.role)) {
+        const mobStatBtn = document.getElementById('tabModeStatistics');
+        const deskStatBtn = document.getElementById('deskModeStatistics');
+        if (mobStatBtn) {
+            mobStatBtn.classList.remove('hidden');
+            mobStatBtn.classList.add('flex');
         }
-
-        // 🔥 Для не-адмінів фільтр магазину завжди прив'язаний до їхнього рідного магазину
-        if (user.role !== 'admin' && user.storeId) {
-            state.selectedStoreFilter = user.storeId._id || user.storeId;
+        if (deskStatBtn) {
+            deskStatBtn.classList.remove('hidden');
+            deskStatBtn.classList.add('flex');
         }
+    }
 
-        // 🔥 ВИПРАВЛЕНО: Прибрали автоматичне відкриття вкладки shifts, щоб показувало Bento-меню
+    // 🔥 Для не-адмінів фільтр магазину завжди прив'язаний до їхнього рідного магазину
+    if (user.role !== 'admin') {
+        const homeStore = user.storeId?._id || user.storeId;
+        if (homeStore) {
+            state.selectedStoreFilter = homeStore;
+        }
     }
 
     // Завантаження всіх даних
@@ -289,12 +290,10 @@ export async function loadData() {
         fetchJson('/api/notes')
     ]);
 
-    state.users = users.filter(u => u.role !== 'RRP');
-
-    state.shifts = shifts;
-    state.tasks = tasks;
-    state.notes = notes;
-
+    state.users = Array.isArray(users) ? users.filter(u => u.role !== 'RRP') : (Array.isArray(state.users) ? state.users : []);
+    state.shifts = Array.isArray(shifts) ? shifts : (Array.isArray(state.shifts) ? state.shifts : []);
+    state.tasks = Array.isArray(tasks) ? tasks : (Array.isArray(state.tasks) ? state.tasks : []);
+    state.notes = Array.isArray(notes) ? notes : (Array.isArray(state.notes) ? state.notes : []);
 
     // 🔥 ВИПРАВЛЕНО: Залишили тільки список для Задач (s2)
     const s2 = document.getElementById('taskEmployee');
@@ -303,7 +302,7 @@ export async function loadData() {
         const s2Val = s2.value;
         s2.innerHTML = '<option disabled selected>Кому?</option><option value="all">📢 Всім</option>';
 
-        state.users.forEach(x => {
+        (state.users || []).forEach(x => {
             s2.innerHTML += `<option value="${x.name}">${x.name}</option>`;
         });
 
