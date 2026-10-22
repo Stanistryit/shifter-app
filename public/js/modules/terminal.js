@@ -108,6 +108,32 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
     }
 }
 
+// 4. Відображення шапки
+function renderHeader(store) {
+    if (!store) return;
+    const nameEl = document.getElementById('termStoreName');
+    const codeEl = document.getElementById('termStoreCode');
+    const hoursEl = document.getElementById('termStoreHours');
+    const annBox = document.getElementById('termAnnouncementBox');
+    const annBoxMob = document.getElementById('termAnnouncementBoxMob');
+    const annText = document.getElementById('termAnnouncementText');
+    const annTextMob = document.getElementById('termAnnouncementTextMob');
+
+    if (nameEl) nameEl.innerText = store.name || 'Магазин';
+    if (codeEl) codeEl.innerText = store.code || '';
+    if (hoursEl) hoursEl.innerText = `${store.openTime || '10:00'} - ${store.closeTime || '22:00'}`;
+
+    if (store.dailyAnnouncement && store.dailyAnnouncement.trim()) {
+        if (annText) annText.innerText = store.dailyAnnouncement;
+        if (annTextMob) annTextMob.innerText = store.dailyAnnouncement;
+        annBox?.classList.remove('hidden');
+        annBoxMob?.classList.remove('hidden');
+    } else {
+        annBox?.classList.add('hidden');
+        annBoxMob?.classList.add('hidden');
+    }
+}
+
 // Розрахунок статусу зміни на поточний момент (Europe/Kiev)
 function getShiftStatus(startStr, endStr) {
     if (!startStr || !endStr || !startStr.includes(':') || !endStr.includes(':')) {
