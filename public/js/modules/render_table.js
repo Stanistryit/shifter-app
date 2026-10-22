@@ -777,8 +777,7 @@ export function renderTable() {
                              })"
                              title="${gFullName}&#10;📍 Гість з: ${gHomeStoreName}&#10;⏰ ${item.shift.start} - ${item.shift.end} (${durStr} год)"
                              class="relative text-[9px] font-mono leading-tight bg-amber-100/90 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 rounded px-1 py-0.5 border ${borderStyle} shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-transform ${opacity}">
-                            <div class="text-[7.5px] font-sans font-bold truncate text-amber-800 dark:text-amber-300 leading-none mb-0.5 flex items-center justify-center gap-0.5">
-                                <span class="text-[8px] leading-none">👤</span>
+                            <div class="text-[7.5px] font-sans font-bold truncate text-amber-800 dark:text-amber-300 leading-none mb-0.5 flex items-center justify-center">
                                 <span class="truncate">${gShortName}</span>
                             </div>
                             <div class="leading-none font-bold">${item.shift.start}<br>${item.shift.end}</div>
