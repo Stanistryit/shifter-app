@@ -49,10 +49,19 @@ export async function initTerminal() {
 // 2. Живий годинник
 function startLiveClock() {
     if (terminalState.clockInterval) clearInterval(terminalState.clockInterval);
+    let lastMinute = -1;
     const update = () => {
+        const now = new Date();
         const el = document.getElementById('termLiveClock');
         if (el) {
-            el.innerText = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Europe/Kiev' });
+            el.innerText = now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Europe/Kiev' });
+        }
+        const currentMinute = now.getMinutes();
+        if (lastMinute !== currentMinute) {
+            lastMinute = currentMinute;
+            if (terminalState.todayShifts && terminalState.todayShifts.length > 0) {
+                renderActiveShifts(terminalState.todayShifts, terminalState.employees);
+            }
         }
     };
     update();
@@ -70,6 +79,8 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
         if (res && res.success) {
             terminalState.store = res.store;
             terminalState.terminalData = res;
+            terminalState.todayShifts = res.todayShifts || [];
+            terminalState.employees = res.employees || [];
 
             localStorage.setItem('shifter_terminal_storeId', res.store._id);
             localStorage.setItem('shifter_terminal_storeCode', res.store.code);
@@ -97,28 +108,86 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
     }
 }
 
-// 4. Відображення шапки
-function renderHeader(store) {
-    const nameEl = document.getElementById('termStoreName');
-    const codeEl = document.getElementById('termStoreCode');
-    const hoursEl = document.getElementById('termStoreHours');
-    const annBox = document.getElementById('termAnnouncementBox');
-    const annBoxMob = document.getElementById('termAnnouncementBoxMob');
-    const annText = document.getElementById('termAnnouncementText');
-    const annTextMob = document.getElementById('termAnnouncementTextMob');
+// Розрахунок статусу зміни на поточний момент (Europe/Kiev)
+function getShiftStatus(startStr, endStr) {
+    if (!startStr || !endStr || !startStr.includes(':') || !endStr.includes(':')) {
+        return {
+            status: 'current',
+            order: 1,
+            label: `до ${endStr || '--:--'}`,
+            statusText: 'На зміні',
+            dotClass: 'bg-green-500 animate-pulse shadow-sm shadow-green-500/50',
+            badgeClass: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold',
+            cardClass: 'bg-white dark:bg-[#1C1C1E] border-gray-200/80 dark:border-gray-800 shadow-sm'
+        };
+    }
 
-    if (nameEl) nameEl.innerText = store.name || 'Магазин';
-    if (codeEl) codeEl.innerText = store.code || '';
-    if (hoursEl) hoursEl.innerText = `${store.openTime || '10:00'} - ${store.closeTime || '22:00'}`;
+    const kievTimeStr = new Date().toLocaleTimeString('uk-UA', { timeZone: 'Europe/Kiev', hour: '2-digit', minute: '2-digit', hour12: false });
+    const [nowH, nowM] = kievTimeStr.split(':').map(Number);
+    const nowMinutes = nowH * 60 + nowM;
 
-    if (store.dailyAnnouncement && store.dailyAnnouncement.trim()) {
-        if (annText) annText.innerText = store.dailyAnnouncement;
-        if (annTextMob) annTextMob.innerText = store.dailyAnnouncement;
-        annBox?.classList.remove('hidden');
-        annBoxMob?.classList.remove('hidden');
+    const [sH, sM] = startStr.split(':').map(Number);
+    const [eH, eM] = endStr.split(':').map(Number);
+    const startMinutes = sH * 60 + sM;
+    const endMinutes = eH * 60 + eM;
+
+    // Звичайна денна зміна
+    if (endMinutes > startMinutes) {
+        if (nowMinutes >= startMinutes && nowMinutes < endMinutes) {
+            return {
+                status: 'current',
+                order: 1,
+                label: `до ${endStr}`,
+                statusText: 'Зараз на зміні',
+                dotClass: 'bg-green-500 animate-pulse shadow-sm shadow-green-500/50',
+                badgeClass: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold',
+                cardClass: 'bg-white dark:bg-[#1C1C1E] border-gray-200/80 dark:border-gray-800 shadow-sm'
+            };
+        } else if (nowMinutes < startMinutes) {
+            return {
+                status: 'upcoming',
+                order: 2,
+                label: `початок о ${startStr}`,
+                statusText: 'Очікується',
+                dotClass: 'bg-amber-400 shadow-sm shadow-amber-400/40',
+                badgeClass: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-bold',
+                cardClass: 'bg-amber-50/20 dark:bg-amber-950/10 border-amber-200/40 dark:border-amber-800/30'
+            };
+        } else {
+            return {
+                status: 'ended',
+                order: 3,
+                label: `завершено о ${endStr}`,
+                statusText: 'Зміна завершена',
+                dotClass: 'bg-gray-400 dark:bg-gray-600',
+                badgeClass: 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 font-medium',
+                cardClass: 'opacity-55 hover:opacity-90 transition-opacity bg-gray-50/60 dark:bg-[#2C2C2E]/40 border-dashed border-gray-200 dark:border-gray-800'
+            };
+        }
     } else {
-        annBox?.classList.add('hidden');
-        annBoxMob?.classList.add('hidden');
+        // Нічна зміна
+        const isCurrent = nowMinutes >= startMinutes || nowMinutes < endMinutes;
+        if (isCurrent) {
+            return {
+                status: 'current',
+                order: 1,
+                label: `до ${endStr}`,
+                statusText: 'Зараз на зміні',
+                dotClass: 'bg-green-500 animate-pulse shadow-sm shadow-green-500/50',
+                badgeClass: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold',
+                cardClass: 'bg-white dark:bg-[#1C1C1E] border-gray-200/80 dark:border-gray-800 shadow-sm'
+            };
+        } else {
+            return {
+                status: 'ended',
+                order: 3,
+                label: `завершено о ${endStr}`,
+                statusText: 'Зміна завершена',
+                dotClass: 'bg-gray-400 dark:bg-gray-600',
+                badgeClass: 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 font-medium',
+                cardClass: 'opacity-55 hover:opacity-90 transition-opacity bg-gray-50/60 dark:bg-[#2C2C2E]/40 border-dashed border-gray-200 dark:border-gray-800'
+            };
+        }
     }
 }
 
@@ -130,36 +199,60 @@ function renderActiveShifts(todayShifts, employees) {
 
     if (!todayShifts || todayShifts.length === 0) {
         listEl.innerHTML = `<div class="p-3 text-center text-xs text-gray-400 bg-gray-50 dark:bg-[#2C2C2E] rounded-xl">Немає запланованих змін на сьогодні</div>`;
-        if (badgeEl) badgeEl.innerText = '0 на зміні';
+        if (badgeEl) {
+            badgeEl.innerText = '0 на зміні';
+            badgeEl.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400";
+        }
         return;
     }
 
-    if (badgeEl) badgeEl.innerText = `${todayShifts.length} на зміні`;
-
-    listEl.innerHTML = todayShifts.map(s => {
+    // Визначаємо статус для кожного співробітника
+    const items = todayShifts.map(s => {
         const emp = employees ? employees.find(e => e.name === s.name) : null;
         const displayName = emp ? (emp.fullName || emp.name) : s.name;
         const pos = emp?.position ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 font-bold ml-1">${emp.position}</span>` : '';
+        const info = getShiftStatus(s.start, s.end);
+        return { shift: s, emp, displayName, pos, info };
+    });
 
-        return `
-            <div class="p-2.5 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
-                    <div>
-                        <div class="text-xs font-bold text-gray-900 dark:text-white flex items-center">
-                            <span>${displayName}</span> ${pos}
-                        </div>
-                        <div class="text-[10px] text-gray-400 font-mono">Зміна: ${s.start} - ${s.end}</div>
+    // Сортування:
+    // 1) Працюють зараз (🟢)
+    // 2) Почнуть пізніше сьогодні (🟡)
+    // 3) Зміна закінчилась (⚪)
+    items.sort((a, b) => a.info.order - b.info.order || a.shift.start.localeCompare(b.shift.start));
+
+    const activeCount = items.filter(x => x.info.status === 'current').length;
+
+    if (badgeEl) {
+        if (activeCount > 0) {
+            badgeEl.innerText = `${activeCount} на зміні`;
+            badgeEl.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300";
+        } else {
+            badgeEl.innerText = `0 на зміні (з ${todayShifts.length})`;
+            badgeEl.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400";
+        }
+    }
+
+    listEl.innerHTML = items.map(x => `
+        <div class="p-2.5 rounded-xl border flex items-center justify-between ${x.info.cardClass}">
+            <div class="flex items-center gap-2.5 overflow-hidden">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0 ${x.info.dotClass}"></span>
+                <div class="truncate">
+                    <div class="text-xs font-bold text-gray-900 dark:text-white flex items-center truncate">
+                        <span class="truncate">${x.displayName}</span> ${x.pos}
+                    </div>
+                    <div class="text-[10px] text-gray-400 font-mono">
+                        Зміна: ${x.shift.start} - ${x.shift.end}
                     </div>
                 </div>
-                <div class="text-right">
-                    <span class="text-[10px] font-bold text-blue-500 font-mono bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md">
-                        до ${s.end}
-                    </span>
-                </div>
             </div>
-        `;
-    }).join('');
+            <div class="text-right shrink-0 ml-2">
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-md ${x.info.badgeClass}">
+                    ${x.info.label}
+                </span>
+            </div>
+        </div>
+    `).join('');
 }
 
 // 6. Хто завтра на відкриття
