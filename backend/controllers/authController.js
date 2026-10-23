@@ -14,7 +14,7 @@ function resolveAvatarUrl(user) {
 
 exports.getStores = async (req, res) => {
     try {
-        const stores = await Store.find({}, 'name code type openTime closeTime normHours fte lunch_duration_minutes requireSseApproval googleSheetsUrl googleSheetsTab');
+        const stores = await Store.find({}).lean();
         res.json(stores);
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -358,7 +358,15 @@ exports.getMe = async (req, res) => {
                 telegram: user.storeId.telegram,
                 requireSseApproval: user.storeId.requireSseApproval,
                 googleSheetsUrl: user.storeId.googleSheetsUrl,
-                googleSheetsTab: user.storeId.googleSheetsTab
+                googleSheetsTab: user.storeId.googleSheetsTab,
+                emergencyContacts: user.storeId.emergencyContacts || [],
+                checklists: user.storeId.checklists || {},
+                alarmRegion: user.storeId.alarmRegion || 'м. Київ',
+                alarmDistrict: user.storeId.alarmDistrict || '',
+                alarmTrackingStart: user.storeId.alarmTrackingStart || user.storeId.openTime || '10:00',
+                alarmTrackingEnd: user.storeId.alarmTrackingEnd || user.storeId.closeTime || '22:00',
+                terminalPin: user.storeId.terminalPin || '0000',
+                dailyAnnouncement: user.storeId.dailyAnnouncement || ''
             } : null,
             notificationPreference: user.notificationPreference || 'telegram',
             reminderTime: user.reminderTime || 'off',

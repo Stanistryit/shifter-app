@@ -690,8 +690,8 @@ window.openReopenStoreModal = function () {
             }
         }
 
-        // За замовчуванням обираємо першого у списку (якщо є)
-        selectedReopenName = candidates[0]?.fullName || candidates[0]?.name || '';
+        // За замовчуванням НЕ обираємо нікого, щоб співробітник обов'язково клікнув своє ім'я
+        selectedReopenName = '';
 
         if (candidates.length === 0) {
             listEl.innerHTML = `
@@ -702,18 +702,14 @@ window.openReopenStoreModal = function () {
         } else {
             listEl.innerHTML = candidates.map((c) => {
                 const targetName = c.fullName || c.name;
-                const isSelected = (targetName === selectedReopenName);
+                const isSelected = false;
                 const initials = targetName.split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
                 return `
                     <button type="button" onclick="window.selectReopenEmployee('${targetName}')"
                         data-reopen-name="${targetName}"
-                        class="reopen-emp-item w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all active:scale-[0.99] ${
-                            isSelected 
-                                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 shadow-sm ring-1 ring-emerald-500' 
-                                : 'bg-gray-50/70 dark:bg-[#2C2C2E]/60 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                        }">
+                        class="reopen-emp-item w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all active:scale-[0.99] bg-gray-50/70 dark:bg-[#2C2C2E]/60 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600">
                         <div class="flex items-center gap-2.5">
-                            <div class="w-8 h-8 rounded-full ${isSelected ? 'bg-emerald-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} font-bold text-xs flex items-center justify-center flex-shrink-0">
+                            <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold text-xs flex items-center justify-center flex-shrink-0">
                                 ${initials || '👤'}
                             </div>
                             <div>
@@ -725,7 +721,7 @@ window.openReopenStoreModal = function () {
                                 </div>
                             </div>
                         </div>
-                        <div class="reopen-check text-emerald-600 dark:text-emerald-400 font-black text-sm ${isSelected ? '' : 'hidden'}">
+                        <div class="reopen-check text-emerald-600 dark:text-emerald-400 font-black text-sm hidden">
                             ✓
                         </div>
                     </button>
@@ -755,7 +751,7 @@ window.selectReopenEmployee = function (name) {
     items.forEach(el => {
         const isMatch = el.dataset.reopenName === name;
         if (isMatch) {
-            el.className = 'reopen-emp-item w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all active:scale-[0.99] bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 shadow-sm ring-1 ring-emerald-500';
+            el.className = 'reopen-emp-item w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all active:scale-[0.99] bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 shadow-sm ring-2 ring-emerald-500';
             el.querySelector('.reopen-check')?.classList.remove('hidden');
             const avatar = el.querySelector('div > div:first-child');
             if (avatar) avatar.className = 'w-8 h-8 rounded-full bg-emerald-500 text-white font-bold text-xs flex items-center justify-center flex-shrink-0';
@@ -771,28 +767,31 @@ window.selectReopenEmployee = function (name) {
 };
 
 window.onReopenCustomNameInput = function (val) {
-    if (val && val.trim()) {
-        selectedReopenName = val.trim();
-        // Знімаємо виділення зі списку
-        const items = document.querySelectorAll('.reopen-emp-item');
-        items.forEach(el => {
-            el.className = 'reopen-emp-item w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all active:scale-[0.99] bg-gray-50/70 dark:bg-[#2C2C2E]/60 border-gray-200 dark:border-gray-700';
-            el.querySelector('.reopen-check')?.classList.add('hidden');
-            const avatar = el.querySelector('div > div:first-child');
-            if (avatar) avatar.className = 'w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold text-xs flex items-center justify-center flex-shrink-0';
-        });
-    }
+    selectedReopenName = (val && val.trim()) ? val.trim() : '';
+    // Знімаємо виділення зі списку
+    const items = document.querySelectorAll('.reopen-emp-item');
+    items.forEach(el => {
+        el.className = 'reopen-emp-item w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all active:scale-[0.99] bg-gray-50/70 dark:bg-[#2C2C2E]/60 border-gray-200 dark:border-gray-700';
+        el.querySelector('.reopen-check')?.classList.add('hidden');
+        const avatar = el.querySelector('div > div:first-child');
+        if (avatar) avatar.className = 'w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold text-xs flex items-center justify-center flex-shrink-0';
+    });
     updateReopenSubmitButton();
 };
 
 function updateReopenSubmitButton() {
+    const btn = document.getElementById('termReopenSubmitBtn');
     const btnText = document.getElementById('termReopenSubmitBtnText');
-    if (btnText) {
-        if (selectedReopenName) {
-            btnText.innerText = `Відкрити: ${selectedReopenName}`;
-        } else {
-            btnText.innerText = `Підтвердити та відкрити`;
-        }
+    if (!btn || !btnText) return;
+
+    if (selectedReopenName) {
+        btnText.innerText = `Відкрити: ${selectedReopenName}`;
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    } else {
+        btnText.innerText = `👤 Оберіть себе зі списку`;
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
     }
 }
 
@@ -800,7 +799,13 @@ window.submitStoreReopen = async function () {
     triggerHaptic();
     if (!terminalState.store?._id) return;
 
-    const openedBy = selectedReopenName || document.getElementById('termReopenCustomName')?.value?.trim() || 'Співробітник';
+    const customName = document.getElementById('termReopenCustomName')?.value?.trim();
+    const openedBy = selectedReopenName || customName;
+
+    if (!openedBy) {
+        showToast("Будь ласка, оберіть своє ім'я зі списку або введіть його!", "warning");
+        return;
+    }
 
     const btn = document.getElementById('termReopenSubmitBtn');
     const oldHtml = btn ? btn.innerHTML : '';

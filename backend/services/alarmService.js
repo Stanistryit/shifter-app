@@ -41,23 +41,36 @@ function formatTimeKiev(date = new Date()) {
 function parseKievTimeToDate(timeStr, baseDate = new Date()) {
     const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Europe/Kiev',
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        timeZoneName: 'shortOffset'
+        year: 'numeric', month: '2-digit', day: '2-digit'
     }).formatToParts(baseDate);
-    const y = parts.find(p => p.type === 'year').value;
-    const m = parts.find(p => p.type === 'month').value;
-    const d = parts.find(p => p.type === 'day').value;
-    const tzPart = parts.find(p => p.type === 'timeZoneName')?.value || 'GMT+3';
-    let offset = '+03:00';
-    if (tzPart.includes('+')) {
-        offset = '+' + tzPart.split('+')[1].padStart(2, '0') + ':00';
-    } else if (tzPart.includes('-')) {
-        offset = '-' + tzPart.split('-')[1].padStart(2, '0') + ':00';
-    }
-    const partsTime = (timeStr || '10:00').split(':');
-    const hh = (partsTime[0] || '10').padStart(2, '0');
-    const mm = (partsTime[1] || '00').padStart(2, '0');
-    return new Date(`${y}-${m}-${d}T${hh}:${mm}:00${offset}`);
+    const y = parseInt(parts.find(p => p.type === 'year').value, 10);
+    const m = parseInt(parts.find(p => p.type === 'month').value, 10);
+    const d = parseInt(parts.find(p => p.type === 'day').value, 10);
+
+    const [hhStr, mmStr] = (timeStr || '10:00').split(':');
+    const targetH = parseInt(hhStr || '10', 10);
+    const targetM = parseInt(mmStr || '00', 10);
+
+    const guess = new Date(Date.UTC(y, m - 1, d, targetH, targetM, 0));
+    const kievParts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Europe/Kiev',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+    }).formatToParts(guess);
+
+    const kievH = parseInt(kievParts.find(p => p.type === 'hour').value, 10);
+    const kievM = parseInt(kievParts.find(p => p.type === 'minute').value, 10);
+
+    const diffMs = ((targetH - kievH) * 60 + (targetM - kievM)) * 60000;
+    return new Date(guess.getTime() + diffMs);
+}
+
+function calcDurationMinutes(startDate, endDate) {
+    if (!startDate || !endDate) return 0;
+    const s = new Date(startDate).getTime();
+    const e = new Date(endDate).getTime();
+    if (isNaN(s) || isNaN(e) || e <= s) return 0;
+    return Math.round((e - s) / 60000);
 }
 
 function formatDuration(mins) {
@@ -195,7 +208,9 @@ async function checkAlarms() {
             if (status.isAlert) {
                 if (isDuringWorkHours && !activeEvent) {
                     // Якщо тривога триває у робочий час, а активної події в базі ще немає
-                    const rawStart = status.enabledAt ? new Date(status.enabledAt) : now;
+                    const rawStart = (status.enabledAt && !isNaN(new Date(status.enabledAt).getTime()))
+                        ? new Date(status.enabledAt)
+                        : now;
                     // Якщо тривога почалася до відкриття магазину, робочий час рахуємо з моменту відкриття (workStartDate)
                     const effectiveStart = rawStart < workStartDate ? workStartDate : rawStart;
 
@@ -240,9 +255,19 @@ async function checkAlarms() {
                 mState.preWorkAlertActive = false;
 
                 if (activeEvent) {
-                    const rawEnd = status.disabledAt ? new Date(status.disabledAt) : now;
+                    const rawEnd = (status.disabledAt && !isNaN(new Date(status.disabledAt).getTime()))
+                        ? new Date(status.disabledAt)
+                        : now;
                     const effectiveEnd = rawEnd > workEndDate ? workEndDate : (rawEnd < workStartDate ? workStartDate : rawEnd);
-                    const alertDuration = Math.max(0, Math.round((effectiveEnd - activeEvent.effectiveStartedAt) / 60000));
+
+                    // Розраховуємо тривалість тривоги у робочий час з надійними fallback
+                    let alertDuration = calcDurationMinutes(activeEvent.effectiveStartedAt, effectiveEnd);
+                    if (alertDuration <= 0) {
+                        alertDuration = calcDurationMinutes(activeEvent.startedAt, effectiveEnd);
+                    }
+                    if (alertDuration <= 0 && activeEvent.createdAt) {
+                        alertDuration = calcDurationMinutes(activeEvent.createdAt, effectiveEnd);
+                    }
 
                     activeEvent.endedAt = rawEnd;
                     activeEvent.effectiveEndedAt = effectiveEnd;
@@ -384,7 +409,14 @@ async function recordStoreReopen(storeId, openedBy = 'Співробітник')
     // Якщо подія ще була в статусі 'active' (наприклад, відкрились під час закінчення або до оновлення API)
     if (event.status === 'active') {
         const effectiveEnd = now > workEndDate ? workEndDate : (now < workStartDate ? workStartDate : now);
-        const alertDuration = Math.max(0, Math.round((effectiveEnd - event.effectiveStartedAt) / 60000));
+        let alertDuration = calcDurationMinutes(event.effectiveStartedAt, effectiveEnd);
+        if (alertDuration <= 0) {
+            alertDuration = calcDurationMinutes(event.startedAt, effectiveEnd);
+        }
+        if (alertDuration <= 0 && event.createdAt) {
+            alertDuration = calcDurationMinutes(event.createdAt, effectiveEnd);
+        }
+
         event.endedAt = now;
         event.effectiveEndedAt = effectiveEnd;
         event.alertDurationMinutes = alertDuration;
@@ -411,9 +443,18 @@ async function recordStoreReopen(storeId, openedBy = 'Співробітник')
     }
 
     // Якщо подія була в статусі 'ended_waiting_reopen'
-    const alertDuration = event.alertDurationMinutes || 0;
+    let alertDuration = event.alertDurationMinutes || 0;
+    // Fallback: якщо тривалість тривоги збереглася як 0 або некоректна, перераховуємо з наявних дат
+    if (alertDuration <= 0) {
+        const endD = event.effectiveEndedAt || event.endedAt || now;
+        alertDuration = calcDurationMinutes(event.effectiveStartedAt, endD);
+        if (alertDuration <= 0) alertDuration = calcDurationMinutes(event.startedAt, endD);
+        if (alertDuration <= 0 && event.createdAt) alertDuration = calcDurationMinutes(event.createdAt, endD);
+        event.alertDurationMinutes = alertDuration;
+    }
+
     const baseEndedAt = event.endedAt || now;
-    const reopenDuration = Math.max(0, Math.round((now - baseEndedAt) / 60000));
+    const reopenDuration = calcDurationMinutes(baseEndedAt, now);
     const totalDowntime = alertDuration + reopenDuration;
 
     event.reopenedAt = now;

@@ -67,6 +67,19 @@ exports.deleteStore = async (req, res) => {
     }
 };
 
+exports.getStoreSettings = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (!u) return res.status(401).json({ success: false, message: "Не авторизовано" });
+
+    const targetStoreId = (u.role === 'admin' && req.query.storeId) ? req.query.storeId : u.storeId;
+    if (!targetStoreId) return res.json({ success: false, message: "Магазин не обрано" });
+
+    const store = await Store.findById(targetStoreId).lean();
+    if (!store) return res.json({ success: false, message: "Магазин не знайдено" });
+
+    res.json({ success: true, store });
+};
+
 exports.updateStoreSettings = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (!u || (u.role !== 'SM' && u.role !== 'admin')) {
@@ -162,7 +175,7 @@ exports.updateStoreSettings = async (req, res) => {
         await store.save();
 
         logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}, Lunch=${store.lunch_duration_minutes}, TemplateUpdated=${!!reportTemplate}`);
-        res.json({ success: true });
+        res.json({ success: true, store });
 
     } catch (e) {
         console.error(e);

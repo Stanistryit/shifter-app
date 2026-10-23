@@ -59,7 +59,9 @@ const handleCallback = async (bot, q) => {
     else if (data.startsWith('alarm_reopen_')) {
         const storeId = data.replace('alarm_reopen_', '');
         const u = await User.findOne({ telegramChatId: uid });
-        const name = u ? (u.fullName || u.name) : (q.from.first_name + (q.from.last_name ? ' ' + q.from.last_name : ''));
+        const tgName = ((q.from.first_name || '') + (q.from.last_name ? ' ' + q.from.last_name : '')).trim();
+        const name = (u && (u.fullName || u.name)) ? (u.fullName || u.name) : (tgName || q.from.username || 'Співробітник');
+        console.log(`[Telegram alarm_reopen] uid=${uid}, tgName="${tgName}", matchedUser="${u?.name}", finalName="${name}"`);
         try {
             const alarmService = require('../services/alarmService');
             const res = await alarmService.recordStoreReopen(storeId, name);
