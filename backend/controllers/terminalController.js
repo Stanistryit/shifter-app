@@ -1,6 +1,25 @@
 const { Store, User, Shift, Task, CashCount, StockCount } = require('../models');
 const { sendStoreCashReport } = require('../bot/notifications');
 
+function formatTerminalStore(store) {
+    if (!store) return {};
+    return {
+        _id: store._id,
+        name: store.name,
+        code: store.code,
+        openTime: store.openTime || "10:00",
+        closeTime: store.closeTime || "22:00",
+        emergencyContacts: store.emergencyContacts || [],
+        dailyAnnouncement: store.dailyAnnouncement || "",
+        checklists: store.checklists || null,
+        alarmRegion: store.alarmRegion || 'м. Київ',
+        alarmDistrict: store.alarmDistrict || '',
+        alarmTrackingStart: store.alarmTrackingStart || store.openTime || '10:00',
+        alarmTrackingEnd: store.alarmTrackingEnd || store.closeTime || '22:00',
+        alarmTopicId: store.telegram?.alarmTopicId || null
+    };
+}
+
 // 1. Вхід терміналу (за кодом магазину та PIN)
 exports.terminalLogin = async (req, res) => {
     const { code, pin } = req.body;
@@ -33,15 +52,7 @@ exports.terminalLogin = async (req, res) => {
 
     res.json({
         success: true,
-        store: {
-            _id: store._id,
-            name: store.name,
-            code: store.code,
-            openTime: store.openTime || "10:00",
-            closeTime: store.closeTime || "22:00",
-            emergencyContacts: store.emergencyContacts || [],
-            dailyAnnouncement: store.dailyAnnouncement || ""
-        }
+        store: formatTerminalStore(store)
     });
 };
 
@@ -65,15 +76,7 @@ exports.getTerminalSession = async (req, res) => {
 
     res.json({
         success: true,
-        store: {
-            _id: store._id,
-            name: store.name,
-            code: store.code,
-            openTime: store.openTime || "10:00",
-            closeTime: store.closeTime || "22:00",
-            emergencyContacts: store.emergencyContacts || [],
-            dailyAnnouncement: store.dailyAnnouncement || ""
-        }
+        store: formatTerminalStore(store)
     });
 };
 
@@ -149,15 +152,7 @@ exports.getTerminalData = async (req, res) => {
 
     res.json({
         success: true,
-        store: {
-            _id: store._id,
-            name: store.name,
-            code: store.code,
-            openTime: store.openTime || "10:00",
-            closeTime: store.closeTime || "22:00",
-            emergencyContacts: store.emergencyContacts || [],
-            dailyAnnouncement: store.dailyAnnouncement || ""
-        },
+        store: formatTerminalStore(store),
         todayStr,
         tomorrowStr,
         employees: storeUsers,
@@ -304,7 +299,7 @@ exports.getStockCountHistory = async (req, res) => {
 
 // 8. Оновлення налаштувань терміналу (для SM)
 exports.updateTerminalSettings = async (req, res) => {
-    const { storeId, terminalPin, dailyAnnouncement, emergencyContacts } = req.body;
+    const { storeId, terminalPin, dailyAnnouncement, emergencyContacts, checklists, alarmRegion, alarmDistrict, alarmTrackingStart, alarmTrackingEnd } = req.body;
 
     const targetStoreId = storeId || req.user?.storeId;
     if (!targetStoreId) {
@@ -321,18 +316,18 @@ exports.updateTerminalSettings = async (req, res) => {
     if (emergencyContacts !== undefined && Array.isArray(emergencyContacts)) {
         store.emergencyContacts = emergencyContacts;
     }
+    if (checklists !== undefined) store.checklists = checklists;
+    if (alarmRegion !== undefined) store.alarmRegion = String(alarmRegion).trim();
+    if (alarmDistrict !== undefined) store.alarmDistrict = String(alarmDistrict).trim();
+    if (alarmTrackingStart !== undefined) store.alarmTrackingStart = String(alarmTrackingStart).trim();
+    if (alarmTrackingEnd !== undefined) store.alarmTrackingEnd = String(alarmTrackingEnd).trim();
 
     await store.save();
 
     res.json({
         success: true,
         message: "Налаштування терміналу оновлено",
-        store: {
-            _id: store._id,
-            terminalPin: store.terminalPin,
-            dailyAnnouncement: store.dailyAnnouncement,
-            emergencyContacts: store.emergencyContacts
-        }
+        store: formatTerminalStore(store)
     });
 };
 
@@ -396,5 +391,34 @@ exports.getTerminalSchedule = async (req, res) => {
         employees: storeUsers,
         shifts
     });
+};
+
+// 10. Отримання статусу повітряної тривоги
+exports.getAlarmStatus = async (req, res) => {
+    let storeId = req.query.storeId || req.session?.terminalStoreId;
+    if (!storeId && req.user?.storeId) {
+        storeId = req.user.storeId;
+    }
+    if (!storeId) {
+        return res.status(400).json({ success: false, message: "storeId обов'язковий" });
+    }
+    const alarmService = require('../services/alarmService');
+    const status = await alarmService.getStoreAlarmStatus(storeId);
+    res.json({ success: true, ...status });
+};
+
+// 11. Фіксація кнопки "Відкрились"
+exports.reopenStore = async (req, res) => {
+    let storeId = req.body.storeId || req.session?.terminalStoreId;
+    if (!storeId && req.user?.storeId) {
+        storeId = req.user.storeId;
+    }
+    const openedBy = req.body.openedBy || req.session?.terminalUserName || req.user?.fullName || req.user?.name || 'Співробітник';
+    if (!storeId) {
+        return res.status(400).json({ success: false, message: "storeId обов'язковий" });
+    }
+    const alarmService = require('../services/alarmService');
+    const result = await alarmService.recordStoreReopen(storeId, openedBy);
+    res.json(result);
 };
 

@@ -11,6 +11,7 @@ const { initBot, getBot } = require('./backend/bot');
 const { initDB } = require('./backend/utils');
 const routes = require('./backend/routes');
 const { initScheduler } = require('./backend/scheduler'); // 🔥 Підключили планувальник
+const { startAlarmMonitoring } = require('./backend/services/alarmService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -77,6 +78,9 @@ mongoose.connect(process.env.MONGO_URI)
 
         // 2. Запускаємо планувальник Agenda (в одному процесі для безкоштовного тарифу Render)
         initScheduler(TG_CONFIG).catch(err => console.error("Agenda Initialization Error:", err));
+
+        // 3. Запускаємо моніторинг повітряних тривог (єМапа)
+        startAlarmMonitoring();
     })
     .catch(console.error);
 

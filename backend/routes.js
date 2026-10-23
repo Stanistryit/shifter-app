@@ -126,5 +126,7 @@ router.post('/terminal/stock-count', catchAsync(terminalController.saveStockCoun
 router.get('/terminal/stock-count/history', catchAsync(terminalController.getStockCountHistory));
 router.post('/terminal/settings', catchAsync(terminalController.updateTerminalSettings));
 router.get('/terminal/schedule', catchAsync(terminalController.getTerminalSchedule));
+router.get('/terminal/alarm/status', catchAsync(terminalController.getAlarmStatus));
+router.post('/terminal/alarm/reopen', catchAsync(terminalController.reopenStore));
 
 module.exports = router;

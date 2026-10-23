@@ -134,6 +134,31 @@ exports.updateStoreSettings = async (req, res) => {
             store.emergencyContacts = req.body.emergencyContacts;
         }
 
+        if (req.body.checklists !== undefined) {
+            store.checklists = req.body.checklists;
+        }
+
+        if (req.body.alarmRegion !== undefined) {
+            store.alarmRegion = String(req.body.alarmRegion).trim();
+        }
+
+        if (req.body.alarmDistrict !== undefined) {
+            store.alarmDistrict = String(req.body.alarmDistrict).trim();
+        }
+
+        if (req.body.alarmTrackingStart !== undefined) {
+            store.alarmTrackingStart = String(req.body.alarmTrackingStart).trim();
+        }
+
+        if (req.body.alarmTrackingEnd !== undefined) {
+            store.alarmTrackingEnd = String(req.body.alarmTrackingEnd).trim();
+        }
+
+        if (req.body.alarmTopicId !== undefined) {
+            if (!store.telegram) store.telegram = {};
+            store.telegram.alarmTopicId = req.body.alarmTopicId ? Number(req.body.alarmTopicId) : null;
+        }
+
         await store.save();
 
         logAction(u.name, 'update_settings', `Settings updated: Report=${reportTime}, Open=${openTime}, Close=${closeTime}, Lunch=${store.lunch_duration_minutes}, TemplateUpdated=${!!reportTemplate}`);

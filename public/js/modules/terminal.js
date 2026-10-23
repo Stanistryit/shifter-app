@@ -13,8 +13,10 @@ let terminalState = {
     expectedAmounts: [{ id: 1, label: 'Z-звіт сьогодні', amount: 0 }],
     nextExpectedId: 2,
     pollingInterval: null,
+    alarmInterval: null,
     clockInterval: null,
-    checklistState: {}
+    checklistState: {},
+    alarmStatus: null
 };
 
 // 1. Ініціалізація або перевірка терміналу
@@ -44,6 +46,14 @@ export async function initTerminal() {
             loadTerminalData(terminalState.store._id, null, true);
         }
     }, 60000);
+
+    // Запускаємо моніторинг тривог кожні 15 секунд
+    if (terminalState.alarmInterval) clearInterval(terminalState.alarmInterval);
+    terminalState.alarmInterval = setInterval(() => {
+        if (terminalState.store?._id) {
+            loadAlarmStatus(terminalState.store._id);
+        }
+    }, 15000);
 }
 
 // 2. Живий годинник
@@ -91,6 +101,7 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
             renderEmergencyContacts(res.store.emergencyContacts);
             renderTasks(res.tasks);
             renderChecklists(res.store);
+            loadAlarmStatus(res.store._id);
             populateAuthorSelects(res.employees);
 
             if (!document.getElementById('termDenominationsRows')?.dataset.initialized) {
@@ -310,24 +321,23 @@ function renderEmergencyContacts(contacts) {
     const listEl = document.getElementById('termEmergencyContactsList');
     if (!listEl) return;
 
-    if (!contacts || contacts.length === 0) {
+    const validContacts = (contacts || []).filter(c => c && (c.title || c.phone));
+
+    if (validContacts.length === 0) {
         listEl.innerHTML = `
-            <div class="p-2 rounded-lg bg-gray-50 dark:bg-[#2C2C2E] flex justify-between items-center text-xs">
-                <span class="font-bold text-gray-600 dark:text-gray-300">Охорона точки</span>
-                <span class="font-mono text-blue-500 font-bold">Вкажіть у налаштуваннях</span>
-            </div>
-            <div class="p-2 rounded-lg bg-gray-50 dark:bg-[#2C2C2E] flex justify-between items-center text-xs">
-                <span class="font-bold text-gray-600 dark:text-gray-300">Інкасація / Банк</span>
-                <span class="font-mono text-blue-500 font-bold">Вкажіть у налаштуваннях</span>
+            <div class="p-2.5 rounded-lg bg-gray-50 dark:bg-[#2C2C2E] text-center text-xs text-gray-400">
+                Контакти не вказані в налаштуваннях магазину (SM)
             </div>
         `;
         return;
     }
 
-    listEl.innerHTML = contacts.map(c => `
+    listEl.innerHTML = validContacts.map(c => `
         <div class="p-2 rounded-lg bg-gray-50 dark:bg-[#2C2C2E] border border-gray-100 dark:border-gray-800 flex justify-between items-center text-xs">
             <span class="font-bold text-gray-700 dark:text-gray-200">${c.title || 'Контакт'}</span>
-            <a href="tel:${c.phone || ''}" class="font-mono text-blue-500 hover:underline font-bold">${c.phone || '---'}</a>
+            <a href="tel:${c.phone || ''}" class="font-mono text-blue-500 hover:underline font-bold flex items-center gap-1">
+                <span>📞</span> ${c.phone || '---'}
+            </a>
         </div>
     `).join('');
 }
@@ -400,12 +410,13 @@ function renderChecklists(store) {
         badgeEl.innerText = isMorning ? 'Відкриття' : 'Закриття';
     }
 
-    const defaultItems = isMorning ? [
+    const defaultMorning = [
         { id: 'm_rro', text: 'Відкрити зміну РРО / роздрукувати X-звіт' },
         { id: 'm_terminal', text: 'Перевірити зв\'язок банківського терміналу' },
         { id: 'm_cash', text: 'Перерахувати та закласти розмінну монету' },
         { id: 'm_clean', text: 'Перевірити чистоту вітрин та порядок у залі' }
-    ] : [
+    ];
+    const defaultEvening = [
         { id: 'e_cash', text: 'Вечірній перерахунок каси (вкладка Каса)' },
         { id: 'e_encash', text: 'Підготувати та зібрати інкасацію' },
         { id: 'e_stock', text: 'Заповнити вечірній перерахунок складу' },
@@ -413,6 +424,21 @@ function renderChecklists(store) {
         { id: 'e_safe', text: 'Сховати виручку в сейф та зачинити' },
         { id: 'e_lights', text: 'Вимкнути світло, вивіску та закрити ролети' }
     ];
+
+    let items = [];
+    if (isMorning) {
+        if (store.checklists?.morning && store.checklists.morning.length > 0) {
+            items = store.checklists.morning.map((text, idx) => ({ id: `m_${idx}`, text }));
+        } else {
+            items = defaultMorning;
+        }
+    } else {
+        if (store.checklists?.evening && store.checklists.evening.length > 0) {
+            items = store.checklists.evening.map((text, idx) => ({ id: `e_${idx}`, text }));
+        } else {
+            items = defaultEvening;
+        }
+    }
 
     // Зчитуємо локальний стан виконання чек-ліста за сьогодні
     const todayStr = new Date().toISOString().split('T')[0];
@@ -424,7 +450,7 @@ function renderChecklists(store) {
 
     terminalState.checklistState = savedState;
 
-    container.innerHTML = defaultItems.map(item => {
+    container.innerHTML = items.map(item => {
         const record = savedState[item.id];
         const isChecked = !!record;
         const authorText = record ? `<span class="text-[9px] text-green-600 dark:text-green-400 font-bold ml-1">(${record.by}, ${record.time})</span>` : '';
@@ -442,6 +468,164 @@ function renderChecklists(store) {
         `;
     }).join('');
 }
+
+// 9.1 Моніторинг та рендеринг повітряної тривоги
+async function loadAlarmStatus(storeId) {
+    if (!storeId) return;
+    try {
+        const res = await fetchJson(`/api/terminal/alarm/status?storeId=${storeId}`);
+        if (!res || !res.success) return;
+
+        terminalState.alarmStatus = res;
+        renderAlarmTile(res);
+    } catch (e) {
+        console.warn("loadAlarmStatus error:", e);
+    }
+}
+
+function renderAlarmTile(data) {
+    const cardEl = document.getElementById('termAlarmCard');
+    const iconEl = document.getElementById('termAlarmIcon');
+    const titleTextEl = document.getElementById('termAlarmTitleText');
+    const regionBadgeEl = document.getElementById('termAlarmRegionBadge');
+    const statusBoxEl = document.getElementById('termAlarmStatusBox');
+    const statusTextEl = document.getElementById('termAlarmStatusText');
+    const timerEl = document.getElementById('termAlarmTimer');
+    const subtextEl = document.getElementById('termAlarmSubtext');
+    const reopenBtn = document.getElementById('btnTermReopen');
+
+    if (!cardEl || !statusBoxEl) return;
+
+    if (regionBadgeEl) {
+        regionBadgeEl.innerText = data.district ? `${data.region} (${data.district})` : (data.region || 'м. Київ');
+    }
+
+    if (data.isAlert) {
+        // ТРИВОГА АКТИВНА
+        const isRed = data.alertLevel === 'red';
+        const levelBadge = isRed ? '🔴 Червоний (Ракетна небезпека)' : '🟡 Жовтий (Загроза БПЛА)';
+
+        if (iconEl) iconEl.innerText = '🚨';
+        if (titleTextEl) {
+            titleTextEl.innerText = 'ПОВІТРЯНА ТРИВОГА';
+            titleTextEl.className = 'text-xs font-black text-red-500 animate-pulse tracking-wider flex items-center gap-1.5';
+        }
+
+        cardEl.className = `ios-card p-3.5 border-2 ${isRed ? 'border-red-500 bg-red-50/20 dark:bg-red-950/20 shadow-lg shadow-red-500/20' : 'border-amber-500 bg-amber-50/20 dark:bg-amber-950/20 shadow-lg shadow-amber-500/20'} transition-all`;
+
+        statusBoxEl.className = `p-2.5 rounded-xl ${isRed ? 'bg-red-100/60 dark:bg-red-900/40 border border-red-300 dark:border-red-800' : 'bg-amber-100/60 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-800'} flex flex-col gap-1`;
+
+        let durationText = '';
+        if (data.enabledAt) {
+            const startD = new Date(data.enabledAt);
+            const now = new Date();
+            const mins = Math.max(0, Math.round((now - startD) / 60000));
+            const startH = String(startD.getHours()).padStart(2, '0');
+            const startM = String(startD.getMinutes()).padStart(2, '0');
+            durationText = `з ${startH}:${startM} (${mins} хв)`;
+        }
+
+        if (statusTextEl) {
+            statusTextEl.className = `text-xs font-black ${isRed ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'} flex items-center gap-1.5`;
+            statusTextEl.innerHTML = `<span>🚨</span> ТРИВОГА: ${levelBadge}`;
+        }
+
+        if (timerEl) {
+            timerEl.innerText = durationText || 'Триває';
+            timerEl.className = `text-[10px] font-mono font-bold ${isRed ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'}`;
+        }
+
+        if (subtextEl) {
+            subtextEl.innerText = '⚠️ Робота точки призупинена! Працівники мають бути в укритті.';
+            subtextEl.className = 'text-[10px] font-bold text-red-600 dark:text-red-400';
+        }
+
+        if (reopenBtn) {
+            reopenBtn.className = 'w-full py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-1.5';
+            reopenBtn.innerHTML = '<span>🏪</span> <span>Відкрились (зафіксувати)</span>';
+        }
+    } else {
+        // ВІДБІЙ ТРИВОГИ / СПОКІЙНО
+        if (iconEl) iconEl.innerText = '🟢';
+        if (titleTextEl) {
+            titleTextEl.innerText = 'СТАТУС БЕЗПЕКИ';
+            titleTextEl.className = 'text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5';
+        }
+
+        cardEl.className = 'ios-card p-3.5 bg-white dark:bg-[#1C1C1E] border border-gray-200/80 dark:border-gray-800 shadow-md transition-all';
+
+        statusBoxEl.className = 'p-2.5 rounded-xl bg-green-50/70 dark:bg-green-950/30 border border-green-200/60 dark:border-green-800/50 flex flex-col gap-1 transition-colors';
+
+        if (statusTextEl) {
+            statusTextEl.className = 'text-xs font-bold text-green-700 dark:text-green-400 flex items-center gap-1.5';
+            statusTextEl.innerHTML = '<span>🟢</span> Немає тривоги (Відбій)';
+        }
+
+        const lastEv = data.lastEvent;
+        if (lastEv && lastEv.status === 'ended_waiting_reopen') {
+            // Очікує відкриття!
+            if (timerEl) {
+                const endD = new Date(lastEv.endedAt);
+                const endH = String(endD.getHours()).padStart(2, '0');
+                const endM = String(endD.getMinutes()).padStart(2, '0');
+                timerEl.innerText = `Відбій о ${endH}:${endM}`;
+                timerEl.className = 'text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400';
+            }
+            if (subtextEl) {
+                subtextEl.innerHTML = `⚠️ <b>Відбій зафіксовано (${lastEv.alertDurationMinutes || 0} хв).</b> Натисніть кнопку <b>"Відкрились"</b> нижче після відновлення роботи!`;
+                subtextEl.className = 'text-[10px] text-amber-600 dark:text-amber-400';
+            }
+            if (reopenBtn) {
+                reopenBtn.className = 'w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 active:scale-95 text-white font-black text-xs rounded-xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-1.5 animate-bounce';
+                reopenBtn.innerHTML = '<span>🏪</span> <span>НА ТАЧКУ: НАТИСНІТЬ "ВІДКРИЛИСЬ"</span>';
+            }
+        } else {
+            // Звичайний робочий стан
+            if (timerEl) {
+                const stats = data.todayStats;
+                timerEl.innerText = stats?.count ? `${stats.count} тривог (${stats.totalDowntimeMins || 0} хв)` : 'Спокійно';
+                timerEl.className = 'text-[10px] font-mono text-gray-500 dark:text-gray-400';
+            }
+            if (subtextEl) {
+                subtextEl.innerText = 'Магазин працює у штатному режимі.';
+                subtextEl.className = 'text-[10px] text-gray-500 dark:text-gray-400';
+            }
+            if (reopenBtn) {
+                reopenBtn.className = 'w-full py-2 px-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5';
+                reopenBtn.innerHTML = '<span>🏪</span> <span>Відкрились (повідомити)</span>';
+            }
+        }
+    }
+}
+
+window.confirmStoreReopen = async function () {
+    triggerHaptic();
+    if (!terminalState.store?._id) return;
+
+    const btn = document.getElementById('btnTermReopen');
+    const oldHtml = btn ? btn.innerHTML : '';
+    if (btn) btn.innerHTML = '<span>⏳</span> <span>Відправка...</span>';
+
+    try {
+        const openedBy = terminalState.employees[0]?.name || 'Співробітник';
+        const res = await postJson('/api/terminal/alarm/reopen', {
+            storeId: terminalState.store._id,
+            openedBy
+        });
+
+        if (res && res.success) {
+            showToast(res.message || "Повідомлення надіслано в Telegram! ✅", 'success');
+            await loadAlarmStatus(terminalState.store._id);
+        } else {
+            showToast(res?.message || "Помилка відправки", 'error');
+            if (btn) btn.innerHTML = oldHtml;
+        }
+    } catch (e) {
+        console.error("confirmStoreReopen error:", e);
+        showToast("Помилка зв'язку", 'error');
+        if (btn) btn.innerHTML = oldHtml;
+    }
+};
 
 // 10. Позначення чек-ліста з вибором виконавця
 window.toggleChecklistItem = function (itemId, savedKey) {
@@ -962,6 +1146,7 @@ window.terminalRefresh = function () {
     triggerHaptic();
     if (terminalState.store?._id) {
         loadTerminalData(terminalState.store._id, null);
+        loadAlarmStatus(terminalState.store._id);
     }
 };
 

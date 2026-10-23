@@ -25,6 +25,32 @@ const storeSchema = new mongoose.Schema({
     terminalPin: { type: String, default: '1234' },
     emergencyContacts: { type: [Object], default: [] },
     dailyAnnouncement: { type: String, default: '' },
+    checklists: {
+        morning: {
+            type: [String],
+            default: [
+                'Відкрити зміну РРО / роздрукувати X-звіт',
+                'Перевірити зв\'язок банківського терміналу',
+                'Перерахувати та закласти розмінну монету',
+                'Перевірити чистоту вітрин та порядок у залі'
+            ]
+        },
+        evening: {
+            type: [String],
+            default: [
+                'Вечірній перерахунок каси (вкладка Каса)',
+                'Підготувати та зібрати інкасацію',
+                'Заповнити вечірній перерахунок складу',
+                'Зняти фіскальний Z-звіт на РРО',
+                'Сховати виручку в сейф та зачинити',
+                'Вимкнути світло, вивіску та закрити ролети'
+            ]
+        }
+    },
+    alarmRegion: { type: String, default: 'м. Київ' },
+    alarmDistrict: { type: String, default: '' },
+    alarmTrackingStart: { type: String, default: '10:00' },
+    alarmTrackingEnd: { type: String, default: '22:00' },
 
     telegram: {
         chatId: { type: Number, default: null },
@@ -32,6 +58,7 @@ const storeSchema = new mongoose.Schema({
         requestsTopicId: { type: Number, default: null },
         eveningTopicId: { type: Number, default: null },
         cashTopicId: { type: Number, default: null },
+        alarmTopicId: { type: Number, default: null },
         reportTime: { type: String, default: "20:00" },
         reportTemplate: {
             header: { type: String, default: '🌙 <b>План на завтра ({date}):</b>' },
@@ -262,4 +289,33 @@ const stockCountSchema = new mongoose.Schema({
 stockCountSchema.index({ storeId: 1, createdAt: -1 });
 const StockCount = mongoose.models.StockCount || mongoose.model('StockCount', stockCountSchema);
 
-module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, MonthSettings, PendingNotification, Notification, CashCount, StockCount };
+// 18. Схема Подій Повітряної Тривоги
+const alarmEventSchema = new mongoose.Schema({
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true },
+    date: { type: String, required: true }, // 'YYYY-MM-DD' (Kyiv date)
+    region: { type: String, default: 'м. Київ' },
+    district: { type: String, default: '' },
+    alertLevel: { type: String, default: null }, // 'yellow', 'red', null
+
+    startedAt: { type: Date, required: true },
+    effectiveStartedAt: { type: Date, required: true },
+    endedAt: { type: Date, default: null },
+    effectiveEndedAt: { type: Date, default: null },
+    reopenedAt: { type: Date, default: null },
+
+    alertDurationMinutes: { type: Number, default: 0 },
+    reopenDurationMinutes: { type: Number, default: 0 },
+    totalDowntimeMinutes: { type: Number, default: 0 },
+
+    status: {
+        type: String,
+        enum: ['active', 'ended_waiting_reopen', 'reopened', 'closed_at_end_of_day'],
+        default: 'active'
+    },
+    closingNoticeSent: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now }
+});
+alarmEventSchema.index({ storeId: 1, date: 1, status: 1 });
+const AlarmEvent = mongoose.models.AlarmEvent || mongoose.model('AlarmEvent', alarmEventSchema);
+
+module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, MonthSettings, PendingNotification, Notification, CashCount, StockCount, AlarmEvent };

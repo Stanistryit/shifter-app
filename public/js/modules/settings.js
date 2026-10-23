@@ -27,6 +27,46 @@ export function openStoreSettingsModal() {
     const terminalPin = s.terminalPin || "0000";
     const dailyAnnouncement = s.dailyAnnouncement || "";
 
+    const emergencyContacts = (s.emergencyContacts && s.emergencyContacts.length > 0) ? s.emergencyContacts : [
+        { title: 'Охорона точки', phone: '' },
+        { title: 'Інкасація / Банк', phone: '' }
+    ];
+
+    const defaultMorning = [
+        'Відкрити зміну РРО / роздрукувати X-звіт',
+        'Перевірити зв\'язок банківського терміналу',
+        'Перерахувати та закласти розмінну монету',
+        'Перевірити чистоту вітрин та порядок у залі'
+    ];
+    const defaultEvening = [
+        'Вечірній перерахунок каси (вкладка Каса)',
+        'Підготувати та зібрати інкасацію',
+        'Заповнити вечірній перерахунок складу',
+        'Зняти фіскальний Z-звіт на РРО',
+        'Сховати виручку в сейф та зачинити',
+        'Вимкнути світло, вивіску та закрити ролети'
+    ];
+
+    const morningChecklist = (s.checklists?.morning && s.checklists.morning.length > 0) ? s.checklists.morning : defaultMorning;
+    const eveningChecklist = (s.checklists?.evening && s.checklists.evening.length > 0) ? s.checklists.evening : defaultEvening;
+
+    const alarmRegion = s.alarmRegion || "м. Київ";
+    const alarmDistrict = s.alarmDistrict || "";
+    const alarmTrackingStart = s.alarmTrackingStart || s.openTime || "10:00";
+    const alarmTrackingEnd = s.alarmTrackingEnd || s.closeTime || "22:00";
+    const alarmTopicId = s.telegram?.alarmTopicId || "";
+
+    const ukraineRegions = [
+        'м. Київ', 'Київська область', 'Вінницька область', 'Волинська область',
+        'Дніпропетровська область', 'Донецька область', 'Житомирська область',
+        'Закарпатська область', 'Запорізька область', 'Івано-Франківська область',
+        'Кіровоградська область', 'Луганська область', 'Львівська область',
+        'Миколаївська область', 'Одеська область', 'Полтавська область',
+        'Рівненська область', 'Сумська область', 'Тернопільська область',
+        'Харківська область', 'Херсонська область', 'Хмельницька область',
+        'Черкаська область', 'Чернівецька область', 'Чернігівська область'
+    ];
+
     const now = new Date();
     const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const normObj = s.normHours || {};
@@ -158,6 +198,108 @@ export function openStoreSettingsModal() {
                 </div>
             </div>
 
+            <!-- Блок: Важливі контакти для терміналу -->
+            <div class="w-full flex flex-col bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-5">
+                <div class="px-4 py-2 bg-gray-50/50 dark:bg-[#2C2C2E]/50 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Важливі контакти (Термінал)</span>
+                    <span>📞</span>
+                </div>
+                <div id="set_contacts_list" class="p-3 space-y-2 border-b border-gray-100 dark:border-gray-800">
+                    ${emergencyContacts.map(c => `
+                        <div class="flex items-center gap-1.5 contact-item-row">
+                            <input type="text" placeholder="Назва (напр. Охорона)" value="${c.title || ''}" class="contact-title flex-1 bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-gray-800 dark:text-gray-100 outline-none">
+                            <input type="tel" placeholder="Телефон" value="${c.phone || ''}" class="contact-phone flex-1 bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-blue-500 font-mono outline-none">
+                            <button type="button" onclick="this.closest('.contact-item-row').remove()" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg text-xs" title="Видалити">✕</button>
+                        </div>
+                    `).join('')}
+                </div>
+                <button type="button" onclick="window.addSettingContactRow()" class="p-2.5 text-xs font-bold text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-center transition-colors">
+                    + Додати контакт
+                </button>
+            </div>
+
+            <!-- Блок: Чек-лісти відкриття та закриття -->
+            <div class="w-full flex flex-col bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-5">
+                <div class="px-4 py-2 bg-gray-50/50 dark:bg-[#2C2C2E]/50 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Чек-лісти зміни (Термінал)</span>
+                    <span>✅</span>
+                </div>
+                
+                <!-- Ранковий чек-ліст -->
+                <div class="p-3 border-b border-gray-100 dark:border-gray-800 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-amber-600 dark:text-amber-400">🌅 Ранковий чек-ліст (до 14:00)</span>
+                    </div>
+                    <div id="set_morning_list" class="space-y-1.5">
+                        ${morningChecklist.map(item => `
+                            <div class="flex items-center gap-1.5 checklist-item-row">
+                                <input type="text" value="${item}" class="checklist-item-input flex-1 bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-gray-800 dark:text-gray-100 outline-none">
+                                <button type="button" onclick="this.closest('.checklist-item-row').remove()" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg text-xs">✕</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button type="button" onclick="window.addChecklistSettingItem('morning')" class="w-full py-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/30 rounded-lg border border-amber-200/50 dark:border-amber-900/40 hover:bg-amber-100/50 transition-colors">
+                        + Додати пункт до ранку
+                    </button>
+                </div>
+
+                <!-- Вечірній чек-ліст -->
+                <div class="p-3 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400">🌙 Вечірній чек-ліст (після 14:00)</span>
+                    </div>
+                    <div id="set_evening_list" class="space-y-1.5">
+                        ${eveningChecklist.map(item => `
+                            <div class="flex items-center gap-1.5 checklist-item-row">
+                                <input type="text" value="${item}" class="checklist-item-input flex-1 bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-gray-800 dark:text-gray-100 outline-none">
+                                <button type="button" onclick="this.closest('.checklist-item-row').remove()" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg text-xs">✕</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button type="button" onclick="window.addChecklistSettingItem('evening')" class="w-full py-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50/60 dark:bg-indigo-950/30 rounded-lg border border-indigo-200/50 dark:border-indigo-900/40 hover:bg-indigo-100/50 transition-colors">
+                        + Додати пункт до вечора
+                    </button>
+                </div>
+            </div>
+
+            <!-- Блок: Повітряні тривоги (єМапа) -->
+            <div class="w-full flex flex-col bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-5">
+                <div class="px-4 py-2 bg-gray-50/50 dark:bg-[#2C2C2E]/50 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Повітряні Тривоги (єМапа)</span>
+                    <span>🚨</span>
+                </div>
+                
+                <div class="p-3 flex flex-col gap-1.5 border-b border-gray-100 dark:border-gray-800">
+                    <span class="font-medium text-xs text-gray-700 dark:text-gray-200">Місто / Регіон</span>
+                    <select id="set_alarmRegion" class="w-full bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-800 dark:text-gray-100 outline-none">
+                        ${ukraineRegions.map(r => `<option value="${r}" ${r === alarmRegion ? 'selected' : ''}>${r}</option>`).join('')}
+                    </select>
+                </div>
+
+                <div class="p-3 flex flex-col gap-1.5 border-b border-gray-100 dark:border-gray-800">
+                    <span class="font-medium text-xs text-gray-700 dark:text-gray-200">Район (якщо область, наприклад: Вишгородський район)</span>
+                    <input type="text" id="set_alarmDistrict" value="${alarmDistrict}" placeholder="Залиште порожнім для всієї області/міста" class="w-full bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-blue-500 outline-none">
+                </div>
+
+                <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800">
+                    <div class="flex flex-col">
+                        <span class="font-medium text-xs text-gray-700 dark:text-gray-200">Час моніторингу тривог</span>
+                        <span class="text-[10px] text-gray-400">Робочий інтервал магазину</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <input type="time" id="set_alarmTrackingStart" value="${alarmTrackingStart}" class="bg-gray-100 dark:bg-[#2C2C2E] rounded px-1.5 py-1 text-xs font-bold text-blue-500 outline-none">
+                        <span class="text-xs text-gray-400">-</span>
+                        <input type="time" id="set_alarmTrackingEnd" value="${alarmTrackingEnd}" class="bg-gray-100 dark:bg-[#2C2C2E] rounded px-1.5 py-1 text-xs font-bold text-blue-500 outline-none">
+                    </div>
+                </div>
+
+                <div class="p-3 flex flex-col gap-1.5 bg-gray-50/50 dark:bg-[#2C2C2E]/20">
+                    <span class="font-medium text-xs text-gray-700 dark:text-gray-200">ID Топіка сповіщень у Telegram</span>
+                    <input type="number" id="set_alarmTopicId" value="${alarmTopicId}" placeholder="Вкажіть ID топіка або надішліть /set_alarm у групі" class="w-full bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-blue-500 outline-none">
+                    <span class="text-[10px] text-gray-400">💡 У групі магазину в Telegram відкрийте потрібну гілку та напишіть команду <b>/set_alarm</b> для автоматичної прив'язки.</span>
+                </div>
+            </div>
+
             <div class="h-px bg-gray-200 dark:bg-gray-700 my-4"></div>
             
             <button onclick="window.openReportConstructorModal()" class="w-full py-3 mb-4 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-xl text-sm font-bold active:scale-95 transition-transform border border-purple-100 dark:border-purple-800/50 flex items-center justify-center gap-2">
@@ -188,6 +330,40 @@ export async function saveStoreSettings() {
         ? state.selectedStoreFilter
         : (state.currentUser.storeId?._id || state.currentUser.storeId);
 
+    // Збираємо контакти
+    const contactRows = document.querySelectorAll('#set_contacts_list .contact-item-row');
+    const emergencyContacts = [];
+    contactRows.forEach(row => {
+        const title = row.querySelector('.contact-title')?.value?.trim();
+        const phone = row.querySelector('.contact-phone')?.value?.trim();
+        if (title || phone) {
+            emergencyContacts.push({ title: title || 'Контакт', phone: phone || '' });
+        }
+    });
+
+    // Збираємо чек-лісти
+    const morningRows = document.querySelectorAll('#set_morning_list .checklist-item-input');
+    const morning = [];
+    morningRows.forEach(input => {
+        const val = input.value.trim();
+        if (val) morning.push(val);
+    });
+
+    const eveningRows = document.querySelectorAll('#set_evening_list .checklist-item-input');
+    const evening = [];
+    eveningRows.forEach(input => {
+        const val = input.value.trim();
+        if (val) evening.push(val);
+    });
+    const checklists = { morning, evening };
+
+    // Збираємо налаштування тривоги
+    const alarmRegion = document.getElementById('set_alarmRegion')?.value?.trim() || 'м. Київ';
+    const alarmDistrict = document.getElementById('set_alarmDistrict')?.value?.trim() || '';
+    const alarmTrackingStart = document.getElementById('set_alarmTrackingStart')?.value || '10:00';
+    const alarmTrackingEnd = document.getElementById('set_alarmTrackingEnd')?.value || '22:00';
+    const alarmTopicId = document.getElementById('set_alarmTopicId')?.value?.trim() || null;
+
     const btn = document.querySelector('#storeSettingsModal .btn-primary');
     const oldText = btn.innerText;
     btn.innerText = "⏳ ...";
@@ -204,6 +380,13 @@ export async function saveStoreSettings() {
             fte, 
             terminalPin,
             dailyAnnouncement,
+            emergencyContacts,
+            checklists,
+            alarmRegion,
+            alarmDistrict,
+            alarmTrackingStart,
+            alarmTrackingEnd,
+            alarmTopicId,
             storeId: activeStoreId 
         };
         if (window._tempReportTemplate) {
@@ -225,7 +408,14 @@ export async function saveStoreSettings() {
                 state.currentUser.store.fte = fte;
                 state.currentUser.store.terminalPin = terminalPin;
                 state.currentUser.store.dailyAnnouncement = dailyAnnouncement;
+                state.currentUser.store.emergencyContacts = emergencyContacts;
+                state.currentUser.store.checklists = checklists;
+                state.currentUser.store.alarmRegion = alarmRegion;
+                state.currentUser.store.alarmDistrict = alarmDistrict;
+                state.currentUser.store.alarmTrackingStart = alarmTrackingStart;
+                state.currentUser.store.alarmTrackingEnd = alarmTrackingEnd;
                 if (!state.currentUser.store.telegram) state.currentUser.store.telegram = {};
+                state.currentUser.store.telegram.alarmTopicId = alarmTopicId ? Number(alarmTopicId) : null;
                 if (window._tempReportTemplate) {
                     state.currentUser.store.telegram.reportTemplate = window._tempReportTemplate;
                 }
@@ -242,6 +432,14 @@ export async function saveStoreSettings() {
                     foundStore.googleSheetsTab = googleSheetsTab;
                     foundStore.terminalPin = terminalPin;
                     foundStore.dailyAnnouncement = dailyAnnouncement;
+                    foundStore.emergencyContacts = emergencyContacts;
+                    foundStore.checklists = checklists;
+                    foundStore.alarmRegion = alarmRegion;
+                    foundStore.alarmDistrict = alarmDistrict;
+                    foundStore.alarmTrackingStart = alarmTrackingStart;
+                    foundStore.alarmTrackingEnd = alarmTrackingEnd;
+                    if (!foundStore.telegram) foundStore.telegram = {};
+                    foundStore.telegram.alarmTopicId = alarmTopicId ? Number(alarmTopicId) : null;
                 }
             }
             window._tempReportTemplate = null;
@@ -259,6 +457,33 @@ export async function saveStoreSettings() {
         btn.innerText = oldText;
     }
 }
+
+window.addSettingContactRow = function() {
+    const list = document.getElementById('set_contacts_list');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-1.5 contact-item-row';
+    row.innerHTML = `
+        <input type="text" placeholder="Назва (напр. Охорона)" value="" class="contact-title flex-1 bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-gray-800 dark:text-gray-100 outline-none">
+        <input type="tel" placeholder="Телефон" value="" class="contact-phone flex-1 bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-blue-500 font-mono outline-none">
+        <button type="button" onclick="this.closest('.contact-item-row').remove()" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg text-xs" title="Видалити">✕</button>
+    `;
+    list.appendChild(row);
+    row.querySelector('input').focus();
+};
+
+window.addChecklistSettingItem = function(type) {
+    const list = document.getElementById(type === 'morning' ? 'set_morning_list' : 'set_evening_list');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-1.5 checklist-item-row';
+    row.innerHTML = `
+        <input type="text" placeholder="Новий пункт чек-ліста..." value="" class="checklist-item-input flex-1 bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-gray-800 dark:text-gray-100 outline-none">
+        <button type="button" onclick="this.closest('.checklist-item-row').remove()" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg text-xs">✕</button>
+    `;
+    list.appendChild(row);
+    row.querySelector('input').focus();
+};
 
 window.openReportConstructorModal = function() {
     triggerHaptic();

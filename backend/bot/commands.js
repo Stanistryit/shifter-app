@@ -141,4 +141,22 @@ const handleSetCash = async (bot, msg) => {
     bot.sendMessage(chatId, `💵 Цей топік встановлено для <b>Звітів Каси, Інкасації та Складу</b>.`, { parse_mode: 'HTML', message_thread_id: threadId });
 };
 
-module.exports = { handleStart, handleLogin, handleLinkStore, handleSetNews, handleSetEvening, handleSetReportTime, handleSetCash };
+// Топік сповіщень про повітряну тривогу
+const handleSetAlarm = async (bot, msg) => {
+    const chatId = msg.chat.id;
+    const threadId = msg.message_thread_id;
+    const store = await Store.findOne({ 'telegram.chatId': chatId });
+    if (!store) return bot.sendMessage(chatId, '❌ Спочатку прив\'яжіть магазин командою /link_store КОД', { message_thread_id: threadId });
+
+    if (!store.telegram) store.telegram = {};
+    store.telegram.alarmTopicId = threadId || null;
+    await store.save();
+
+    const destText = threadId ? `в цей топік (гілку)` : `в цей чат`;
+    bot.sendMessage(chatId, `🚨 Сповіщення про <b>Повітряні Тривоги</b> встановлено ${destText}.\n\nРегіон відслідковування: <b>${store.alarmRegion || 'м. Київ'}</b>\nРобочий інтервал: <b>${store.alarmTrackingStart || '10:00'} - ${store.alarmTrackingEnd || '22:00'}</b>`, {
+        parse_mode: 'HTML',
+        message_thread_id: threadId
+    });
+};
+
+module.exports = { handleStart, handleLogin, handleLinkStore, handleSetNews, handleSetEvening, handleSetReportTime, handleSetCash, handleSetAlarm };
