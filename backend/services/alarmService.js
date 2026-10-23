@@ -14,28 +14,50 @@ const memoryState = {};
 
 // Допоміжні функції для роботи з часом у Києві (Europe/Kiev)
 function getKievNow() {
-    return new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
+    return new Date();
 }
 
 function getKievDateStr(date = new Date()) {
-    const k = new Date(date.toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
-    const y = k.getFullYear();
-    const m = String(k.getMonth() + 1).padStart(2, '0');
-    const d = String(k.getDate()).padStart(2, '0');
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Kiev',
+        year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(date);
+    const y = parts.find(p => p.type === 'year').value;
+    const m = parts.find(p => p.type === 'month').value;
+    const d = parts.find(p => p.type === 'day').value;
     return `${y}-${m}-${d}`;
 }
 
 function formatTimeKiev(date = new Date()) {
     if (!date) return '--:--';
-    const k = new Date(date.toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
-    return `${String(k.getHours()).padStart(2, '0')}:${String(k.getMinutes()).padStart(2, '0')}`;
+    return new Intl.DateTimeFormat('uk-UA', {
+        timeZone: 'Europe/Kiev',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    }).format(new Date(date));
 }
 
-function parseTimeToDateToday(timeStr, baseDate = new Date()) {
-    const [h, m] = (timeStr || "10:00").split(':').map(Number);
-    const k = new Date(baseDate.toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
-    k.setHours(h, m, 0, 0);
-    return k;
+function parseKievTimeToDate(timeStr, baseDate = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Kiev',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        timeZoneName: 'shortOffset'
+    }).formatToParts(baseDate);
+    const y = parts.find(p => p.type === 'year').value;
+    const m = parts.find(p => p.type === 'month').value;
+    const d = parts.find(p => p.type === 'day').value;
+    const tzPart = parts.find(p => p.type === 'timeZoneName')?.value || 'GMT+3';
+    let offset = '+03:00';
+    if (tzPart.includes('+')) {
+        offset = '+' + tzPart.split('+')[1].padStart(2, '0') + ':00';
+    } else if (tzPart.includes('-')) {
+        offset = '-' + tzPart.split('-')[1].padStart(2, '0') + ':00';
+    }
+    const partsTime = (timeStr || '10:00').split(':');
+    const hh = (partsTime[0] || '10').padStart(2, '0');
+    const mm = (partsTime[1] || '00').padStart(2, '0');
+    return new Date(`${y}-${m}-${d}T${hh}:${mm}:00${offset}`);
 }
 
 function formatDuration(mins) {
@@ -48,7 +70,7 @@ function formatDuration(mins) {
 }
 
 // Відправка повідомлення в Telegram бот
-async function sendStoreAlarmMessage(store, text) {
+async function sendStoreAlarmMessage(store, text, replyMarkup = null) {
     try {
         const bot = getBot();
         if (!bot) return;
@@ -59,6 +81,9 @@ async function sendStoreAlarmMessage(store, text) {
         const opts = { parse_mode: 'HTML' };
         if (store.telegram?.alarmTopicId) {
             opts.message_thread_id = store.telegram.alarmTopicId;
+        }
+        if (replyMarkup) {
+            opts.reply_markup = replyMarkup;
         }
 
         await bot.sendMessage(chatId, text, opts);
@@ -89,24 +114,26 @@ async function fetchStatuses() {
 
 // Отримання поточного статусу регіону/району
 function getRegionStatus(states, regionName, districtName) {
-    if (!states || !regionName) return { isAlert: false, alertLevel: null, enabledAt: null };
+    if (!states || !regionName) return { isAlert: false, alertLevel: null, enabledAt: null, disabledAt: null };
 
     const reg = states[regionName];
-    if (!reg) return { isAlert: false, alertLevel: null, enabledAt: null };
+    if (!reg) return { isAlert: false, alertLevel: null, enabledAt: null, disabledAt: null };
 
     if (districtName && reg.districts && reg.districts[districtName]) {
         const dist = reg.districts[districtName];
         return {
             isAlert: !!dist.enabled,
             alertLevel: dist.alert_level || null,
-            enabledAt: dist.enabled_at || null
+            enabledAt: dist.enabled_at || null,
+            disabledAt: dist.disabled_at || null
         };
     }
 
     return {
         isAlert: !!reg.enabled,
         alertLevel: reg.alert_level || null,
-        enabledAt: reg.enabled_at || null
+        enabledAt: reg.enabled_at || null,
+        disabledAt: reg.disabled_at || null
     };
 }
 
@@ -118,9 +145,7 @@ async function checkAlarms() {
         if (!stores || stores.length === 0) return;
 
         const now = new Date();
-        const nowKiev = getKievNow();
         const todayStr = getKievDateStr(now);
-        const currentMins = nowKiev.getHours() * 60 + nowKiev.getMinutes();
 
         for (const store of stores) {
             const storeIdStr = String(store._id);
@@ -138,109 +163,94 @@ async function checkAlarms() {
             const district = store.alarmDistrict || '';
             const status = getRegionStatus(states, region, district);
 
-            const [startH, startM] = (store.alarmTrackingStart || store.openTime || "10:00").split(':').map(Number);
-            const [endH, endM] = (store.alarmTrackingEnd || store.closeTime || "22:00").split(':').map(Number);
-            const startMins = startH * 60 + startM;
-            const endMins = endH * 60 + endM;
+            const workStartDate = parseKievTimeToDate(store.alarmTrackingStart || store.openTime || "10:00", now);
+            const workEndDate = parseKievTimeToDate(store.alarmTrackingEnd || store.closeTime || "22:00", now);
 
-            const isDuringWorkHours = currentMins >= startMins && currentMins < endMins;
-            const isBeforeWork = currentMins < startMins;
-            const isAfterWork = currentMins >= endMins;
+            const isDuringWorkHours = now >= workStartDate && now < workEndDate;
+            const isBeforeWork = now < workStartDate;
+            const isAfterWork = now >= workEndDate;
 
-            const workStartDate = parseTimeToDateToday(store.alarmTrackingStart || store.openTime || "10:00", now);
-            const workEndDate = parseTimeToDateToday(store.alarmTrackingEnd || store.closeTime || "22:00", now);
+            // Перевіряємо наявність активної події в базі даних (status: 'active')
+            const activeEvent = await AlarmEvent.findOne({ storeId: store._id, date: todayStr, status: 'active' });
 
-            // 1. Початок тривоги (false -> true)
-            if (status.isAlert && mState.lastAlertState === false) {
-                if (isDuringWorkHours) {
-                    // Тривога почалась у робочий час
-                    const enabledAtDate = status.enabledAt ? new Date(status.enabledAt) : now;
-                    const effectiveStart = enabledAtDate < workStartDate ? workStartDate : enabledAtDate;
+            // 1. Початок тривоги
+            if (status.isAlert) {
+                if (isDuringWorkHours && !activeEvent) {
+                    // Якщо тривога триває у робочий час, а активної події в базі ще немає
+                    const rawStart = status.enabledAt ? new Date(status.enabledAt) : now;
+                    // Якщо тривога почалася до відкриття магазину, робочий час рахуємо з моменту відкриття (workStartDate)
+                    const effectiveStart = rawStart < workStartDate ? workStartDate : rawStart;
 
-                    const newEvent = await AlarmEvent.create({
-                        storeId: store._id,
-                        date: todayStr,
-                        region,
-                        district,
-                        alertLevel: status.alertLevel,
-                        startedAt: enabledAtDate,
-                        effectiveStartedAt: effectiveStart,
-                        status: 'active'
-                    });
-
-                    const levelBadge = status.alertLevel === 'yellow'
-                        ? '🟡 <b>Жовтий (БПЛА / Загроза дронів)</b>'
-                        : (status.alertLevel === 'red' ? '🔴 <b>Червоний (Ракетна загроза)</b>' : '⚠️ <b>Підвищена загроза</b>');
-
-                    const text = `🚨 <b>УВАГА! ПОВІТРЯНА ТРИВОГА!</b>\n` +
-                        `📍 Регіон: <b>${region}${district ? ` (${district})` : ''}</b>\n` +
-                        `⚠️ Рівень: ${levelBadge}\n` +
-                        `🕒 Час початку: <b>${formatTimeKiev(now)}</b>\n\n` +
-                        `Магазин тимчасово припиняє роботу. Пройдіть в укриття! 🛡️`;
-
-                    await sendStoreAlarmMessage(store, text);
-                } else if (isBeforeWork) {
-                    mState.preWorkAlertActive = true;
-                }
-            }
-
-            // 2. Якщо тривога почалась ДО відкриття магазину і ще триває о 10:00 (workStart)
-            if (status.isAlert && isDuringWorkHours) {
-                const activeEvent = await AlarmEvent.findOne({ storeId: store._id, date: todayStr, status: 'active' });
-                if (!activeEvent) {
-                    // Створюємо подію з початком, обмеженим 10:00 (workStartDate)
-                    const enabledAtDate = status.enabledAt ? new Date(status.enabledAt) : now;
                     await AlarmEvent.create({
                         storeId: store._id,
                         date: todayStr,
                         region,
                         district,
                         alertLevel: status.alertLevel,
-                        startedAt: enabledAtDate,
-                        effectiveStartedAt: workStartDate,
+                        startedAt: rawStart,
+                        effectiveStartedAt: effectiveStart,
                         status: 'active'
                     });
 
-                    const text = `⚠️ <b>УВАГА! Відкриття магазину затримується через тривогу</b>\n\n` +
-                        `📍 Регіон: <b>${region}${district ? ` (${district})` : ''}</b>\n` +
-                        `🕒 Заплановане відкриття: <b>${formatTimeKiev(workStartDate)}</b>\n` +
-                        `⚠️ Наразі триває повітряна тривога. Час тривоги та простою магазину рахується з <b>${formatTimeKiev(workStartDate)}</b>.`;
+                    // Якщо тривога почалася до відкриття і затримує відкриття:
+                    if (rawStart < workStartDate) {
+                        const text = `⚠️ <b>УВАГА! Відкриття магазину затримується через тривогу</b>\n\n` +
+                            `📍 Регіон: <b>${region}${district ? ` (${district})` : ''}</b>\n` +
+                            `🕒 Заплановане відкриття: <b>${formatTimeKiev(workStartDate)}</b>\n` +
+                            `⚠️ Наразі триває повітряна тривога. Час тривоги та простою магазину рахується з <b>${formatTimeKiev(workStartDate)}</b>.`;
+                        await sendStoreAlarmMessage(store, text);
+                    } else {
+                        // Звичайний початок у робочий час
+                        const levelBadge = status.alertLevel === 'yellow'
+                            ? '🟡 <b>Жовтий (БПЛА / Загроза дронів)</b>'
+                            : (status.alertLevel === 'red' ? '🔴 <b>Червоний (Ракетна загроза)</b>' : '⚠️ <b>Підвищена загроза</b>');
 
-                    await sendStoreAlarmMessage(store, text);
+                        const text = `🚨 <b>УВАГА! ПОВІТРЯНА ТРИВОГА!</b>\n\n` +
+                            `📍 Регіон: <b>${region}${district ? ` (${district})` : ''}</b>\n` +
+                            `⚠️ Рівень: ${levelBadge}\n` +
+                            `🕒 Час початку: <b>${formatTimeKiev(rawStart)}</b>\n\n` +
+                            `Магазин тимчасово припиняє роботу. Пройдіть в укриття! 🛡️`;
+                        await sendStoreAlarmMessage(store, text);
+                    }
+                } else if (isBeforeWork) {
+                    mState.preWorkAlertActive = true;
                 }
             }
 
-            // 3. Відбій тривоги (true -> false)
-            if (!status.isAlert && mState.lastAlertState === true) {
+            // 2. Відбій тривоги
+            if (!status.isAlert) {
                 mState.preWorkAlertActive = false;
 
-                const activeEvent = await AlarmEvent.findOne({ storeId: store._id, date: todayStr, status: 'active' });
                 if (activeEvent) {
-                    const effectiveEnd = now > workEndDate ? workEndDate : (now < workStartDate ? workStartDate : now);
+                    const rawEnd = status.disabledAt ? new Date(status.disabledAt) : now;
+                    const effectiveEnd = rawEnd > workEndDate ? workEndDate : (rawEnd < workStartDate ? workStartDate : rawEnd);
                     const alertDuration = Math.max(0, Math.round((effectiveEnd - activeEvent.effectiveStartedAt) / 60000));
 
-                    activeEvent.endedAt = now;
+                    activeEvent.endedAt = rawEnd;
                     activeEvent.effectiveEndedAt = effectiveEnd;
                     activeEvent.alertDurationMinutes = alertDuration;
                     activeEvent.status = 'ended_waiting_reopen';
                     await activeEvent.save();
 
-                    // Сповіщаємо в чат лише якщо тривога зачепила робочий час магазину
-                    if (effectiveEnd > workStartDate && activeEvent.effectiveStartedAt < workEndDate) {
-                        const text = `🟢 <b>ВІДБІЙ ПОВІТРЯНОЇ ТРИВОГИ!</b>\n\n` +
-                            `📍 Регіон: <b>${region}${district ? ` (${district})` : ''}</b>\n` +
-                            `🕒 Час відбою: <b>${formatTimeKiev(now)}</b>\n` +
-                            `⏱️ Тривалість тривоги у робочий час: <b>${formatDuration(alertDuration)}</b>\n\n` +
-                            `🏪 <i>Очікуємо відкриття магазину. Натисніть кнопку <b>'Відкрились'</b> на терміналі після відновлення роботи.</i>`;
+                    // Надсилаємо сповіщення про відбій, оскільки тривога була активною для цього магазину
+                    const text = `🟢 <b>ВІДБІЙ ПОВІТРЯНОЇ ТРИВОГИ!</b>\n\n` +
+                        `📍 Регіон: <b>${region}${district ? ` (${district})` : ''}</b>\n` +
+                        `🕒 Час відбою: <b>${formatTimeKiev(rawEnd)}</b>\n` +
+                        `⏱️ Тривалість тривоги у робочий час: <b>${formatDuration(alertDuration)}</b>\n\n` +
+                        `🏪 <i>Очікуємо відкриття магазину. Натисніть кнопку <b>'Відкрились'</b> на терміналі або кнопкою нижче після відновлення роботи.</i>`;
 
-                        await sendStoreAlarmMessage(store, text);
-                    }
+                    const inlineKeyboard = {
+                        inline_keyboard: [
+                            [{ text: "🏪 Відкрились", callback_data: `alarm_reopen_${store._id}` }]
+                        ]
+                    };
+
+                    await sendStoreAlarmMessage(store, text, inlineKeyboard);
                 }
             }
 
-            // 4. Якщо настав кінець робочого дня (22:00 / workEnd), а тривога ВСЕ ЩЕ ТРИВАЄ
+            // 3. Якщо робочий день закінчився (22:00+), а тривога все ще триває
             if (isAfterWork) {
-                const activeEvent = await AlarmEvent.findOne({ storeId: store._id, date: todayStr, status: 'active' });
                 if (activeEvent && !activeEvent.closingNoticeSent) {
                     const alertDuration = Math.max(0, Math.round((workEndDate - activeEvent.effectiveStartedAt) / 60000));
                     activeEvent.endedAt = now;
@@ -258,7 +268,17 @@ async function checkAlarms() {
                     await sendStoreAlarmMessage(store, text);
                 }
 
-                // 5. Підсумкове повідомлення о 22:00 (або workEnd)
+                // Також закриваємо подію, яка чекала на відкриття, якщо настав кінець дня
+                const waitingEvent = await AlarmEvent.findOne({ storeId: store._id, date: todayStr, status: 'ended_waiting_reopen' });
+                if (waitingEvent) {
+                    waitingEvent.status = 'closed_at_end_of_day';
+                    waitingEvent.reopenedAt = workEndDate;
+                    waitingEvent.reopenDurationMinutes = Math.max(0, Math.round((workEndDate - waitingEvent.endedAt) / 60000));
+                    waitingEvent.totalDowntimeMinutes = waitingEvent.alertDurationMinutes + waitingEvent.reopenDurationMinutes;
+                    await waitingEvent.save();
+                }
+
+                // 4. Щоденне підсумкове повідомлення о 22:00
                 if (mState.lastSummaryDate !== todayStr) {
                     mState.lastSummaryDate = todayStr;
 
@@ -282,7 +302,6 @@ async function checkAlarms() {
                 }
             }
 
-            // Оновлюємо стан у пам'яті
             mState.lastAlertState = status.isAlert;
         }
     } catch (err) {
@@ -305,6 +324,9 @@ async function recordStoreReopen(storeId, openedBy = 'Співробітник')
 
     const now = new Date();
     const todayStr = getKievDateStr(now);
+
+    const workStartDate = parseKievTimeToDate(store.alarmTrackingStart || store.openTime || "10:00", now);
+    const workEndDate = parseKievTimeToDate(store.alarmTrackingEnd || store.closeTime || "22:00", now);
 
     // Шукаємо подію, яка очікує відкриття або активна
     let event = await AlarmEvent.findOne({
@@ -341,7 +363,36 @@ async function recordStoreReopen(storeId, openedBy = 'Співробітник')
         };
     }
 
-    // Розраховуємо час на відкриття та неробочий час ТТ
+    // Якщо подія ще була в статусі 'active' (наприклад, відкрились під час закінчення або до оновлення API)
+    if (event.status === 'active') {
+        const effectiveEnd = now > workEndDate ? workEndDate : (now < workStartDate ? workStartDate : now);
+        const alertDuration = Math.max(0, Math.round((effectiveEnd - event.effectiveStartedAt) / 60000));
+        event.endedAt = now;
+        event.effectiveEndedAt = effectiveEnd;
+        event.alertDurationMinutes = alertDuration;
+        event.reopenedAt = now;
+        event.reopenDurationMinutes = 0;
+        event.totalDowntimeMinutes = alertDuration;
+        event.status = 'reopened';
+        await event.save();
+
+        const text = `🏪 <b>МАГАЗИН ВІДНОВИВ РОБОТУ (ВІДКРИЛИСЬ)</b>\n\n` +
+            `🕒 Час відкриття: <b>${formatTimeKiev(now)}</b>\n` +
+            `⏱️ Тривалість тривоги: <b>${formatDuration(alertDuration)}</b>\n` +
+            `⏳ Час на відкриття: <b>0 хв</b>\n` +
+            `🚫 <b>Загальний неробочий час ТТ: ${formatDuration(alertDuration)}</b>\n` +
+            `👤 Відкрив(ла): <b>${openedBy}</b>`;
+
+        await sendStoreAlarmMessage(store, text);
+
+        return {
+            success: true,
+            message: "Відкриття успішно зафіксовано та надіслано в Telegram!",
+            event
+        };
+    }
+
+    // Якщо подія була в статусі 'ended_waiting_reopen'
     const alertDuration = event.alertDurationMinutes || 0;
     const baseEndedAt = event.endedAt || now;
     const reopenDuration = Math.max(0, Math.round((now - baseEndedAt) / 60000));
@@ -383,15 +434,11 @@ async function getStoreAlarmStatus(storeId) {
     const status = getRegionStatus(states, region, district);
 
     const now = new Date();
-    const nowKiev = getKievNow();
     const todayStr = getKievDateStr(now);
-    const currentMins = nowKiev.getHours() * 60 + nowKiev.getMinutes();
 
-    const [startH, startM] = (store.alarmTrackingStart || store.openTime || "10:00").split(':').map(Number);
-    const [endH, endM] = (store.alarmTrackingEnd || store.closeTime || "22:00").split(':').map(Number);
-    const startMins = startH * 60 + startM;
-    const endMins = endH * 60 + endM;
-    const isDuringWorkHours = currentMins >= startMins && currentMins < endMins;
+    const workStartDate = parseKievTimeToDate(store.alarmTrackingStart || store.openTime || "10:00", now);
+    const workEndDate = parseKievTimeToDate(store.alarmTrackingEnd || store.closeTime || "22:00", now);
+    const isDuringWorkHours = now >= workStartDate && now < workEndDate;
 
     const todayEvents = await AlarmEvent.find({ storeId: store._id, date: todayStr }).sort({ createdAt: -1 });
     const lastEvent = todayEvents[0] || null;
@@ -404,6 +451,7 @@ async function getStoreAlarmStatus(storeId) {
         isAlert: status.isAlert,
         alertLevel: status.alertLevel,
         enabledAt: status.enabledAt,
+        disabledAt: status.disabledAt,
         region,
         district,
         tracking: {

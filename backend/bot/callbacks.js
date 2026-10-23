@@ -55,6 +55,30 @@ const handleCallback = async (bot, q) => {
         bot.answerCallbackQuery(q.id, { text: `Дякую, ${shortName}! ✅` });
     }
 
+    // Фіксація відновлення роботи після тривоги
+    else if (data.startsWith('alarm_reopen_')) {
+        const storeId = data.replace('alarm_reopen_', '');
+        const u = await User.findOne({ telegramChatId: uid });
+        const name = u ? (u.fullName || u.name) : (q.from.first_name + (q.from.last_name ? ' ' + q.from.last_name : ''));
+        try {
+            const alarmService = require('../services/alarmService');
+            const res = await alarmService.recordStoreReopen(storeId, name);
+            if (res.alreadyRecorded) {
+                return bot.answerCallbackQuery(q.id, { text: res.message, show_alert: true });
+            }
+            try {
+                await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+                    chat_id: q.message.chat.id,
+                    message_id: q.message.message_id
+                });
+            } catch (e) {}
+            return bot.answerCallbackQuery(q.id, { text: "🏪 Відкриття магазину зафіксовано!" });
+        } catch (err) {
+            console.error("alarm_reopen callback error:", err);
+            return bot.answerCallbackQuery(q.id, { text: "Помилка фіксації відкриття", show_alert: true });
+        }
+    }
+
     // Обробка дедлайнів задач
     else if (data.startsWith('task_complete_')) {
         const taskId = data.replace('task_complete_', '');

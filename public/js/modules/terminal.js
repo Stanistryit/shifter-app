@@ -598,33 +598,243 @@ function renderAlarmTile(data) {
     }
 }
 
-window.confirmStoreReopen = async function () {
+let selectedReopenName = '';
+
+window.openReopenStoreModal = function () {
+    triggerHaptic();
+    if (!terminalState.store?._id) {
+        showToast("Магазин не ініціалізовано", "warning");
+        return;
+    }
+
+    const modal = document.getElementById('termReopenModal');
+    if (!modal) return;
+
+    // Встановлюємо живий час
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' });
+    const liveTimeEl = document.getElementById('termReopenLiveTime');
+    if (liveTimeEl) liveTimeEl.innerText = timeStr;
+
+    // Відображаємо тривалість тривоги та розрахунки
+    const statsRow = document.getElementById('termReopenStatsRow');
+    if (statsRow) {
+        const lastEv = terminalState.alarmStatus?.lastEvent;
+        if (lastEv && (lastEv.status === 'ended_waiting_reopen' || lastEv.status === 'active')) {
+            const alertMins = lastEv.alertDurationMinutes || 0;
+            const endD = lastEv.endedAt ? new Date(lastEv.endedAt) : now;
+            const reopenMins = Math.max(0, Math.round((now - endD) / 60000));
+            const totalDowntime = alertMins + reopenMins;
+
+            statsRow.innerHTML = `
+                <div class="flex justify-between py-0.5">
+                    <span>⏱️ Тривалість тривоги:</span>
+                    <span class="font-bold font-mono text-gray-900 dark:text-gray-100">${alertMins > 0 ? `${alertMins} хв` : '0 хв'}</span>
+                </div>
+                <div class="flex justify-between py-0.5">
+                    <span>⏳ Час на відкриття:</span>
+                    <span class="font-bold font-mono text-gray-900 dark:text-gray-100">~${reopenMins} хв</span>
+                </div>
+                <div class="flex justify-between font-black text-gray-900 dark:text-white pt-1 mt-0.5 border-t border-emerald-200/40 dark:border-emerald-800/40">
+                    <span>🚫 Загальний неробочий час ТТ:</span>
+                    <span class="font-mono text-emerald-600 dark:text-emerald-400">~${totalDowntime} хв</span>
+                </div>
+            `;
+        } else {
+            statsRow.innerHTML = `
+                <div class="text-[11px] text-gray-500 py-1">
+                    Фіксація відновлення/відкриття магазину та відправка звіту в Telegram канал ТТ.
+                </div>
+            `;
+        }
+    }
+
+    // Очищаємо інпут кастомного імені
+    const customInput = document.getElementById('termReopenCustomName');
+    if (customInput) customInput.value = '';
+
+    // Формуємо список співробітників
+    const listEl = document.getElementById('termReopenEmployeeList');
+    if (listEl) {
+        const shifts = terminalState.terminalData?.todayShifts || [];
+        const allEmployees = terminalState.employees || [];
+
+        // Об'єднуємо унікальних кандидатів
+        const candidates = [];
+        const seen = new Set();
+
+        // 1. Спочатку ті, хто за графіком сьогодні
+        for (const s of shifts) {
+            if (s.name && !seen.has(s.name)) {
+                seen.add(s.name);
+                const emp = allEmployees.find(e => e.name === s.name);
+                candidates.push({
+                    name: s.name,
+                    fullName: emp?.fullName || s.name,
+                    onShift: true,
+                    shiftLabel: s.start && s.end ? `${s.start} - ${s.end}` : 'Сьогодні на зміні'
+                });
+            }
+        }
+
+        // 2. Решта співробітників магазину
+        for (const e of allEmployees) {
+            if (e.name && !seen.has(e.name)) {
+                seen.add(e.name);
+                candidates.push({
+                    name: e.name,
+                    fullName: e.fullName || e.name,
+                    onShift: false,
+                    shiftLabel: 'Команда магазину'
+                });
+            }
+        }
+
+        // За замовчуванням обираємо першого у списку (якщо є)
+        selectedReopenName = candidates[0]?.fullName || candidates[0]?.name || '';
+
+        if (candidates.length === 0) {
+            listEl.innerHTML = `
+                <div class="p-3 text-center text-xs text-gray-400 bg-gray-50 dark:bg-[#2C2C2E] rounded-xl border border-gray-200 dark:border-gray-700">
+                    Співробітників не знайдено. Введіть ваше ім'я нижче:
+                </div>
+            `;
+        } else {
+            listEl.innerHTML = candidates.map((c) => {
+                const targetName = c.fullName || c.name;
+                const isSelected = (targetName === selectedReopenName);
+                const initials = targetName.split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+                return `
+                    <button type="button" onclick="window.selectReopenEmployee('${targetName}')"
+                        data-reopen-name="${targetName}"
+                        class="reopen-emp-item w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all active:scale-[0.99] ${
+                            isSelected 
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 shadow-sm ring-1 ring-emerald-500' 
+                                : 'bg-gray-50/70 dark:bg-[#2C2C2E]/60 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        }">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-full ${isSelected ? 'bg-emerald-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} font-bold text-xs flex items-center justify-center flex-shrink-0">
+                                ${initials || '👤'}
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold text-gray-900 dark:text-white leading-tight">
+                                    ${targetName}
+                                </div>
+                                <div class="text-[10px] text-gray-500 dark:text-gray-400">
+                                    ${c.onShift ? '🟢 ' : ''}${c.shiftLabel}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="reopen-check text-emerald-600 dark:text-emerald-400 font-black text-sm ${isSelected ? '' : 'hidden'}">
+                            ✓
+                        </div>
+                    </button>
+                `;
+            }).join('');
+        }
+    }
+
+    updateReopenSubmitButton();
+    modal.classList.remove('hidden');
+};
+
+window.closeReopenStoreModal = function () {
+    const modal = document.getElementById('termReopenModal');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.selectReopenEmployee = function (name) {
+    triggerHaptic();
+    selectedReopenName = name;
+
+    const customInput = document.getElementById('termReopenCustomName');
+    if (customInput) customInput.value = '';
+
+    // Оновлюємо класи підсвітки
+    const items = document.querySelectorAll('.reopen-emp-item');
+    items.forEach(el => {
+        const isMatch = el.dataset.reopenName === name;
+        if (isMatch) {
+            el.className = 'reopen-emp-item w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all active:scale-[0.99] bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 shadow-sm ring-1 ring-emerald-500';
+            el.querySelector('.reopen-check')?.classList.remove('hidden');
+            const avatar = el.querySelector('div > div:first-child');
+            if (avatar) avatar.className = 'w-8 h-8 rounded-full bg-emerald-500 text-white font-bold text-xs flex items-center justify-center flex-shrink-0';
+        } else {
+            el.className = 'reopen-emp-item w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all active:scale-[0.99] bg-gray-50/70 dark:bg-[#2C2C2E]/60 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600';
+            el.querySelector('.reopen-check')?.classList.add('hidden');
+            const avatar = el.querySelector('div > div:first-child');
+            if (avatar) avatar.className = 'w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold text-xs flex items-center justify-center flex-shrink-0';
+        }
+    });
+
+    updateReopenSubmitButton();
+};
+
+window.onReopenCustomNameInput = function (val) {
+    if (val && val.trim()) {
+        selectedReopenName = val.trim();
+        // Знімаємо виділення зі списку
+        const items = document.querySelectorAll('.reopen-emp-item');
+        items.forEach(el => {
+            el.className = 'reopen-emp-item w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all active:scale-[0.99] bg-gray-50/70 dark:bg-[#2C2C2E]/60 border-gray-200 dark:border-gray-700';
+            el.querySelector('.reopen-check')?.classList.add('hidden');
+            const avatar = el.querySelector('div > div:first-child');
+            if (avatar) avatar.className = 'w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold text-xs flex items-center justify-center flex-shrink-0';
+        });
+    }
+    updateReopenSubmitButton();
+};
+
+function updateReopenSubmitButton() {
+    const btnText = document.getElementById('termReopenSubmitBtnText');
+    if (btnText) {
+        if (selectedReopenName) {
+            btnText.innerText = `Відкрити: ${selectedReopenName}`;
+        } else {
+            btnText.innerText = `Підтвердити та відкрити`;
+        }
+    }
+}
+
+window.submitStoreReopen = async function () {
     triggerHaptic();
     if (!terminalState.store?._id) return;
 
-    const btn = document.getElementById('btnTermReopen');
+    const openedBy = selectedReopenName || document.getElementById('termReopenCustomName')?.value?.trim() || 'Співробітник';
+
+    const btn = document.getElementById('termReopenSubmitBtn');
     const oldHtml = btn ? btn.innerHTML : '';
-    if (btn) btn.innerHTML = '<span>⏳</span> <span>Відправка...</span>';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span> <span>Відправка...</span>';
+    }
 
     try {
-        const openedBy = terminalState.employees[0]?.name || 'Співробітник';
         const res = await postJson('/api/terminal/alarm/reopen', {
             storeId: terminalState.store._id,
             openedBy
         });
 
         if (res && res.success) {
-            showToast(res.message || "Повідомлення надіслано в Telegram! ✅", 'success');
+            showToast(res.message || "Відкриття успішно надіслано в Telegram! ✅", 'success');
+            window.closeReopenStoreModal();
             await loadAlarmStatus(terminalState.store._id);
         } else {
             showToast(res?.message || "Помилка відправки", 'error');
-            if (btn) btn.innerHTML = oldHtml;
         }
     } catch (e) {
-        console.error("confirmStoreReopen error:", e);
+        console.error("submitStoreReopen error:", e);
         showToast("Помилка зв'язку", 'error');
-        if (btn) btn.innerHTML = oldHtml;
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+        }
     }
+};
+
+window.confirmStoreReopen = function () {
+    window.openReopenStoreModal();
 };
 
 // 10. Позначення чек-ліста з вибором виконавця
