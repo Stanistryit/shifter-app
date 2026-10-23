@@ -86,9 +86,27 @@ async function sendStoreAlarmMessage(store, text, replyMarkup = null) {
             opts.reply_markup = replyMarkup;
         }
 
-        await bot.sendMessage(chatId, text, opts);
+        try {
+            await bot.sendMessage(chatId, text, opts);
+        } catch (sendErr) {
+            // Якщо помилка в топіку (гілку видалено або закрито), пробуємо надіслати в головний чат
+            if (opts.message_thread_id && (sendErr.message.includes('thread') || sendErr.message.includes('topic'))) {
+                delete opts.message_thread_id;
+                await bot.sendMessage(chatId, text, opts);
+            } else {
+                throw sendErr;
+            }
+        }
     } catch (err) {
-        console.error(`[AlarmService] Error sending Telegram message for store ${store.code || store._id}:`, err.message);
+        const storeIdentifier = store.code || store.name || store._id;
+        if (err.message && err.message.includes('chat not found')) {
+            console.warn(`[AlarmService] ⚠️ Магазин ${storeIdentifier}: Telegram-чат (${store.telegram?.chatId}) не знайдено. ` +
+                `Перевірте, чи бот доданий у групу цієї точки, або напишіть у групі команду: /link_store ${store.code || store._id}`);
+        } else if (err.message && (err.message.includes('bot was kicked') || err.message.includes('bot was blocked'))) {
+            console.warn(`[AlarmService] ⚠️ Магазин ${storeIdentifier}: бота заблоковано або видалено з чату (${store.telegram?.chatId}).`);
+        } else {
+            console.error(`[AlarmService] Error sending Telegram message for store ${storeIdentifier}:`, err.message);
+        }
     }
 }
 
