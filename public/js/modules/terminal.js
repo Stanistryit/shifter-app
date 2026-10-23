@@ -968,8 +968,7 @@ window.terminalRefresh = function () {
 window.cancelTerminalLogin = function () {
     triggerHaptic();
     document.getElementById('terminalLoginModal')?.classList.add('hidden');
-    localStorage.removeItem('shifter_viewMode');
-    window.location.href = '/';
+    window.exitTerminalMode();
 };
 
 window.toggleTerminalFullscreen = function () {
@@ -991,13 +990,46 @@ window.toggleTerminalFullscreen = function () {
 
 window.exitTerminalMode = function () {
     triggerHaptic();
+    if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+        const icon = document.getElementById('termFullscreenIcon');
+        if (icon) icon.innerText = '⛶';
+    }
+    if (terminalState.pollingInterval) {
+        clearInterval(terminalState.pollingInterval);
+        terminalState.pollingInterval = null;
+    }
+    if (terminalState.clockInterval) {
+        clearInterval(terminalState.clockInterval);
+        terminalState.clockInterval = null;
+    }
+
     localStorage.removeItem('shifter_viewMode');
+
+    if (window.location.hash === '#terminal' || window.location.search.includes('terminal')) {
+        history.replaceState(null, '', window.location.pathname);
+    }
+
     if (state.currentUser && state.currentUser.role && state.currentUser.role !== 'Terminal' && state.currentUser.role !== 'Guest') {
         if (window.setMode) {
             window.setMode('list');
-        } else {
-            window.location.href = '/';
+            return;
         }
+    }
+
+    state.currentUser = null;
+    if (window.applyTerminalLayout) {
+        window.applyTerminalLayout(false);
+    }
+
+    const appScreen = document.getElementById('appScreen');
+    const loginScreen = document.getElementById('loginScreen');
+    const termDiv = document.getElementById('terminal-container');
+
+    if (termDiv) termDiv.classList.add('hidden');
+    if (appScreen) appScreen.classList.add('hidden');
+    if (loginScreen) {
+        loginScreen.classList.remove('hidden');
     } else {
         window.location.href = '/';
     }

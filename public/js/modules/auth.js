@@ -36,7 +36,6 @@ export async function checkAuth() {
 
     // Перевірка на режим робочого ПК / Термінал
     const isTerminalMode = localStorage.getItem('shifter_viewMode') === 'terminal' || 
-                           localStorage.getItem('shifter_terminal_storeId') || 
                            window.location.pathname.includes('/terminal') || 
                            params.get('terminal') === '1' ||
                            window.location.hash === '#terminal';
