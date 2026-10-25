@@ -317,6 +317,8 @@ const alarmEventSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 alarmEventSchema.index({ storeId: 1, date: 1, status: 1 });
+const AlarmEvent = mongoose.models.AlarmEvent || mongoose.model('AlarmEvent', alarmEventSchema);
+
 // 19. Схема Прогресу Чек-лістів Терміналу
 const checklistProgressSchema = new mongoose.Schema({
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true },
