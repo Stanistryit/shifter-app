@@ -188,17 +188,19 @@ exports.deleteTask = async (req, res) => {
 };
 
 exports.toggleTaskStatus = async (req, res) => {
-    if (!req.session.userId) return res.status(403).json({ success: false });
+    const isTerminal = Boolean(req.session?.isTerminal && req.session?.terminalStoreId);
+    if (!req.session.userId && !isTerminal) return res.status(403).json({ success: false, message: "Немає авторизації" });
 
-    const u = await User.findById(req.session.userId);
+    const u = req.session.userId ? await User.findById(req.session.userId) : null;
     const { id, subtaskId } = req.body;
     const t = await Task.findById(id);
 
     if (!t) return res.json({ success: false, message: "Task not found" });
 
+    const isTerminalForStore = isTerminal && String(t.storeId) === String(req.session.terminalStoreId);
     const isOwner = t.name === u?.name;
     const isManager = u?.role === 'SM' || u?.role === 'admin';
-    if (!isOwner && !isManager) {
+    if (!isOwner && !isManager && !isTerminalForStore) {
         return res.status(403).json({ success: false, message: 'Немає прав' });
     }
 

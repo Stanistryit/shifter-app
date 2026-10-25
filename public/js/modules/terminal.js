@@ -390,7 +390,7 @@ function renderTasks(tasks) {
     const badgeEl = document.getElementById('termTasksCountBadge');
     if (!listEl) return;
 
-    const activeTasks = (tasks || []).filter(t => !t.done);
+    const activeTasks = (tasks || []).filter(t => t.status !== 'completed' && !t.done);
     if (badgeEl) badgeEl.innerText = activeTasks.length;
 
     if (!tasks || tasks.length === 0) {
@@ -399,7 +399,8 @@ function renderTasks(tasks) {
     }
 
     listEl.innerHTML = tasks.map(t => {
-        const isDone = !!t.done;
+        const isDone = t.status === 'completed' || Boolean(t.done);
+        const taskTitle = t.title || t.text || 'Задача';
         const opacity = isDone ? 'opacity-40 line-through' : '';
         return `
             <div class="p-2.5 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200/70 dark:border-gray-800 flex items-center justify-between gap-2 ${opacity}">
@@ -407,7 +408,7 @@ function renderTasks(tasks) {
                     <button onclick="window.toggleTermTask('${t._id}', ${!isDone})" class="w-5 h-5 rounded-md border flex items-center justify-center text-xs ${isDone ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1C1C1E]'}">
                         ${isDone ? '✓' : ''}
                     </button>
-                    <span class="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">${t.text}</span>
+                    <span class="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">${taskTitle}</span>
                 </div>
                 ${t.name ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 font-bold shrink-0">${t.name}</span>` : ''}
             </div>
