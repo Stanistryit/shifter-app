@@ -407,8 +407,18 @@ function renderTasks(tasks) {
         if (t.start && t.end && !t.isFullDay) {
             timeBadge = `<span class="text-[9px] text-gray-400 font-mono">${t.start}-${t.end}</span>`;
         } else if (t.deadline) {
-            const timePart = t.deadline.includes('T') ? t.deadline.split('T')[1]?.slice(0, 5) : t.deadline.split(' ')[1]?.slice(0, 5);
-            if (timePart) timeBadge = `<span class="text-[9px] text-purple-600 dark:text-purple-400 font-mono">до ${timePart}</span>`;
+            let timeStr = '';
+            try {
+                const dt = new Date(t.deadline);
+                if (!isNaN(dt.getTime())) {
+                    timeStr = dt.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' });
+                }
+            } catch (e) { }
+            if (!timeStr) {
+                const part = t.deadline.includes('T') ? t.deadline.split('T')[1] : t.deadline.split(' ')[1];
+                timeStr = part ? part.slice(0, 5) : t.deadline;
+            }
+            if (timeStr) timeBadge = `<span class="text-[9px] text-purple-600 dark:text-purple-400 font-mono">до ${timeStr}</span>`;
         }
 
         return `

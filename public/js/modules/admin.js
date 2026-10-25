@@ -314,7 +314,18 @@ export function openEditTaskModal(task) {
         document.getElementById('taskEnd').value = task.end || '18:00';
         toggleTaskTimeInputs();
     } else {
-        document.getElementById('taskDeadline').value = task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : '';
+        if (task.deadline) {
+            try {
+                const dt = new Date(task.deadline);
+                const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kiev', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(dt);
+                const g = (t) => p.find(x => x.type === t)?.value;
+                document.getElementById('taskDeadline').value = `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`;
+            } catch (e) {
+                document.getElementById('taskDeadline').value = task.deadline.replace(' ', 'T').slice(0, 16);
+            }
+        } else {
+            document.getElementById('taskDeadline').value = '';
+        }
         Array.from(document.querySelectorAll('.task-reminder-cb')).forEach(cb => {
              cb.checked = (task.reminders && task.reminders.includes(cb.value));
         });
