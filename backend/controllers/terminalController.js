@@ -130,10 +130,29 @@ exports.getTerminalData = async (req, res) => {
         start: { $nin: ['Відпустка', 'Лікарняний', 'Донорство', 'DELETE'] }
     }).lean();
 
-    // Задачі на сьогодні
+    // Працюючі сьогодні співробітники на зміні
+    const workingNames = todayShifts.map(s => s.name);
+    const targetNames = workingNames.length > 0 ? workingNames : storeUserNames;
+
+    // Задачі на сьогодні (і з Таймлайну, і з ToDo за дедлайном) для тих, хто на зміні
     const tasks = await Task.find({
-        date: todayStr,
-        storeId: store._id
+        storeId: store._id,
+        $and: [
+            {
+                $or: [
+                    { date: todayStr },
+                    { deadline: { $regex: `^${todayStr}` } }
+                ]
+            },
+            {
+                $or: [
+                    { name: { $in: targetNames } },
+                    { name: 'all' },
+                    { name: 'Всі' },
+                    { name: 'Зміна' }
+                ]
+            }
+        ]
     }).lean();
 
     // Визначаємо завтрашнього відкриваючого

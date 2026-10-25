@@ -402,15 +402,27 @@ function renderTasks(tasks) {
         const isDone = t.status === 'completed' || Boolean(t.done);
         const taskTitle = t.title || t.text || 'Задача';
         const opacity = isDone ? 'opacity-40 line-through' : '';
+
+        let timeBadge = '';
+        if (t.start && t.end && !t.isFullDay) {
+            timeBadge = `<span class="text-[9px] text-gray-400 font-mono">${t.start}-${t.end}</span>`;
+        } else if (t.deadline) {
+            const timePart = t.deadline.includes('T') ? t.deadline.split('T')[1]?.slice(0, 5) : t.deadline.split(' ')[1]?.slice(0, 5);
+            if (timePart) timeBadge = `<span class="text-[9px] text-purple-600 dark:text-purple-400 font-mono">до ${timePart}</span>`;
+        }
+
         return `
-            <div class="p-2.5 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200/70 dark:border-gray-800 flex items-center justify-between gap-2 ${opacity}">
-                <div class="flex items-center gap-2 overflow-hidden">
-                    <button onclick="window.toggleTermTask('${t._id}', ${!isDone})" class="w-5 h-5 rounded-md border flex items-center justify-center text-xs ${isDone ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1C1C1E]'}">
+            <div class="p-2 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200/70 dark:border-gray-800 flex items-center justify-between gap-2 ${opacity}">
+                <div class="flex items-center gap-2 overflow-hidden flex-1">
+                    <button onclick="window.toggleTermTask('${t._id}', ${!isDone})" class="w-5 h-5 rounded-md border flex items-center justify-center text-xs shrink-0 ${isDone ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1C1C1E]'}">
                         ${isDone ? '✓' : ''}
                     </button>
                     <span class="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">${taskTitle}</span>
                 </div>
-                ${t.name ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 font-bold shrink-0">${t.name}</span>` : ''}
+                <div class="flex items-center gap-1.5 shrink-0">
+                    ${timeBadge}
+                    ${t.name ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 font-bold">${t.name}</span>` : ''}
+                </div>
             </div>
         `;
     }).join('');
