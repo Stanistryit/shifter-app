@@ -38,6 +38,7 @@ export async function checkAuth() {
     const isTerminalMode = localStorage.getItem('shifter_viewMode') === 'terminal' || 
                            window.location.pathname.includes('/terminal') || 
                            params.get('terminal') === '1' ||
+                           params.get('mode') === 'terminal' ||
                            window.location.hash === '#terminal';
 
     if (isTerminalMode) {
@@ -291,7 +292,13 @@ async function showApp(user) {
 
     // Оновлюємо поточну вкладку, щоб підтягнулись права та інтерфейс
     if (window.setMode) {
-        const currentMode = localStorage.getItem('shifter_viewMode') || 'list';
+        const urlParams = new URLSearchParams(window.location.search);
+        const shortcut = urlParams.get('shortcut');
+        const isTerminalURL = window.location.pathname.includes('/terminal') || 
+                              urlParams.get('terminal') === '1' || 
+                              urlParams.get('mode') === 'terminal' || 
+                              window.location.hash === '#terminal';
+        const currentMode = isTerminalURL ? 'terminal' : (shortcut || localStorage.getItem('shifter_viewMode') || 'list');
         window.setMode(currentMode);
     }
 }

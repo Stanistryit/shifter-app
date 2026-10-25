@@ -151,18 +151,14 @@ async function initApp() {
     }
 
     initTheme();
-    checkAuth();
     initContextMenuListeners();
     initEditor();
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const shortcut = urlParams.get('shortcut');
-    const isTerminalURL = window.location.pathname.includes('/terminal') || 
-                          urlParams.get('terminal') === '1' || 
-                          urlParams.get('mode') === 'terminal' || 
-                          window.location.hash === '#terminal';
-    const savedMode = isTerminalURL ? 'terminal' : (shortcut || localStorage.getItem('shifter_viewMode') || 'list');
-    setMode(savedMode);
+    try {
+        await checkAuth();
+    } catch (authErr) {
+        console.error("Auth initialization error:", authErr);
+    }
 }
 
 // --- PUSH NOTIFICATIONS ---

@@ -37,7 +37,8 @@ export async function initTerminal() {
         return;
     }
 
-    await loadTerminalData(targetStoreId, savedStoreCode);
+    const isSilent = Boolean(terminalState.store && (terminalState.store._id === targetStoreId || terminalState.store.code === savedStoreCode));
+    await loadTerminalData(targetStoreId, savedStoreCode, isSilent);
 
     // Запускаємо фонове автооновлення кожні 60 секунд
     if (terminalState.pollingInterval) clearInterval(terminalState.pollingInterval);
@@ -78,8 +79,12 @@ function startLiveClock() {
     terminalState.clockInterval = setInterval(update, 1000);
 }
 
+let isTerminalLoading = false;
+
 // 3. Завантаження даних терміналу
 export async function loadTerminalData(storeId, storeCode, isSilent = false) {
+    if (isTerminalLoading) return;
+    isTerminalLoading = true;
     try {
         let url = `/api/terminal/data`;
         if (storeId) url += `?storeId=${storeId}`;
@@ -87,6 +92,7 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
 
         const res = await fetchJson(url);
         if (res && res.success) {
+            const isInitialConnection = !terminalState.store || terminalState.store._id !== res.store._id;
             terminalState.store = res.store;
             terminalState.terminalData = res;
             terminalState.todayShifts = res.todayShifts || [];
@@ -109,13 +115,15 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
             }
 
             hideTerminalLoginModal();
-            if (!isSilent) showToast(`Термінал: ${res.store.name} підключено`, 'success');
+            if (!isSilent && isInitialConnection) showToast(`Термінал: ${res.store.name} підключено`, 'success');
         } else {
             showTerminalLoginModal();
         }
     } catch (e) {
         console.error("loadTerminalData error:", e);
         if (!isSilent) showTerminalLoginModal();
+    } finally {
+        isTerminalLoading = false;
     }
 }
 
@@ -1375,7 +1383,7 @@ window.submitTerminalLogin = async function () {
             localStorage.setItem('shifter_terminal_storeCode', res.store.code);
             hideTerminalLoginModal();
             showToast(`Підключено: ${res.store.name}`, 'success');
-            await loadTerminalData(res.store._id, res.store.code);
+            await loadTerminalData(res.store._id, res.store.code, true);
         } else {
             showToast(res?.message || "Невірний код чи PIN", "error");
         }
@@ -1396,8 +1404,9 @@ window.terminalLogout = function () {
 window.terminalRefresh = function () {
     triggerHaptic();
     if (terminalState.store?._id) {
-        loadTerminalData(terminalState.store._id, null);
+        loadTerminalData(terminalState.store._id, null, true);
         loadAlarmStatus(terminalState.store._id);
+        showToast("Дані оновлено", "info");
     }
 };
 
