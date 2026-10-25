@@ -215,10 +215,13 @@ export async function deleteTask(id) {
 
 export async function toggleTaskExecution(id) {
     triggerHaptic('light', 'impact');
-    const d = await postJson('/api/tasks/toggle', { id });
+    const authorSelect = document.getElementById('termCashAuthorSelect');
+    const completedBy = authorSelect?.value || undefined;
+    const d = await postJson('/api/tasks/toggle', { id, completedBy });
     if (d.success) {
         // Оновлюємо локальний стейт
-        const task = state.tasks.find(t => t._id === id);
+        const task = (state.tasks && state.tasks.find(t => t._id === id || String(t._id) === String(id))) ||
+                     (window.getTerminalTask && window.getTerminalTask(id));
         if (task) {
             if (d.status === 'completed') {
                 triggerHaptic('success', 'notification');
@@ -226,9 +229,17 @@ export async function toggleTaskExecution(id) {
                 triggerHaptic('light', 'impact');
             }
             task.status = d.status;
+            task.done = (d.status === 'completed');
             renderAll();
+            if (window.reloadTerminalTasks) window.reloadTerminalTasks();
 
             // Якщо модалка задачі відкрита - оновимо її теж
+            const modal = document.getElementById('taskDetailsModal');
+            if (modal && !modal.classList.contains('hidden')) {
+                window.openTaskProxy(id);
+            }
+        } else {
+            if (window.reloadTerminalTasks) window.reloadTerminalTasks();
             const modal = document.getElementById('taskDetailsModal');
             if (modal && !modal.classList.contains('hidden')) {
                 window.openTaskProxy(id);
@@ -248,17 +259,19 @@ export async function toggleSubtask(taskId, subtaskId) {
     });
     
     if (res.success) {
-        const task = state.tasks.find(t => t._id === taskId);
+        const task = (state.tasks && state.tasks.find(t => t._id === taskId || String(t._id) === String(taskId))) ||
+                     (window.getTerminalTask && window.getTerminalTask(taskId));
         if (task) {
-            const st = task.subtasks.find(x => x._id === subtaskId);
-            if (st) st.completed = res.subtaskStatus;
+            const st = task.subtasks && task.subtasks.find(x => x._id === subtaskId || String(x._id) === String(subtaskId));
+            if (st) st.completed = res.subtaskStatus !== undefined ? res.subtaskStatus : !st.completed;
             
-            if (res.taskStatus) {
-                task.status = res.taskStatus;
+            if (res.taskStatus || res.status) {
+                task.status = res.taskStatus || res.status;
+                task.done = (task.status === 'completed');
                 // Update the button inside modal if it's open
                 const btnToggle = document.getElementById('btnToggleTaskStatus');
                 if (btnToggle) {
-                    if (task.status === 'completed') {
+                    if (task.status === 'completed' || task.done) {
                         btnToggle.innerHTML = '⏳ Повернути в роботу';
                         btnToggle.className = 'w-full py-3 text-white font-bold bg-orange-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-orange-500/30';
                     } else {
@@ -269,12 +282,14 @@ export async function toggleSubtask(taskId, subtaskId) {
             }
             
             renderAll();
+            if (window.reloadTerminalTasks) window.reloadTerminalTasks();
             if (state.currentMode === 'todo') {
                 import('./render_todo.js').then(m => m.renderTodo());
             }
             
-            const subTitle = st ? (st.completed ? 'Відмічено!' : 'Знято!') : '';
             triggerHaptic('success', 'notification');
+        } else {
+            if (window.reloadTerminalTasks) window.reloadTerminalTasks();
         }
     } else {
         triggerHaptic('error', 'notification');

@@ -508,7 +508,10 @@ window.openStoreSettingsModal = openStoreSettingsModal;
 window.openTerminalSettingsModal = openTerminalSettingsModal;
 
 window.openTaskProxy = (id) => {
-    const task = state.tasks.find(t => t._id === id);
+    let task = state.tasks ? state.tasks.find(t => t._id === id || String(t._id) === String(id)) : null;
+    if (!task && window.getTerminalTask) {
+        task = window.getTerminalTask(id);
+    }
     if (task) openTaskDetailsModal(task);
 };
 window.closeTaskDetailsModal = closeTaskDetailsModal;

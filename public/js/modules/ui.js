@@ -193,17 +193,32 @@ export function updateFileName(inputId = 'newsFile', labelId = 'fileName') {
 
 export function openTaskDetailsModal(task) {
     if (window.triggerHaptic) window.triggerHaptic();
-    document.getElementById('taskModalTitle').innerText = task.title;
+    document.getElementById('taskModalTitle').innerText = task.title || task.text || 'Задача';
     
-    if (task.type === 'todo') {
+    if (task.type === 'todo' || (task.deadline && (!task.start || !task.end))) {
         document.getElementById('taskModalDate').innerText = 'Дедлайн:';
-        document.getElementById('taskModalTime').innerText = task.deadline ? new Date(task.deadline).toLocaleString('uk-UA', {year: 'numeric', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : 'Відсутній';
+        document.getElementById('taskModalTime').innerText = task.deadline ? new Date(task.deadline).toLocaleString('uk-UA', {
+            year: 'numeric', 
+            day: '2-digit', 
+            month: '2-digit', 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: 'Europe/Kiev'
+        }) : 'Відсутній';
     } else {
-        document.getElementById('taskModalDate').innerText = task.date;
-        document.getElementById('taskModalTime').innerText = task.isFullDay ? 'Весь день' : `${task.start} - ${task.end}`;
+        document.getElementById('taskModalDate').innerText = task.date || 'Сьогодні';
+        let timeStr = task.isFullDay ? 'Весь день' : '';
+        if (!timeStr && task.start && task.end) timeStr = `${task.start} - ${task.end}`;
+        if (!timeStr && task.deadline) {
+            try {
+                timeStr = new Date(task.deadline).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' });
+            } catch(e) {}
+        }
+        document.getElementById('taskModalTime').innerText = timeStr || 'Весь день';
     }
     
-    document.getElementById('taskModalUser').innerText = task.name;
+    const displayUser = (!task.name || task.name === 'all') ? 'Всі співробітники' : task.name;
+    document.getElementById('taskModalUser').innerText = displayUser;
 
     const descWrapper = document.getElementById('taskModalDescriptionWrapper');
     const descText = document.getElementById('taskModalDescription');
@@ -279,7 +294,8 @@ export function openTaskDetailsModal(task) {
         btnToggle.classList.add('hidden');
     } else {
         btnToggle.classList.remove('hidden');
-        if (task.status === 'completed') {
+        const isDone = task.status === 'completed' || Boolean(task.done);
+        if (isDone) {
             btnToggle.innerHTML = '⏳ Повернути в роботу';
             btnToggle.className = 'w-full py-3 text-white font-bold bg-orange-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-orange-500/30';
         } else {

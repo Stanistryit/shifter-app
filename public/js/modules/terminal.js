@@ -421,15 +421,26 @@ function renderTasks(tasks) {
             if (timeStr) timeBadge = `<span class="text-[9px] text-purple-600 dark:text-purple-400 font-mono">до ${timeStr}</span>`;
         }
 
+        let subBadge = '';
+        if (t.subtasks && t.subtasks.length > 0) {
+            const completedCount = t.subtasks.filter(s => s.completed).length;
+            subBadge = `<span class="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-mono font-medium" title="Підзадачі">📋 ${completedCount}/${t.subtasks.length}</span>`;
+        }
+
+        const hasDesc = t.description && t.description.trim();
+        const descBadge = hasDesc ? `<span class="text-[10px] text-gray-400" title="Є опис задачі">📄</span>` : '';
+
         return `
-            <div class="p-2 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200/70 dark:border-gray-800 flex items-center justify-between gap-2 ${opacity}">
+            <div onclick="window.openTaskProxy('${t._id}')" title="Натисніть для перегляду деталей" class="p-2 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200/70 dark:border-gray-800 flex items-center justify-between gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 active:scale-[0.99] transition-all ${opacity}">
                 <div class="flex items-center gap-2 overflow-hidden flex-1">
-                    <button onclick="window.toggleTermTask('${t._id}', ${!isDone})" class="w-5 h-5 rounded-md border flex items-center justify-center text-xs shrink-0 ${isDone ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1C1C1E]'}">
+                    <button type="button" onclick="event.stopPropagation(); window.toggleTermTask('${t._id}', ${!isDone})" title="${isDone ? 'Повернути в роботу' : 'Позначити як виконану'}" class="w-5 h-5 rounded-md border flex items-center justify-center text-xs shrink-0 active:scale-90 transition-transform ${isDone ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1C1C1E]'}">
                         ${isDone ? '✓' : ''}
                     </button>
                     <span class="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">${taskTitle}</span>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
+                    ${descBadge}
+                    ${subBadge}
                     ${timeBadge}
                     ${t.name ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 font-bold">${t.name}</span>` : ''}
                 </div>
@@ -449,9 +460,23 @@ window.toggleTermTask = async function(taskId, doneStatus) {
             if (terminalState.store?._id) {
                 loadTerminalData(terminalState.store._id, null, true);
             }
+            const modal = document.getElementById('taskDetailsModal');
+            if (modal && !modal.classList.contains('hidden')) {
+                window.openTaskProxy(taskId);
+            }
         }
     } catch(e) {
         showToast('Помилка оновлення задачі', 'error');
+    }
+};
+
+window.getTerminalTask = function(id) {
+    return terminalState.terminalData?.tasks?.find(t => t._id === id || String(t._id) === String(id));
+};
+
+window.reloadTerminalTasks = function() {
+    if (terminalState.store?._id) {
+        loadTerminalData(terminalState.store._id, null, true);
     }
 };
 

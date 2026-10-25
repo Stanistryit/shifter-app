@@ -198,9 +198,10 @@ exports.toggleTaskStatus = async (req, res) => {
     if (!t) return res.json({ success: false, message: "Task not found" });
 
     const isTerminalForStore = isTerminal && String(t.storeId) === String(req.session.terminalStoreId);
+    const isStoreMember = u && u.storeId && String(u.storeId) === String(t.storeId) && ['all', 'Всі', 'Зміна', ''].includes(t.name);
     const isOwner = t.name === u?.name;
     const isManager = u?.role === 'SM' || u?.role === 'admin';
-    if (!isOwner && !isManager && !isTerminalForStore) {
+    if (!isOwner && !isManager && !isTerminalForStore && !isStoreMember) {
         return res.status(403).json({ success: false, message: 'Немає прав' });
     }
 
@@ -253,15 +254,22 @@ exports.toggleTaskStatus = async (req, res) => {
 
     await t.save();
 
-    // Сповіщення SM, якщо виконав працівник
-    if (isOwner && !isManager && actionMsg.includes('виконану')) {
+    // Сповіщення SM, якщо виконав працівник або термінал
+    if ((isOwner || isTerminalForStore) && !isManager && actionMsg.includes('виконану')) {
+        const performer = u ? u.name : (req.body.completedBy || 'Термінал магазину');
         const managers = await User.find({ role: { $in: ['SM', 'admin'] }, storeId: t.storeId });
         managers.forEach(m => {
-            notifyUser(m.name, `✅ <b>${u.name}</b> оновив статус задачі:\n\n${actionMsg}\n(Основна задача: ${t.title})`);
+            notifyUser(m.name, `✅ <b>${performer}</b> оновив статус задачі:\n\n${actionMsg}\n(Основна задача: ${t.title})`);
         });
     }
 
-    res.json({ success: true, status: t.status, task: t });
+    res.json({ 
+        success: true, 
+        status: t.status, 
+        task: t, 
+        subtaskStatus: subtaskId ? t.subtasks?.id(subtaskId)?.completed : undefined, 
+        taskStatus: t.status 
+    });
 };
 
 exports.forceRemind = async (req, res) => {
