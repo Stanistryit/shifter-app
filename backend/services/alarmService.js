@@ -43,26 +43,34 @@ function parseKievTimeToDate(timeStr, baseDate = new Date()) {
         timeZone: 'Europe/Kiev',
         year: 'numeric', month: '2-digit', day: '2-digit'
     }).formatToParts(baseDate);
-    const y = parseInt(parts.find(p => p.type === 'year').value, 10);
-    const m = parseInt(parts.find(p => p.type === 'month').value, 10);
-    const d = parseInt(parts.find(p => p.type === 'day').value, 10);
+    const y = parts.find(p => p.type === 'year').value;
+    const m = parts.find(p => p.type === 'month').value;
+    const d = parts.find(p => p.type === 'day').value;
 
     const [hhStr, mmStr] = (timeStr || '10:00').split(':');
     const targetH = parseInt(hhStr || '10', 10);
     const targetM = parseInt(mmStr || '00', 10);
 
-    const guess = new Date(Date.UTC(y, m - 1, d, targetH, targetM, 0));
-    const kievParts = new Intl.DateTimeFormat('en-US', {
+    const initialUtc = new Date(Date.UTC(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), targetH, targetM, 0));
+
+    const formatter = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Europe/Kiev',
+        year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit', second: '2-digit',
         hour12: false
-    }).formatToParts(guess);
+    });
+    const kParts = formatter.formatToParts(initialUtc);
+    const ky = parseInt(kParts.find(p => p.type === 'year').value, 10);
+    const km = parseInt(kParts.find(p => p.type === 'month').value, 10);
+    const kd = parseInt(kParts.find(p => p.type === 'day').value, 10);
+    let kh = parseInt(kParts.find(p => p.type === 'hour').value, 10);
+    if (kh === 24) kh = 0;
+    const kmin = parseInt(kParts.find(p => p.type === 'minute').value, 10);
 
-    const kievH = parseInt(kievParts.find(p => p.type === 'hour').value, 10);
-    const kievM = parseInt(kievParts.find(p => p.type === 'minute').value, 10);
+    const kievTimeUtc = Date.UTC(ky, km - 1, kd, kh, kmin, 0);
+    const offsetMs = kievTimeUtc - initialUtc.getTime();
 
-    const diffMs = ((targetH - kievH) * 60 + (targetM - kievM)) * 60000;
-    return new Date(guess.getTime() + diffMs);
+    return new Date(initialUtc.getTime() - offsetMs);
 }
 
 function calcDurationMinutes(startDate, endDate) {
@@ -204,10 +212,70 @@ async function checkAlarms() {
             // Перевіряємо наявність активної події в базі даних (status: 'active')
             const activeEvent = await AlarmEvent.findOne({ storeId: store._id, date: todayStr, status: 'active' });
 
-            // 1. Початок тривоги
+            // 1. Якщо робочий день закінчився (магазин зачинено)
+            if (isAfterWork) {
+                mState.preWorkAlertActive = false;
+
+                // Якщо тривога тривала в момент закриття магазину
+                if (activeEvent && !activeEvent.closingNoticeSent) {
+                    const alertDuration = Math.max(0, Math.round((workEndDate - activeEvent.effectiveStartedAt) / 60000));
+                    activeEvent.endedAt = now;
+                    activeEvent.effectiveEndedAt = workEndDate;
+                    activeEvent.alertDurationMinutes = alertDuration;
+                    activeEvent.totalDowntimeMinutes = alertDuration;
+                    activeEvent.status = 'closed_at_end_of_day';
+                    activeEvent.closingNoticeSent = true;
+                    await activeEvent.save();
+
+                    const text = `🌙 <b>Робочий день завершено (${formatTimeKiev(workEndDate)}). Магазин зачинено.</b>\n\n` +
+                        `Повітряна тривога все ще триває, але робочий час ТТ закінчився. Фіксуємо кінець тривоги для магазину на <b>${formatTimeKiev(workEndDate)}</b>.\n` +
+                        `⏱️ Тривалість тривоги в межах робочого дня: <b>${formatDuration(alertDuration)}</b>`;
+
+                    await sendStoreAlarmMessage(store, text);
+                }
+
+                // Також закриваємо подію, яка очікувала на відкриття
+                const waitingEvent = await AlarmEvent.findOne({ storeId: store._id, date: todayStr, status: 'ended_waiting_reopen' });
+                if (waitingEvent) {
+                    waitingEvent.status = 'closed_at_end_of_day';
+                    waitingEvent.reopenedAt = workEndDate;
+                    waitingEvent.reopenDurationMinutes = Math.max(0, Math.round((workEndDate - waitingEvent.endedAt) / 60000));
+                    waitingEvent.totalDowntimeMinutes = (waitingEvent.alertDurationMinutes || 0) + waitingEvent.reopenDurationMinutes;
+                    await waitingEvent.save();
+                }
+
+                // Щоденне підсумкове повідомлення про тривоги та час на відкриття в кінці робочого дня
+                const alreadySent = (store.lastAlarmSummaryDate === todayStr) || (mState.lastSummaryDate === todayStr);
+                if (!alreadySent) {
+                    mState.lastSummaryDate = todayStr;
+                    await Store.updateOne({ _id: store._id }, { lastAlarmSummaryDate: todayStr });
+
+                    const todayEvents = await AlarmEvent.find({ storeId: store._id, date: todayStr });
+                    const count = todayEvents.length;
+                    const totalAlertMins = todayEvents.reduce((s, e) => s + (e.alertDurationMinutes || 0), 0);
+                    const totalReopenMins = todayEvents.reduce((s, e) => s + (e.reopenDurationMinutes || 0), 0);
+                    const totalDowntimeMins = todayEvents.reduce((s, e) => s + (e.totalDowntimeMinutes || ((e.alertDurationMinutes || 0) + (e.reopenDurationMinutes || 0))), 0);
+
+                    let summaryText = `📊 <b>Підсумок повітряних тривог за робочий день (${todayStr}):</b>\n\n`;
+                    if (count > 0) {
+                        summaryText += `🚨 Кількість тривог у робочий час: <b>${count}</b>\n` +
+                            `⏱️ Загальний час тривог: <b>${formatDuration(totalAlertMins)}</b>\n` +
+                            `⏳ Час на відкриття ТТ: <b>${formatDuration(totalReopenMins)}</b>\n` +
+                            `🚫 <b>Загальний неробочий час ТТ: ${formatDuration(totalDowntimeMins)}</b>`;
+                    } else {
+                        summaryText += `🟢 <b>У робочий час тривог не було!</b>\nМагазин відпрацював весь робочий день без перерв на безпеку. 👍`;
+                    }
+
+                    await sendStoreAlarmMessage(store, summaryText);
+                }
+
+                mState.lastAlertState = status.isAlert;
+                continue; // Не обробляємо тривоги та відбої після закриття магазину
+            }
+
+            // 2. Початок тривоги (тільки в межах робочого часу магазину)
             if (status.isAlert) {
                 if (isDuringWorkHours && !activeEvent) {
-                    // Якщо тривога триває у робочий час, а активної події в базі ще немає
                     const rawStart = (status.enabledAt && !isNaN(new Date(status.enabledAt).getTime()))
                         ? new Date(status.enabledAt)
                         : now;
@@ -250,7 +318,7 @@ async function checkAlarms() {
                 }
             }
 
-            // 2. Відбій тривоги
+            // 3. Відбій тривоги (тільки якщо була активна подія в робочий час)
             if (!status.isAlert) {
                 mState.preWorkAlertActive = false;
 
@@ -289,59 +357,6 @@ async function checkAlarms() {
                     };
 
                     await sendStoreAlarmMessage(store, text, inlineKeyboard);
-                }
-            }
-
-            // 3. Якщо робочий день закінчився (22:00+), а тривога все ще триває
-            if (isAfterWork) {
-                if (activeEvent && !activeEvent.closingNoticeSent) {
-                    const alertDuration = Math.max(0, Math.round((workEndDate - activeEvent.effectiveStartedAt) / 60000));
-                    activeEvent.endedAt = now;
-                    activeEvent.effectiveEndedAt = workEndDate;
-                    activeEvent.alertDurationMinutes = alertDuration;
-                    activeEvent.totalDowntimeMinutes = alertDuration;
-                    activeEvent.status = 'closed_at_end_of_day';
-                    activeEvent.closingNoticeSent = true;
-                    await activeEvent.save();
-
-                    const text = `🌙 <b>Робочий день завершено (${formatTimeKiev(workEndDate)}). Магазин зачинено.</b>\n\n` +
-                        `Повітряна тривога все ще триває, але робочий час ТТ закінчився. Фіксуємо кінець тривоги для магазину на <b>${formatTimeKiev(workEndDate)}</b>.\n` +
-                        `⏱️ Тривалість тривоги в межах робочого дня: <b>${formatDuration(alertDuration)}</b>`;
-
-                    await sendStoreAlarmMessage(store, text);
-                }
-
-                // Також закриваємо подію, яка чекала на відкриття, якщо настав кінець дня
-                const waitingEvent = await AlarmEvent.findOne({ storeId: store._id, date: todayStr, status: 'ended_waiting_reopen' });
-                if (waitingEvent) {
-                    waitingEvent.status = 'closed_at_end_of_day';
-                    waitingEvent.reopenedAt = workEndDate;
-                    waitingEvent.reopenDurationMinutes = Math.max(0, Math.round((workEndDate - waitingEvent.endedAt) / 60000));
-                    waitingEvent.totalDowntimeMinutes = waitingEvent.alertDurationMinutes + waitingEvent.reopenDurationMinutes;
-                    await waitingEvent.save();
-                }
-
-                // 4. Щоденне підсумкове повідомлення о 22:00
-                if (mState.lastSummaryDate !== todayStr) {
-                    mState.lastSummaryDate = todayStr;
-
-                    const todayEvents = await AlarmEvent.find({ storeId: store._id, date: todayStr });
-                    const count = todayEvents.length;
-                    const totalAlertMins = todayEvents.reduce((s, e) => s + (e.alertDurationMinutes || 0), 0);
-                    const totalReopenMins = todayEvents.reduce((s, e) => s + (e.reopenDurationMinutes || 0), 0);
-                    const totalDowntimeMins = todayEvents.reduce((s, e) => s + (e.totalDowntimeMinutes || (e.alertDurationMinutes || 0)), 0);
-
-                    let summaryText = `📊 <b>Підсумок повітряних тривог за робочий день (${todayStr}):</b>\n\n`;
-                    if (count > 0) {
-                        summaryText += `🚨 Кількість тривог у робочий час: <b>${count}</b>\n` +
-                            `⏱️ Загальний час тривог: <b>${formatDuration(totalAlertMins)}</b>\n` +
-                            `⏳ Час на відкриття ТТ: <b>${formatDuration(totalReopenMins)}</b>\n` +
-                            `🚫 <b>Загальний неробочий час ТТ: ${formatDuration(totalDowntimeMins)}</b>`;
-                    } else {
-                        summaryText += `🟢 <b>У робочий час тривог не було!</b>\nМагазин відпрацював весь робочий день без перерв на безпеку. 👍`;
-                    }
-
-                    await sendStoreAlarmMessage(store, summaryText);
                 }
             }
 

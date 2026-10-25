@@ -51,6 +51,7 @@ const storeSchema = new mongoose.Schema({
     alarmDistrict: { type: String, default: '' },
     alarmTrackingStart: { type: String, default: '10:00' },
     alarmTrackingEnd: { type: String, default: '22:00' },
+    lastAlarmSummaryDate: { type: String, default: null },
 
     telegram: {
         chatId: { type: Number, default: null },

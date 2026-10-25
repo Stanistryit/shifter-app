@@ -190,6 +190,21 @@ exports.saveCashCount = async (req, res) => {
     // Форматування часу Київ
     const timeStr = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' });
 
+    // Форматування купюр для повідомлення
+    let denomSummary = '';
+    if (newCashCount.denominations) {
+        const dObj = (newCashCount.denominations instanceof Map)
+            ? Object.fromEntries(newCashCount.denominations)
+            : newCashCount.denominations;
+        const entries = Object.entries(dObj)
+            .filter(([_, count]) => Number(count) > 0)
+            .sort((a, b) => Number(b[0]) - Number(a[0]))
+            .map(([denom, count]) => `${denom}×${count}`);
+        if (entries.length > 0) {
+            denomSummary = `\n💵 <b>Купюри:</b> ${entries.join(', ')}`;
+        }
+    }
+
     // Відправка повідомлення ботом у Telegram (без назви магазину, як просив користувач)
     if (newCashCount.type === 'encashment') {
         let targetLine = '';
@@ -204,7 +219,8 @@ exports.saveCashCount = async (req, res) => {
 
         const msg = `💼 <b>Інкасація зібрана!</b>\n` +
                     `💰 Зібрано: <b>${newCashCount.totalCounted.toLocaleString('uk-UA')} грн</b>` +
-                    targetLine + `\n` +
+                    targetLine +
+                    denomSummary + `\n` +
                     `👤 Співробітник: <b>${newCashCount.countedBy}</b>\n` +
                     `🕒 Час: <b>${timeStr}</b>`;
         sendStoreCashReport(store._id, msg);
@@ -212,7 +228,8 @@ exports.saveCashCount = async (req, res) => {
         // Каса
         if (newCashCount.difference === 0) {
             const msg = `✅ <b>Перерахунок каси: Каса зійшлася!</b>\n` +
-                        `💵 Сума в касі: <b>${newCashCount.totalCounted.toLocaleString('uk-UA')} грн</b>\n` +
+                        `💵 Сума в касі: <b>${newCashCount.totalCounted.toLocaleString('uk-UA')} грн</b>` +
+                        denomSummary + `\n` +
                         `👤 Перерахував(ла): <b>${newCashCount.countedBy}</b>\n` +
                         `🕒 Час: <b>${timeStr}</b>`;
             sendStoreCashReport(store._id, msg);
@@ -225,7 +242,8 @@ exports.saveCashCount = async (req, res) => {
             const msg = `⚠️ <b>Перерахунок каси: РОЗБІЖНІСТЬ!</b>\n` +
                         `💵 Факт у касі: <b>${newCashCount.totalCounted.toLocaleString('uk-UA')} грн</b>\n` +
                         `📑 Очікувано (звіти): <b>${newCashCount.totalExpected.toLocaleString('uk-UA')} грн</b>\n` +
-                        `❗️ Розбіжність: <b>${diffFormatted}</b>\n` +
+                        `❗️ Розбіжність: <b>${diffFormatted}</b>` +
+                        denomSummary + `\n` +
                         `👤 Перерахував(ла): <b>${newCashCount.countedBy}</b>\n` +
                         `🕒 Час: <b>${timeStr}</b>`;
             sendStoreCashReport(store._id, msg);

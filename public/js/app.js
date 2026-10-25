@@ -25,7 +25,7 @@ import {
     openStoreFilterModal, closeStoreFilterModal, renderStoreFilterList,
     openAvatarModal, closeAvatarModal, uploadAvatar, handleAvatarSelect, openChangePasswordModal, closeChangePasswordModal, submitChangePassword,
     openTransferModal, updateStoreDisplay,
-    openStoreSettingsModal, saveStoreSettings, loadLogs
+    openStoreSettingsModal, saveStoreSettings, openTerminalSettingsModal, saveTerminalSettings, loadLogs
 } from './modules/settings.js';
 
 import {
@@ -509,6 +509,7 @@ window.showToast = showToast;
 window.triggerHaptic = triggerHaptic;
 window.openTransferModal = openTransferModal;
 window.openStoreSettingsModal = openStoreSettingsModal;
+window.openTerminalSettingsModal = openTerminalSettingsModal;
 
 window.openTaskProxy = (id) => {
     const task = state.tasks.find(t => t._id === id);
@@ -1007,15 +1008,24 @@ async function setMode(mode) {
             }
         }
 
+        const btnTerminalSettings = document.getElementById('profileBtnTerminalSettings');
         if (state.currentUser && (state.currentUser.role === 'SM' || state.currentUser.role === 'admin')) {
             if (btnStoreSettings) {
                 btnStoreSettings.classList.remove('hidden');
                 btnStoreSettings.classList.add('flex');
             }
+            if (btnTerminalSettings) {
+                btnTerminalSettings.classList.remove('hidden');
+                btnTerminalSettings.classList.add('flex');
+            }
         } else {
             if (btnStoreSettings) {
                 btnStoreSettings.classList.add('hidden');
                 btnStoreSettings.classList.remove('flex');
+            }
+            if (btnTerminalSettings) {
+                btnTerminalSettings.classList.add('hidden');
+                btnTerminalSettings.classList.remove('flex');
             }
         }
 

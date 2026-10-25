@@ -905,7 +905,8 @@ function initCashCalculator() {
                 <input type="number" min="0" data-denom="${denom}" value="" placeholder="0" 
                     oninput="window.calculateCashTotals()" 
                     onkeydown="window.handleCashInputKey(event, ${denom})"
-                    class="cash-input w-full p-1 text-center font-bold font-mono bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs">
+                    onwheel="this.blur()"
+                    class="cash-input no-spin w-full p-1 text-center font-bold font-mono bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs">
             </div>
             <div class="col-span-4 text-right font-mono font-bold text-gray-900 dark:text-gray-200" id="subtotal-${denom}">
                 0 грн
@@ -961,8 +962,12 @@ window.switchTermCashTab = function (tab) {
     calculateCashTotals();
 };
 
-// Зручний перехід між номіналами через Enter/Tab
+// Зручний перехід між номіналами через Enter/Tab та блокування зміни кількості стрілочками
 window.handleCashInputKey = function (e, currentDenom) {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        return;
+    }
     if (e.key === 'Enter') {
         e.preventDefault();
         const inputs = Array.from(document.querySelectorAll('.cash-input'));
@@ -1133,9 +1138,15 @@ window.submitCashCount = async function () {
     }
 
     let totalCounted = 0;
+    const denominations = {};
     const inputs = document.querySelectorAll('.cash-input');
     inputs.forEach(i => {
-        totalCounted += (parseInt(i.value) || 0) * Number(i.dataset.denom);
+        const denom = Number(i.dataset.denom);
+        const count = parseInt(i.value) || 0;
+        if (count > 0) {
+            denominations[denom] = count;
+        }
+        totalCounted += count * denom;
     });
 
     let totalExpected = 0;
@@ -1158,7 +1169,7 @@ window.submitCashCount = async function () {
         storeId: store._id,
         type: terminalState.activeTab,
         countedBy,
-        denominations: terminalState.denominationsCount,
+        denominations,
         totalCounted,
         expectedAmounts,
         totalExpected,
@@ -1246,6 +1257,30 @@ window.openCashHistoryModal = async function () {
                         : `<span class="text-purple-600 dark:text-purple-400 font-bold text-xs">Ціль: ${item.totalExpected.toLocaleString('uk-UA')} грн (${item.difference > 0 ? '+' : ''}${item.difference.toLocaleString('uk-UA')})</span>`;
                 }
 
+                let denomHtml = '';
+                if (item.denominations) {
+                    const dObj = (item.denominations instanceof Map)
+                        ? Object.fromEntries(item.denominations)
+                        : item.denominations;
+                    const entries = Object.entries(dObj)
+                        .filter(([_, count]) => Number(count) > 0)
+                        .sort((a, b) => Number(b[0]) - Number(a[0]));
+                    if (entries.length > 0) {
+                        denomHtml = `
+                            <div class="mt-2 pt-1.5 border-t border-gray-200/50 dark:border-gray-700/50">
+                                <div class="text-[10px] text-gray-500 dark:text-gray-400 font-semibold mb-1">Купюри:</div>
+                                <div class="flex flex-wrap gap-1">
+                                    ${entries.map(([denom, count]) => `
+                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 font-mono text-[10px] text-gray-700 dark:text-gray-300 shadow-2xs">
+                                            <span class="font-bold text-blue-600 dark:text-blue-400">${denom} грн</span>: <span class="font-bold">${count} шт</span>
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+
                 return `
                     <div class="p-3 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-100 dark:border-gray-800 space-y-1.5 text-xs">
                         <div class="flex justify-between items-center">
@@ -1259,6 +1294,7 @@ window.openCashHistoryModal = async function () {
                             <span class="font-mono text-base font-extrabold text-blue-600 dark:text-blue-400">${item.totalCounted.toLocaleString('uk-UA')} грн</span>
                             ${statusBadge}
                         </div>
+                        ${denomHtml}
                     </div>
                 `;
             }).join('');
