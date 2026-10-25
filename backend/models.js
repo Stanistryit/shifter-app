@@ -317,6 +317,15 @@ const alarmEventSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 alarmEventSchema.index({ storeId: 1, date: 1, status: 1 });
-const AlarmEvent = mongoose.models.AlarmEvent || mongoose.model('AlarmEvent', alarmEventSchema);
+// 19. Схема Прогресу Чек-лістів Терміналу
+const checklistProgressSchema = new mongoose.Schema({
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true },
+    date: { type: String, required: true }, // 'YYYY-MM-DD' (Kyiv date)
+    type: { type: String, enum: ['morning', 'evening'], required: true },
+    items: { type: Map, of: Object, default: {} }, // { "m_0": { checked: true, time: "10:15" } }
+    updatedAt: { type: Date, default: Date.now }
+});
+checklistProgressSchema.index({ storeId: 1, date: 1, type: 1 }, { unique: true });
+const ChecklistProgress = mongoose.models.ChecklistProgress || mongoose.model('ChecklistProgress', checklistProgressSchema);
 
-module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, MonthSettings, PendingNotification, Notification, CashCount, StockCount, AlarmEvent };
+module.exports = { Store, User, Shift, Task, NewsPost, Request, Note, AuditLog, MonthSettings, PendingNotification, Notification, CashCount, StockCount, AlarmEvent, ChecklistProgress };

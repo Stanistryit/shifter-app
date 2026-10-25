@@ -1,4 +1,4 @@
-const { Store, User, Shift, Task, CashCount, StockCount } = require('../models');
+const { Store, User, Shift, Task, CashCount, StockCount, ChecklistProgress } = require('../models');
 const { sendStoreCashReport } = require('../bot/notifications');
 
 function formatTerminalStore(store) {
@@ -150,6 +150,29 @@ exports.getTerminalData = async (req, res) => {
         };
     }
 
+    // Зчитуємо прогрес чек-лістів на сьогодні (ранковий / вечірній)
+    const checklistsProgress = await ChecklistProgress.find({
+        storeId: store._id,
+        date: todayStr
+    }).lean();
+
+    const progressMap = {
+        morning: {},
+        evening: {}
+    };
+    checklistsProgress.forEach(cp => {
+        if (cp.type && cp.items) {
+            progressMap[cp.type] = (cp.items instanceof Map) ? Object.fromEntries(cp.items) : cp.items;
+        }
+    });
+
+    // Останній перерахунок каси та складу за сьогодні
+    const startOfDay = new Date(todayStr + "T00:00:00.000Z");
+    const [latestCashToday, latestStockToday] = await Promise.all([
+        CashCount.findOne({ storeId: store._id, createdAt: { $gte: startOfDay } }).sort({ createdAt: -1 }).lean(),
+        StockCount.findOne({ storeId: store._id, createdAt: { $gte: startOfDay } }).sort({ createdAt: -1 }).lean()
+    ]);
+
     res.json({
         success: true,
         store: formatTerminalStore(store),
@@ -158,7 +181,19 @@ exports.getTerminalData = async (req, res) => {
         employees: storeUsers,
         todayShifts,
         tomorrowOpener,
-        tasks
+        tasks,
+        checklistsProgress: progressMap,
+        latestCashToday: latestCashToday ? {
+            type: latestCashToday.type,
+            countedBy: latestCashToday.countedBy,
+            time: new Date(latestCashToday.createdAt).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }),
+            totalCounted: latestCashToday.totalCounted
+        } : null,
+        latestStockToday: latestStockToday ? {
+            countedBy: latestStockToday.countedBy,
+            time: new Date(latestStockToday.createdAt).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }),
+            preview: latestStockToday.content ? latestStockToday.content.slice(0, 80) : ''
+        } : null
     });
 };
 
@@ -438,5 +473,56 @@ exports.reopenStore = async (req, res) => {
     const alarmService = require('../services/alarmService');
     const result = await alarmService.recordStoreReopen(storeId, openedBy);
     res.json(result);
+};
+
+// 12. Перемикання пункту чек-ліста з міжтермінальною синхронізацією
+exports.toggleChecklistItem = async (req, res) => {
+    let storeId = req.body.storeId || req.session?.terminalStoreId;
+    if (!storeId && req.user?.storeId) {
+        storeId = req.user.storeId;
+    }
+    const { type, itemId, checked } = req.body;
+    if (!storeId || !type || !itemId) {
+        return res.status(400).json({ success: false, message: "Неповні дані для чек-ліста" });
+    }
+
+    const nowKiev = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
+    const y = nowKiev.getFullYear();
+    const m = String(nowKiev.getMonth() + 1).padStart(2, '0');
+    const d = String(nowKiev.getDate()).padStart(2, '0');
+    const todayStr = `${y}-${m}-${d}`;
+    const timeStr = nowKiev.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+
+    let progress = await ChecklistProgress.findOne({
+        storeId,
+        date: todayStr,
+        type
+    });
+
+    if (!progress) {
+        progress = new ChecklistProgress({
+            storeId,
+            date: todayStr,
+            type,
+            items: new Map()
+        });
+    }
+
+    const items = progress.items instanceof Map ? progress.items : new Map(Object.entries(progress.items || {}));
+    if (checked) {
+        items.set(itemId, { checked: true, time: timeStr });
+    } else {
+        items.delete(itemId);
+    }
+    progress.items = items;
+    progress.updatedAt = new Date();
+    await progress.save();
+
+    const itemsObj = Object.fromEntries(items);
+    res.json({
+        success: true,
+        type,
+        items: itemsObj
+    });
 };
 

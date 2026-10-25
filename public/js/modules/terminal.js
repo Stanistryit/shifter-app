@@ -16,8 +16,37 @@ let terminalState = {
     alarmInterval: null,
     clockInterval: null,
     checklistState: {},
+    checklistsProgress: { morning: {}, evening: {} },
+    latestCashToday: null,
+    latestStockToday: null,
     alarmStatus: null
 };
+
+// Міжвкладкова / міжтермінальна синхронізація в межах браузера
+let terminalSyncChannel = null;
+try {
+    if ('BroadcastChannel' in window) {
+        terminalSyncChannel = new BroadcastChannel('shifter_terminal_sync');
+        terminalSyncChannel.onmessage = (event) => {
+            const data = event.data;
+            if (!data || data.storeId !== terminalState.store?._id) return;
+
+            if (data.type === 'checklist_update') {
+                if (!terminalState.checklistsProgress) terminalState.checklistsProgress = {};
+                terminalState.checklistsProgress[data.checklistType] = data.items;
+                renderChecklists(terminalState.store);
+            } else if (data.type === 'stock_update') {
+                terminalState.latestStockToday = data.stock;
+                renderStockTodayStatus(data.stock);
+            } else if (data.type === 'cash_update') {
+                terminalState.latestCashToday = data.cash;
+                renderCashTodayStatus(data.cash);
+            }
+        };
+    }
+} catch (e) {
+    console.warn("BroadcastChannel error:", e);
+}
 
 // 1. Ініціалізація або перевірка терміналу
 export async function initTerminal() {
@@ -40,13 +69,13 @@ export async function initTerminal() {
     const isSilent = Boolean(terminalState.store && (terminalState.store._id === targetStoreId || terminalState.store.code === savedStoreCode));
     await loadTerminalData(targetStoreId, savedStoreCode, isSilent);
 
-    // Запускаємо фонове автооновлення кожні 60 секунд
+    // Запускаємо фонове автооновлення кожні 20 секунд для міжтермінальної синхронізації
     if (terminalState.pollingInterval) clearInterval(terminalState.pollingInterval);
     terminalState.pollingInterval = setInterval(() => {
         if (terminalState.store?._id) {
             loadTerminalData(terminalState.store._id, null, true);
         }
-    }, 60000);
+    }, 20000);
 
     // Запускаємо моніторинг тривог кожні 15 секунд
     if (terminalState.alarmInterval) clearInterval(terminalState.alarmInterval);
@@ -97,6 +126,9 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
             terminalState.terminalData = res;
             terminalState.todayShifts = res.todayShifts || [];
             terminalState.employees = res.employees || [];
+            terminalState.checklistsProgress = res.checklistsProgress || { morning: {}, evening: {} };
+            terminalState.latestCashToday = res.latestCashToday || null;
+            terminalState.latestStockToday = res.latestStockToday || null;
 
             localStorage.setItem('shifter_terminal_storeId', res.store._id);
             localStorage.setItem('shifter_terminal_storeCode', res.store.code);
@@ -107,6 +139,8 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
             renderEmergencyContacts(res.store.emergencyContacts);
             renderTasks(res.tasks);
             renderChecklists(res.store);
+            renderStockTodayStatus(res.latestStockToday);
+            renderCashTodayStatus(res.latestCashToday);
             loadAlarmStatus(res.store._id);
             populateAuthorSelects(res.employees);
 
@@ -398,24 +432,22 @@ window.toggleTermTask = async function(taskId, doneStatus) {
     }
 };
 
-// 9. Чек-лісти відкриття та закриття за часом
+// 9. Чек-лісти відкриття та закриття за часом (з синхронізацією між терміналами)
 function renderChecklists(store) {
     const titleEl = document.getElementById('termChecklistTitle');
     const badgeEl = document.getElementById('termChecklistBadge');
     const container = document.getElementById('termChecklistItems');
-    if (!container) return;
+    if (!container || !store) return;
 
     const now = new Date();
     const currentHour = now.getHours();
 
     // Якщо до 14:00 — Ранковий чек-лист. Після 14:00 — Вечірній чек-лист
     const isMorning = currentHour < 14;
+    const checklistType = isMorning ? 'morning' : 'evening';
 
     if (titleEl) {
         titleEl.innerHTML = isMorning ? `<span>🌅</span> РАНКОВИЙ ЧЕК-ЛІСТ (ВІДКРИТТЯ)` : `<span>🌙</span> ВЕЧІРНІЙ ЧЕК-ЛІСТ (ЗАКРИТТЯ)`;
-    }
-    if (badgeEl) {
-        badgeEl.innerText = isMorning ? 'Відкриття' : 'Закриття';
     }
 
     const defaultMorning = [
@@ -448,30 +480,55 @@ function renderChecklists(store) {
         }
     }
 
-    // Зчитуємо локальний стан виконання чек-ліста за сьогодні
+    // Стан чек-ліста з сервера (з резервним фолбеком на localStorage)
     const todayStr = new Date().toISOString().split('T')[0];
-    const savedKey = `shifter_checklist_${store._id}_${todayStr}_${isMorning ? 'm' : 'e'}`;
-    let savedState = {};
-    try {
-        savedState = JSON.parse(localStorage.getItem(savedKey) || '{}');
-    } catch (e) { }
+    const savedKey = `shifter_checklist_${store._id}_${todayStr}_${checklistType}`;
 
-    terminalState.checklistState = savedState;
+    let activeProgress = (terminalState.checklistsProgress && terminalState.checklistsProgress[checklistType]) || null;
+    if (!activeProgress || Object.keys(activeProgress).length === 0) {
+        try {
+            activeProgress = JSON.parse(localStorage.getItem(savedKey) || '{}');
+        } catch (e) {
+            activeProgress = {};
+        }
+    }
+    terminalState.checklistState = activeProgress;
+
+    // Підрахунок прогресу виконання
+    const totalItems = items.length;
+    const completedItems = items.filter(item => Boolean(activeProgress[item.id])).length;
+    const isAllCompleted = totalItems > 0 && completedItems === totalItems;
+
+    if (badgeEl) {
+        if (isAllCompleted) {
+            badgeEl.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300";
+            badgeEl.innerText = `Завершено ✅ (${completedItems}/${totalItems})`;
+        } else if (completedItems > 0) {
+            badgeEl.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300";
+            badgeEl.innerText = `Виконано ${completedItems}/${totalItems}`;
+        } else {
+            badgeEl.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300";
+            badgeEl.innerText = isMorning ? 'Відкриття' : 'Закриття';
+        }
+    }
 
     container.innerHTML = items.map(item => {
-        const record = savedState[item.id];
-        const isChecked = !!record;
-        const authorText = record ? `<span class="text-[9px] text-green-600 dark:text-green-400 font-bold ml-1">(${record.by}, ${record.time})</span>` : '';
+        const record = activeProgress[item.id];
+        const isChecked = Boolean(record);
+        // Не пишемо, хто заповнює — показуємо лише позначку часу виконання
+        const timeText = record && record.time
+            ? `<span class="text-[9px] text-green-600 dark:text-green-400 font-mono font-medium ml-1">✓ ${record.time}</span>`
+            : '';
 
         return `
-            <div onclick="window.toggleChecklistItem('${item.id}', '${savedKey}')" class="p-2 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-100 dark:border-gray-800 flex items-center justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors select-none">
+            <div onclick="window.toggleChecklistItem('${item.id}', '${checklistType}')" class="p-2 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-100 dark:border-gray-800 flex items-center justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors select-none">
                 <div class="flex items-center gap-2 overflow-hidden">
                     <div class="w-4 h-4 rounded-md border flex items-center justify-center text-[10px] ${isChecked ? 'bg-green-500 border-green-500 text-white font-bold' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1C1C1E]'}">
                         ${isChecked ? '✓' : ''}
                     </div>
                     <span class="text-xs ${isChecked ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200 font-medium'} truncate">${item.text}</span>
                 </div>
-                ${authorText}
+                ${timeText}
             </div>
         `;
     }).join('');
@@ -850,29 +907,91 @@ window.confirmStoreReopen = function () {
     window.openReopenStoreModal();
 };
 
-// 10. Позначення чек-ліста з вибором виконавця
-window.toggleChecklistItem = function (itemId, savedKey) {
+// 10. Позначення чек-ліста з міжтермінальною синхронізацією
+window.toggleChecklistItem = async function (itemId, checklistType) {
     triggerHaptic();
-    const currentState = terminalState.checklistState || {};
-    const employees = terminalState.terminalData?.todayShifts || [];
+    const store = terminalState.store;
+    if (!store) return;
 
-    if (currentState[itemId]) {
-        // Зняти галочку
-        delete currentState[itemId];
-        localStorage.setItem(savedKey, JSON.stringify(currentState));
-        renderChecklists(terminalState.store);
+    if (!terminalState.checklistsProgress) terminalState.checklistsProgress = { morning: {}, evening: {} };
+    if (!terminalState.checklistsProgress[checklistType]) terminalState.checklistsProgress[checklistType] = {};
+
+    const activeProgress = terminalState.checklistsProgress[checklistType];
+    const willBeChecked = !activeProgress[itemId];
+    const timeStr = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+
+    // Оптимістичне локальне оновлення
+    if (willBeChecked) {
+        activeProgress[itemId] = { checked: true, time: timeStr };
+        showToast("Пункт чек-ліста виконано", "success");
     } else {
-        // Поставити галочку — вибираємо автора зі зміни
-        const authorSelect = document.getElementById('termCashAuthorSelect');
-        const selectedAuthor = authorSelect?.value || (employees.length > 0 ? employees[0].name : 'Співробітник');
+        delete activeProgress[itemId];
+        showToast("Пункт відновлено", "info");
+    }
 
-        const timeStr = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
-        currentState[itemId] = { by: selectedAuthor, time: timeStr };
-        localStorage.setItem(savedKey, JSON.stringify(currentState));
-        renderChecklists(terminalState.store);
-        showToast(`Виконано: ${selectedAuthor}`, 'success');
+    // Резервне збереження в localStorage
+    const todayStr = new Date().toISOString().split('T')[0];
+    const savedKey = `shifter_checklist_${store._id}_${todayStr}_${checklistType}`;
+    try {
+        localStorage.setItem(savedKey, JSON.stringify(activeProgress));
+    } catch (e) { }
+
+    renderChecklists(store);
+
+    // Миттєва синхронізація через BroadcastChannel (між сусідніми вкладками/вікнами)
+    try {
+        if (terminalSyncChannel) {
+            terminalSyncChannel.postMessage({
+                type: 'checklist_update',
+                storeId: store._id,
+                checklistType,
+                items: activeProgress
+            });
+        }
+    } catch (e) { }
+
+    // Збереження в базі даних для синхронізації між різними пристроями/терміналами
+    try {
+        const res = await postJson('/api/terminal/checklist/toggle', {
+            storeId: store._id,
+            type: checklistType,
+            itemId,
+            checked: willBeChecked
+        });
+        if (res && res.success && res.items) {
+            terminalState.checklistsProgress[checklistType] = res.items;
+            localStorage.setItem(savedKey, JSON.stringify(res.items));
+            renderChecklists(store);
+        }
+    } catch (err) {
+        console.warn("Помилка відправки статусу чек-ліста:", err);
     }
 };
+
+// Відображення сьогоднішнього статусу складу
+function renderStockTodayStatus(item) {
+    const el = document.getElementById('termStockTodayStatus');
+    if (!el) return;
+    if (item && item.time) {
+        el.innerHTML = `<span>✅ Склад уже перераховано о <b>${item.time}</b> (${item.countedBy})</span><button type="button" onclick="window.openStockHistoryModal()" class="text-blue-600 dark:text-blue-400 font-bold hover:underline">Деталі</button>`;
+        el.classList.remove('hidden');
+    } else {
+        el.classList.add('hidden');
+    }
+}
+
+// Відображення сьогоднішнього статусу каси
+function renderCashTodayStatus(item) {
+    const el = document.getElementById('termCashTodayStatus');
+    if (!el) return;
+    if (item && item.time) {
+        const typeName = item.type === 'encashment' ? 'Інкасація' : 'Каса';
+        el.innerHTML = `<span>✅ Сьогодні: <b>${typeName} о ${item.time}</b> (${item.countedBy})</span><span class="font-bold text-blue-600 dark:text-blue-400">${item.totalCounted.toLocaleString('uk-UA')} грн</span>`;
+        el.classList.remove('hidden');
+    } else {
+        el.classList.add('hidden');
+    }
+}
 
 // 11. Заповнення селектів авторів (список активних на зміні)
 function populateAuthorSelects(employees) {
@@ -1189,6 +1308,24 @@ window.submitCashCount = async function () {
         if (res && res.success) {
             const title = terminalState.activeTab === 'encashment' ? 'Інкасацію збережено' : 'Перерахунок каси збережено';
             showToast(`${title} та надіслано в Telegram!`, 'success');
+
+            terminalState.latestCashToday = {
+                type: terminalState.activeTab,
+                countedBy,
+                time: new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }),
+                totalCounted: Number(totalCounted)
+            };
+            renderCashTodayStatus(terminalState.latestCashToday);
+
+            try {
+                if (terminalSyncChannel && store?._id) {
+                    terminalSyncChannel.postMessage({
+                        type: 'cash_update',
+                        storeId: store._id,
+                        cash: terminalState.latestCashToday
+                    });
+                }
+            } catch (e) { }
         } else {
             showToast(res?.message || 'Помилка збереження', 'error');
         }
@@ -1225,6 +1362,23 @@ window.submitStockCount = async function () {
         if (res && res.success) {
             textEl.value = '';
             showToast("Перерахунок складу збережено та надіслано в Telegram!", "success");
+
+            terminalState.latestStockToday = {
+                countedBy,
+                time: new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }),
+                preview: content.slice(0, 80)
+            };
+            renderStockTodayStatus(terminalState.latestStockToday);
+
+            try {
+                if (terminalSyncChannel && store?._id) {
+                    terminalSyncChannel.postMessage({
+                        type: 'stock_update',
+                        storeId: store._id,
+                        stock: terminalState.latestStockToday
+                    });
+                }
+            } catch (e) { }
         } else {
             showToast(res?.message || 'Помилка збереження', 'error');
         }

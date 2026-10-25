@@ -129,5 +129,6 @@ router.post('/terminal/settings', catchAsync(terminalController.updateTerminalSe
 router.get('/terminal/schedule', catchAsync(terminalController.getTerminalSchedule));
 router.get('/terminal/alarm/status', catchAsync(terminalController.getAlarmStatus));
 router.post('/terminal/alarm/reopen', catchAsync(terminalController.reopenStore));
+router.post('/terminal/checklist/toggle', catchAsync(terminalController.toggleChecklistItem));
 
 module.exports = router;

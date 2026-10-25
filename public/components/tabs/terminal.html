@@ -116,6 +116,7 @@
                 <p class="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
                     Заповнюється SE перед закриттям зміни (залишки стіків, девайсів, інше):
                 </p>
+                <div id="termStockTodayStatus" class="hidden text-[10px] p-2 rounded-xl bg-green-50/80 dark:bg-green-950/30 border border-green-200/60 dark:border-green-800/50 text-green-700 dark:text-green-300 font-medium mb-2 flex items-center justify-between"></div>
                 <div class="space-y-2">
                     <textarea id="termStockText" rows="2"
                         placeholder="Введіть підсумки перерахунку (Терікі і деліки йдуть...)"
@@ -229,7 +230,7 @@
                 class="ios-card p-3.5 bg-white dark:bg-[#1C1C1E] border border-gray-200/80 dark:border-gray-800 shadow-md">
 
                 <!-- Перемикач вкладок Покупюрника -->
-                <div class="flex rounded-xl bg-gray-100 dark:bg-[#2C2C2E] p-1 mb-3">
+                <div class="flex rounded-xl bg-gray-100 dark:bg-[#2C2C2E] p-1 mb-2">
                     <button id="termTabCashBtn" onclick="window.switchTermCashTab('cash')"
                         class="flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all shadow-sm bg-white dark:bg-[#1C1C1E] text-blue-600 dark:text-blue-400">
                         💵 Каса
@@ -239,6 +240,7 @@
                         💼 Інкасація
                     </button>
                 </div>
+                <div id="termCashTodayStatus" class="hidden text-[10px] p-2 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-800/50 text-blue-700 dark:text-blue-300 font-medium mb-2 flex items-center justify-between"></div>
 
                 <!-- Таблиця купюр (Номінали від 2000 до 1 грн) -->
                 <div class="max-h-[310px] overflow-y-auto custom-scrollbar pr-1 space-y-1">
