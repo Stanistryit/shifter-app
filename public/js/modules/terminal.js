@@ -18,9 +18,94 @@ let terminalState = {
     clockInterval: null,
     checklistState: {},
     checklistsProgress: { morning: {}, evening: {} },
+    checklistManualTab: null, // null (авто за часом) | 'morning' | 'evening'
     latestCashToday: null,
     latestStockToday: null,
-    alarmStatus: null
+    previousStockCount: null,
+    isPrevStockExpanded: true,
+    alarmStatus: null,
+    soundEnabled: localStorage.getItem('shifter_terminal_sound') !== 'off',
+    prevAlarmIsAlert: null,
+    knownTaskIds: new Set(),
+    tasksInitialized: false,
+    closingSoundPlayedDate: null
+};
+
+// Синтезатор звукових сповіщень терміналу (Web Audio API, без зовнішніх mp3)
+let termAudioCtx = null;
+function playTerminalSound(type = 'notification') {
+    if (!terminalState.soundEnabled) return;
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!termAudioCtx) termAudioCtx = new AudioCtx();
+        if (termAudioCtx.state === 'suspended') {
+            termAudioCtx.resume().catch(() => {});
+        }
+
+        const now = termAudioCtx.currentTime;
+
+        const playTone = (freq, startTime, duration, wave = 'sine', maxGain = 0.18) => {
+            const osc = termAudioCtx.createOscillator();
+            const gain = termAudioCtx.createGain();
+            osc.type = wave;
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(0.001, startTime);
+            gain.gain.exponentialRampToValueAtTime(maxGain, startTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+            osc.connect(gain);
+            gain.connect(termAudioCtx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + duration + 0.02);
+        };
+
+        if (type === 'alarm_start') {
+            // Тривожний сигнал (3 пульси сирени)
+            playTone(880, now, 0.22, 'sawtooth', 0.22);
+            playTone(660, now + 0.25, 0.22, 'sawtooth', 0.22);
+            playTone(880, now + 0.50, 0.22, 'sawtooth', 0.22);
+            playTone(660, now + 0.75, 0.28, 'sawtooth', 0.22);
+        } else if (type === 'alarm_end') {
+            // Приємний мажорний акорд відбою (C5 -> E5 -> G5)
+            playTone(523.25, now, 0.18, 'triangle', 0.2);
+            playTone(659.25, now + 0.16, 0.18, 'triangle', 0.2);
+            playTone(783.99, now + 0.32, 0.35, 'triangle', 0.22);
+        } else if (type === 'test') {
+            playTone(659.25, now, 0.12, 'sine', 0.15);
+            playTone(880, now + 0.12, 0.18, 'sine', 0.15);
+        } else {
+            // 'notification' — нова задача або нагадування перед закриттям
+            playTone(587.33, now, 0.15, 'sine', 0.18);
+            playTone(880.0, now + 0.16, 0.25, 'sine', 0.2);
+        }
+    } catch (e) {
+        console.warn("Audio alert error:", e);
+    }
+}
+
+function renderSoundToggleBtn() {
+    const btn = document.getElementById('termSoundToggleBtn');
+    if (!btn) return;
+    if (terminalState.soundEnabled) {
+        btn.className = "px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors border border-emerald-200/70 dark:border-emerald-800/50 flex items-center gap-1";
+        btn.innerHTML = `<span>🔔</span><span class="hidden sm:inline">Звук</span>`;
+    } else {
+        btn.className = "px-2.5 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center gap-1";
+        btn.innerHTML = `<span>🔕</span><span class="hidden sm:inline line-through">Звук</span>`;
+    }
+}
+
+window.toggleTerminalSound = function () {
+    triggerHaptic();
+    terminalState.soundEnabled = !terminalState.soundEnabled;
+    localStorage.setItem('shifter_terminal_sound', terminalState.soundEnabled ? 'on' : 'off');
+    renderSoundToggleBtn();
+    if (terminalState.soundEnabled) {
+        playTerminalSound('test');
+        showToast("Звукові сповіщення увімкнено 🔔", "success");
+    } else {
+        showToast("Звукові сповіщення вимкнено 🔕", "info");
+    }
 };
 
 // Міжвкладкова / міжтермінальна синхронізація в межах браузера
@@ -52,6 +137,7 @@ try {
 // 1. Ініціалізація або перевірка терміналу
 export async function initTerminal() {
     startLiveClock();
+    renderSoundToggleBtn();
 
     // Перевіряємо локальне збереження точки
     const savedStoreId = localStorage.getItem('shifter_terminal_storeId');
@@ -103,6 +189,7 @@ function startLiveClock() {
             if (terminalState.todayShifts && terminalState.todayShifts.length > 0) {
                 renderActiveShifts(terminalState.todayShifts, terminalState.employees);
             }
+            checkClosingReminders();
         }
     };
     update();
@@ -123,6 +210,13 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
         const res = await fetchJson(url);
         if (res && res.success) {
             const isInitialConnection = !terminalState.store || terminalState.store._id !== res.store._id;
+            if (isInitialConnection) {
+                terminalState.tasksInitialized = false;
+                terminalState.knownTaskIds = new Set();
+                terminalState.prevAlarmIsAlert = null;
+                terminalState.checklistManualTab = null;
+            }
+
             terminalState.store = res.store;
             terminalState.terminalData = res;
             terminalState.todayShifts = res.todayShifts || [];
@@ -130,9 +224,25 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
             terminalState.checklistsProgress = res.checklistsProgress || { morning: {}, evening: {} };
             terminalState.latestCashToday = res.latestCashToday || null;
             terminalState.latestStockToday = res.latestStockToday || null;
+            terminalState.previousStockCount = res.previousStockCount || null;
 
             localStorage.setItem('shifter_terminal_storeId', res.store._id);
             localStorage.setItem('shifter_terminal_storeCode', res.store.code);
+
+            // Перевірка на появу нових задач для звукового сповіщення
+            const incomingTasks = res.tasks || [];
+            if (!terminalState.tasksInitialized) {
+                incomingTasks.forEach(t => terminalState.knownTaskIds.add(String(t._id)));
+                terminalState.tasksInitialized = true;
+            } else {
+                const newActiveTasks = incomingTasks.filter(t => !terminalState.knownTaskIds.has(String(t._id)) && t.status !== 'completed' && !t.done);
+                incomingTasks.forEach(t => terminalState.knownTaskIds.add(String(t._id)));
+                if (newActiveTasks.length > 0) {
+                    playTerminalSound('notification');
+                    const newTaskTitle = newActiveTasks[0].title || newActiveTasks[0].text || 'Перевірте список задач';
+                    showToast(`📌 Нова задача: ${newTaskTitle}`, 'info');
+                }
+            }
 
             renderHeader(res.store);
             renderActiveShifts(res.todayShifts, res.employees);
@@ -141,13 +251,18 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
             renderTasks(res.tasks);
             renderChecklists(res.store);
             renderStockTodayStatus(res.latestStockToday);
+            renderPreviousStockCount(terminalState.previousStockCount);
             renderCashTodayStatus(res.latestCashToday);
             loadAlarmStatus(res.store._id);
             populateAuthorSelects(res.employees);
 
             if (!document.getElementById('termDenominationsRows')?.dataset.initialized) {
                 initCashCalculator();
+            } else if (isInitialConnection) {
+                loadCashDraft();
             }
+
+            checkClosingReminders();
 
             hideTerminalLoginModal();
             if (!isSilent && isInitialConnection) showToast(`Термінал: ${res.store.name} підключено`, 'success');
@@ -481,24 +596,8 @@ window.reloadTerminalTasks = function() {
     }
 };
 
-// 9. Чек-лісти відкриття та закриття за часом (з синхронізацією між терміналами)
-function renderChecklists(store) {
-    const titleEl = document.getElementById('termChecklistTitle');
-    const badgeEl = document.getElementById('termChecklistBadge');
-    const container = document.getElementById('termChecklistItems');
-    if (!container || !store) return;
-
-    const now = new Date();
-    const currentHour = now.getHours();
-
-    // Якщо до 14:00 — Ранковий чек-лист. Після 14:00 — Вечірній чек-лист
-    const isMorning = currentHour < 14;
-    const checklistType = isMorning ? 'morning' : 'evening';
-
-    if (titleEl) {
-        titleEl.innerHTML = isMorning ? `<span>🌅</span> РАНКОВИЙ ЧЕК-ЛІСТ (ВІДКРИТТЯ)` : `<span>🌙</span> ВЕЧІРНІЙ ЧЕК-ЛІСТ (ЗАКРИТТЯ)`;
-    }
-
+// 9. Чек-лісти відкриття та закриття (авто за часом + ручний перемикач Ранок / Вечір)
+function getStoreChecklistItems(store, type) {
     const defaultMorning = [
         { id: 'm_rro', text: 'Відкрити зміну РРО / роздрукувати X-звіт' },
         { id: 'm_terminal', text: 'Перевірити зв\'язок банківського терміналу' },
@@ -514,38 +613,92 @@ function renderChecklists(store) {
         { id: 'e_lights', text: 'Вимкнути світло, вивіску та закрити ролети' }
     ];
 
-    let items = [];
-    if (isMorning) {
-        if (store.checklists?.morning && store.checklists.morning.length > 0) {
-            items = store.checklists.morning.map((text, idx) => ({ id: `m_${idx}`, text }));
-        } else {
-            items = defaultMorning;
+    if (type === 'morning') {
+        if (store?.checklists?.morning && store.checklists.morning.length > 0) {
+            return store.checklists.morning.map((text, idx) => ({ id: `m_${idx}`, text }));
         }
+        return defaultMorning;
     } else {
-        if (store.checklists?.evening && store.checklists.evening.length > 0) {
-            items = store.checklists.evening.map((text, idx) => ({ id: `e_${idx}`, text }));
-        } else {
-            items = defaultEvening;
+        if (store?.checklists?.evening && store.checklists.evening.length > 0) {
+            return store.checklists.evening.map((text, idx) => ({ id: `e_${idx}`, text }));
         }
+        return defaultEvening;
     }
+}
 
-    // Стан чек-ліста з сервера (з резервним фолбеком на localStorage)
+function getStoreChecklistProgress(store, type) {
+    if (!store) return {};
     const todayStr = new Date().toISOString().split('T')[0];
-    const savedKey = `shifter_checklist_${store._id}_${todayStr}_${checklistType}`;
-
-    let activeProgress = (terminalState.checklistsProgress && terminalState.checklistsProgress[checklistType]) || null;
-    if (!activeProgress || Object.keys(activeProgress).length === 0) {
+    const savedKey = `shifter_checklist_${store._id}_${todayStr}_${type}`;
+    let prog = (terminalState.checklistsProgress && terminalState.checklistsProgress[type]) || null;
+    if (!prog || Object.keys(prog).length === 0) {
         try {
-            activeProgress = JSON.parse(localStorage.getItem(savedKey) || '{}');
+            prog = JSON.parse(localStorage.getItem(savedKey) || '{}');
         } catch (e) {
-            activeProgress = {};
+            prog = {};
         }
     }
+    return prog || {};
+}
+
+window.switchTermChecklistTab = function (tab) {
+    triggerHaptic();
+    terminalState.checklistManualTab = tab;
+    if (terminalState.store) {
+        renderChecklists(terminalState.store);
+    }
+};
+
+function renderChecklists(store) {
+    const titleEl = document.getElementById('termChecklistTitle');
+    const badgeEl = document.getElementById('termChecklistBadge');
+    const container = document.getElementById('termChecklistItems');
+    const tabMorningBtn = document.getElementById('termChecklistTabMorning');
+    const tabEveningBtn = document.getElementById('termChecklistTabEvening');
+    if (!container || !store) return;
+
+    const now = new Date();
+    const currentHour = now.getHours();
+
+    // Якщо користувач перемкнув вручну — використовуємо вибір, інакше до 14:00 — Ранок, після 14:00 — Вечір
+    const isMorning = terminalState.checklistManualTab
+        ? (terminalState.checklistManualTab === 'morning')
+        : (currentHour < 14);
+    const checklistType = isMorning ? 'morning' : 'evening';
+
+    if (titleEl) {
+        titleEl.innerHTML = isMorning ? `<span>🌅</span> РАНКОВИЙ ЧЕК-ЛІСТ` : `<span>🌙</span> ВЕЧІРНІЙ ЧЕК-ЛІСТ`;
+    }
+
+    const morningItems = getStoreChecklistItems(store, 'morning');
+    const eveningItems = getStoreChecklistItems(store, 'evening');
+    const morningProg = getStoreChecklistProgress(store, 'morning');
+    const eveningProg = getStoreChecklistProgress(store, 'evening');
+
+    const morningDoneCount = morningItems.filter(i => Boolean(morningProg[i.id])).length;
+    const eveningDoneCount = eveningItems.filter(i => Boolean(eveningProg[i.id])).length;
+
+    // Оновлюємо кнопки перемикача Ранок / Вечір
+    if (tabMorningBtn) {
+        tabMorningBtn.innerText = `🌅 Ранок (${morningDoneCount}/${morningItems.length})`;
+        tabMorningBtn.className = isMorning
+            ? "px-2 py-0.5 text-[10px] font-extrabold rounded-md transition-all bg-white dark:bg-[#1C1C1E] text-blue-600 dark:text-blue-400 shadow-2xs"
+            : "px-2 py-0.5 text-[10px] font-extrabold rounded-md transition-all text-gray-500 hover:text-gray-800 dark:hover:text-gray-200";
+    }
+    if (tabEveningBtn) {
+        tabEveningBtn.innerText = `🌙 Вечір (${eveningDoneCount}/${eveningItems.length})`;
+        tabEveningBtn.className = !isMorning
+            ? "px-2 py-0.5 text-[10px] font-extrabold rounded-md transition-all bg-white dark:bg-[#1C1C1E] text-indigo-600 dark:text-indigo-400 shadow-2xs"
+            : "px-2 py-0.5 text-[10px] font-extrabold rounded-md transition-all text-gray-500 hover:text-gray-800 dark:hover:text-gray-200";
+    }
+
+    const items = isMorning ? morningItems : eveningItems;
+    const activeProgress = isMorning ? morningProg : eveningProg;
     terminalState.checklistState = activeProgress;
 
     // Підрахунок прогресу виконання
     const totalItems = items.length;
-    const completedItems = items.filter(item => Boolean(activeProgress[item.id])).length;
+    const completedItems = isMorning ? morningDoneCount : eveningDoneCount;
     const isAllCompleted = totalItems > 0 && completedItems === totalItems;
 
     if (badgeEl) {
@@ -581,6 +734,8 @@ function renderChecklists(store) {
             </div>
         `;
     }).join('');
+
+    checkClosingReminders();
 }
 
 // 9.1 Моніторинг та рендеринг повітряної тривоги
@@ -589,6 +744,16 @@ async function loadAlarmStatus(storeId) {
     try {
         const res = await fetchJson(`/api/terminal/alarm/status?storeId=${storeId}`);
         if (!res || !res.success) return;
+
+        const currentIsAlert = Boolean(res.isAlert);
+        if (terminalState.prevAlarmIsAlert !== null && terminalState.prevAlarmIsAlert !== currentIsAlert) {
+            playTerminalSound(currentIsAlert ? 'alarm_start' : 'alarm_end');
+            showToast(
+                currentIsAlert ? '🚨 УВАГА! Оголошено повітряну тривогу!' : '🟢 Відбій повітряної тривоги!',
+                currentIsAlert ? 'error' : 'success'
+            );
+        }
+        terminalState.prevAlarmIsAlert = currentIsAlert;
 
         terminalState.alarmStatus = res;
         renderAlarmTile(res);
@@ -1027,7 +1192,57 @@ function renderStockTodayStatus(item) {
     } else {
         el.classList.add('hidden');
     }
+    checkClosingReminders();
 }
+
+// Показ попереднього (вчорашнього) перерахунку складу поруч та підстановка в 1 клік
+function renderPreviousStockCount(prev) {
+    const box = document.getElementById('termStockPrevBox');
+    const headerEl = document.getElementById('termStockPrevHeader');
+    const contentEl = document.getElementById('termStockPrevContent');
+    const iconEl = document.getElementById('termStockPrevToggleIcon');
+    if (!box || !headerEl || !contentEl) return;
+
+    if (!prev || !prev.content) {
+        box.classList.add('hidden');
+        return;
+    }
+
+    box.classList.remove('hidden');
+    headerEl.innerText = `Минулий перерахунок (${prev.date || 'раніше'} о ${prev.time || '--:--'} • ${prev.countedBy || 'СЕ'})`;
+    contentEl.innerText = prev.content;
+
+    if (terminalState.isPrevStockExpanded) {
+        contentEl.classList.remove('hidden');
+        if (iconEl) iconEl.innerText = '▼';
+    } else {
+        contentEl.classList.add('hidden');
+        if (iconEl) iconEl.innerText = '▶';
+    }
+}
+
+window.togglePrevStockPreview = function () {
+    triggerHaptic();
+    terminalState.isPrevStockExpanded = !terminalState.isPrevStockExpanded;
+    renderPreviousStockCount(terminalState.previousStockCount);
+};
+
+window.copyPreviousStockToInput = function () {
+    triggerHaptic();
+    const prev = terminalState.previousStockCount;
+    if (!prev || !prev.content) return;
+
+    const textEl = document.getElementById('termStockText');
+    if (!textEl) return;
+
+    if (textEl.value.trim() && textEl.value.trim() !== prev.content.trim()) {
+        if (!confirm("Замінити поточний текст у полі на шаблон минулого перерахунку?")) return;
+    }
+
+    textEl.value = prev.content;
+    textEl.focus();
+    showToast("Шаблон минулого перерахунку підставлено! Оновіть цифри 📋", "success");
+};
 
 // Відображення сьогоднішнього статусу каси
 function renderCashTodayStatus(item) {
@@ -1040,12 +1255,115 @@ function renderCashTodayStatus(item) {
     } else {
         el.classList.add('hidden');
     }
+    checkClosingReminders();
 }
 
-// 11. Заповнення селектів авторів (список активних на зміні)
+// Розумне нагадування перед закриттям магазину (за 45 хв до closeTime)
+function checkClosingReminders() {
+    const store = terminalState.store;
+    if (!store) return;
+
+    const bannerEl = document.getElementById('termClosingReminderBanner');
+    const titleEl = document.getElementById('termClosingReminderTitle');
+    const badgesEl = document.getElementById('termClosingReminderBadges');
+
+    const closeTimeStr = store.closeTime || '22:00';
+    if (!closeTimeStr.includes(':')) return;
+
+    const kievTimeStr = new Date().toLocaleTimeString('uk-UA', { timeZone: 'Europe/Kiev', hour: '2-digit', minute: '2-digit', hour12: false });
+    const [nowH, nowM] = kievTimeStr.split(':').map(Number);
+    const [closeH, closeM] = closeTimeStr.split(':').map(Number);
+
+    const nowMinutes = nowH * 60 + nowM;
+    const closeMinutes = closeH * 60 + closeM;
+    const minsUntilClose = closeMinutes - nowMinutes;
+
+    // Вікно нагадування: за 45 хвилин до закриття і до 15 хвилин після закриття
+    const isClosingWindow = minsUntilClose <= 45 && minsUntilClose >= -15;
+
+    // Перевіряємо виконання 3 обов'язкових вечірніх пунктів
+    const eveningItems = getStoreChecklistItems(store, 'evening');
+    const eveningProg = getStoreChecklistProgress(store, 'evening');
+    const isEveningChecklistDone = eveningItems.length > 0 && eveningItems.every(i => Boolean(eveningProg[i.id]));
+    const isCashDone = Boolean(terminalState.latestCashToday && terminalState.latestCashToday.time);
+    const isStockDone = Boolean(terminalState.latestStockToday && terminalState.latestStockToday.time);
+
+    const setCardHighlight = (cardId, badgeId, shouldHighlight) => {
+        const card = document.getElementById(cardId);
+        const badge = document.getElementById(badgeId);
+        if (card) {
+            if (shouldHighlight) {
+                card.classList.add('ring-2', 'ring-amber-400', 'dark:ring-amber-500');
+            } else {
+                card.classList.remove('ring-2', 'ring-amber-400', 'dark:ring-amber-500');
+            }
+        }
+        if (badge) {
+            badge.classList.toggle('hidden', !shouldHighlight);
+        }
+    };
+
+    setCardHighlight('termCashCard', 'termCashClosingBadge', isClosingWindow && !isCashDone);
+    setCardHighlight('termStockCard', 'termStockClosingBadge', isClosingWindow && !isStockDone);
+    setCardHighlight('termChecklistCard', 'termChecklistClosingBadge', isClosingWindow && !isEveningChecklistDone);
+
+    if (!bannerEl || !titleEl || !badgesEl) return;
+
+    const missing = [];
+    if (!isCashDone) missing.push({ key: 'cash', label: '💵 Каса не здана' });
+    if (!isStockDone) missing.push({ key: 'stock', label: '📦 Склад не перераховано' });
+    if (!isEveningChecklistDone) {
+        const doneCount = eveningItems.filter(i => Boolean(eveningProg[i.id])).length;
+        missing.push({ key: 'checklist', label: `🌙 Вечірній чек-ліст (${doneCount}/${eveningItems.length})` });
+    }
+
+    if (isClosingWindow && missing.length > 0) {
+        bannerEl.classList.remove('hidden');
+        if (minsUntilClose > 0) {
+            titleEl.innerText = `⏰ До закриття зміни (${closeTimeStr}) залишилось ${minsUntilClose} хв! Не забудьте виконати:`;
+        } else {
+            titleEl.innerText = `⏰ Час закриття зміни (${closeTimeStr}) настав! Залишилось виконати:`;
+        }
+
+        badgesEl.innerHTML = missing.map(m => `
+            <button type="button" onclick="window.focusClosingCard('${m.key}')" class="px-2.5 py-1 rounded-lg bg-white dark:bg-[#1C1C1E] border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-[11px] font-extrabold shadow-2xs hover:bg-amber-100 dark:hover:bg-amber-900/50 active:scale-95 transition-all">
+                ${m.label} →
+            </button>
+        `).join('');
+
+        // Одноразовий звуковий сигнал за 30 хв до закриття
+        if (minsUntilClose <= 30 && minsUntilClose >= 0) {
+            const todayKey = new Date().toISOString().split('T')[0];
+            if (terminalState.closingSoundPlayedDate !== todayKey) {
+                terminalState.closingSoundPlayedDate = todayKey;
+                playTerminalSound('notification');
+            }
+        }
+    } else {
+        bannerEl.classList.add('hidden');
+    }
+}
+
+window.focusClosingCard = function (target) {
+    triggerHaptic();
+    if (target === 'checklist') {
+        window.switchTermChecklistTab('evening');
+        document.getElementById('termChecklistCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else if (target === 'stock') {
+        document.getElementById('termStockCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('termStockText')?.focus();
+    } else if (target === 'cash') {
+        document.getElementById('termCashCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+};
+
+// 11. Заповнення селектів авторів (список активних на зміні) із збереженням обраного значення
 function populateAuthorSelects(employees) {
     const cashSelect = document.getElementById('termCashAuthorSelect');
     const stockSelect = document.getElementById('termStockAuthorSelect');
+
+    const prevCashAuthor = cashSelect?.value || '';
+    const prevStockAuthor = stockSelect?.value || '';
 
     const shifts = terminalState.terminalData?.todayShifts || [];
     const names = shifts.length > 0 ? shifts.map(s => s.name) : (employees || []).map(e => e.name);
@@ -1057,13 +1375,115 @@ function populateAuthorSelects(employees) {
             return `<option value="${name}">${full}</option>`;
         }).join('');
 
-    if (cashSelect) cashSelect.innerHTML = optionsHtml;
-    if (stockSelect) stockSelect.innerHTML = optionsHtml;
+    if (cashSelect) {
+        cashSelect.innerHTML = optionsHtml;
+        if (prevCashAuthor && names.includes(prevCashAuthor)) cashSelect.value = prevCashAuthor;
+    }
+    if (stockSelect) {
+        stockSelect.innerHTML = optionsHtml;
+        if (prevStockAuthor && names.includes(prevStockAuthor)) stockSelect.value = prevStockAuthor;
+    }
 }
 
 // ========================================================
-// 12. ПОКУПЮРНИК (КАСА ТА ІНКАСАЦІЯ)
+// 12. ПОКУПЮРНИК (КАСА ТА ІНКАСАЦІЯ) + АВТОЗБЕРЕЖЕННЯ ЧЕРНЕТКИ
 // ========================================================
+
+function getCashDraftKey() {
+    const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId') || 'default';
+    return `shifter_cash_draft_${storeId}`;
+}
+
+function saveCashDraft() {
+    try {
+        const encashTarget = document.getElementById('termEncashTargetInput')?.value || '';
+        const hasBills = Object.values(terminalState.denominationsCount || {}).some(c => Number(c) > 0);
+        const hasExpected = (terminalState.expectedAmounts || []).some(r => Number(r.amount) > 0 || (r.label && r.label !== 'X-звіт за сьогодні')) || (terminalState.expectedAmounts || []).length > 1;
+        const hasEncashTarget = Number(encashTarget) > 0;
+
+        const hasDraftData = hasBills || hasExpected || hasEncashTarget;
+        const draftBadge = document.getElementById('termCashDraftBadge');
+        if (draftBadge) {
+            draftBadge.classList.toggle('hidden', !hasDraftData);
+        }
+
+        if (hasDraftData) {
+            const draft = {
+                activeTab: terminalState.activeTab,
+                denominationsCount: terminalState.denominationsCount,
+                expectedAmounts: terminalState.expectedAmounts,
+                nextExpectedId: terminalState.nextExpectedId,
+                encashTarget,
+                updatedAt: Date.now()
+            };
+            localStorage.setItem(getCashDraftKey(), JSON.stringify(draft));
+        } else {
+            localStorage.removeItem(getCashDraftKey());
+        }
+    } catch (e) {
+        console.warn("saveCashDraft error:", e);
+    }
+}
+
+function loadCashDraft() {
+    try {
+        const raw = localStorage.getItem(getCashDraftKey());
+        const inputs = document.querySelectorAll('.cash-input');
+        const encashInput = document.getElementById('termEncashTargetInput');
+        const draftBadge = document.getElementById('termCashDraftBadge');
+
+        if (!raw) {
+            inputs.forEach(inp => inp.value = '');
+            if (encashInput) encashInput.value = '';
+            terminalState.denominationsCount = {};
+            terminalState.expectedAmounts = [{ id: 1, label: 'X-звіт за сьогодні', amount: 0 }];
+            terminalState.nextExpectedId = 2;
+            if (draftBadge) draftBadge.classList.add('hidden');
+            renderExpectedRows();
+            calculateCashTotals();
+            return;
+        }
+
+        const draft = JSON.parse(raw);
+        terminalState.denominationsCount = draft.denominationsCount || {};
+        inputs.forEach(inp => {
+            const denom = Number(inp.dataset.denom);
+            const cnt = Number(terminalState.denominationsCount[denom]) || 0;
+            inp.value = cnt > 0 ? cnt : '';
+        });
+
+        if (Array.isArray(draft.expectedAmounts) && draft.expectedAmounts.length > 0) {
+            terminalState.expectedAmounts = draft.expectedAmounts;
+            const maxId = draft.expectedAmounts.reduce((m, r) => Math.max(m, Number(r.id) || 0), 1);
+            terminalState.nextExpectedId = Math.max(Number(draft.nextExpectedId) || 2, maxId + 1);
+        } else {
+            terminalState.expectedAmounts = [{ id: 1, label: 'X-звіт за сьогодні', amount: 0 }];
+            terminalState.nextExpectedId = 2;
+        }
+
+        if (encashInput) {
+            encashInput.value = draft.encashTarget || '';
+        }
+
+        renderExpectedRows();
+
+        if (draft.activeTab === 'encashment' || draft.activeTab === 'cash') {
+            window.switchTermCashTab(draft.activeTab, true);
+        } else {
+            calculateCashTotals();
+        }
+    } catch (e) {
+        console.warn("loadCashDraft error:", e);
+    }
+}
+
+function clearCashDraft() {
+    try {
+        localStorage.removeItem(getCashDraftKey());
+        const draftBadge = document.getElementById('termCashDraftBadge');
+        if (draftBadge) draftBadge.classList.add('hidden');
+    } catch (e) { }
+}
 
 function initCashCalculator() {
     const rowsContainer = document.getElementById('termDenominationsRows');
@@ -1090,13 +1510,12 @@ function initCashCalculator() {
         </div>
     `).join('');
 
-    renderExpectedRows();
-    calculateCashTotals();
+    loadCashDraft();
 }
 
 // Перемикання між вкладками «Каса» та «Інкасація»
-window.switchTermCashTab = function (tab) {
-    triggerHaptic();
+window.switchTermCashTab = function (tab, silent = false) {
+    if (!silent) triggerHaptic();
     terminalState.activeTab = tab;
 
     const cashBtn = document.getElementById('termTabCashBtn');
@@ -1108,8 +1527,8 @@ window.switchTermCashTab = function (tab) {
     const totalCountedText = document.getElementById('termTotalCountedText');
 
     if (tab === 'cash') {
-        cashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all shadow-sm bg-white dark:bg-[#1C1C1E] text-blue-600 dark:text-blue-400";
-        encashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all text-gray-500 hover:text-gray-900 dark:hover:text-white";
+        if (cashBtn) cashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all shadow-sm bg-white dark:bg-[#1C1C1E] text-blue-600 dark:text-blue-400";
+        if (encashBtn) encashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all text-gray-500 hover:text-gray-900 dark:hover:text-white";
         cashExpectedSec?.classList.remove('hidden');
         encashExpectedSec?.classList.add('hidden');
         if (countedLabel) countedLabel.innerText = "Пораховано в касі:";
@@ -1121,8 +1540,8 @@ window.switchTermCashTab = function (tab) {
             submitBtn.innerHTML = `<span>💾</span> <span>Зберегти касу та в TG</span>`;
         }
     } else {
-        encashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all shadow-sm bg-white dark:bg-[#1C1C1E] text-purple-600 dark:text-purple-400";
-        cashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all text-gray-500 hover:text-gray-900 dark:hover:text-white";
+        if (encashBtn) encashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all shadow-sm bg-white dark:bg-[#1C1C1E] text-purple-600 dark:text-purple-400";
+        if (cashBtn) cashBtn.className = "flex-1 py-1.5 text-xs font-extrabold rounded-lg transition-all text-gray-500 hover:text-gray-900 dark:hover:text-white";
         cashExpectedSec?.classList.add('hidden');
         encashExpectedSec?.classList.remove('hidden');
         if (countedLabel) countedLabel.innerText = "Зібрано в інкасацію:";
@@ -1177,7 +1596,7 @@ window.calculateCashTotals = function () {
     const totalEl = document.getElementById('termTotalCountedText');
     if (totalEl) totalEl.innerText = `${totalCounted.toLocaleString('uk-UA')} грн`;
 
-    // 1) Якщо це Каса — рахуємо очікувану суму та різницю за Z-звітами
+    // 1) Якщо це Каса — рахуємо очікувану суму та різницю за звітами
     if (terminalState.activeTab === 'cash') {
         let totalExpected = 0;
         terminalState.expectedAmounts.forEach(row => {
@@ -1287,6 +1706,8 @@ window.calculateCashTotals = function () {
             }
         }
     }
+
+    saveCashDraft();
 };
 
 // 13. Мульти-ввід очікуваних сум (кілька днів/звітів)
@@ -1327,6 +1748,7 @@ window.removeExpectedAmountRow = function (id) {
 window.updateExpectedRowLabel = function (id, val) {
     const r = terminalState.expectedAmounts.find(x => x.id === id);
     if (r) r.label = val;
+    saveCashDraft();
 };
 
 window.updateExpectedRowAmount = function (id, val) {
@@ -1344,10 +1766,13 @@ window.resetCashCountInputs = function () {
     const encashTarget = document.getElementById('termEncashTargetInput');
     if (encashTarget) encashTarget.value = '';
 
+    terminalState.denominationsCount = {};
     terminalState.expectedAmounts = [{ id: 1, label: 'X-звіт за сьогодні', amount: 0 }];
+    terminalState.nextExpectedId = 2;
+    clearCashDraft();
     renderExpectedRows();
     calculateCashTotals();
-    showToast("Форму очищено", "info");
+    showToast("Форму та чернетку очищено", "info");
 };
 
 // 15. Збереження перерахунку каси / інкасації

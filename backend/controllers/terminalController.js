@@ -185,11 +185,12 @@ exports.getTerminalData = async (req, res) => {
         }
     });
 
-    // Останній перерахунок каси та складу за сьогодні
+    // Останній перерахунок каси та складу за сьогодні + попередній перерахунок складу
     const startOfDay = new Date(todayStr + "T00:00:00.000Z");
-    const [latestCashToday, latestStockToday] = await Promise.all([
+    const [latestCashToday, latestStockToday, previousStockCount] = await Promise.all([
         CashCount.findOne({ storeId: store._id, createdAt: { $gte: startOfDay } }).sort({ createdAt: -1 }).lean(),
-        StockCount.findOne({ storeId: store._id, createdAt: { $gte: startOfDay } }).sort({ createdAt: -1 }).lean()
+        StockCount.findOne({ storeId: store._id, createdAt: { $gte: startOfDay } }).sort({ createdAt: -1 }).lean(),
+        StockCount.findOne({ storeId: store._id, createdAt: { $lt: startOfDay } }).sort({ createdAt: -1 }).lean()
     ]);
 
     res.json({
@@ -211,7 +212,14 @@ exports.getTerminalData = async (req, res) => {
         latestStockToday: latestStockToday ? {
             countedBy: latestStockToday.countedBy,
             time: new Date(latestStockToday.createdAt).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }),
-            preview: latestStockToday.content ? latestStockToday.content.slice(0, 80) : ''
+            preview: latestStockToday.content ? latestStockToday.content.slice(0, 80) : '',
+            content: latestStockToday.content || ''
+        } : null,
+        previousStockCount: previousStockCount ? {
+            countedBy: previousStockCount.countedBy,
+            date: new Date(previousStockCount.createdAt).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Kiev' }),
+            time: new Date(previousStockCount.createdAt).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }),
+            content: previousStockCount.content || ''
         } : null
     });
 };
