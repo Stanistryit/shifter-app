@@ -411,7 +411,7 @@ export function openShiftDetailsModal(info) {
         : firstLetter;
 
     const modalHtml = `
-    <div id="shiftDetailsModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div id="shiftDetailsModal" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onclick="window.closeShiftDetailsModal()"></div>
         <div class="glass-modal rounded-2xl w-full max-w-sm p-6 relative z-10 animate-slide-up shadow-2xl border border-gray-100 dark:border-gray-800">
             <div class="flex justify-between items-start mb-3">

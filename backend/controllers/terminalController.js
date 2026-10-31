@@ -424,7 +424,10 @@ exports.getTerminalSchedule = async (req, res) => {
     const dateRegex = new RegExp(`^${year}-${monthStr}`);
 
     // Співробітники цього магазину
-    const storeUsers = await User.find({ storeId: store._id }, 'name fullName position avatar role').sort({ name: 1 }).lean();
+    const storeUsers = await User.find(
+        { storeId: store._id },
+        'name fullName position avatar role status sortOrder storeId'
+    ).populate('storeId', 'name code').sort({ name: 1 }).lean();
     const storeUserNames = storeUsers.map(u => u.name);
 
     // Зміни цього магазину або його працівників (або підміни)
@@ -436,15 +439,38 @@ exports.getTerminalSchedule = async (req, res) => {
             { substituteStoreId: store._id }
         ],
         start: { $ne: 'DELETE' }
-    }).select('date name start end storeId isSubstitute substituteStoreId').lean();
+    }).select('date name start end storeId isSubstitute substituteStoreId').populate('storeId', 'name code').lean();
 
     // Додаємо запрошених співробітників (якщо хтось із іншого магазину має зміну тут)
     const shiftUserNames = [...new Set(shifts.map(s => s.name))];
     const missingNames = shiftUserNames.filter(n => !storeUserNames.includes(n));
     if (missingNames.length > 0) {
-        const guestUsers = await User.find({ name: { $in: missingNames } }, 'name fullName position avatar role').lean();
+        const guestUsers = await User.find(
+            { name: { $in: missingNames } },
+            'name fullName position avatar role status sortOrder storeId'
+        ).populate('storeId', 'name code').lean();
         storeUsers.push(...guestUsers);
     }
+
+    // Оптимізуємо посилання на аватарки
+    const sanitizedEmployees = storeUsers.map(u => ({
+        ...u,
+        avatar: u.avatar
+            ? ((typeof u.avatar === 'string' && (u.avatar.startsWith('http://') || u.avatar.startsWith('https://')))
+                ? u.avatar
+                : `/api/avatar/${u._id}`)
+            : null
+    }));
+
+    // Задачі магазину на цей місяць (для позначок 📌 та підрахунку годин задач)
+    const tasks = await Task.find({
+        storeId: store._id,
+        date: { $regex: dateRegex }
+    }).select('date name title start end isFullDay status includeHours').lean();
+
+    const normHoursObj = store.normHours
+        ? (store.normHours instanceof Map ? Object.fromEntries(store.normHours) : store.normHours)
+        : {};
 
     const daysInMonth = new Date(year, month, 0).getDate();
     const todayStr = `${nowKiev.getFullYear()}-${String(nowKiev.getMonth() + 1).padStart(2, '0')}-${String(nowKiev.getDate()).padStart(2, '0')}`;
@@ -454,14 +480,20 @@ exports.getTerminalSchedule = async (req, res) => {
         store: {
             _id: store._id,
             name: store.name,
-            code: store.code
+            code: store.code,
+            openTime: store.openTime || '10:00',
+            closeTime: store.closeTime || '22:00',
+            lunch_duration_minutes: store.lunch_duration_minutes !== undefined ? store.lunch_duration_minutes : 60,
+            normHours: normHoursObj,
+            fte: store.fte !== undefined ? store.fte : 1
         },
         year,
         month,
         daysInMonth,
         todayStr,
-        employees: storeUsers,
-        shifts
+        employees: sanitizedEmployees,
+        shifts,
+        tasks
     });
 };
 

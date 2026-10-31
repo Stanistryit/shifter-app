@@ -1,6 +1,7 @@
 import { postJson, fetchJson } from './api.js';
 import { showToast, triggerHaptic } from './ui.js';
 import { state } from './state.js';
+import { getDisplayName } from './render_utils.js';
 
 // Номінали банкнот України (тільки банкноти, починаючи з 2000 грн)
 const DENOMINATIONS = [2000, 1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
@@ -1698,30 +1699,54 @@ const monthNamesUa = [
     'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'
 ];
 
-function calcTerminalShiftHours(start, end) {
-    if (!start || !end || start === 'Відпустка' || start === 'Лікарняний' || start === 'Донорство' || start === 'DELETE') return 0;
-    const [sh, sm] = start.split(':').map(Number);
-    const [eh, em] = end.split(':').map(Number);
-    if (isNaN(sh) || isNaN(eh)) return 0;
-    let diff = (eh + (em || 0) / 60) - (sh + (sm || 0) / 60);
-    if (diff < 0) diff += 24;
-    return diff;
+function timeToDec(t) {
+    if (!t || t === 'Відпустка' || t === 'Лікарняний' || t === 'Донорство' || t === 'DELETE') return 0;
+    const [h, m] = t.split(':').map(Number);
+    return h + ((m || 0) / 60);
 }
 
+const shiftColors = [
+    'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800',
+    'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800',
+    'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-800',
+    'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800',
+    'bg-pink-100 dark:bg-pink-900/40 text-pink-800 dark:text-pink-200 border border-pink-200 dark:border-pink-800',
+    'bg-teal-100 dark:bg-teal-900/40 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800',
+    'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800',
+    'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800',
+    'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-200 border border-rose-200 dark:border-rose-800',
+    'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-800 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800'
+];
+
+const popularShiftsMap = {
+    '10:00-19:00': 0, // blue
+    '09:30-18:30': 3, // green
+    '11:30-20:30': 2, // orange
+    '12:00-21:00': 1, // purple
+    '13:00-22:00': 6, // indigo
+    '14:00-22:00': 9, // cyan
+    '09:00-18:00': 5, // teal
+    '08:00-17:00': 7, // yellow
+    '10:30-19:30': 4, // pink
+    '11:00-20:00': 8  // rose
+};
+
 function getTerminalShiftColorClass(start, end) {
-    const key = `${start}-${end}`;
-    const map = {
-        '10:00-19:00': 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-700',
-        '09:30-18:30': 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700',
-        '11:30-20:30': 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700',
-        '12:00-21:00': 'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 border border-purple-300 dark:border-purple-700',
-        '13:00-22:00': 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700',
-        '14:00-22:00': 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border border-cyan-300 dark:border-cyan-700',
-        '09:00-18:00': 'bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-200 border border-teal-300 dark:border-teal-700',
-        '08:00-17:00': 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 border border-yellow-300 dark:border-yellow-700'
-    };
-    if (map[key]) return map[key];
-    return 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800';
+    if (!start || !end) return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700';
+
+    const shiftKey = `${start}-${end}`;
+
+    if (popularShiftsMap[shiftKey] !== undefined) {
+        return shiftColors[popularShiftsMap[shiftKey]];
+    }
+
+    let hash = 5381;
+    for (let i = 0; i < shiftKey.length; i++) {
+        hash = (hash * 33) ^ shiftKey.charCodeAt(i);
+    }
+
+    const colorIndex = Math.abs(hash) % shiftColors.length;
+    return shiftColors[colorIndex];
 }
 
 async function loadTerminalSchedule() {
@@ -1763,7 +1788,7 @@ function renderTerminalScheduleTable(data) {
     const container = document.getElementById('termScheduleBody');
     if (!container) return;
 
-    const { year, month, daysInMonth, todayStr, employees, shifts } = data;
+    const { store, year, month, daysInMonth, todayStr, employees = [], shifts = [], tasks = [] } = data;
 
     if (!employees || employees.length === 0) {
         container.innerHTML = `
@@ -1774,219 +1799,471 @@ function renderTerminalScheduleTable(data) {
         return;
     }
 
-    const daysOfWeekUa = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
     const monthStr = String(month).padStart(2, '0');
+    const viewMonthStr = `${year}-${monthStr}`;
+    const activeStoreId = store?._id || terminalState.store?._id;
+    const openTime = store?.openTime || terminalState.store?.openTime || "10:00";
+    const closeTime = store?.closeTime || terminalState.store?.closeTime || "22:00";
+    const lunchMins = (store && store.lunch_duration_minutes !== undefined) ? store.lunch_duration_minutes : 60;
+    const monthNorm = (store?.normHours && store.normHours[viewMonthStr]) || 0;
+    const storeFte = (store && store.fte !== undefined) ? store.fte : 1;
 
-    // Рахуємо статистику по днях і по співробітниках
-    const dailyCounts = {};
-    for (let d = 1; d <= daysInMonth; d++) dailyCounts[d] = 0;
-
-    let totalMonthShifts = 0;
-    let totalMonthHours = 0;
-
-    const empStats = employees.map(emp => {
-        let hours = 0;
-        let count = 0;
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dStr = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
-            const s = shifts.find(item => item.name === emp.name && item.date === dStr);
-            if (s && s.start && s.start !== 'DELETE') {
-                if (s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство') {
-                    const h = calcTerminalShiftHours(s.start, s.end);
-                    hours += h;
-                    count++;
-                    dailyCounts[d]++;
-                    totalMonthShifts++;
-                    totalMonthHours += h;
-                }
-            }
-        }
-        return { emp, hours, count };
+    // 1. Фільтрація та сортування користувачів так само, як для СЕ в додатку (getUsersForView)
+    const filteredUsers = employees.filter(u => {
+        if (u.status !== 'blocked') return true;
+        return shifts.some(s => s.name === u.name && s.date && s.date.startsWith(viewMonthStr));
     });
 
-    // Сортуємо: керівники/більше змін зверху
-    empStats.sort((a, b) => b.count - a.count || a.emp.name.localeCompare(b.emp.name));
+    const roleWeights = { 'SM': 1, 'SSE': 2, 'SE': 3, 'RRP': 4, 'Intern': 5 };
+    const usersToShow = filteredUsers.sort((a, b) => {
+        const orderA = (a.sortOrder !== undefined && a.sortOrder !== null) ? a.sortOrder : 999;
+        const orderB = (b.sortOrder !== undefined && b.sortOrder !== null) ? b.sortOrder : 999;
+        if (orderA !== orderB) return orderA - orderB;
 
-    let html = `
-    <div class="inline-block min-w-full align-middle">
-        <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm bg-white dark:bg-[#1C1C1E]">
-            <table class="min-w-full border-collapse text-left text-xs">
-                <thead>
-                    <tr class="bg-gray-100/90 dark:bg-[#252528] backdrop-blur sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-                        <th scope="col" class="sticky left-0 z-40 bg-gray-100 dark:bg-[#252528] px-3 py-2.5 font-black text-gray-700 dark:text-gray-200 border-b border-r border-gray-200 dark:border-gray-800 min-w-[170px] max-w-[200px]">
-                            Співробітник
-                        </th>
-    `;
+        const wA = roleWeights[a.position] || 99;
+        const wB = roleWeights[b.position] || 99;
+        if (wA !== wB) return wA - wB;
 
-    // Заголовки днів
-    for (let d = 1; d <= daysInMonth; d++) {
-        const dStr = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
-        const dateObj = new Date(year, month - 1, d);
-        const dow = daysOfWeekUa[dateObj.getDay()];
-        const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
-        const isToday = dStr === todayStr;
+        return (a.name || '').localeCompare(b.name || '');
+    });
 
-        let thClass = 'border-b border-r border-gray-200 dark:border-gray-800 text-center py-2 px-1 min-w-[76px] transition-colors ';
-        if (isToday) {
-            thClass += 'bg-blue-500 text-white font-extrabold shadow-sm';
-        } else if (isWeekend) {
-            thClass += 'bg-rose-50/50 dark:bg-rose-950/20 text-rose-500 font-bold';
+    // Розділяємо співробітників на основний штат (homeUsers) та гостей на підміні (guestUsers)
+    const homeUsers = [];
+    const guestUsers = [];
+
+    usersToShow.forEach(user => {
+        const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
+        const isGuest = userHomeStoreId && activeStoreId && String(userHomeStoreId) !== String(activeStoreId);
+
+        if (isGuest) {
+            const hasShiftHere = shifts.some(s =>
+                s.name === user.name &&
+                s.date && s.date.startsWith(viewMonthStr) &&
+                String(s.storeId?._id || s.storeId || s.substituteStoreId) === String(activeStoreId)
+            );
+            if (hasShiftHere) {
+                guestUsers.push(user);
+            }
         } else {
-            thClass += 'text-gray-600 dark:text-gray-300 font-semibold';
+            homeUsers.push(user);
         }
-
-        html += `
-            <th scope="col" class="${thClass}" ${isToday ? 'data-sched-today="true"' : ''}>
-                <div class="text-[10px] ${isToday ? 'text-blue-100' : 'text-gray-400 dark:text-gray-400'} uppercase font-bold tracking-tight">${dow}</div>
-                <div class="text-xs ${isToday ? 'text-white' : ''}">${d}</div>
-            </th>
-        `;
-    }
-
-    // Колонка "Всього"
-    html += `
-                        <th scope="col" class="sticky right-0 z-40 bg-gray-100 dark:bg-[#252528] px-3 py-2.5 text-center font-black text-gray-700 dark:text-gray-200 border-b border-l border-gray-200 dark:border-gray-800 min-w-[90px]">
-                            Всього
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-800/60 font-medium">
-    `;
-
-    // Рядки для кожного співробітника
-    empStats.forEach(({ emp, hours, count }, idx) => {
-        const rowBg = idx % 2 === 0 ? 'bg-white dark:bg-[#1C1C1E]' : 'bg-gray-50/40 dark:bg-[#202022]';
-        html += `<tr class="${rowBg} hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">`;
-
-        // Ліва закріплена колонка (ПІБ, посада)
-        const initial = (emp.fullName || emp.name).charAt(0).toUpperCase();
-        html += `
-            <td class="sticky left-0 z-20 ${rowBg} px-3 py-2 border-r border-gray-200 dark:border-gray-800 shadow-[2px_0_4px_rgba(0,0,0,0.03)]">
-                <div class="flex items-center gap-2">
-                    <div class="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center font-bold text-[10px] flex-shrink-0">
-                        ${initial}
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="font-bold text-xs truncate text-gray-900 dark:text-white" title="${emp.fullName || emp.name}">
-                            ${emp.fullName || emp.name}
-                        </div>
-                        <div class="text-[10px] text-gray-400 truncate leading-none mt-0.5">
-                            ${emp.position || 'Співробітник'}
-                        </div>
-                    </div>
-                </div>
-            </td>
-        `;
-
-        // Клітинки днів
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dStr = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
-            const s = shifts.find(item => item.name === emp.name && item.date === dStr);
-            const isToday = dStr === todayStr;
-
-            let tdClass = `border-r border-gray-100 dark:border-gray-800/80 text-center p-1 relative `;
-            if (isToday) {
-                tdClass += `bg-blue-50/60 dark:bg-blue-950/30 `;
-            }
-
-            html += `<td class="${tdClass}">`;
-
-            if (s && s.start && s.start !== 'DELETE') {
-                if (s.start === 'Відпустка') {
-                    html += `
-                        <div class="py-1 px-1 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-[10px] font-bold" title="Відпустка">
-                            🌴 Відп
-                        </div>
-                    `;
-                } else if (s.start === 'Лікарняний') {
-                    html += `
-                        <div class="py-1 px-1 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 text-[10px] font-bold" title="Лікарняний">
-                            💊 Лік
-                        </div>
-                    `;
-                } else if (s.start === 'Донорство') {
-                    html += `
-                        <div class="py-1 px-1 rounded-lg bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/60 text-[10px] font-bold" title="Донорство">
-                            🩸 Дон
-                        </div>
-                    `;
-                } else {
-                    const shiftH = calcTerminalShiftHours(s.start, s.end);
-                    const pillColor = getTerminalShiftColorClass(s.start, s.end);
-                    const isSubBadge = s.isSubstitute ? '<span class="text-[9px] text-indigo-500 font-bold" title="Підміна">🔄</span>' : '';
-                    html += `
-                        <div class="py-1 px-1.5 rounded-lg ${pillColor} text-[11px] font-black leading-tight shadow-xs active:scale-95 transition-transform" title="${emp.fullName || emp.name}: ${s.start} - ${s.end} (${shiftH} год)">
-                            <div class="font-extrabold tracking-tight flex items-center justify-center gap-0.5">${s.start} ${isSubBadge}</div>
-                            <div class="text-[10px] opacity-80">${s.end}</div>
-                        </div>
-                    `;
-                }
-            } else {
-                html += `<span class="text-gray-300 dark:text-gray-600 text-xs select-none">•</span>`;
-            }
-
-            html += `</td>`;
-        }
-
-        // Права закріплена колонка (Всього годин та змін)
-        html += `
-            <td class="sticky right-0 z-20 ${rowBg} px-2 py-2 text-center border-l border-gray-200 dark:border-gray-800 shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
-                <div class="font-black text-xs text-blue-600 dark:text-blue-400">
-                    ${hours % 1 === 0 ? hours : hours.toFixed(1)}г
-                </div>
-                <div class="text-[10px] text-gray-400 font-medium">
-                    ${count} зм
-                </div>
-            </td>
-        `;
-
-        html += `</tr>`;
     });
 
-    // Підсумковий рядок: кількість людей на зміні кожного дня
-    html += `
-                </tbody>
-                <tfoot>
-                    <tr class="bg-gray-100/90 dark:bg-[#252528] sticky bottom-0 z-30 font-bold border-t-2 border-gray-300 dark:border-gray-700">
-                        <td class="sticky left-0 z-40 bg-gray-100 dark:bg-[#252528] px-3 py-2 text-xs text-gray-700 dark:text-gray-300 border-r border-gray-200 dark:border-gray-800 shadow-[2px_0_4px_rgba(0,0,0,0.03)] font-black">
-                            👥 На зміні
-                        </td>
-    `;
+    // Підрахунок загальних годин та норми магазину
+    let storeTotalHours = 0;
+    let storeTotalDonorHours = 0;
+    let totalMonthShifts = 0;
 
-    for (let d = 1; d <= daysInMonth; d++) {
-        const count = dailyCounts[d];
-        const dStr = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
-        const isToday = dStr === todayStr;
+    usersToShow.forEach(user => {
+        const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
+        for (let d = 1; d <= daysInMonth; d++) {
+            const ds = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
+            const shift = shifts.find(s => s.date === ds && s.name === user.name);
+            if (shift) {
+                const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : userHomeStoreId;
+                const countsForStore = !activeStoreId || (String(sStoreId) === String(activeStoreId)) || (String(shift.substituteStoreId) === String(activeStoreId));
+                if (countsForStore) {
+                    if (shift.start === 'Донорство') {
+                        storeTotalDonorHours += 8;
+                    } else if (shift.start !== 'Відпустка' && shift.start !== 'Лікарняний' && shift.start !== 'DELETE') {
+                        let rawDur = timeToDec(shift.end) - timeToDec(shift.start);
+                        if (rawDur < 0) rawDur += 24;
+                        let dur = rawDur - (lunchMins / 60);
+                        if (dur < 0) dur = 0;
+                        storeTotalHours += dur;
+                        totalMonthShifts++;
+                    }
+                }
+            }
+        }
+    });
 
-        let tdClass = `border-r border-gray-200 dark:border-gray-800 text-center py-2 px-1 `;
-        if (isToday) tdClass += `bg-blue-100 dark:bg-blue-900/40 `;
-
-        html += `
-            <td class="${tdClass}">
-                <span class="inline-block px-1.5 py-0.5 rounded-md text-[10px] font-black ${count > 0 ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}">
-                    ${count}
-                </span>
-            </td>
-        `;
+    let storeTotalNorm = 0;
+    if (monthNorm > 0) {
+        if (storeFte > 0) {
+            storeTotalNorm = Math.round(monthNorm * storeFte);
+        } else {
+            storeTotalNorm = monthNorm * homeUsers.length;
+        }
     }
 
-    html += `
-                        <td class="sticky right-0 z-40 bg-gray-100 dark:bg-[#252528] px-2 py-2 text-center text-xs text-blue-600 dark:text-blue-400 font-black border-l border-gray-200 dark:border-gray-800 shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
-                            ${totalMonthHours % 1 === 0 ? totalMonthHours : totalMonthHours.toFixed(1)}г
-                        </td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-    </div>
-    `;
+    const formattedStoreTotalHours = parseFloat(storeTotalHours.toFixed(1));
+    let storeHoursText = `<span class="text-gray-600 dark:text-gray-300">${formattedStoreTotalHours}</span>`;
+    if (storeTotalDonorHours > 0) storeHoursText += `<span class="text-indigo-500 text-[8px] ml-0.5">+${storeTotalDonorHours}</span>`;
+    if (storeTotalNorm > 0) storeHoursText += `<span class="text-gray-400 font-normal mx-0.5">\\</span><span class="text-gray-500">${storeTotalNorm}</span>`;
 
+    let html = '<table class="w-full text-xs border-collapse">';
+
+    // ================= HEADER =================
+    html += '<thead class="sticky top-0 z-40">';
+    html += '<tr class="h-10 border-b border-gray-100 dark:border-gray-800">';
+    html += '<th class="sticky left-0 z-40 bg-[#F2F2F7] dark:bg-[#1C1C1E] px-2 text-left font-bold min-w-[120px] border-r border-gray-200 dark:border-gray-700 shadow-sm">Співробітник</th>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dStr = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
+        const isToday = dStr === todayStr;
+        const dateObj = new Date(year, month - 1, d);
+        const dayName = dateObj.toLocaleDateString('uk-UA', { weekday: 'short' });
+        const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+        const isPast = dStr < todayStr;
+
+        let bgClass = 'bg-white dark:bg-[#1C1C1E] text-gray-500 dark:text-gray-400';
+        if (isPast) bgClass = 'bg-gray-100 text-gray-300 dark:bg-[#151515] dark:text-gray-600';
+        else if (isWeekend) bgClass = 'bg-red-50 dark:bg-red-900/20 text-red-500';
+
+        let thAttr = '';
+        if (isToday) {
+            bgClass = 'bg-blue-500 text-white shadow-md shadow-blue-500/30 rounded-t-lg transform scale-105 z-30 ring-2 ring-blue-500';
+            thAttr = 'data-sched-today="true"';
+        }
+
+        html += `<th ${thAttr} class="px-1 text-center min-w-[40px] font-normal ${bgClass} border-r border-gray-100 dark:border-gray-800 relative group cursor-default">
+            <div class="font-bold text-[13px]">${d}</div>
+            <div class="text-[9px] opacity-80 uppercase">${dayName}</div>
+        </th>`;
+    }
+
+    html += `<th class="sticky right-0 z-40 bg-[#F2F2F7] dark:bg-[#1C1C1E] px-2 text-center font-bold min-w-[80px] border-l border-gray-200 dark:border-gray-700 shadow-sm">Години</th>`;
+    html += '</tr>';
+
+    // --- Рядок 2: Кількість людей ---
+    html += '<tr class="h-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#202022]">';
+    html += '<td class="sticky left-0 z-40 bg-[#F2F2F7] dark:bg-[#1C1C1E] px-2 text-[10px] text-gray-400 font-bold border-r border-gray-200 dark:border-gray-700 text-right">Людей:</td>';
+
+    const openTimeDec = timeToDec(openTime);
+    let closeTimeDec = timeToDec(closeTime);
+    if (closeTimeDec <= 6) closeTimeDec += 24;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dStr = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
+        const dayShifts = shifts.filter(s => s.date === dStr && s.start !== 'Відпустка' && s.start !== 'Лікарняний' && s.start !== 'Донорство' && s.start !== 'DELETE');
+
+        const relevantShifts = activeStoreId
+            ? dayShifts.filter(s => {
+                let sStoreId = s.storeId?._id || s.storeId;
+                if (!sStoreId) {
+                    const u = employees.find(usr => usr.name === s.name);
+                    sStoreId = u?.storeId?._id || u?.storeId;
+                }
+                return (sStoreId && String(sStoreId) === String(activeStoreId)) || (s.substituteStoreId && String(s.substituteStoreId) === String(activeStoreId));
+            })
+            : dayShifts;
+
+        let openers = 0;
+        let closers = 0;
+        let shiftCountForValidation = 0;
+
+        relevantShifts.forEach(s => {
+            const startD = timeToDec(s.start);
+            let endD = timeToDec(s.end);
+            if (startD === 0 && endD === 0) return;
+
+            shiftCountForValidation++;
+
+            if (endD <= 6 && startD > endD) {
+                endD += 24;
+            } else if (endD === 0 && startD > 0) {
+                endD = 24;
+            }
+
+            if (startD <= openTimeDec && endD > openTimeDec) openers++;
+            if (endD >= closeTimeDec && startD < closeTimeDec) closers++;
+        });
+
+        const count = shiftCountForValidation > 0 ? shiftCountForValidation : relevantShifts.length;
+        let badgeClass = "text-gray-500";
+        let contentHtml = count > 0 ? count : '-';
+
+        if (count > 0 && (openers < 1 || closers < 1)) {
+            badgeClass = "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400 font-bold";
+            if (openers < 1 && closers < 1) {
+                contentHtml = `<div class="flex items-center justify-center gap-0.5" title="Немає співробітників на відкриття (до ${openTime}) та закриття (після ${closeTime})"><span>${count}</span><span class="text-[8px]">⚠️</span></div>`;
+            } else if (openers < 1) {
+                contentHtml = `<div class="flex items-center justify-center gap-0.5" title="Немає співробітника на відкриття (до ${openTime})"><span>${count}</span><span class="text-[8px]">🌅</span></div>`;
+            } else {
+                contentHtml = `<div class="flex items-center justify-center gap-0.5" title="Немає співробітника на закриття (після ${closeTime})"><span>${count}</span><span class="text-[8px]">🌙</span></div>`;
+            }
+        } else if (count > 0) {
+            badgeClass = "text-green-600 dark:text-green-400 font-medium";
+            contentHtml = `<span title="Відкриття: ${openers}, Закриття: ${closers}">${count}</span>`;
+        }
+
+        html += `<td class="text-center border-r border-gray-100 dark:border-gray-800 text-[10px] ${badgeClass}">
+            ${contentHtml}
+        </td>`;
+    }
+
+    html += `<td class="sticky right-0 z-40 bg-[#F2F2F7] dark:bg-[#1C1C1E] border-l border-gray-200 dark:border-gray-700 text-center px-1 shadow-sm"><div class="flex items-center justify-center h-full text-[9px] font-bold whitespace-nowrap leading-tight">${storeHoursText}</div></td>`;
+    html += '</tr>';
+    html += '</thead>';
+
+    // ================= BODY =================
+    html += '<tbody>';
+
+    homeUsers.forEach(user => {
+        const shortName = getDisplayName(user);
+        const safeUserFullName = (user.fullName || user.name || '').replace(/'/g, "\\'");
+        const safeUserName = (user.name || '').replace(/'/g, "\\'");
+        const safeAvatar = (user.avatar || '').replace(/'/g, "\\'");
+        const blockedClass = user.status === 'blocked' ? 'opacity-50 grayscale' : '';
+        const userHomeStoreId = user.storeId ? (user.storeId._id || user.storeId) : null;
+
+        html += `<tr class="h-10 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors ${blockedClass}">`;
+        html += `<td class="sticky left-0 z-30 bg-white dark:bg-[#1C1C1E] px-2 border-r border-gray-200 dark:border-gray-700 font-medium text-[11px] truncate max-w-[120px] shadow-sm" title="${user.fullName || user.name}">${shortName}</td>`;
+
+        let totalHours = 0;
+        let donorDays = 0;
+
+        // Враховуємо години задач (як у таблиці СЕ)
+        const userTasks = tasks.filter(t => t.name === user.name && t.includeHours && !t.isFullDay && t.date && t.date.startsWith(viewMonthStr));
+        userTasks.forEach(t => {
+            if (t.start && t.end) {
+                let duration = timeToDec(t.end) - timeToDec(t.start);
+                if (duration < 0) duration += 24;
+
+                const shift = shifts.find(s => s.date === t.date && s.name === user.name);
+                if (shift && shift.start !== 'Відпустка' && shift.start !== 'Лікарняний' && shift.start !== 'Донорство' && shift.start !== 'DELETE') {
+                    let ts = timeToDec(t.start);
+                    let te = timeToDec(t.end);
+                    if (te < ts) te += 24;
+
+                    let ss = timeToDec(shift.start);
+                    let se = timeToDec(shift.end);
+                    if (se < ss) se += 24;
+
+                    const overlapStart = Math.max(ts, ss);
+                    const overlapEnd = Math.min(te, se);
+                    if (overlapEnd > overlapStart) {
+                        duration -= (overlapEnd - overlapStart);
+                    }
+                }
+                if (duration > 0) totalHours += duration;
+            }
+        });
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const ds = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
+            const isToday = ds === todayStr;
+            const isPast = ds < todayStr;
+
+            const shift = shifts.find(s => s.date === ds && s.name === user.name);
+
+            let sStart, sEnd;
+            if (shift) {
+                if (shift.start !== 'Відпустка' && shift.start !== 'Лікарняний' && shift.start !== 'Донорство' && shift.start !== 'DELETE') {
+                    sStart = shift.start;
+                    sEnd = shift.end;
+                }
+                if (shift.start === 'Донорство') donorDays++;
+            }
+
+            let duration = 0;
+            let durStr = 0;
+            if (sStart && sEnd) {
+                let rawDur = timeToDec(sEnd) - timeToDec(sStart);
+                if (rawDur < 0) rawDur += 24;
+                duration = rawDur - (lunchMins / 60);
+                if (duration < 0) duration = 0;
+                totalHours += duration;
+                durStr = parseFloat(duration.toFixed(1));
+            }
+
+            let badgeHtml = '';
+            if (duration > 0) {
+                badgeHtml = `<div class="absolute -top-1.5 -right-1.5 z-10 bg-white dark:bg-[#3A3A3C] text-black dark:text-white text-[8px] font-bold px-1 rounded-full shadow-sm border border-gray-200 dark:border-gray-600 flex items-center justify-center min-w-[14px] h-[14px] leading-none">${durStr}</div>`;
+            }
+
+            let cellClass = '';
+            if (isPast) cellClass = 'bg-gray-50/50 dark:bg-[#121212] text-gray-300';
+            if (isToday) cellClass = 'bg-blue-50/50 dark:bg-blue-900/20 border-x-2 border-blue-200 dark:border-blue-800 relative z-0';
+
+            let content = '';
+            if (shift) {
+                const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : userHomeStoreId;
+                const shouldRender = !activeStoreId || (String(sStoreId) === String(activeStoreId)) || (String(userHomeStoreId) === String(activeStoreId));
+
+                if (shouldRender) {
+                    const isSubstituteRender = activeStoreId && sStoreId && String(sStoreId) !== String(activeStoreId);
+                    const isGuestRender = activeStoreId && String(sStoreId) === String(activeStoreId) && userHomeStoreId && String(userHomeStoreId) !== String(activeStoreId);
+
+                    if (shift.start === 'Відпустка') {
+                        content = `<div onclick="window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', avatar: '${safeAvatar}', date: '${ds}', start: 'Відпустка', shiftId: '${shift._id || ''}' })" class="cursor-pointer text-lg active:scale-95 transition-transform">🌴</div>`;
+                    } else if (shift.start === 'Лікарняний') {
+                        content = `<div onclick="window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', avatar: '${safeAvatar}', date: '${ds}', start: 'Лікарняний', shiftId: '${shift._id || ''}' })" class="cursor-pointer text-lg active:scale-95 transition-transform">💊</div>`;
+                    } else if (shift.start === 'Донорство') {
+                        content = `<div onclick="window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', avatar: '${safeAvatar}', date: '${ds}', start: 'Донорство', shiftId: '${shift._id || ''}' })" class="cursor-pointer text-lg active:scale-95 transition-transform">🩸</div>`;
+                    } else {
+                        const opacity = isPast ? 'opacity-50 grayscale' : '';
+
+                        if (isSubstituteRender) {
+                            const storeName = shift.storeId?.name || 'Інший магазин';
+                            const safeStoreName = storeName.replace(/'/g, "\\'");
+                            content = `<div onclick="window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', avatar: '${safeAvatar}', position: '${user.position || ''}', type: 'substitute', targetStoreName: '${safeStoreName}', date: '${ds}', start: '${shift.start}', end: '${shift.end}', duration: ${durStr}, lunchMins: ${lunchMins}, shiftId: '${shift._id || ''}' })" title="Підміна в магазині: ${storeName}" class="relative text-[9.5px] font-mono leading-tight bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-200 rounded px-1 py-0.5 shadow-sm border border-orange-300 dark:border-orange-800 cursor-pointer active:scale-95 ${opacity}">
+                                <div class="text-[7.5px] font-sans font-bold truncate text-orange-700 dark:text-orange-300 leading-none mb-0.5 flex items-center justify-center gap-0.5">
+                                    <span class="text-[8px] leading-none">📍</span>
+                                    <span class="truncate">${storeName}</span>
+                                </div>
+                                <div class="leading-none font-bold">${shift.start}<br>${shift.end}</div>
+                                ${badgeHtml}
+                            </div>`;
+                        } else {
+                            const colorClass = getTerminalShiftColorClass(shift.start, shift.end);
+                            const guestIndicator = isGuestRender ? '<div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>' : '';
+                            content = `<div onclick="window.openShiftDetailsModal({ fullName: '${safeUserFullName}', userName: '${safeUserName}', avatar: '${safeAvatar}', position: '${user.position || ''}', type: 'regular', date: '${ds}', start: '${shift.start}', end: '${shift.end}', duration: ${durStr}, lunchMins: ${lunchMins}, shiftId: '${shift._id || ''}' })" title="${user.fullName || user.name}&#10;⏰ ${shift.start} - ${shift.end} (${durStr} год)" class="relative text-[10px] font-mono leading-tight ${colorClass} rounded px-1 py-0.5 ${opacity} cursor-pointer active:scale-95">
+                                ${guestIndicator}
+                                ${shift.start}<br>${shift.end}
+                                ${badgeHtml}
+                            </div>`;
+                        }
+                    }
+                }
+            }
+
+            const hasTask = tasks.some(t => t.name === user.name && t.date === ds && t.status !== 'completed');
+            const taskHtml = hasTask ? '<div class="absolute top-0 left-0 z-10 text-[11px] drop-shadow-sm pointer-events-none">📌</div>' : '';
+
+            html += `<td data-date="${ds}" data-name="${user.name}" class="shift-cell relative text-center p-0.5 border-r border-gray-100 dark:border-gray-800 ${cellClass} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">${taskHtml}${content}</td>`;
+        }
+
+        const formattedTotalHours = parseFloat(totalHours.toFixed(1));
+        const donorHours = donorDays * 8;
+        let hoursHtml = '';
+
+        if (monthNorm > 0) {
+            const diff = parseFloat((formattedTotalHours - monthNorm).toFixed(1));
+            const diffClass = diff >= 0 ? "text-green-500" : "text-red-500";
+            const diffSign = diff > 0 ? "+" : "";
+            hoursHtml = `
+                <div class="flex flex-col leading-none">
+                    <span class="font-bold text-[11px]">${formattedTotalHours}${donorHours > 0 ? ` <span class="text-indigo-500">+${donorHours}</span>` : ''} <span class="text-gray-400 font-normal">/ ${monthNorm}</span></span>
+                    <span class="text-[9px] ${diffClass} font-bold">${diffSign}${diff}</span>
+                </div>
+            `;
+        } else if (donorHours > 0) {
+            hoursHtml = `<div class="font-bold text-gray-500">${formattedTotalHours} <span class="text-indigo-500 text-[10px]">+${donorHours}</span></div>`;
+        } else {
+            hoursHtml = `<div class="font-bold text-gray-500">${formattedTotalHours}</div>`;
+        }
+
+        html += `<td class="sticky right-0 z-30 bg-white dark:bg-[#1C1C1E] border-l border-gray-200 dark:border-gray-700 text-center px-1 shadow-sm">${hoursHtml}</td>`;
+        html += '</tr>';
+    });
+
+    // ================= UNIFIED GUESTS / SUBSTITUTES ROW =================
+    if (guestUsers.length > 0) {
+        let totalGuestsHours = 0;
+        let totalGuestsShifts = 0;
+        let guestCellsHtml = '';
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const ds = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
+            const isToday = ds === todayStr;
+            const isPast = ds < todayStr;
+
+            let cellClass = '';
+            if (isPast) cellClass = 'bg-gray-50/50 dark:bg-[#121212] text-gray-300';
+            if (isToday) cellClass = 'bg-blue-50/50 dark:bg-blue-900/20 border-x-2 border-blue-200 dark:border-blue-800 relative z-0';
+
+            const dayGuestItems = [];
+            guestUsers.forEach(gUser => {
+                const shift = shifts.find(s => s.date === ds && s.name === gUser.name);
+                if (shift) {
+                    const sStoreId = shift.storeId ? (shift.storeId._id || shift.storeId) : (gUser.storeId?._id || gUser.storeId);
+                    if ((!activeStoreId || String(sStoreId) === String(activeStoreId) || String(shift.substituteStoreId) === String(activeStoreId)) && !['DELETE', 'Відпустка', 'Лікарняний', 'Донорство'].includes(shift.start)) {
+                        dayGuestItems.push({ user: gUser, shift });
+                    }
+                }
+            });
+
+            if (dayGuestItems.length === 0) {
+                guestCellsHtml += `<td data-date="${ds}" class="shift-cell relative text-center p-0.5 border-r border-gray-100 dark:border-gray-800/60 ${cellClass}"><span class="opacity-15 text-[8px] text-gray-400">·</span></td>`;
+            } else {
+                let badgesHtml = '<div class="flex flex-col gap-1 w-full justify-center">';
+                dayGuestItems.forEach(item => {
+                    let rawDur = timeToDec(item.shift.end) - timeToDec(item.shift.start);
+                    if (rawDur < 0) rawDur += 24;
+                    let dur = rawDur - (lunchMins / 60);
+                    if (dur < 0) dur = 0;
+                    totalGuestsHours += dur;
+                    totalGuestsShifts++;
+
+                    const durStr = parseFloat(dur.toFixed(1));
+                    const gDisplayName = getDisplayName(item.user);
+                    const parts = gDisplayName.split(' ');
+                    const gShortName = parts.length > 1 ? `${parts[0]} ${parts[1][0]}.` : parts[0];
+                    const gFullName = item.user.fullName || item.user.name;
+                    const gHomeStoreName = item.user.storeId?.name || 'Інший магазин';
+
+                    const opacity = isPast ? 'opacity-60 grayscale' : '';
+                    const safeFullName = gFullName.replace(/'/g, "\\'");
+                    const safeHomeStoreName = gHomeStoreName.replace(/'/g, "\\'");
+                    const safeGUserName = (item.user.name || '').replace(/'/g, "\\'");
+                    const safeGAvatar = (item.user.avatar || '').replace(/'/g, "\\'");
+
+                    badgesHtml += `
+                        <div data-date="${ds}"
+                             data-name="${item.user.name}"
+                             onclick="window.openShiftDetailsModal({
+                                 fullName: '${safeFullName}',
+                                 userName: '${safeGUserName}',
+                                 shortName: '${gShortName}',
+                                 avatar: '${safeGAvatar}',
+                                 position: '${item.user.position || ''}',
+                                 type: 'guest',
+                                 homeStoreName: '${safeHomeStoreName}',
+                                 date: '${ds}',
+                                 start: '${item.shift.start}',
+                                 end: '${item.shift.end}',
+                                 duration: ${durStr},
+                                 lunchMins: ${lunchMins},
+                                 shiftId: '${item.shift._id || ''}'
+                             })"
+                             title="${gFullName}&#10;📍 Гість з: ${gHomeStoreName}&#10;⏰ ${item.shift.start} - ${item.shift.end} (${durStr} год)"
+                             class="relative text-[9px] font-mono leading-tight bg-amber-100/90 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 rounded px-1 py-0.5 border border-amber-300 dark:border-amber-700/80 shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-transform ${opacity}">
+                            <div class="text-[7.5px] font-sans font-bold truncate text-amber-800 dark:text-amber-300 leading-none mb-0.5 flex items-center justify-center">
+                                <span class="truncate">${gShortName}</span>
+                            </div>
+                            <div class="leading-none font-bold">${item.shift.start}<br>${item.shift.end}</div>
+                            <div class="absolute -top-1.5 -right-1.5 z-10 bg-amber-500 text-white text-[7.5px] font-bold px-1 rounded-full shadow-sm min-w-[13px] h-[13px] flex items-center justify-center leading-none">${durStr}</div>
+                        </div>
+                    `;
+                });
+                badgesHtml += '</div>';
+
+                guestCellsHtml += `<td data-date="${ds}" class="shift-cell relative text-center p-0.5 border-r border-gray-100 dark:border-gray-800/60 ${cellClass}">${badgesHtml}</td>`;
+            }
+        }
+
+        const guestHoursHtml = `
+            <div class="flex flex-col items-center justify-center leading-tight">
+                <span class="text-[7.5px] uppercase tracking-wider text-amber-700 dark:text-amber-400 font-bold">Підміни</span>
+                <span class="font-bold text-amber-900 dark:text-amber-200 text-xs">${parseFloat(totalGuestsHours.toFixed(1))}</span>
+                <span class="text-[8px] text-gray-400">${totalGuestsShifts} змін</span>
+            </div>
+        `;
+
+        html += `<tr class="min-h-10 border-t-2 border-dashed border-amber-200 dark:border-amber-800/60 bg-[#FFFDF9] dark:bg-[#1A1816] transition-colors">`;
+        html += `<td class="sticky left-0 z-30 bg-[#FFFDF9] dark:bg-[#1A1816] px-2 py-1.5 border-r border-amber-200 dark:border-amber-800/60 font-medium text-[11px] shadow-sm">
+            <div class="flex items-center gap-1.5">
+                <span class="text-sm">🤝</span>
+                <div class="flex flex-col leading-tight">
+                    <span class="font-bold text-amber-900 dark:text-amber-200">Підміни</span>
+                    <span class="text-[8.5px] text-gray-400 font-normal">${guestUsers.length} співроб.</span>
+                </div>
+            </div>
+        </td>`;
+        html += guestCellsHtml;
+        html += `<td class="sticky right-0 z-30 bg-[#FFFDF9] dark:bg-[#1A1816] border-l border-amber-200 dark:border-amber-800/60 text-center px-1 shadow-sm">${guestHoursHtml}</td>`;
+        html += `</tr>`;
+    }
+
+    html += '</tbody></table>';
     container.innerHTML = html;
 
     // Оновлюємо статистику в підвалі
     const statsEl = document.getElementById('termSchedSummaryStats');
     if (statsEl) {
-        statsEl.innerHTML = `Всього на місяць: <span class="text-blue-600 dark:text-blue-400 font-black">${totalMonthShifts}</span> змін • <span class="text-blue-600 dark:text-blue-400 font-black">${totalMonthHours % 1 === 0 ? totalMonthHours : totalMonthHours.toFixed(1)}</span> год`;
+        statsEl.innerHTML = `Всього на місяць: <span class="text-blue-600 dark:text-blue-400 font-black">${totalMonthShifts}</span> змін • <span class="text-blue-600 dark:text-blue-400 font-black">${formattedStoreTotalHours}</span> год${storeTotalNorm > 0 ? ` / <span class="text-gray-500">${storeTotalNorm}</span> год` : ''}`;
     }
 
     // Автоматично прокручуємо до сьогодні, якщо дивимося поточний місяць
@@ -2058,6 +2335,11 @@ window.jumpTerminalScheduleToToday = async function () {
 // Закриття модалки розкладу по Esc
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+        const shiftDetails = document.getElementById('shiftDetailsModal');
+        if (shiftDetails) {
+            if (window.closeShiftDetailsModal) window.closeShiftDetailsModal();
+            return;
+        }
         const schedModal = document.getElementById('terminalScheduleModal');
         if (schedModal && !schedModal.classList.contains('hidden')) {
             window.closeTerminalScheduleModal();
