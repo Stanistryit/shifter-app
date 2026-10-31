@@ -320,24 +320,32 @@
                             class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">грн</span>
                     </div>
 
-                    <!-- Картка статусу збору інкасації -->
-                    <div
-                        class="p-2.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 space-y-2 mt-2">
-                        <div class="flex justify-between text-xs">
-                            <span class="text-gray-500 dark:text-gray-400">Ціль до збору:</span>
-                            <span id="termEncashTargetDisplay" class="font-bold text-purple-700 dark:text-purple-300">0
-                                грн</span>
+                    <!-- Картка статусу та різниці збору інкасації -->
+                    <div id="termEncashCard"
+                        class="p-3 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/50 space-y-2 mt-2 transition-colors">
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="p-2 rounded-lg bg-white/80 dark:bg-[#1C1C1E]/80 border border-gray-200/60 dark:border-gray-800">
+                                <div class="text-[10px] text-gray-500 dark:text-gray-400">Потрібно зібрати:</div>
+                                <div id="termEncashTargetDisplay" class="font-black font-mono text-sm text-purple-700 dark:text-purple-300">0 грн</div>
+                            </div>
+                            <div class="p-2 rounded-lg bg-white/80 dark:bg-[#1C1C1E]/80 border border-gray-200/60 dark:border-gray-800">
+                                <div class="text-[10px] text-gray-500 dark:text-gray-400">Вже зібрано:</div>
+                                <div id="termEncashCountedDisplay" class="font-black font-mono text-sm text-gray-900 dark:text-white">0 грн</div>
+                            </div>
                         </div>
-                        <div
-                            class="flex justify-between text-xs pt-1 border-t border-purple-200/50 dark:border-purple-800/40 items-center">
-                            <span class="font-bold text-gray-700 dark:text-gray-300">Статус збору:</span>
+
+                        <!-- Виділений блок різниці -->
+                        <div id="termEncashDiffBox"
+                            class="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 flex items-center justify-between transition-all">
+                            <span id="termEncashDiffLabel" class="text-xs font-extrabold text-gray-600 dark:text-gray-300">Різниця:</span>
                             <span id="termEncashStatusBadge"
-                                class="px-2 py-0.5 rounded-lg text-xs font-black bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                                class="text-xs sm:text-sm font-black font-mono text-gray-600 dark:text-gray-400">
                                 Вкажіть суму
                             </span>
                         </div>
+
                         <!-- Візуальний прогрес збору -->
-                        <div class="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 h-2.5 rounded-full overflow-hidden">
                             <div id="termEncashProgressBar"
                                 class="bg-gradient-to-r from-purple-500 to-indigo-500 h-full w-0 transition-all duration-300">
                             </div>

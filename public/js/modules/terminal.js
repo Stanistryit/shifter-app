@@ -11,7 +11,7 @@ let terminalState = {
     terminalData: null,
     activeTab: 'cash', // 'cash' | 'encashment'
     denominationsCount: {},
-    expectedAmounts: [{ id: 1, label: 'Z-звіт сьогодні', amount: 0 }],
+    expectedAmounts: [{ id: 1, label: 'X-звіт за сьогодні', amount: 0 }],
     nextExpectedId: 2,
     pollingInterval: null,
     alarmInterval: null,
@@ -1203,37 +1203,86 @@ window.calculateCashTotals = function () {
             }
         }
     } else {
-        // 2) Якщо це Інкасація — рахуємо прогрес від цільової суми до збору
+        // 2) Якщо це Інкасація — рахуємо прогрес від цільової суми до збору та виділяємо різницю
         const targetInput = document.getElementById('termEncashTargetInput');
         const target = parseFloat(targetInput?.value) || 0;
 
         const targetDisplay = document.getElementById('termEncashTargetDisplay');
         if (targetDisplay) targetDisplay.innerText = `${target.toLocaleString('uk-UA')} грн`;
 
+        const countedDisplay = document.getElementById('termEncashCountedDisplay');
+        if (countedDisplay) countedDisplay.innerText = `${totalCounted.toLocaleString('uk-UA')} грн`;
+
+        const diffBox = document.getElementById('termEncashDiffBox');
+        const diffLabel = document.getElementById('termEncashDiffLabel');
         const statusBadge = document.getElementById('termEncashStatusBadge');
         const progressBar = document.getElementById('termEncashProgressBar');
 
         if (target <= 0) {
+            if (diffBox) {
+                diffBox.className = "p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 flex items-center justify-between transition-all";
+            }
+            if (diffLabel) {
+                diffLabel.className = "text-xs font-extrabold text-gray-600 dark:text-gray-300";
+                diffLabel.innerText = "Різниця:";
+            }
             if (statusBadge) {
-                statusBadge.className = "px-2 py-0.5 rounded-lg text-xs font-black bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400";
+                statusBadge.className = "text-xs font-black text-gray-500 dark:text-gray-400";
                 statusBadge.innerText = "Вкажіть суму для контролю";
             }
-            if (progressBar) progressBar.style.width = '0%';
+            if (progressBar) {
+                progressBar.style.width = '0%';
+                progressBar.className = "bg-gradient-to-r from-purple-500 to-indigo-500 h-full w-0 transition-all duration-300";
+            }
         } else {
             const diff = totalCounted - target;
             const pct = Math.min(100, Math.round((totalCounted / target) * 100));
             if (progressBar) progressBar.style.width = `${pct}%`;
 
-            if (statusBadge) {
-                if (diff === 0) {
-                    statusBadge.className = "px-2 py-0.5 rounded-lg text-xs font-black bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300";
-                    statusBadge.innerText = "Суму зібрано точно 100% ✅";
-                } else if (diff < 0) {
-                    statusBadge.className = "px-2 py-0.5 rounded-lg text-xs font-black bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200";
-                    statusBadge.innerText = `Залишилось зібрати: ${Math.abs(diff).toLocaleString('uk-UA')} грн (${pct}%) ⏳`;
-                } else {
-                    statusBadge.className = "px-2 py-0.5 rounded-lg text-xs font-black bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300";
-                    statusBadge.innerText = `Зібрано більше: +${diff.toLocaleString('uk-UA')} грн ⚠️`;
+            if (diff === 0) {
+                if (diffBox) {
+                    diffBox.className = "p-2.5 rounded-xl bg-emerald-100/90 dark:bg-emerald-950/60 border-2 border-emerald-400 dark:border-emerald-700 flex items-center justify-between shadow-sm transition-all";
+                }
+                if (diffLabel) {
+                    diffLabel.className = "text-xs font-black text-emerald-800 dark:text-emerald-300";
+                    diffLabel.innerText = "✅ Зійшлося точно:";
+                }
+                if (statusBadge) {
+                    statusBadge.className = "text-sm font-black font-mono text-emerald-700 dark:text-emerald-300";
+                    statusBadge.innerText = "0 грн (100%)";
+                }
+                if (progressBar) {
+                    progressBar.className = "bg-gradient-to-r from-emerald-500 to-green-500 h-full transition-all duration-300";
+                }
+            } else if (diff < 0) {
+                if (diffBox) {
+                    diffBox.className = "p-2.5 rounded-xl bg-amber-100/90 dark:bg-amber-950/60 border-2 border-amber-400 dark:border-amber-700 flex items-center justify-between shadow-sm transition-all";
+                }
+                if (diffLabel) {
+                    diffLabel.className = "text-xs font-black text-amber-900 dark:text-amber-300";
+                    diffLabel.innerText = "⏳ Ще докласти:";
+                }
+                if (statusBadge) {
+                    statusBadge.className = "text-sm font-black font-mono text-amber-800 dark:text-amber-200";
+                    statusBadge.innerText = `${Math.abs(diff).toLocaleString('uk-UA')} грн (${pct}%)`;
+                }
+                if (progressBar) {
+                    progressBar.className = "bg-gradient-to-r from-amber-500 to-orange-500 h-full transition-all duration-300";
+                }
+            } else {
+                if (diffBox) {
+                    diffBox.className = "p-2.5 rounded-xl bg-rose-100/90 dark:bg-rose-950/60 border-2 border-rose-400 dark:border-rose-700 flex items-center justify-between shadow-sm transition-all";
+                }
+                if (diffLabel) {
+                    diffLabel.className = "text-xs font-black text-rose-800 dark:text-rose-300";
+                    diffLabel.innerText = "⚠️ Зайве (перебір):";
+                }
+                if (statusBadge) {
+                    statusBadge.className = "text-sm font-black font-mono text-rose-700 dark:text-rose-300";
+                    statusBadge.innerText = `+${diff.toLocaleString('uk-UA')} грн`;
+                }
+                if (progressBar) {
+                    progressBar.className = "bg-gradient-to-r from-rose-500 to-red-600 h-full transition-all duration-300";
                 }
             }
         }
@@ -1247,7 +1296,7 @@ function renderExpectedRows() {
 
     container.innerHTML = terminalState.expectedAmounts.map((row, idx) => `
         <div class="flex items-center gap-1.5">
-            <input type="text" value="${row.label}" onchange="window.updateExpectedRowLabel(${row.id}, this.value)" placeholder="День/звіт" class="flex-1 p-1 text-[11px] bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none font-medium">
+            <input type="text" value="${row.label}" oninput="window.updateExpectedRowLabel(${row.id}, this.value)" placeholder="Напр.: X-звіт або Розмін" class="flex-1 p-1 text-[11px] bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none font-medium">
             <input type="number" min="0" value="${row.amount || ''}" oninput="window.updateExpectedRowAmount(${row.id}, this.value)" placeholder="Сума (грн)" class="w-28 p-1 text-right text-[11px] font-mono font-bold bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none">
             ${terminalState.expectedAmounts.length > 1 ? `
                 <button onclick="window.removeExpectedAmountRow(${row.id})" class="text-red-500 hover:text-red-700 px-1 text-xs font-bold">✕</button>
@@ -1261,7 +1310,7 @@ window.addExpectedAmountRow = function () {
     const count = terminalState.expectedAmounts.length + 1;
     terminalState.expectedAmounts.push({
         id: terminalState.nextExpectedId++,
-        label: `Z-звіт день ${count}`,
+        label: `X-звіт день ${count}`,
         amount: 0
     });
     renderExpectedRows();
@@ -1295,7 +1344,7 @@ window.resetCashCountInputs = function () {
     const encashTarget = document.getElementById('termEncashTargetInput');
     if (encashTarget) encashTarget.value = '';
 
-    terminalState.expectedAmounts = [{ id: 1, label: 'Z-звіт сьогодні', amount: 0 }];
+    terminalState.expectedAmounts = [{ id: 1, label: 'X-звіт за сьогодні', amount: 0 }];
     renderExpectedRows();
     calculateCashTotals();
     showToast("Форму очищено", "info");
@@ -1463,9 +1512,27 @@ window.openCashHistoryModal = async function () {
                         ? `<span class="text-green-600 dark:text-green-400 font-bold text-xs">0 грн ✅</span>`
                         : `<span class="text-red-500 font-bold text-xs">${item.difference > 0 ? '+' : ''}${item.difference.toLocaleString('uk-UA')} грн ⚠️</span>`;
                 } else if (item.totalExpected > 0) {
-                    statusBadge = item.difference === 0
-                        ? `<span class="text-green-600 dark:text-green-400 font-bold text-xs">Ціль: ${item.totalExpected.toLocaleString('uk-UA')} грн ✅</span>`
-                        : `<span class="text-purple-600 dark:text-purple-400 font-bold text-xs">Ціль: ${item.totalExpected.toLocaleString('uk-UA')} грн (${item.difference > 0 ? '+' : ''}${item.difference.toLocaleString('uk-UA')})</span>`;
+                    if (item.difference === 0) {
+                        statusBadge = `<span class="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-black text-xs">Ціль: ${item.totalExpected.toLocaleString('uk-UA')} грн (0 грн ✅)</span>`;
+                    } else if (item.difference < 0) {
+                        statusBadge = `<span class="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 font-black text-xs">Ціль: ${item.totalExpected.toLocaleString('uk-UA')} грн (${item.difference.toLocaleString('uk-UA')} грн ⏳)</span>`;
+                    } else {
+                        statusBadge = `<span class="px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-black text-xs">Ціль: ${item.totalExpected.toLocaleString('uk-UA')} грн (+${item.difference.toLocaleString('uk-UA')} грн ⚠️)</span>`;
+                    }
+                }
+
+                let expectedHtml = '';
+                if (!isEncash && Array.isArray(item.expectedAmounts) && item.expectedAmounts.length > 0) {
+                    expectedHtml = `
+                        <div class="flex flex-wrap gap-1 pt-1">
+                            ${item.expectedAmounts.map(r => `
+                                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#1C1C1E] text-[10px] text-gray-600 dark:text-gray-300">
+                                    <span>📑 ${r.label || 'X-звіт за сьогодні'}:</span>
+                                    <span class="font-bold font-mono">${Number(r.amount || 0).toLocaleString('uk-UA')} грн</span>
+                                </span>
+                            `).join('')}
+                        </div>
+                    `;
                 }
 
                 let denomHtml = '';
@@ -1505,6 +1572,7 @@ window.openCashHistoryModal = async function () {
                             <span class="font-mono text-base font-extrabold text-blue-600 dark:text-blue-400">${item.totalCounted.toLocaleString('uk-UA')} грн</span>
                             ${statusBadge}
                         </div>
+                        ${expectedHtml}
                         ${denomHtml}
                     </div>
                 `;

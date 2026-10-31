@@ -261,28 +261,51 @@ exports.saveCashCount = async (req, res) => {
 
     // Відправка повідомлення ботом у Telegram (без назви магазину, як просив користувач)
     if (newCashCount.type === 'encashment') {
-        let targetLine = '';
+        let targetLines = '';
         if (newCashCount.totalExpected > 0) {
             const diff = newCashCount.totalCounted - newCashCount.totalExpected;
-            let statusText = '';
-            if (diff === 0) statusText = ' (100% зібрано ✅)';
-            else if (diff > 0) statusText = ` (+${diff.toLocaleString('uk-UA')} грн більше)`;
-            else statusText = ` (ще треба ${Math.abs(diff).toLocaleString('uk-UA')} грн)`;
-            targetLine = `\n🎯 До збору: <b>${newCashCount.totalExpected.toLocaleString('uk-UA')} грн</b>${statusText}`;
+            let diffLine = '';
+            if (diff === 0) {
+                diffLine = `\n✅ <b>Різниця: 0 грн (Зібрано точно 100%)</b>`;
+            } else if (diff > 0) {
+                diffLine = `\n⚠️ <b>РІЗНИЦЯ: +${diff.toLocaleString('uk-UA')} грн (Перебір!)</b>`;
+            } else {
+                diffLine = `\n❗️ <b>РІЗНИЦЯ: -${Math.abs(diff).toLocaleString('uk-UA')} грн (Не вистачає!)</b>`;
+            }
+            targetLines = `\n🎯 Потрібно зібрати: <b>${newCashCount.totalExpected.toLocaleString('uk-UA')} грн</b>` + diffLine;
         }
 
         const msg = `💼 <b>Інкасація зібрана!</b>\n` +
-                    `💰 Зібрано: <b>${newCashCount.totalCounted.toLocaleString('uk-UA')} грн</b>` +
-                    targetLine +
+                    `💰 Фактично зібрано: <b>${newCashCount.totalCounted.toLocaleString('uk-UA')} грн</b>` +
+                    targetLines +
                     denomSummary + `\n` +
                     `👤 Співробітник: <b>${newCashCount.countedBy}</b>\n` +
                     `🕒 Час: <b>${timeStr}</b>`;
         sendStoreCashReport(store._id, msg);
     } else {
-        // Каса
+        // Каса — формуємо розшифровку підписів (напр. "X-звіт за сьогодні", "Розмін" тощо)
+        let expectedBreakdown = '';
+        const rows = Array.isArray(newCashCount.expectedAmounts) ? newCashCount.expectedAmounts : [];
+        if (rows.length === 1) {
+            const r = rows[0];
+            const label = (r.label && String(r.label).trim()) ? String(r.label).trim() : 'X-звіт за сьогодні';
+            const amt = Number(r.amount || 0);
+            expectedBreakdown = `\n📑 <b>${label}:</b> ${amt.toLocaleString('uk-UA')} грн`;
+        } else if (rows.length > 1) {
+            const listStr = rows.map(r => {
+                const label = (r.label && String(r.label).trim()) ? String(r.label).trim() : 'Звіт';
+                const amt = Number(r.amount || 0);
+                return `   • ${label}: <b>${amt.toLocaleString('uk-UA')} грн</b>`;
+            }).join('\n');
+            expectedBreakdown = `\n📑 <b>Очікувано (всього ${newCashCount.totalExpected.toLocaleString('uk-UA')} грн):</b>\n${listStr}`;
+        } else {
+            expectedBreakdown = `\n📑 Очікувано: <b>${newCashCount.totalExpected.toLocaleString('uk-UA')} грн</b>`;
+        }
+
         if (newCashCount.difference === 0) {
             const msg = `✅ <b>Перерахунок каси: Каса зійшлася!</b>\n` +
                         `💵 Сума в касі: <b>${newCashCount.totalCounted.toLocaleString('uk-UA')} грн</b>` +
+                        expectedBreakdown +
                         denomSummary + `\n` +
                         `👤 Перерахував(ла): <b>${newCashCount.countedBy}</b>\n` +
                         `🕒 Час: <b>${timeStr}</b>`;
@@ -294,8 +317,8 @@ exports.saveCashCount = async (req, res) => {
                 : `${newCashCount.difference.toLocaleString('uk-UA')} грн (Нестача)`;
 
             const msg = `⚠️ <b>Перерахунок каси: РОЗБІЖНІСТЬ!</b>\n` +
-                        `💵 Факт у касі: <b>${newCashCount.totalCounted.toLocaleString('uk-UA')} грн</b>\n` +
-                        `📑 Очікувано (звіти): <b>${newCashCount.totalExpected.toLocaleString('uk-UA')} грн</b>\n` +
+                        `💵 Факт у касі: <b>${newCashCount.totalCounted.toLocaleString('uk-UA')} грн</b>` +
+                        expectedBreakdown + `\n` +
                         `❗️ Розбіжність: <b>${diffFormatted}</b>` +
                         denomSummary + `\n` +
                         `👤 Перерахував(ла): <b>${newCashCount.countedBy}</b>\n` +
