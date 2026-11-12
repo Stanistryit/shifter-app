@@ -26,10 +26,141 @@ let terminalState = {
     alarmStatus: null,
     soundEnabled: localStorage.getItem('shifter_terminal_sound') !== 'off',
     prevAlarmIsAlert: null,
+    acknowledgedAlarmKey: null,
+    isMandatoryReopen: false,
+    lastReopenNagTime: 0,
+    titleBlinkInterval: null,
     knownTaskIds: new Set(),
     tasksInitialized: false,
     closingSoundPlayedDate: null
 };
+
+// Системні спливаючі сповіщення браузера / ОС (Web Notification API) та індикація вкладки
+let activeDesktopAlarmNotif = null;
+let activeDesktopReopenNotif = null;
+
+function requestTerminalNotificationPermission() {
+    try {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
+        }
+    } catch (e) { }
+}
+
+function showDesktopAlarmNotification(data) {
+    try {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'default') {
+            Notification.requestPermission().then(p => {
+                if (p === 'granted') showDesktopAlarmNotification(data);
+            }).catch(() => {});
+            return;
+        }
+        if (Notification.permission !== 'granted') return;
+
+        if (activeDesktopReopenNotif) {
+            try { activeDesktopReopenNotif.close(); } catch (e) { }
+            activeDesktopReopenNotif = null;
+        }
+        if (activeDesktopAlarmNotif) {
+            try { activeDesktopAlarmNotif.close(); } catch (e) { }
+        }
+
+        const storeName = terminalState.store?.name || 'Магазин';
+        const isRed = data?.alertLevel === 'red';
+        const levelText = isRed ? '🔴 Ракетна небезпека' : '🟡 Загроза БПЛА';
+
+        activeDesktopAlarmNotif = new Notification(`🚨 ПОВІТРЯНА ТРИВОГА! (${storeName})`, {
+            body: `${levelText}. Призупиніть роботу точки та пройдіть в укриття!`,
+            icon: '/icons/icon-192x192.png',
+            tag: 'shifter-terminal-alarm',
+            requireInteraction: true,
+            renotify: true
+        });
+
+        activeDesktopAlarmNotif.onclick = () => {
+            try { window.focus(); } catch (e) { }
+        };
+    } catch (e) {
+        console.warn("showDesktopAlarmNotification error:", e);
+    }
+}
+
+function showDesktopReopenNotification(data) {
+    try {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'default') {
+            Notification.requestPermission().then(p => {
+                if (p === 'granted') showDesktopReopenNotification(data);
+            }).catch(() => {});
+            return;
+        }
+        if (Notification.permission !== 'granted') return;
+
+        if (activeDesktopAlarmNotif) {
+            try { activeDesktopAlarmNotif.close(); } catch (e) { }
+            activeDesktopAlarmNotif = null;
+        }
+        if (activeDesktopReopenNotif) {
+            try { activeDesktopReopenNotif.close(); } catch (e) { }
+        }
+
+        const storeName = terminalState.store?.name || 'Магазин';
+        const alertMins = data?.lastEvent?.alertDurationMinutes || 0;
+
+        activeDesktopReopenNotif = new Notification(`🟢 ВІДБІЙ ТРИВОГИ! Натисніть «Відкрились»`, {
+            body: `ТТ ${storeName}: тривога тривала ${alertMins} хв. Оберіть себе у списку та підтвердіть відкриття магазину!`,
+            icon: '/icons/icon-192x192.png',
+            tag: 'shifter-terminal-reopen',
+            requireInteraction: true,
+            renotify: true
+        });
+
+        activeDesktopReopenNotif.onclick = () => {
+            try {
+                window.focus();
+                window.openReopenStoreModal(true);
+            } catch (e) { }
+        };
+    } catch (e) {
+        console.warn("showDesktopReopenNotification error:", e);
+    }
+}
+
+function closeDesktopNotifications() {
+    try {
+        if (activeDesktopAlarmNotif) {
+            activeDesktopAlarmNotif.close();
+            activeDesktopAlarmNotif = null;
+        }
+        if (activeDesktopReopenNotif) {
+            activeDesktopReopenNotif.close();
+            activeDesktopReopenNotif = null;
+        }
+    } catch (e) { }
+}
+
+function updateTerminalTabTitleAlert(mode = 'normal') {
+    if (terminalState.titleBlinkInterval) {
+        clearInterval(terminalState.titleBlinkInterval);
+        terminalState.titleBlinkInterval = null;
+    }
+
+    if (mode === 'normal') {
+        document.title = 'Shifter';
+        return;
+    }
+
+    let step = false;
+    const textA = mode === 'alarm' ? '🚨 ПОВІТРЯНА ТРИВОГА!' : '⚠️ НАТИСНІТЬ «ВІДКРИЛИСЬ»!';
+    const textB = mode === 'alarm' ? '⚠️ В УКРИТТЯ! | Shifter' : '🟢 ВІДБІЙ ТРИВОГИ! | Shifter';
+
+    document.title = textA;
+    terminalState.titleBlinkInterval = setInterval(() => {
+        step = !step;
+        document.title = step ? textB : textA;
+    }, 1200);
+}
 
 // Синтезатор звукових сповіщень терміналу (Web Audio API, без зовнішніх mp3)
 let termAudioCtx = null;
@@ -97,6 +228,7 @@ function renderSoundToggleBtn() {
 
 window.toggleTerminalSound = function () {
     triggerHaptic();
+    requestTerminalNotificationPermission();
     terminalState.soundEnabled = !terminalState.soundEnabled;
     localStorage.setItem('shifter_terminal_sound', terminalState.soundEnabled ? 'on' : 'off');
     renderSoundToggleBtn();
@@ -138,6 +270,8 @@ try {
 export async function initTerminal() {
     startLiveClock();
     renderSoundToggleBtn();
+    requestTerminalNotificationPermission();
+    document.addEventListener('click', requestTerminalNotificationPermission, { once: true });
 
     // Перевіряємо локальне збереження точки
     const savedStoreId = localStorage.getItem('shifter_terminal_storeId');
@@ -738,7 +872,7 @@ function renderChecklists(store) {
     checkClosingReminders();
 }
 
-// 9.1 Моніторинг та рендеринг повітряної тривоги
+// 9.1 Моніторинг та рендеринг повітряної тривоги + Спливаючі сповіщення
 async function loadAlarmStatus(storeId) {
     if (!storeId) return;
     try {
@@ -746,21 +880,134 @@ async function loadAlarmStatus(storeId) {
         if (!res || !res.success) return;
 
         const currentIsAlert = Boolean(res.isAlert);
-        if (terminalState.prevAlarmIsAlert !== null && terminalState.prevAlarmIsAlert !== currentIsAlert) {
+        const isWaitingReopen = !currentIsAlert && res.lastEvent && res.lastEvent.status === 'ended_waiting_reopen';
+        const stateChanged = terminalState.prevAlarmIsAlert !== null && terminalState.prevAlarmIsAlert !== currentIsAlert;
+
+        if (stateChanged) {
             playTerminalSound(currentIsAlert ? 'alarm_start' : 'alarm_end');
             showToast(
-                currentIsAlert ? '🚨 УВАГА! Оголошено повітряну тривогу!' : '🟢 Відбій повітряної тривоги!',
+                currentIsAlert ? '🚨 УВАГА! Оголошено повітряну тривогу!' : '🟢 Відбій повітряної тривоги! Натисніть «Відкрились»',
                 currentIsAlert ? 'error' : 'success'
             );
         }
-        terminalState.prevAlarmIsAlert = currentIsAlert;
 
         terminalState.alarmStatus = res;
         renderAlarmTile(res);
+
+        if (currentIsAlert) {
+            // 1) АКТИВНА ПОВІТРЯНА ТРИВОГА
+            updateTerminalTabTitleAlert('alarm');
+
+            // Якщо було відкрите вікно Відкрились — ховаємо його на час нової тривоги
+            if (terminalState.isMandatoryReopen) {
+                terminalState.isMandatoryReopen = false;
+                window.closeReopenStoreModal(true);
+            }
+
+            const alarmKey = String(res.enabledAt || res.lastEvent?._id || 'active_alarm');
+            if (stateChanged || terminalState.acknowledgedAlarmKey !== alarmKey) {
+                showAlarmStartPopup(res);
+            }
+            if (stateChanged || terminalState.prevAlarmIsAlert === null) {
+                showDesktopAlarmNotification(res);
+            }
+        } else {
+            // Ховаємо спливаюче вікно початку тривоги, бо вже відбій
+            hideAlarmStartPopup();
+
+            if (isWaitingReopen) {
+                // 2) ВІДБІЙ ТРИВОГИ — ОЧІКУЄ НАТИСКАННЯ КНОПКИ «ВІДКРИЛИСЬ» (НЕЗНИКАЮЧЕ ВІКНО)
+                updateTerminalTabTitleAlert('reopen');
+                terminalState.isMandatoryReopen = true;
+
+                const reopenModal = document.getElementById('termReopenModal');
+                if (reopenModal && reopenModal.classList.contains('hidden')) {
+                    window.openReopenStoreModal(true);
+                } else {
+                    refreshReopenModalLiveStats();
+                    applyReopenModalMandatoryState(true);
+                }
+
+                // Спливаюче системне сповіщення Windows + повторне звукове нагадування кожні 60 сек, поки не натиснуть
+                const nowMs = Date.now();
+                if (stateChanged || !terminalState.lastReopenNagTime || (nowMs - terminalState.lastReopenNagTime >= 60000)) {
+                    if (terminalState.lastReopenNagTime && !stateChanged) {
+                        playTerminalSound('alarm_end');
+                    }
+                    terminalState.lastReopenNagTime = nowMs;
+                    showDesktopReopenNotification(res);
+                }
+            } else {
+                // 3) ШТАТНИЙ РЕЖИМ РОБОТИ
+                updateTerminalTabTitleAlert('normal');
+                terminalState.isMandatoryReopen = false;
+                terminalState.lastReopenNagTime = 0;
+                closeDesktopNotifications();
+                applyReopenModalMandatoryState(false);
+            }
+        }
+
+        terminalState.prevAlarmIsAlert = currentIsAlert;
     } catch (e) {
         console.warn("loadAlarmStatus error:", e);
     }
 }
+
+function showAlarmStartPopup(data) {
+    const modal = document.getElementById('termAlarmStartPopupModal');
+    if (!modal) return;
+
+    const regionEl = document.getElementById('termAlarmPopupRegion');
+    const levelTextEl = document.getElementById('termAlarmPopupLevelText');
+    const timeTextEl = document.getElementById('termAlarmPopupTimeText');
+    const cardEl = document.getElementById('termAlarmStartPopupCard');
+    const headerEl = document.getElementById('termAlarmStartPopupHeader');
+    const levelBoxEl = document.getElementById('termAlarmPopupLevelBox');
+
+    const isRed = data.alertLevel === 'red';
+    const regionLabel = data.district ? `${data.region} (${data.district})` : (data.region || 'м. Київ');
+
+    if (regionEl) regionEl.innerText = `ПОВІТРЯНА ТРИВОГА • ${regionLabel}`;
+    if (levelTextEl) {
+        levelTextEl.innerText = isRed ? '🔴 Червоний рівень (Ракетна небезпека)' : '🟡 Жовтий рівень (Загроза БПЛА)';
+    }
+
+    if (timeTextEl) {
+        if (data.enabledAt) {
+            const startD = new Date(data.enabledAt);
+            const startH = String(startD.getHours()).padStart(2, '0');
+            const startM = String(startD.getMinutes()).padStart(2, '0');
+            timeTextEl.innerText = `з ${startH}:${startM}`;
+        } else {
+            timeTextEl.innerText = 'Триває';
+        }
+    }
+
+    if (cardEl) {
+        cardEl.className = `ios-card w-full max-w-md bg-white dark:bg-[#1C1C1E] border-2 ${isRed ? 'border-red-500 shadow-2xl shadow-red-500/30' : 'border-amber-500 shadow-2xl shadow-amber-500/30'} rounded-2xl overflow-hidden animate-scale-up`;
+    }
+    if (headerEl) {
+        headerEl.className = `p-4 bg-gradient-to-r ${isRed ? 'from-red-600 to-rose-600' : 'from-amber-500 to-orange-600'} text-white flex items-center gap-3`;
+    }
+    if (levelBoxEl) {
+        levelBoxEl.className = `p-3 rounded-xl ${isRed ? 'bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/70 text-red-800 dark:text-red-200' : 'bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 text-amber-900 dark:text-amber-200'} flex items-center justify-between text-xs font-bold`;
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function hideAlarmStartPopup() {
+    const modal = document.getElementById('termAlarmStartPopupModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+window.acknowledgeAlarmStartPopup = function () {
+    triggerHaptic();
+    const res = terminalState.alarmStatus;
+    const alarmKey = String(res?.enabledAt || res?.lastEvent?._id || 'active_alarm');
+    terminalState.acknowledgedAlarmKey = alarmKey;
+    hideAlarmStartPopup();
+};
 
 function renderAlarmTile(data) {
     const cardEl = document.getElementById('termAlarmCard');
@@ -879,23 +1126,30 @@ function renderAlarmTile(data) {
 
 let selectedReopenName = '';
 
-window.openReopenStoreModal = function () {
-    triggerHaptic();
-    if (!terminalState.store?._id) {
-        showToast("Магазин не ініціалізовано", "warning");
-        return;
+function applyReopenModalMandatoryState(isMandatory) {
+    const closeXBtn = document.getElementById('termReopenCloseXBtn');
+    const cancelBtn = document.getElementById('termReopenCancelBtn');
+    const mandatoryBadge = document.getElementById('termReopenMandatoryBadge');
+    const modalCard = document.getElementById('termReopenModalCard');
+
+    if (closeXBtn) closeXBtn.classList.toggle('hidden', Boolean(isMandatory));
+    if (cancelBtn) cancelBtn.classList.toggle('hidden', Boolean(isMandatory));
+    if (mandatoryBadge) mandatoryBadge.classList.toggle('hidden', !isMandatory);
+    if (modalCard) {
+        if (isMandatory) {
+            modalCard.classList.add('ring-4', 'ring-emerald-500/70');
+        } else {
+            modalCard.classList.remove('ring-4', 'ring-emerald-500/70');
+        }
     }
+}
 
-    const modal = document.getElementById('termReopenModal');
-    if (!modal) return;
-
-    // Встановлюємо живий час
+function refreshReopenModalLiveStats() {
     const now = new Date();
     const timeStr = now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' });
     const liveTimeEl = document.getElementById('termReopenLiveTime');
     if (liveTimeEl) liveTimeEl.innerText = timeStr;
 
-    // Відображаємо тривалість тривоги та розрахунки
     const statsRow = document.getElementById('termReopenStatsRow');
     if (statsRow) {
         const lastEv = terminalState.alarmStatus?.lastEvent;
@@ -927,6 +1181,21 @@ window.openReopenStoreModal = function () {
             `;
         }
     }
+}
+
+window.openReopenStoreModal = function (isMandatory = false) {
+    if (!isMandatory) triggerHaptic();
+    if (!terminalState.store?._id) {
+        showToast("Магазин не ініціалізовано", "warning");
+        return;
+    }
+
+    const modal = document.getElementById('termReopenModal');
+    if (!modal) return;
+
+    const enforceMandatory = Boolean(isMandatory || terminalState.isMandatoryReopen);
+    applyReopenModalMandatoryState(enforceMandatory);
+    refreshReopenModalLiveStats();
 
     // Очищаємо інпут кастомного імені
     const customInput = document.getElementById('termReopenCustomName');
@@ -1014,7 +1283,11 @@ window.openReopenStoreModal = function () {
     modal.classList.remove('hidden');
 };
 
-window.closeReopenStoreModal = function () {
+window.closeReopenStoreModal = function (forceClose = false) {
+    if (terminalState.isMandatoryReopen && !forceClose) {
+        showToast("Обов'язково оберіть себе зі списку та натисніть «Відкрити»!", "warning");
+        return;
+    }
     const modal = document.getElementById('termReopenModal');
     if (modal) modal.classList.add('hidden');
 };
@@ -1101,8 +1374,12 @@ window.submitStoreReopen = async function () {
         });
 
         if (res && res.success) {
+            terminalState.isMandatoryReopen = false;
+            terminalState.lastReopenNagTime = 0;
+            closeDesktopNotifications();
+            updateTerminalTabTitleAlert('normal');
             showToast(res.message || "Відкриття успішно надіслано в Telegram! ✅", 'success');
-            window.closeReopenStoreModal();
+            window.closeReopenStoreModal(true);
             await loadAlarmStatus(terminalState.store._id);
         } else {
             showToast(res?.message || "Помилка відправки", 'error');

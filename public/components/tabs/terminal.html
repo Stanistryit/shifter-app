@@ -623,8 +623,14 @@
 <!-- МОДАЛКА ПІДТВЕРДЖЕННЯ ВІДКРИТТЯ МАГАЗИНУ (ХТО ВІДКРИВ) -->
 <div id="termReopenModal"
     class="hidden fixed inset-0 z-[100] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
-    <div
+    <div id="termReopenModalCard"
         class="ios-card w-full max-w-md bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-800 shadow-2xl rounded-2xl overflow-hidden animate-scale-up flex flex-col max-h-[90vh]">
+
+        <div id="termReopenMandatoryBadge"
+            class="hidden px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 text-center animate-pulse">
+            <span>🟢</span>
+            <span>ВІДБІЙ ТРИВОГИ! ОБОВ'ЯЗКОВО ЗАФІКСУЙТЕ ВІДКРИТТЯ ТТ</span>
+        </div>
 
         <!-- Шапка модалки -->
         <div
@@ -643,7 +649,7 @@
                     </p>
                 </div>
             </div>
-            <button onclick="window.closeReopenStoreModal()"
+            <button id="termReopenCloseXBtn" onclick="window.closeReopenStoreModal()"
                 class="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-black dark:hover:text-white flex items-center justify-center font-bold text-sm transition-colors border border-gray-200 dark:border-gray-700">
                 ✕
             </button>
@@ -688,7 +694,7 @@
         <!-- Підвал з кнопками дії -->
         <div
             class="p-3.5 border-t border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-[#202022] flex items-center justify-end gap-2">
-            <button onclick="window.closeReopenStoreModal()"
+            <button id="termReopenCancelBtn" onclick="window.closeReopenStoreModal()"
                 class="px-4 py-2.5 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800 active:scale-95 transition-all">
                 Скасувати
             </button>
@@ -698,5 +704,51 @@
             </button>
         </div>
 
+    </div>
+</div>
+
+
+<!-- СПЛИВАЮЧЕ ВІКНО ПОВІТРЯНОЇ ТРИВОГИ -->
+<div id="termAlarmStartPopupModal"
+    class="hidden fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+    <div id="termAlarmStartPopupCard"
+        class="ios-card w-full max-w-md bg-white dark:bg-[#1C1C1E] border-2 border-red-500 shadow-2xl shadow-red-500/30 rounded-2xl overflow-hidden animate-scale-up">
+
+        <div id="termAlarmStartPopupHeader"
+            class="p-4 bg-gradient-to-r from-red-600 to-rose-600 text-white flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-3xl animate-bounce shrink-0">
+                🚨
+            </div>
+            <div>
+                <div class="text-[10px] font-black uppercase tracking-widest opacity-90" id="termAlarmPopupRegion">
+                    ПОВІТРЯНА ТРИВОГА
+                </div>
+                <h3 class="text-base sm:text-lg font-black leading-tight">
+                    УВАГА! ОГОЛОШЕНО ТРИВОГУ!
+                </h3>
+            </div>
+        </div>
+
+        <div class="p-4 space-y-3">
+            <div id="termAlarmPopupLevelBox"
+                class="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/70 flex items-center justify-between text-xs font-bold text-red-800 dark:text-red-200">
+                <span id="termAlarmPopupLevelText">🔴 Ракетна небезпека</span>
+                <span id="termAlarmPopupTimeText" class="font-mono">з --:--</span>
+            </div>
+
+            <div class="p-3 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200/80 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-200 space-y-1.5 leading-relaxed">
+                <div class="font-extrabold text-gray-900 dark:text-white flex items-center gap-1.5">
+                    <span>⚠️</span> <span>Дії персоналу:</span>
+                </div>
+                <p>1. Повідомте відвідувачів та призупиніть роботу торгової точки.</p>
+                <p>2. Зачиніть касу та магазин, пройдіть у найближче укриття.</p>
+                <p>3. Після відбою на екрані автоматично з'явиться вікно <b>«Відкрились»</b>.</p>
+            </div>
+
+            <button type="button" onclick="window.acknowledgeAlarmStartPopup()"
+                class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs sm:text-sm shadow-lg shadow-red-600/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+                <span>🛡️</span> <span>Зрозуміло, йдемо в укриття</span>
+            </button>
+        </div>
     </div>
 </div>
