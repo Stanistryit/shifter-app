@@ -932,11 +932,12 @@ window.openReopenStoreModal = function () {
     const customInput = document.getElementById('termReopenCustomName');
     if (customInput) customInput.value = '';
 
-    // Формуємо список співробітників
+    // Формуємо список співробітників (без звільнених / заблокованих)
     const listEl = document.getElementById('termReopenEmployeeList');
     if (listEl) {
         const shifts = terminalState.terminalData?.todayShifts || [];
-        const allEmployees = terminalState.employees || [];
+        const allEmployees = (terminalState.employees || []).filter(e => e.status !== 'blocked');
+        const blockedSet = new Set((terminalState.employees || []).filter(e => e.status === 'blocked').map(e => e.name));
 
         // Об'єднуємо унікальних кандидатів
         const candidates = [];
@@ -944,7 +945,7 @@ window.openReopenStoreModal = function () {
 
         // 1. Спочатку ті, хто за графіком сьогодні
         for (const s of shifts) {
-            if (s.name && !seen.has(s.name)) {
+            if (s.name && !seen.has(s.name) && !blockedSet.has(s.name)) {
                 seen.add(s.name);
                 const emp = allEmployees.find(e => e.name === s.name);
                 candidates.push({
@@ -956,7 +957,7 @@ window.openReopenStoreModal = function () {
             }
         }
 
-        // 2. Решта співробітників магазину
+        // 2. Решта активних співробітників магазину
         for (const e of allEmployees) {
             if (e.name && !seen.has(e.name)) {
                 seen.add(e.name);
@@ -1365,8 +1366,10 @@ function populateAuthorSelects(employees) {
     const prevCashAuthor = cashSelect?.value || '';
     const prevStockAuthor = stockSelect?.value || '';
 
-    const shifts = terminalState.terminalData?.todayShifts || [];
-    const names = shifts.length > 0 ? shifts.map(s => s.name) : (employees || []).map(e => e.name);
+    const activeEmployees = (employees || []).filter(e => e.status !== 'blocked');
+    const blockedSet = new Set((employees || []).filter(e => e.status === 'blocked').map(e => e.name));
+    const shifts = (terminalState.terminalData?.todayShifts || []).filter(s => !blockedSet.has(s.name));
+    const names = shifts.length > 0 ? shifts.map(s => s.name) : activeEmployees.map(e => e.name);
 
     const optionsHtml = '<option value="">👤 Оберіть співробітника...</option>' +
         names.map(name => {
@@ -1718,7 +1721,7 @@ function renderExpectedRows() {
     container.innerHTML = terminalState.expectedAmounts.map((row, idx) => `
         <div class="flex items-center gap-1.5">
             <input type="text" value="${row.label}" oninput="window.updateExpectedRowLabel(${row.id}, this.value)" placeholder="Напр.: X-звіт або Розмін" class="flex-1 p-1 text-[11px] bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none font-medium">
-            <input type="number" min="0" value="${row.amount || ''}" oninput="window.updateExpectedRowAmount(${row.id}, this.value)" placeholder="Сума (грн)" class="w-28 p-1 text-right text-[11px] font-mono font-bold bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none">
+            <input type="number" min="0" value="${row.amount || ''}" oninput="window.updateExpectedRowAmount(${row.id}, this.value)" onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();" placeholder="Сума (грн)" class="no-spin w-28 p-1 text-right text-[11px] font-mono font-bold bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none">
             ${terminalState.expectedAmounts.length > 1 ? `
                 <button onclick="window.removeExpectedAmountRow(${row.id})" class="text-red-500 hover:text-red-700 px-1 text-xs font-bold">✕</button>
             ` : ''}

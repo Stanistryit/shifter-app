@@ -672,6 +672,8 @@ input[type=number].cash-input::-webkit-outer-spin-button,
 input[type=number].cash-input::-webkit-inner-spin-button,
 input.cash-input::-webkit-outer-spin-button,
 input.cash-input::-webkit-inner-spin-button,
+input[type=number].no-spin::-webkit-outer-spin-button,
+input[type=number].no-spin::-webkit-inner-spin-button,
 input.no-spin::-webkit-outer-spin-button,
 input.no-spin::-webkit-inner-spin-button {
     -webkit-appearance: none !important;
@@ -680,6 +682,7 @@ input.no-spin::-webkit-inner-spin-button {
 
 input[type=number].cash-input,
 input.cash-input,
+input[type=number].no-spin,
 input.no-spin {
     -moz-appearance: textfield !important;
     appearance: textfield !important;

@@ -106,12 +106,14 @@ exports.getTerminalData = async (req, res) => {
     const td = String(tomorrowObj.getDate()).padStart(2, '0');
     const tomorrowStr = `${ty}-${tm}-${td}`;
 
-    // Користувачі магазину
-    const storeUsers = await User.find({ storeId }, 'name fullName position avatar role');
+    // Користувачі магазину (виключаємо звільнених / заблокованих)
+    const allStoreUsers = await User.find({ storeId }, 'name fullName position avatar role status');
+    const blockedNames = new Set(allStoreUsers.filter(u => u.status === 'blocked').map(u => u.name));
+    const storeUsers = allStoreUsers.filter(u => u.status !== 'blocked');
     const storeUserNames = storeUsers.map(u => u.name);
 
-    // Зміни сьогодні (і для штату, і для гостей)
-    const todayShifts = await Shift.find({
+    // Зміни сьогодні (і для штату, і для гостей, крім звільнених)
+    const rawTodayShifts = await Shift.find({
         date: todayStr,
         $or: [
             { storeId: store._id },
@@ -119,9 +121,10 @@ exports.getTerminalData = async (req, res) => {
         ],
         start: { $nin: ['Відпустка', 'Лікарняний', 'Донорство', 'DELETE'] }
     }).lean();
+    const todayShifts = rawTodayShifts.filter(s => !blockedNames.has(s.name));
 
-    // Зміни завтра (щоб дізнатися хто відкриває)
-    const tomorrowShifts = await Shift.find({
+    // Зміни завтра (щоб дізнатися хто відкриває, крім звільнених)
+    const rawTomorrowShifts = await Shift.find({
         date: tomorrowStr,
         $or: [
             { storeId: store._id },
@@ -129,6 +132,7 @@ exports.getTerminalData = async (req, res) => {
         ],
         start: { $nin: ['Відпустка', 'Лікарняний', 'Донорство', 'DELETE'] }
     }).lean();
+    const tomorrowShifts = rawTomorrowShifts.filter(s => !blockedNames.has(s.name));
 
     // Працюючі сьогодні співробітники на зміні
     const workingNames = todayShifts.map(s => s.name);
