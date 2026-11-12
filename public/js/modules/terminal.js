@@ -582,6 +582,59 @@ function renderActiveShifts(todayShifts, employees) {
             </div>
         </div>
     `).join('');
+
+    autoSelectSingleAuthor();
+}
+
+// Визначає єдиного активного співробітника на зміні (якщо зараз працює 1 людина або всього 1 у графіку на день)
+function getSingleActiveShiftEmployee() {
+    const allEmployees = terminalState.terminalData?.storeEmployees || [];
+    const activeEmployees = allEmployees.filter(e => e.status !== 'blocked');
+    const blockedSet = new Set(allEmployees.filter(e => e.status === 'blocked').map(e => e.name));
+    const shifts = (terminalState.terminalData?.todayShifts || []).filter(s => !blockedSet.has(s.name));
+
+    const resolveEmp = (name) => {
+        const emp = activeEmployees.find(e => e.name === name);
+        return {
+            name,
+            fullName: emp ? (emp.fullName || emp.name) : name
+        };
+    };
+
+    const currentShifts = shifts.filter(s => getShiftStatus(s.start, s.end).status === 'current');
+    if (currentShifts.length === 1) {
+        return resolveEmp(currentShifts[0].name);
+    }
+
+    if (currentShifts.length === 0 && shifts.length === 1) {
+        return resolveEmp(shifts[0].name);
+    }
+
+    if (shifts.length === 0 && activeEmployees.length === 1) {
+        return {
+            name: activeEmployees[0].name,
+            fullName: activeEmployees[0].fullName || activeEmployees[0].name
+        };
+    }
+
+    return null;
+}
+
+function autoSelectSingleAuthor() {
+    const singleEmp = getSingleActiveShiftEmployee();
+    if (!singleEmp) return;
+
+    const cashSelect = document.getElementById('termCashAuthorSelect');
+    const stockSelect = document.getElementById('termStockAuthorSelect');
+
+    if (cashSelect && !cashSelect.value) {
+        const hasOpt = Array.from(cashSelect.options).some(o => o.value === singleEmp.name);
+        if (hasOpt) cashSelect.value = singleEmp.name;
+    }
+    if (stockSelect && !stockSelect.value) {
+        const hasOpt = Array.from(stockSelect.options).some(o => o.value === singleEmp.name);
+        if (hasOpt) stockSelect.value = singleEmp.name;
+    }
 }
 
 // 6. Хто завтра на відкриття
@@ -703,7 +756,8 @@ window.toggleTermTask = async function(taskId, doneStatus) {
     triggerHaptic();
     try {
         const authorSelect = document.getElementById('termCashAuthorSelect');
-        const completedBy = authorSelect?.value || 'Співробітник';
+        const singleEmp = getSingleActiveShiftEmployee();
+        const completedBy = authorSelect?.value || singleEmp?.name || 'Співробітник';
         const res = await postJson('/api/tasks/toggle', { id: taskId, completedBy });
         if (res && res.success) {
             showToast(doneStatus ? 'Задачу виконано' : 'Статус оновлено', 'success');
@@ -1298,6 +1352,11 @@ window.openReopenStoreModal = function (isMandatory = false) {
                     </button>
                 `;
             }).join('');
+
+            const singleEmp = getSingleActiveShiftEmployee();
+            if (singleEmp) {
+                window.selectReopenEmployee(singleEmp.fullName || singleEmp.name);
+            }
         }
     }
 
@@ -1685,6 +1744,8 @@ function populateAuthorSelects(employees) {
         stockSelect.innerHTML = optionsHtml;
         if (prevStockAuthor && names.includes(prevStockAuthor)) stockSelect.value = prevStockAuthor;
     }
+
+    autoSelectSingleAuthor();
 }
 
 // ========================================================
@@ -2084,7 +2145,14 @@ window.submitCashCount = async function () {
     if (!store) return showToast("Магазин не визначено", "error");
 
     const authorSelect = document.getElementById('termCashAuthorSelect');
-    const countedBy = authorSelect?.value;
+    let countedBy = authorSelect?.value;
+    if (!countedBy) {
+        const singleEmp = getSingleActiveShiftEmployee();
+        if (singleEmp) {
+            countedBy = singleEmp.name;
+            if (authorSelect) authorSelect.value = singleEmp.name;
+        }
+    }
     if (!countedBy) {
         return showToast("Будь ласка, оберіть співробітника, який проводив перерахунок", "warning");
     }
@@ -2172,7 +2240,14 @@ window.submitStockCount = async function () {
     }
 
     const authorSelect = document.getElementById('termStockAuthorSelect');
-    const countedBy = authorSelect?.value;
+    let countedBy = authorSelect?.value;
+    if (!countedBy) {
+        const singleEmp = getSingleActiveShiftEmployee();
+        if (singleEmp) {
+            countedBy = singleEmp.name;
+            if (authorSelect) authorSelect.value = singleEmp.name;
+        }
+    }
     if (!countedBy) {
         return showToast("Оберіть співробітника (СЕ), який заповнив перерахунок", "warning");
     }
