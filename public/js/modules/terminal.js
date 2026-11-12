@@ -1109,7 +1109,13 @@ function renderAlarmTile(data) {
             // Звичайний робочий стан
             if (timerEl) {
                 const stats = data.todayStats;
-                timerEl.innerText = stats?.count ? `${stats.count} тривог (${stats.totalDowntimeMins || 0} хв)` : 'Спокійно';
+                if (stats?.count) {
+                    timerEl.innerText = `${stats.count} тривог (${stats.totalDowntimeMins || 0} хв)`;
+                } else if (stats?.totalDowntimeMins > 0) {
+                    timerEl.innerText = `Неробочий час: ${stats.totalDowntimeMins} хв`;
+                } else {
+                    timerEl.innerText = 'Спокійно';
+                }
                 timerEl.className = 'text-[10px] font-mono text-gray-500 dark:text-gray-400';
             }
             if (subtextEl) {
@@ -1174,9 +1180,25 @@ function refreshReopenModalLiveStats() {
                 </div>
             `;
         } else {
+            const openTimeStr = terminalState.alarmStatus?.tracking?.start || terminalState.store?.alarmTrackingStart || terminalState.store?.openTime || '10:00';
+            const [oH, oM] = openTimeStr.split(':').map(Number);
+            const [nH, nM] = timeStr.split(':').map(Number);
+            const openMinutes = (oH || 10) * 60 + (oM || 0);
+            const nowMinutes = (nH || 0) * 60 + (nM || 0);
+            const delayMins = Math.max(0, nowMinutes - openMinutes);
+
             statsRow.innerHTML = `
-                <div class="text-[11px] text-gray-500 py-1">
-                    Фіксація відновлення/відкриття магазину та відправка звіту в Telegram канал ТТ.
+                <div class="flex justify-between py-0.5">
+                    <span>🕒 Відкриття за графіком:</span>
+                    <span class="font-bold font-mono text-gray-900 dark:text-gray-100">${openTimeStr}</span>
+                </div>
+                <div class="flex justify-between py-0.5">
+                    <span>⏳ Час на відкриття (від ${openTimeStr}):</span>
+                    <span class="font-bold font-mono text-gray-900 dark:text-gray-100">~${delayMins} хв</span>
+                </div>
+                <div class="flex justify-between font-black text-gray-900 dark:text-white pt-1 mt-0.5 border-t border-emerald-200/40 dark:border-emerald-800/40">
+                    <span>🚫 Загальний неробочий час ТТ:</span>
+                    <span class="font-mono text-emerald-600 dark:text-emerald-400">~${delayMins} хв</span>
                 </div>
             `;
         }

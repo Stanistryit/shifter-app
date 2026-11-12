@@ -151,26 +151,57 @@ async function fetchStatuses() {
     return cachedData || {};
 }
 
-// Отримання поточного статусу регіону/району
+// Отримання поточного статусу регіону/району (з підтримкою переходу між обласною червоною та районною жовтою тривогою)
 function getRegionStatus(states, regionName, districtName) {
     if (!states || !regionName) return { isAlert: false, alertLevel: null, enabledAt: null, disabledAt: null };
 
     const reg = states[regionName];
     if (!reg) return { isAlert: false, alertLevel: null, enabledAt: null, disabledAt: null };
 
+    const regEnabled = !!reg.enabled;
+    const regLevel = reg.alert_level || (regEnabled ? 'red' : null);
+
     if (districtName && reg.districts && reg.districts[districtName]) {
         const dist = reg.districts[districtName];
+        const distEnabled = !!dist.enabled;
+        const distLevel = dist.alert_level || (distEnabled ? 'yellow' : null);
+
+        // Тривога активна, якщо активний або весь регіон (область), або конкретний район.
+        // Це унеможливлює хибний «відбій» при зміні рівня загрози з жовтого (район) на червоний (область) і навпаки.
+        const isAlert = regEnabled || distEnabled;
+
+        let alertLevel = null;
+        let enabledAt = null;
+        let disabledAt = null;
+
+        if (regEnabled && distEnabled) {
+            alertLevel = (regLevel === 'red' || distLevel === 'red') ? 'red' : (distLevel || regLevel);
+            const rT = reg.enabled_at ? new Date(reg.enabled_at).getTime() : Infinity;
+            const dT = dist.enabled_at ? new Date(dist.enabled_at).getTime() : Infinity;
+            enabledAt = rT <= dT ? (reg.enabled_at || dist.enabled_at) : (dist.enabled_at || reg.enabled_at);
+        } else if (regEnabled) {
+            alertLevel = regLevel;
+            enabledAt = reg.enabled_at || dist.enabled_at || null;
+        } else if (distEnabled) {
+            alertLevel = distLevel;
+            enabledAt = dist.enabled_at || reg.enabled_at || null;
+        } else {
+            const rD = reg.disabled_at ? new Date(reg.disabled_at).getTime() : 0;
+            const dD = dist.disabled_at ? new Date(dist.disabled_at).getTime() : 0;
+            disabledAt = dD >= rD ? (dist.disabled_at || reg.disabled_at) : (reg.disabled_at || dist.disabled_at);
+        }
+
         return {
-            isAlert: !!dist.enabled,
-            alertLevel: dist.alert_level || null,
-            enabledAt: dist.enabled_at || null,
-            disabledAt: dist.disabled_at || null
+            isAlert,
+            alertLevel,
+            enabledAt,
+            disabledAt
         };
     }
 
     return {
-        isAlert: !!reg.enabled,
-        alertLevel: reg.alert_level || null,
+        isAlert: regEnabled,
+        alertLevel: regLevel,
         enabledAt: reg.enabled_at || null,
         disabledAt: reg.disabled_at || null
     };
@@ -240,7 +271,7 @@ async function checkAlarms() {
                     waitingEvent.status = 'closed_at_end_of_day';
                     waitingEvent.reopenedAt = workEndDate;
                     waitingEvent.reopenDurationMinutes = Math.max(0, Math.round((workEndDate - waitingEvent.endedAt) / 60000));
-                    waitingEvent.totalDowntimeMinutes = (waitingEvent.alertDurationMinutes || 0) + waitingEvent.reopenDurationMinutes;
+                    waitingEvent.totalDowntimeMinutes = (waitingEvent.alertDurationMinutes || 0) + (waitingEvent.betweenAlarmsMinutes || 0) + waitingEvent.reopenDurationMinutes;
                     await waitingEvent.save();
                 }
 
@@ -251,16 +282,20 @@ async function checkAlarms() {
                     await Store.updateOne({ _id: store._id }, { lastAlarmSummaryDate: todayStr });
 
                     const todayEvents = await AlarmEvent.find({ storeId: store._id, date: todayStr });
-                    const count = todayEvents.length;
+                    const alarmCount = todayEvents.filter(e => (e.alertDurationMinutes || 0) > 0 || e.status === 'active').length;
                     const totalAlertMins = todayEvents.reduce((s, e) => s + (e.alertDurationMinutes || 0), 0);
                     const totalReopenMins = todayEvents.reduce((s, e) => s + (e.reopenDurationMinutes || 0), 0);
-                    const totalDowntimeMins = todayEvents.reduce((s, e) => s + (e.totalDowntimeMinutes || ((e.alertDurationMinutes || 0) + (e.reopenDurationMinutes || 0))), 0);
+                    const totalBetweenMins = todayEvents.reduce((s, e) => s + (e.betweenAlarmsMinutes || 0), 0);
+                    const totalDowntimeMins = todayEvents.reduce((s, e) => s + (e.totalDowntimeMinutes || ((e.alertDurationMinutes || 0) + (e.reopenDurationMinutes || 0) + (e.betweenAlarmsMinutes || 0))), 0);
 
                     let summaryText = `📊 <b>Підсумок повітряних тривог за робочий день (${todayStr}):</b>\n\n`;
-                    if (count > 0) {
-                        summaryText += `🚨 Кількість тривог у робочий час: <b>${count}</b>\n` +
-                            `⏱️ Загальний час тривог: <b>${formatDuration(totalAlertMins)}</b>\n` +
-                            `⏳ Час на відкриття ТТ: <b>${formatDuration(totalReopenMins)}</b>\n` +
+                    if (alarmCount > 0 || totalDowntimeMins > 0) {
+                        summaryText += `🚨 Кількість тривог у робочий час: <b>${alarmCount}</b>\n` +
+                            `⏱️ Загальний час тривог: <b>${formatDuration(totalAlertMins)}</b>\n`;
+                        if (totalBetweenMins > 0) {
+                            summaryText += `⏸️ Час між тривогами (без відкриття): <b>${formatDuration(totalBetweenMins)}</b>\n`;
+                        }
+                        summaryText += `⏳ Час на відкриття ТТ: <b>${formatDuration(totalReopenMins)}</b>\n` +
                             `🚫 <b>Загальний неробочий час ТТ: ${formatDuration(totalDowntimeMins)}</b>`;
                     } else {
                         summaryText += `🟢 <b>У робочий час тривог не було!</b>\nМагазин відпрацював весь робочий день без перерв на безпеку. 👍`;
@@ -273,45 +308,110 @@ async function checkAlarms() {
                 continue; // Не обробляємо тривоги та відбої після закриття магазину
             }
 
-            // 2. Початок тривоги (тільки в межах робочого часу магазину)
+            // 2. Активна тривога або початок нової (в межах робочого часу магазину)
             if (status.isAlert) {
-                if (isDuringWorkHours && !activeEvent) {
+                if (activeEvent) {
+                    // Якщо тривога вже активна, але змінився рівень загрози (жовтий <-> червоний) — просто оновлюємо рівень без відбою!
+                    if (status.alertLevel && activeEvent.alertLevel !== status.alertLevel) {
+                        activeEvent.alertLevel = status.alertLevel;
+                        await activeEvent.save();
+                    }
+                } else if (isDuringWorkHours) {
                     const rawStart = (status.enabledAt && !isNaN(new Date(status.enabledAt).getTime()))
                         ? new Date(status.enabledAt)
                         : now;
                     // Якщо тривога почалася до відкриття магазину, робочий час рахуємо з моменту відкриття (workStartDate)
                     const effectiveStart = rawStart < workStartDate ? workStartDate : rawStart;
 
-                    await AlarmEvent.create({
+                    // Перевіряємо, чи є попередня тривога, після якої магазин ще НЕ встиг відкритися ('ended_waiting_reopen')
+                    const waitingEvent = await AlarmEvent.findOne({
                         storeId: store._id,
                         date: todayStr,
-                        region,
-                        district,
-                        alertLevel: status.alertLevel,
-                        startedAt: rawStart,
-                        effectiveStartedAt: effectiveStart,
-                        status: 'active'
-                    });
+                        status: 'ended_waiting_reopen'
+                    }).sort({ createdAt: -1 });
 
-                    // Якщо тривога почалася до відкриття і затримує відкриття:
-                    if (rawStart < workStartDate) {
-                        const text = `⚠️ <b>УВАГА! Відкриття магазину затримується через тривогу</b>\n\n` +
-                            `📍 Регіон: <b>${region}${district ? ` (${district})` : ''}</b>\n` +
-                            `🕒 Заплановане відкриття: <b>${formatTimeKiev(workStartDate)}</b>\n` +
-                            `⚠️ Наразі триває повітряна тривога. Час тривоги та простою магазину рахується з <b>${formatTimeKiev(workStartDate)}</b>.`;
-                        await sendStoreAlarmMessage(store, text);
-                    } else {
-                        // Звичайний початок у робочий час
+                    if (waitingEvent) {
+                        const prevEndedTime = new Date(waitingEvent.endedAt || waitingEvent.effectiveEndedAt || now).getTime();
+                        const gapSeconds = Math.max(0, (now.getTime() - prevEndedTime) / 1000);
+
+                        // А) Якщо минуло до 2 хвилин (технічне перемикання рівня загрози жовтий <-> червоний в API єМапа)
+                        // Відновлюємо ту саму тривогу без створення дубля і без підрахунку відкриття!
+                        if (gapSeconds <= 120) {
+                            waitingEvent.status = 'active';
+                            waitingEvent.endedAt = null;
+                            waitingEvent.effectiveEndedAt = null;
+                            waitingEvent.alertDurationMinutes = 0;
+                            if (status.alertLevel) waitingEvent.alertLevel = status.alertLevel;
+                            await waitingEvent.save();
+                            mState.lastAlertState = status.isAlert;
+                            continue;
+                        }
+
+                        // Б) Якщо закінчилась одна тривога і через декілька хвилин почалась нова (магазин не встиг відкритись):
+                        // Час на відкриття НЕ рахуємо (0 хв), а час між тривогами зараховуємо як неробочий час ТТ!
+                        const prevEffectiveEnd = waitingEvent.effectiveEndedAt || waitingEvent.endedAt || effectiveStart;
+                        const betweenMins = calcDurationMinutes(prevEffectiveEnd, effectiveStart);
+
+                        waitingEvent.reopenDurationMinutes = 0;
+                        waitingEvent.betweenAlarmsMinutes = betweenMins;
+                        waitingEvent.totalDowntimeMinutes = (waitingEvent.alertDurationMinutes || 0) + betweenMins;
+                        waitingEvent.status = 'reopened';
+                        await waitingEvent.save();
+
+                        await AlarmEvent.create({
+                            storeId: store._id,
+                            date: todayStr,
+                            region,
+                            district,
+                            alertLevel: status.alertLevel,
+                            startedAt: rawStart,
+                            effectiveStartedAt: effectiveStart,
+                            status: 'active'
+                        });
+
                         const levelBadge = status.alertLevel === 'yellow'
                             ? '🟡 <b>Жовтий (БПЛА / Загроза дронів)</b>'
                             : (status.alertLevel === 'red' ? '🔴 <b>Червоний (Ракетна загроза)</b>' : '⚠️ <b>Підвищена загроза</b>');
 
-                        const text = `🚨 <b>УВАГА! ПОВІТРЯНА ТРИВОГА!</b>\n\n` +
+                        const text = `🚨 <b>УВАГА! ПОВТОРНА ПОВІТРЯНА ТРИВОГА!</b>\n\n` +
                             `📍 Регіон: <b>${region}${district ? ` (${district})` : ''}</b>\n` +
                             `⚠️ Рівень: ${levelBadge}\n` +
-                            `🕒 Час початку: <b>${formatTimeKiev(rawStart)}</b>\n\n` +
-                            `Магазин тимчасово припиняє роботу. Пройдіть в укриття! 🛡️`;
+                            `🕒 Час початку: <b>${formatTimeKiev(rawStart)}</b>\n` +
+                            `⏸️ Магазин не встиг відкритися після попередньої тривоги — час між тривогами (<b>${formatDuration(betweenMins)}</b>) зараховано як неробочий (час на відкриття: <b>0 хв</b>).\n\n` +
+                            `Пройдіть в укриття! 🛡️`;
                         await sendStoreAlarmMessage(store, text);
+                    } else {
+                        await AlarmEvent.create({
+                            storeId: store._id,
+                            date: todayStr,
+                            region,
+                            district,
+                            alertLevel: status.alertLevel,
+                            startedAt: rawStart,
+                            effectiveStartedAt: effectiveStart,
+                            status: 'active'
+                        });
+
+                        // Якщо тривога почалася до відкриття і затримує відкриття:
+                        if (rawStart < workStartDate) {
+                            const text = `⚠️ <b>УВАГА! Відкриття магазину затримується через тривогу</b>\n\n` +
+                                `📍 Регіон: <b>${region}${district ? ` (${district})` : ''}</b>\n` +
+                                `🕒 Заплановане відкриття: <b>${formatTimeKiev(workStartDate)}</b>\n` +
+                                `⚠️ Наразі триває повітряна тривога. Час тривоги та простою магазину рахується з <b>${formatTimeKiev(workStartDate)}</b>.`;
+                            await sendStoreAlarmMessage(store, text);
+                        } else {
+                            // Звичайний початок у робочий час
+                            const levelBadge = status.alertLevel === 'yellow'
+                                ? '🟡 <b>Жовтий (БПЛА / Загроза дронів)</b>'
+                                : (status.alertLevel === 'red' ? '🔴 <b>Червоний (Ракетна загроза)</b>' : '⚠️ <b>Підвищена загроза</b>');
+
+                            const text = `🚨 <b>УВАГА! ПОВІТРЯНА ТРИВОГА!</b>\n\n` +
+                                `📍 Регіон: <b>${region}${district ? ` (${district})` : ''}</b>\n` +
+                                `⚠️ Рівень: ${levelBadge}\n` +
+                                `🕒 Час початку: <b>${formatTimeKiev(rawStart)}</b>\n\n` +
+                                `Магазин тимчасово припиняє роботу. Пройдіть в укриття! 🛡️`;
+                            await sendStoreAlarmMessage(store, text);
+                        }
                     }
                 } else if (isBeforeWork) {
                     mState.preWorkAlertActive = true;
@@ -394,7 +494,7 @@ async function recordStoreReopen(storeId, openedBy = 'Співробітник')
     }).sort({ createdAt: -1 });
 
     if (!event) {
-        // Якщо прямо зараз немає незакритої тривоги, шукаємо останню за сьогодні
+        // Якщо прямо зараз немає незакритої тривоги, перевіряємо анти-дубль за останні 2 хв
         const lastReopened = await AlarmEvent.findOne({
             storeId: store._id,
             date: todayStr,
@@ -410,14 +510,41 @@ async function recordStoreReopen(storeId, openedBy = 'Співробітник')
             };
         }
 
-        // Надсилаємо інформаційне повідомлення про відкриття магазину
-        const text = `🏪 <b>МАГАЗИН ВІДЧИНЕНО</b>\n\n🕒 Час: <b>${formatTimeKiev(now)}</b>\n👤 Відкрив(ла): <b>${openedBy}</b>`;
+        // Якщо кнопку «Відкрились» натиснуто без активної/очікуючої тривоги (наприклад, тривога закінчилась о 09:50 до відкриття ТТ о 10:00):
+        // Рахуємо неробочий час (час на відкриття) від 10:00 (workStartDate) до моменту натискання кнопки!
+        const effectiveNow = now > workEndDate ? workEndDate : now;
+        const reopenDuration = effectiveNow > workStartDate ? calcDurationMinutes(workStartDate, effectiveNow) : 0;
+
+        const manualEvent = await AlarmEvent.create({
+            storeId: store._id,
+            date: todayStr,
+            region: store.alarmRegion || 'м. Київ',
+            district: store.alarmDistrict || '',
+            alertLevel: null,
+            startedAt: workStartDate,
+            effectiveStartedAt: workStartDate,
+            endedAt: workStartDate,
+            effectiveEndedAt: workStartDate,
+            reopenedAt: now,
+            alertDurationMinutes: 0,
+            reopenDurationMinutes: reopenDuration,
+            betweenAlarmsMinutes: 0,
+            totalDowntimeMinutes: reopenDuration,
+            status: 'reopened'
+        });
+
+        const text = `🏪 <b>МАГАЗИН ВІДНОВИВ РОБОТУ (ВІДКРИЛИСЬ)</b>\n\n` +
+            `🕒 Відкриття за графіком: <b>${formatTimeKiev(workStartDate)}</b>\n` +
+            `🕒 Фактичне відкриття: <b>${formatTimeKiev(now)}</b>\n` +
+            `⏳ Час на відкриття (від ${formatTimeKiev(workStartDate)}): <b>${formatDuration(reopenDuration)}</b>\n` +
+            `🚫 <b>Загальний неробочий час ТТ: ${formatDuration(reopenDuration)}</b>\n` +
+            `👤 Відкрив(ла): <b>${openedBy}</b>`;
         await sendStoreAlarmMessage(store, text);
 
         return {
             success: true,
-            message: `Зафіксовано відкриття магазину о ${formatTimeKiev(now)}`,
-            event: null
+            message: `Зафіксовано відкриття о ${formatTimeKiev(now)} (неробочий час: ${formatDuration(reopenDuration)})`,
+            event: manualEvent
         };
     }
 
@@ -437,7 +564,7 @@ async function recordStoreReopen(storeId, openedBy = 'Співробітник')
         event.alertDurationMinutes = alertDuration;
         event.reopenedAt = now;
         event.reopenDurationMinutes = 0;
-        event.totalDowntimeMinutes = alertDuration;
+        event.totalDowntimeMinutes = alertDuration + (event.betweenAlarmsMinutes || 0);
         event.status = 'reopened';
         await event.save();
 
@@ -445,7 +572,7 @@ async function recordStoreReopen(storeId, openedBy = 'Співробітник')
             `🕒 Час відкриття: <b>${formatTimeKiev(now)}</b>\n` +
             `⏱️ Тривалість тривоги: <b>${formatDuration(alertDuration)}</b>\n` +
             `⏳ Час на відкриття: <b>0 хв</b>\n` +
-            `🚫 <b>Загальний неробочий час ТТ: ${formatDuration(alertDuration)}</b>\n` +
+            `🚫 <b>Загальний неробочий час ТТ: ${formatDuration(event.totalDowntimeMinutes)}</b>\n` +
             `👤 Відкрив(ла): <b>${openedBy}</b>`;
 
         await sendStoreAlarmMessage(store, text);
@@ -468,9 +595,9 @@ async function recordStoreReopen(storeId, openedBy = 'Співробітник')
         event.alertDurationMinutes = alertDuration;
     }
 
-    const baseEndedAt = event.endedAt || now;
+    const baseEndedAt = event.effectiveEndedAt || event.endedAt || now;
     const reopenDuration = calcDurationMinutes(baseEndedAt, now);
-    const totalDowntime = alertDuration + reopenDuration;
+    const totalDowntime = alertDuration + (event.betweenAlarmsMinutes || 0) + reopenDuration;
 
     event.reopenedAt = now;
     if (!event.endedAt) event.endedAt = now;
@@ -517,9 +644,11 @@ async function getStoreAlarmStatus(storeId) {
     const todayEvents = await AlarmEvent.find({ storeId: store._id, date: todayStr }).sort({ createdAt: -1 });
     const lastEvent = todayEvents[0] || null;
 
+    const alarmCount = todayEvents.filter(e => (e.alertDurationMinutes || 0) > 0 || e.status === 'active').length;
     const totalAlertMins = todayEvents.reduce((s, e) => s + (e.alertDurationMinutes || 0), 0);
     const totalReopenMins = todayEvents.reduce((s, e) => s + (e.reopenDurationMinutes || 0), 0);
-    const totalDowntimeMins = todayEvents.reduce((s, e) => s + (e.totalDowntimeMinutes || (e.alertDurationMinutes || 0)), 0);
+    const totalBetweenMins = todayEvents.reduce((s, e) => s + (e.betweenAlarmsMinutes || 0), 0);
+    const totalDowntimeMins = todayEvents.reduce((s, e) => s + (e.totalDowntimeMinutes || ((e.alertDurationMinutes || 0) + (e.reopenDurationMinutes || 0) + (e.betweenAlarmsMinutes || 0))), 0);
 
     return {
         isAlert: status.isAlert,
@@ -535,9 +664,10 @@ async function getStoreAlarmStatus(storeId) {
         },
         lastEvent,
         todayStats: {
-            count: todayEvents.length,
+            count: alarmCount,
             totalAlertMins,
             totalReopenMins,
+            totalBetweenMins,
             totalDowntimeMins
         }
     };

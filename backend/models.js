@@ -306,6 +306,7 @@ const alarmEventSchema = new mongoose.Schema({
 
     alertDurationMinutes: { type: Number, default: 0 },
     reopenDurationMinutes: { type: Number, default: 0 },
+    betweenAlarmsMinutes: { type: Number, default: 0 },
     totalDowntimeMinutes: { type: Number, default: 0 },
 
     status: {
