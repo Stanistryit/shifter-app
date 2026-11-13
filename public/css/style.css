@@ -68,6 +68,16 @@ body {
     transform: scale(0.98);
 }
 
+#terminalContainer .ios-card:active,
+#termStockTransferModal .ios-card:active,
+#terminalScheduleModal .ios-card:active,
+#termReopenModal .ios-card:active,
+#termAlarmStartPopupModal .ios-card:active,
+#cashHistoryModal .ios-card:active,
+#stockHistoryModal .ios-card:active {
+    transform: none !important;
+}
+
 .btn-primary {
     background: linear-gradient(135deg, #007AFF, #0056b3);
     color: white;

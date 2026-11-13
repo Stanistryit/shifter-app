@@ -3753,6 +3753,10 @@ window.renderStockTransferComparison = function () {
         return true;
     });
 
+    if (activeFilter === 'all') {
+        filtered.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'uk'));
+    }
+
     if (filtered.length === 0) {
         tbody.innerHTML = `
             <tr>
