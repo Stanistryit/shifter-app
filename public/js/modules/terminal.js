@@ -627,6 +627,7 @@ function autoSelectSingleAuthor() {
 
     const cashSelect = document.getElementById('termCashAuthorSelect');
     const stockSelect = document.getElementById('termStockAuthorSelect');
+    const transferSelect = document.getElementById('termStockTransferAuthorSelect');
 
     if (cashSelect && !cashSelect.value) {
         const hasOpt = Array.from(cashSelect.options).some(o => o.value === singleEmp.name);
@@ -635,6 +636,10 @@ function autoSelectSingleAuthor() {
     if (stockSelect && !stockSelect.value) {
         const hasOpt = Array.from(stockSelect.options).some(o => o.value === singleEmp.name);
         if (hasOpt) stockSelect.value = singleEmp.name;
+    }
+    if (transferSelect && !transferSelect.value) {
+        const hasOpt = Array.from(transferSelect.options).some(o => o.value === singleEmp.name);
+        if (hasOpt) transferSelect.value = singleEmp.name;
     }
 }
 
@@ -1721,9 +1726,11 @@ window.focusClosingCard = function (target) {
 function populateAuthorSelects(employees) {
     const cashSelect = document.getElementById('termCashAuthorSelect');
     const stockSelect = document.getElementById('termStockAuthorSelect');
+    const transferSelect = document.getElementById('termStockTransferAuthorSelect');
 
     const prevCashAuthor = cashSelect?.value || '';
     const prevStockAuthor = stockSelect?.value || '';
+    const prevTransferAuthor = transferSelect?.value || '';
 
     const activeEmployees = (employees || []).filter(e => e.status !== 'blocked');
     const blockedSet = new Set((employees || []).filter(e => e.status === 'blocked').map(e => e.name));
@@ -1744,6 +1751,10 @@ function populateAuthorSelects(employees) {
     if (stockSelect) {
         stockSelect.innerHTML = optionsHtml;
         if (prevStockAuthor && names.includes(prevStockAuthor)) stockSelect.value = prevStockAuthor;
+    }
+    if (transferSelect) {
+        transferSelect.innerHTML = optionsHtml;
+        if (prevTransferAuthor && names.includes(prevTransferAuthor)) transferSelect.value = prevTransferAuthor;
     }
 
     autoSelectSingleAuthor();
@@ -3317,6 +3328,14 @@ window.openStockTransferModal = function () {
         loadStockTransferCache();
     }
 
+    populateAuthorSelects(terminalState.terminalData?.storeEmployees || []);
+    const transferSelect = document.getElementById('termStockTransferAuthorSelect');
+    if (transferSelect && !transferSelect.value) {
+        const fallbackAuthor = document.getElementById('termStockAuthorSelect')?.value ||
+            document.getElementById('termCashAuthorSelect')?.value || '';
+        if (fallbackAuthor) transferSelect.value = fallbackAuthor;
+    }
+
     const settings = getStoreStockTransferSettings();
     const badge = document.getElementById('stockNormsCountBadge');
     if (badge) badge.innerText = (settings.norms || []).length;
@@ -4209,41 +4228,100 @@ function getSelectedTransferItemsForExport() {
     return rows.filter(r => r.isBring && !stockTransferState.uncheckedKeys.has(r.key));
 }
 
+function detectClientProductGroup(title) {
+    const u = String(title || '').toUpperCase();
+    if (u.includes('TEREA')) return 'TEREA';
+    if (u.includes('DELIA')) return 'DELIA';
+    if (u.includes('BLENDS')) return 'BLENDS';
+    if (u.includes('ZYN')) return 'ZYN';
+    if (u.includes('BONDS')) return 'BONDS';
+    if (u.includes('HEETS') || u.includes('FIIT')) return 'HEETS / FIIT';
+    if (u.includes('VEEV')) return 'VEEV';
+    if (u.includes('IQOS') || u.includes('ILUMA') || u.includes('LIL ')) return 'Девайси';
+    return 'Інше';
+}
+
+function cleanClientProductTitle(title, groupName, color) {
+    let s = String(title || '')
+        .replace(/,\s*ТВЕН/gi, '')
+        .replace(/\bТВЕН\b/gi, '')
+        .replace(/нік\.?\s*подушечки/gi, '')
+        .replace(/нік\.?\s*подуш\.?/gi, '')
+        .replace(/нік\.?\s*под\.?/gi, '')
+        .replace(/\bн\.п\.?/gi, '')
+        .replace(/Мініблок\s*3\s*п\.?/gi, 'Мініблок 3п')
+        .replace(/\s+/g, ' ')
+        .replace(/[,\s]+$/g, '')
+        .trim();
+
+    if (groupName && groupName !== 'Девайси' && groupName !== 'Інше' && groupName !== 'HEETS / FIIT') {
+        const re = new RegExp(`^${groupName}\\s+`, 'i');
+        s = s.replace(re, '').trim();
+    }
+    if (color) {
+        s += ` (${color})`;
+    }
+    return s;
+}
+
 window.copyStockTransferList = async function () {
-    triggerHaptic();
     const items = getSelectedTransferItemsForExport();
     if (items.length === 0) {
         return showToast("Немає позицій для копіювання", "warning");
     }
 
+    const showBatches = Boolean(document.getElementById('chkStockTelegramShowBatches')?.checked);
     const totalUnits = items.reduce((acc, r) => acc + Number(r.toBring || 0), 0);
-    const lines = items.map((r, i) => {
-        const colorStr = r.color ? ` (${r.color})` : '';
-        const batchStr = r.batchesText ? ` [${r.batchesText}]` : '';
-        return `${i + 1}. ${r.title}${colorStr} — ПРИНЕСТИ: ${r.toBring} шт (Маг: ${r.shopQty} / Норма: ${r.targetQty} / Склад: ${r.whQty})${batchStr}`;
-    });
 
-    const text = `🚚 Список на підсорт зі складу (${items.length} поз., ${totalUnits} шт):\n\n` + lines.join('\n');
+    const groups = new Map();
+    for (const r of items) {
+        const g = detectClientProductGroup(r.title);
+        if (!groups.has(g)) groups.set(g, []);
+        groups.get(g).push(r);
+    }
+
+    const blocks = [];
+    for (const [groupName, groupItems] of groups.entries()) {
+        const groupUnits = groupItems.reduce((acc, x) => acc + Number(x.toBring || 0), 0);
+        const lines = groupItems.map(r => {
+            const icon = r.shopQty === 0 ? '🔴' : '▫️';
+            const shortName = cleanClientProductTitle(r.title, groupName, r.color);
+            const batchStr = (showBatches && r.batchesText) ? ` [${r.batchesText}]` : '';
+            return `${icon} ${shortName} — ${r.toBring} шт${batchStr}`;
+        });
+        blocks.push(`📦 ${groupName} (${groupUnits} шт):\n` + lines.join('\n'));
+    }
+
+    const text = `🚚 Підсорт зі складу (${items.length} поз. • ${totalUnits} шт)\n\n` + blocks.join('\n\n');
     try {
         await navigator.clipboard.writeText(text);
-        showToast("Список скопійовано в буфер обміну!", "success");
+        showToast("Компактний список скопійовано!", "success");
     } catch (e) {
         showToast("Не вдалося скопіювати", "error");
     }
 };
 
 window.sendStockTransferToTelegram = async function () {
-    triggerHaptic();
     const items = getSelectedTransferItemsForExport();
     if (items.length === 0) {
         return showToast("Оберіть хоча б одну позицію для відправки в Telegram", "warning");
     }
 
+    const transferSelect = document.getElementById('termStockTransferAuthorSelect');
+    let author = transferSelect?.value || '';
+    if (!author) {
+        const singleEmp = getSingleActiveShiftEmployee();
+        if (singleEmp) {
+            author = singleEmp.name;
+            if (transferSelect) transferSelect.value = singleEmp.name;
+        }
+    }
+    if (!author) {
+        return showToast("Будь ласка, оберіть співробітника у списку знизу вікна", "warning");
+    }
+
     const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
-    const singleEmp = getSingleActiveShiftEmployee();
-    const stockAuthor = document.getElementById('termStockAuthorSelect')?.value;
-    const cashAuthor = document.getElementById('termCashAuthorSelect')?.value;
-    const author = stockAuthor || cashAuthor || singleEmp?.name || 'Співробітник';
+    const showBatches = Boolean(document.getElementById('chkStockTelegramShowBatches')?.checked);
 
     const btn = document.getElementById('btnSendStockTransferTelegram');
     if (btn) btn.disabled = true;
@@ -4252,12 +4330,13 @@ window.sendStockTransferToTelegram = async function () {
         const res = await postJson('/api/terminal/stock-transfer/send-telegram', {
             storeId,
             author,
+            showBatches,
             shopWarehouseName: stockTransferState.shopData?.warehouseName || terminalState.store?.name || 'Магазин',
             sourceWarehouseName: stockTransferState.whData?.warehouseName || 'Окремий склад',
             items
         });
         if (res && res.success) {
-            showToast("Список на підсорт надіслано в Telegram!", "success");
+            showToast("Компактний список надіслано в Telegram!", "success");
         } else {
             showToast(res?.message || "Не вдалося надіслати в Telegram", "error");
         }

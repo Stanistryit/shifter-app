@@ -1095,13 +1095,22 @@
         <!-- Нижня панель дій -->
         <div
             class="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/90 dark:bg-[#242426] flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-3 flex-wrap">
                 <span id="stockTransferSummaryText" class="text-xs font-extrabold text-gray-800 dark:text-gray-200">
                     Завантажте обидва файли для розрахунку
                 </span>
+                <label title="Додавати номери партій у повідомлення Telegram та при копіюванні"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 text-[11px] font-bold text-gray-600 dark:text-gray-300 cursor-pointer">
+                    <input type="checkbox" id="chkStockTelegramShowBatches" class="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer">
+                    <span>🏷 Додати партії в список</span>
+                </label>
             </div>
 
             <div class="flex items-center gap-2 flex-wrap">
+                <select id="termStockTransferAuthorSelect"
+                    class="px-3 py-2 text-xs bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold text-gray-800 dark:text-gray-100">
+                    <option value="">👤 Хто формує...</option>
+                </select>
                 <button type="button" onclick="window.copyStockTransferList()"
                     class="px-3.5 py-2 rounded-xl bg-white dark:bg-[#1C1C1E] hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-2xs">
                     <span>📋</span> <span>Скопіювати список</span>

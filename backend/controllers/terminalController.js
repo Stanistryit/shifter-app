@@ -991,12 +991,48 @@ exports.updateStockTransferSettings = async (req, res) => {
     });
 };
 
+function detectProductGroup(title) {
+    const u = String(title || '').toUpperCase();
+    if (u.includes('TEREA')) return 'TEREA';
+    if (u.includes('DELIA')) return 'DELIA';
+    if (u.includes('BLENDS')) return 'BLENDS';
+    if (u.includes('ZYN')) return 'ZYN';
+    if (u.includes('BONDS')) return 'BONDS';
+    if (u.includes('HEETS') || u.includes('FIIT')) return 'HEETS / FIIT';
+    if (u.includes('VEEV')) return 'VEEV';
+    if (u.includes('IQOS') || u.includes('ILUMA') || u.includes('LIL ')) return 'Девайси';
+    return 'Інше';
+}
+
+function cleanProductTitleForTelegram(title, groupName, color) {
+    let s = String(title || '')
+        .replace(/,\s*ТВЕН/gi, '')
+        .replace(/\bТВЕН\b/gi, '')
+        .replace(/нік\.?\s*подушечки/gi, '')
+        .replace(/нік\.?\s*подуш\.?/gi, '')
+        .replace(/нік\.?\s*под\.?/gi, '')
+        .replace(/\bн\.п\.?/gi, '')
+        .replace(/Мініблок\s*3\s*п\.?/gi, 'Мініблок 3п')
+        .replace(/\s+/g, ' ')
+        .replace(/[,\s]+$/g, '')
+        .trim();
+
+    if (groupName && groupName !== 'Девайси' && groupName !== 'Інше' && groupName !== 'HEETS / FIIT') {
+        const re = new RegExp(`^${groupName}\\s+`, 'i');
+        s = s.replace(re, '').trim();
+    }
+    if (color) {
+        s += ` (${color})`;
+    }
+    return s;
+}
+
 exports.sendStockTransferTelegram = async (req, res) => {
     let storeId = req.body?.storeId || req.session?.terminalStoreId;
     if (!storeId && req.user?.storeId) {
         storeId = req.user.storeId;
     }
-    const { author, shopWarehouseName, sourceWarehouseName, items } = req.body;
+    const { author, showBatches, items } = req.body;
 
     if (!storeId || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ success: false, message: "Список товарів для відправки порожній" });
@@ -1014,31 +1050,43 @@ exports.sendStockTransferTelegram = async (req, res) => {
     });
 
     let totalUnits = 0;
-    const lines = items.map((item, idx) => {
+    const grouped = new Map();
+
+    for (const item of items) {
         const toBring = Number(item.toBring || 0);
+        if (toBring <= 0) continue;
         totalUnits += toBring;
-        const colorPart = item.color ? ` (${item.color})` : '';
-        const batchPart = item.batchesText ? ` | 🏷 <code>${item.batchesText}</code>` : (item.baseCode ? ` | <code>${item.baseCode}</code>` : '');
-        const stockDetails = `(Маг: ${Number(item.shopQty || 0)} / Норма: ${Number(item.targetQty || 0)} / Склад: ${Number(item.whQty || 0)})`;
-        return `${idx + 1}. <b>${item.title}${colorPart}</b>\n   👉 Принести: <b>${toBring} шт</b> ${stockDetails}${batchPart}`;
-    });
+
+        const g = detectProductGroup(item.title);
+        if (!grouped.has(g)) grouped.set(g, []);
+        grouped.get(g).push(item);
+    }
+
+    const groupBlocks = [];
+    for (const [groupName, groupItems] of grouped.entries()) {
+        const groupUnits = groupItems.reduce((acc, x) => acc + Number(x.toBring || 0), 0);
+        const itemLines = groupItems.map(item => {
+            const toBring = Number(item.toBring || 0);
+            const icon = Number(item.shopQty || 0) === 0 ? '🔴' : '▫️';
+            const shortName = cleanProductTitleForTelegram(item.title, groupName, item.color);
+            const batchPart = (showBatches && item.batchesText) ? ` <code>[${item.batchesText}]</code>` : '';
+            return `${icon} ${shortName} — <b>${toBring} шт</b>${batchPart}`;
+        });
+        groupBlocks.push(`🔹 <b>${groupName}</b> <i>(${groupUnits} шт)</i>:\n` + itemLines.join('\n'));
+    }
 
     const header =
-        `🚚 <b>Список на підсорт зі складу</b>\n` +
-        (sourceWarehouseName || shopWarehouseName
-            ? `🏭 <code>${sourceWarehouseName || 'Склад'}</code> ➔ 🏪 <code>${shopWarehouseName || store.name}</code>\n`
-            : '') +
-        `👤 Сформував(ла): <b>${author || 'Співробітник'}</b> | 🕒 <b>${timeStr}</b>\n` +
-        `📦 Всього позицій: <b>${items.length}</b> (на <b>${totalUnits} шт</b>)\n\n`;
+        `🚚 <b>Підсорт зі складу</b> (${items.length} поз. • <b>${totalUnits} шт</b>)\n` +
+        `👤 <b>${author || 'Співробітник'}</b> • 🕒 ${timeStr}\n` +
+        `<i>🔴 — 0 у магазині | ▫️ — доповнити</i>\n\n`;
 
-    // Якщо список дуже великий, розбиваємо на частини до 3800 символів
     let currentMsg = header;
-    for (const line of lines) {
-        if ((currentMsg + line + '\n\n').length > 3800) {
+    for (const block of groupBlocks) {
+        if ((currentMsg + block + '\n\n').length > 3800) {
             await sendStoreCashReport(store._id, currentMsg.trim());
-            currentMsg = `🚚 <b>Продовження списку на підсорт:</b>\n\n` + line + '\n';
+            currentMsg = `🚚 <b>Підсорт (продовження):</b>\n\n` + block + '\n\n';
         } else {
-            currentMsg += line + '\n';
+            currentMsg += block + '\n\n';
         }
     }
     if (currentMsg.trim()) {
