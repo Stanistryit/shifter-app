@@ -1076,7 +1076,7 @@ exports.sendStockTransferTelegram = async (req, res) => {
     }
 
     const header =
-        `🚚 <b>Підсорт зі складу</b> (${items.length} поз. • <b>${totalUnits} шт</b>)\n` +
+        `🚚 <b>Поповнення зі складу</b> (${items.length} поз. • <b>${totalUnits} шт</b>)\n` +
         `👤 <b>${author || 'Співробітник'}</b> • 🕒 ${timeStr}\n` +
         `<i>🔴 — 0 у магазині | ▫️ — доповнити</i>\n\n`;
 
@@ -1084,7 +1084,7 @@ exports.sendStockTransferTelegram = async (req, res) => {
     for (const block of groupBlocks) {
         if ((currentMsg + block + '\n\n').length > 3800) {
             await sendStoreCashReport(store._id, currentMsg.trim());
-            currentMsg = `🚚 <b>Підсорт (продовження):</b>\n\n` + block + '\n\n';
+            currentMsg = `🚚 <b>Поповнення зі складу (продовження):</b>\n\n` + block + '\n\n';
         } else {
             currentMsg += block + '\n\n';
         }

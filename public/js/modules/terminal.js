@@ -4292,7 +4292,7 @@ window.copyStockTransferList = async function () {
         blocks.push(`📦 ${groupName} (${groupUnits} шт):\n` + lines.join('\n'));
     }
 
-    const text = `🚚 Підсорт зі складу (${items.length} поз. • ${totalUnits} шт)\n\n` + blocks.join('\n\n');
+    const text = `🚚 Поповнення зі складу (${items.length} поз. • ${totalUnits} шт)\n\n` + blocks.join('\n\n');
     try {
         await navigator.clipboard.writeText(text);
         showToast("Компактний список скопійовано!", "success");
@@ -4336,7 +4336,7 @@ window.sendStockTransferToTelegram = async function () {
             items
         });
         if (res && res.success) {
-            showToast("Компактний список надіслано в Telegram!", "success");
+            showToast("Список поповнення зі складу надіслано в Telegram!", "success");
         } else {
             showToast(res?.message || "Не вдалося надіслати в Telegram", "error");
         }
