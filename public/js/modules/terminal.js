@@ -20,6 +20,8 @@ let terminalState = {
     checklistState: {},
     checklistsProgress: { morning: {}, evening: {} },
     checklistManualTab: null, // null (авто за часом) | 'morning' | 'evening'
+    checklistForceExpanded: { morning: false, evening: false },
+    isContactsExpanded: false,
     latestCashToday: null,
     latestStockToday: null,
     previousStockCount: null,
@@ -219,11 +221,13 @@ function renderSoundToggleBtn() {
     const btn = document.getElementById('termSoundToggleBtn');
     if (!btn) return;
     if (terminalState.soundEnabled) {
-        btn.className = "px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors border border-emerald-200/70 dark:border-emerald-800/50 flex items-center gap-1";
-        btn.innerHTML = `<span>🔔</span><span class="hidden sm:inline">Звук</span>`;
+        btn.className = "w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors border border-emerald-200/70 dark:border-emerald-800/50 flex items-center justify-center shadow-2xs";
+        btn.innerHTML = `<span id="termSoundIcon">🔔</span>`;
+        btn.title = "Звукові сповіщення увімкнено (тривоги, відбій, задачі)";
     } else {
-        btn.className = "px-2.5 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center gap-1";
-        btn.innerHTML = `<span>🔕</span><span class="hidden sm:inline line-through">Звук</span>`;
+        btn.className = "w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center justify-center shadow-2xs";
+        btn.innerHTML = `<span id="termSoundIcon">🔕</span>`;
+        btn.title = "Звукові сповіщення вимкнено";
     }
 }
 
@@ -430,10 +434,11 @@ function renderHeader(store) {
     if (store.dailyAnnouncement && store.dailyAnnouncement.trim()) {
         if (annText) annText.innerText = store.dailyAnnouncement;
         if (annTextMob) annTextMob.innerText = store.dailyAnnouncement;
-        annBox?.classList.remove('hidden');
+        annBox?.classList.add('md:block');
         annBoxMob?.classList.remove('hidden');
     } else {
         annBox?.classList.add('hidden');
+        annBox?.classList.remove('md:block');
         annBoxMob?.classList.add('hidden');
     }
 }
@@ -444,11 +449,12 @@ function getShiftStatus(startStr, endStr) {
         return {
             status: 'current',
             order: 1,
+            progressPct: 50,
             label: `до ${endStr || '--:--'}`,
             statusText: 'На зміні',
             dotClass: 'bg-green-500 animate-pulse shadow-sm shadow-green-500/50',
             badgeClass: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold',
-            cardClass: 'bg-white dark:bg-[#1C1C1E] border-gray-200/80 dark:border-gray-800 shadow-sm'
+            cardClass: 'bg-white dark:bg-[#1C1C1E] border-gray-200/80 dark:border-gray-800 shadow-2xs'
         };
     }
 
@@ -464,19 +470,24 @@ function getShiftStatus(startStr, endStr) {
     // Звичайна денна зміна
     if (endMinutes > startMinutes) {
         if (nowMinutes >= startMinutes && nowMinutes < endMinutes) {
+            const totalDur = Math.max(1, endMinutes - startMinutes);
+            const elapsed = Math.max(0, nowMinutes - startMinutes);
+            const progressPct = Math.min(100, Math.max(4, Math.round((elapsed / totalDur) * 100)));
             return {
                 status: 'current',
                 order: 1,
+                progressPct,
                 label: `до ${endStr}`,
                 statusText: 'Зараз на зміні',
                 dotClass: 'bg-green-500 animate-pulse shadow-sm shadow-green-500/50',
                 badgeClass: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold',
-                cardClass: 'bg-white dark:bg-[#1C1C1E] border-gray-200/80 dark:border-gray-800 shadow-sm'
+                cardClass: 'bg-white dark:bg-[#1C1C1E] border-gray-200/80 dark:border-gray-800 shadow-2xs'
             };
         } else if (nowMinutes < startMinutes) {
             return {
                 status: 'upcoming',
                 order: 2,
+                progressPct: 0,
                 label: `початок о ${startStr}`,
                 statusText: 'Очікується',
                 dotClass: 'bg-amber-400 shadow-sm shadow-amber-400/40',
@@ -487,6 +498,7 @@ function getShiftStatus(startStr, endStr) {
             return {
                 status: 'ended',
                 order: 3,
+                progressPct: 100,
                 label: `завершено о ${endStr}`,
                 statusText: 'Зміна завершена',
                 dotClass: 'bg-gray-400 dark:bg-gray-600',
@@ -498,19 +510,24 @@ function getShiftStatus(startStr, endStr) {
         // Нічна зміна
         const isCurrent = nowMinutes >= startMinutes || nowMinutes < endMinutes;
         if (isCurrent) {
+            const totalDur = Math.max(1, (1440 - startMinutes) + endMinutes);
+            const elapsed = nowMinutes >= startMinutes ? (nowMinutes - startMinutes) : ((1440 - startMinutes) + nowMinutes);
+            const progressPct = Math.min(100, Math.max(4, Math.round((elapsed / totalDur) * 100)));
             return {
                 status: 'current',
                 order: 1,
+                progressPct,
                 label: `до ${endStr}`,
                 statusText: 'Зараз на зміні',
                 dotClass: 'bg-green-500 animate-pulse shadow-sm shadow-green-500/50',
                 badgeClass: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold',
-                cardClass: 'bg-white dark:bg-[#1C1C1E] border-gray-200/80 dark:border-gray-800 shadow-sm'
+                cardClass: 'bg-white dark:bg-[#1C1C1E] border-gray-200/80 dark:border-gray-800 shadow-2xs'
             };
         } else {
             return {
                 status: 'ended',
                 order: 3,
+                progressPct: 100,
                 label: `завершено о ${endStr}`,
                 statusText: 'Зміна завершена',
                 dotClass: 'bg-gray-400 dark:bg-gray-600',
@@ -536,13 +553,20 @@ function renderActiveShifts(todayShifts, employees) {
         return;
     }
 
+    const getInitials = (name) => {
+        const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+        return String(name || 'С').slice(0, 2).toUpperCase();
+    };
+
     // Визначаємо статус для кожного співробітника
     const items = todayShifts.map(s => {
         const emp = employees ? employees.find(e => e.name === s.name) : null;
         const displayName = emp ? (emp.fullName || emp.name) : s.name;
-        const pos = emp?.position ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 font-bold ml-1">${emp.position}</span>` : '';
+        const initials = getInitials(displayName);
+        const pos = emp?.position ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 font-bold ml-1 shrink-0">${emp.position}</span>` : '';
         const info = getShiftStatus(s.start, s.end);
-        return { shift: s, emp, displayName, pos, info };
+        return { shift: s, emp, displayName, initials, pos, info };
     });
 
     // Сортування:
@@ -563,26 +587,48 @@ function renderActiveShifts(todayShifts, employees) {
         }
     }
 
-    listEl.innerHTML = items.map(x => `
-        <div class="p-2.5 rounded-xl border flex items-center justify-between ${x.info.cardClass}">
-            <div class="flex items-center gap-2.5 overflow-hidden">
-                <span class="w-2.5 h-2.5 rounded-full shrink-0 ${x.info.dotClass}"></span>
-                <div class="truncate">
-                    <div class="text-xs font-bold text-gray-900 dark:text-white flex items-center truncate">
-                        <span class="truncate">${x.displayName}</span> ${x.pos}
+    listEl.innerHTML = items.map(x => {
+        const isCurrent = x.info.status === 'current';
+        const avatarBg = isCurrent
+            ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-2xs'
+            : (x.info.status === 'upcoming'
+                ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
+                : 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400');
+
+        return `
+        <div class="relative overflow-hidden p-2 rounded-xl border ${x.info.cardClass}">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <div class="relative shrink-0">
+                        <div class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-extrabold ${avatarBg}">
+                            ${x.initials}
+                        </div>
+                        <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#1C1C1E] ${x.info.dotClass}"></span>
                     </div>
-                    <div class="text-[10px] text-gray-400 font-mono">
-                        Зміна: ${x.shift.start} - ${x.shift.end}
+                    <div class="truncate">
+                        <div class="text-xs font-bold text-gray-900 dark:text-white flex items-center truncate">
+                            <span class="truncate">${x.displayName}</span> ${x.pos}
+                        </div>
+                        <div class="text-[10px] text-gray-400 font-mono flex items-center gap-1.5">
+                            <span>${x.shift.start} - ${x.shift.end}</span>
+                            ${isCurrent ? `<span class="text-emerald-600 dark:text-emerald-400 font-bold">• ${x.info.progressPct}%</span>` : ''}
+                        </div>
                     </div>
                 </div>
+                <div class="text-right shrink-0">
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded-md ${x.info.badgeClass}">
+                        ${x.info.label}
+                    </span>
+                </div>
             </div>
-            <div class="text-right shrink-0 ml-2">
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded-md ${x.info.badgeClass}">
-                    ${x.info.label}
-                </span>
+            ${isCurrent ? `
+            <div class="mt-1.5 w-full h-1 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full transition-all duration-500" style="width: ${x.info.progressPct}%"></div>
             </div>
+            ` : ''}
         </div>
-    `).join('');
+        `;
+    }).join('');
 
     autoSelectSingleAuthor();
 }
@@ -667,16 +713,43 @@ function renderTomorrowOpener(opener) {
     `;
 }
 
-// 7. Важливі контакти
+// 7. Важливі контакти (Акордеон)
+window.toggleEmergencyContacts = function () {
+    triggerHaptic();
+    const listEl = document.getElementById('termEmergencyContactsList');
+    const iconEl = document.getElementById('termContactsToggleIcon');
+    if (!listEl) return;
+
+    terminalState.isContactsExpanded = !terminalState.isContactsExpanded;
+    if (terminalState.isContactsExpanded) {
+        listEl.classList.remove('hidden');
+        if (iconEl) iconEl.style.transform = 'rotate(180deg)';
+    } else {
+        listEl.classList.add('hidden');
+        if (iconEl) iconEl.style.transform = 'rotate(0deg)';
+    }
+};
+
 function renderEmergencyContacts(contacts) {
     const listEl = document.getElementById('termEmergencyContactsList');
+    const countBadge = document.getElementById('termContactsCountBadge');
+    const iconEl = document.getElementById('termContactsToggleIcon');
     if (!listEl) return;
 
     const validContacts = (contacts || []).filter(c => c && (c.title || c.phone));
+    if (countBadge) countBadge.innerText = validContacts.length;
+
+    if (terminalState.isContactsExpanded) {
+        listEl.classList.remove('hidden');
+        if (iconEl) iconEl.style.transform = 'rotate(180deg)';
+    } else {
+        listEl.classList.add('hidden');
+        if (iconEl) iconEl.style.transform = 'rotate(0deg)';
+    }
 
     if (validContacts.length === 0) {
         listEl.innerHTML = `
-            <div class="p-2.5 rounded-lg bg-gray-50 dark:bg-[#2C2C2E] text-center text-xs text-gray-400">
+            <div class="p-2 rounded-lg bg-gray-50 dark:bg-[#2C2C2E] text-center text-xs text-gray-400">
                 Контакти не вказані в налаштуваннях магазину (SM)
             </div>
         `;
@@ -843,10 +916,28 @@ window.switchTermChecklistTab = function (tab) {
     }
 };
 
+window.toggleCompletedChecklistExpand = function () {
+    triggerHaptic();
+    const now = new Date();
+    const isMorning = terminalState.checklistManualTab
+        ? (terminalState.checklistManualTab === 'morning')
+        : (now.getHours() < 14);
+    const checklistType = isMorning ? 'morning' : 'evening';
+    if (!terminalState.checklistForceExpanded) {
+        terminalState.checklistForceExpanded = { morning: false, evening: false };
+    }
+    terminalState.checklistForceExpanded[checklistType] = !terminalState.checklistForceExpanded[checklistType];
+    if (terminalState.store) {
+        renderChecklists(terminalState.store);
+    }
+};
+
 function renderChecklists(store) {
     const titleEl = document.getElementById('termChecklistTitle');
     const badgeEl = document.getElementById('termChecklistBadge');
     const container = document.getElementById('termChecklistItems');
+    const progressBar = document.getElementById('termChecklistProgressBar');
+    const completedBanner = document.getElementById('termChecklistCompletedBanner');
     const tabMorningBtn = document.getElementById('termChecklistTabMorning');
     const tabEveningBtn = document.getElementById('termChecklistTabEvening');
     if (!container || !store) return;
@@ -894,6 +985,14 @@ function renderChecklists(store) {
     const totalItems = items.length;
     const completedItems = isMorning ? morningDoneCount : eveningDoneCount;
     const isAllCompleted = totalItems > 0 && completedItems === totalItems;
+    const pct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+
+    if (progressBar) {
+        progressBar.style.width = `${pct}%`;
+        progressBar.className = isAllCompleted
+            ? "h-full bg-emerald-500 transition-all duration-300"
+            : (isMorning ? "h-full bg-blue-500 transition-all duration-300" : "h-full bg-indigo-500 transition-all duration-300");
+    }
 
     if (badgeEl) {
         if (isAllCompleted) {
@@ -906,6 +1005,31 @@ function renderChecklists(store) {
             badgeEl.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300";
             badgeEl.innerText = isMorning ? 'Відкриття' : 'Закриття';
         }
+    }
+
+    const isForceExpanded = Boolean(terminalState.checklistForceExpanded?.[checklistType]);
+
+    if (completedBanner) {
+        if (isAllCompleted) {
+            completedBanner.classList.remove('hidden');
+            completedBanner.innerHTML = `
+                <div class="flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
+                    <span>✅</span>
+                    <span>${isMorning ? 'Ранковий' : 'Вечірній'} чек-ліст виконано (${completedItems}/${totalItems})</span>
+                </div>
+                <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    ${isForceExpanded ? 'Згорнути ▴' : 'Показати пункти ▾'}
+                </span>
+            `;
+        } else {
+            completedBanner.classList.add('hidden');
+        }
+    }
+
+    if (isAllCompleted && !isForceExpanded) {
+        container.classList.add('hidden');
+    } else {
+        container.classList.remove('hidden');
     }
 
     container.innerHTML = items.map(item => {
@@ -1860,6 +1984,19 @@ function clearCashDraft() {
     } catch (e) { }
 }
 
+function getDenomBadgeStyle(denom) {
+    switch (denom) {
+        case 2000: return 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800/60';
+        case 1000: return 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/60';
+        case 500: return 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/60';
+        case 200: return 'bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-800/60';
+        case 100: return 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800/60';
+        case 50: return 'bg-fuchsia-100 dark:bg-fuchsia-900/40 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-800/60';
+        case 20: return 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60';
+        default: return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
+    }
+}
+
 function initCashCalculator() {
     const rowsContainer = document.getElementById('termDenominationsRows');
     if (!rowsContainer) return;
@@ -1867,19 +2004,20 @@ function initCashCalculator() {
     rowsContainer.dataset.initialized = "true";
 
     rowsContainer.innerHTML = DENOMINATIONS.map(denom => `
-        <div class="grid grid-cols-12 items-center text-xs py-1 px-1 rounded-lg hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors">
-            <div class="col-span-4 font-bold text-gray-700 dark:text-gray-300 font-mono flex items-center gap-1">
-                <span class="w-2 h-2 rounded-full bg-blue-500/60"></span>
-                <span>${denom} грн</span>
+        <div class="grid grid-cols-12 items-center text-xs py-0.5 px-1 rounded-lg hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors">
+            <div class="col-span-4 font-bold font-mono flex items-center">
+                <span class="inline-flex items-center justify-center min-w-[54px] px-1.5 py-0.5 rounded-md border text-[11px] font-extrabold ${getDenomBadgeStyle(denom)}">
+                    ${denom} ₴
+                </span>
             </div>
             <div class="col-span-4 text-center px-1">
                 <input type="number" min="0" data-denom="${denom}" value="" placeholder="0" 
                     oninput="window.calculateCashTotals()" 
                     onkeydown="window.handleCashInputKey(event, ${denom})"
                     onwheel="this.blur()"
-                    class="cash-input no-spin w-full p-1 text-center font-bold font-mono bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs">
+                    class="cash-input no-spin w-full py-0.5 px-1 text-center font-bold font-mono bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs">
             </div>
-            <div class="col-span-4 text-right font-mono font-bold text-gray-900 dark:text-gray-200" id="subtotal-${denom}">
+            <div class="col-span-4 text-right font-mono font-bold text-gray-900 dark:text-gray-200 text-[11px]" id="subtotal-${denom}">
                 0 грн
             </div>
         </div>
