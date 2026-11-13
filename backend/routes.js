@@ -130,5 +130,8 @@ router.get('/terminal/schedule', catchAsync(terminalController.getTerminalSchedu
 router.get('/terminal/alarm/status', catchAsync(terminalController.getAlarmStatus));
 router.post('/terminal/alarm/reopen', catchAsync(terminalController.reopenStore));
 router.post('/terminal/checklist/toggle', catchAsync(terminalController.toggleChecklistItem));
+router.post('/terminal/stock-transfer/parse', upload.single('file'), catchAsync(terminalController.parseStockExcel));
+router.post('/terminal/stock-transfer/settings', catchAsync(terminalController.updateStockTransferSettings));
+router.post('/terminal/stock-transfer/send-telegram', catchAsync(terminalController.sendStockTransferTelegram));
 
 module.exports = router;

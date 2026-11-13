@@ -3217,3 +3217,1048 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+
+// =========================================================================
+// 20. ПІДСОРТ ТОВАРУ ЗІ СКЛАДУ (ПОРІВНЯННЯ EXCEL МАГАЗИН ↔ СКЛАД + НОРМИ)
+// =========================================================================
+
+const DEFAULT_CLIENT_IGNORE_KEYWORDS = ['[MM]', '[ММ]', 'Апгрейд', 'Агрейд', 'Upgrade', 'Послуга', 'Сервіс'];
+
+let stockTransferState = {
+    activeTab: 'compare',
+    filter: 'bring',
+    shopData: null, // { fileName, warehouseName, items, ignoredCount }
+    whData: null,   // { fileName, warehouseName, items, ignoredCount }
+    uncheckedKeys: new Set(),
+    customBringMap: {},
+    computedRows: []
+};
+
+function getStockTransferCacheKey() {
+    const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId') || 'default';
+    return `shifter_stock_transfer_cache_${storeId}`;
+}
+
+function saveStockTransferCache() {
+    try {
+        const key = getStockTransferCacheKey();
+        if (!stockTransferState.shopData && !stockTransferState.whData) {
+            localStorage.removeItem(key);
+            return;
+        }
+        localStorage.setItem(key, JSON.stringify({
+            shopData: stockTransferState.shopData,
+            whData: stockTransferState.whData,
+            updatedAt: Date.now()
+        }));
+    } catch (e) { }
+}
+
+function loadStockTransferCache() {
+    try {
+        const raw = localStorage.getItem(getStockTransferCacheKey());
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && (parsed.shopData || parsed.whData)) {
+            stockTransferState.shopData = parsed.shopData || null;
+            stockTransferState.whData = parsed.whData || null;
+        }
+    } catch (e) { }
+}
+
+function getStoreStockTransferSettings() {
+    const raw = terminalState.store?.stockTransferSettings || {};
+    return {
+        defaultNorm: Number(raw.defaultNorm || 0),
+        ignoreZeroPrice: raw.ignoreZeroPrice !== undefined ? Boolean(raw.ignoreZeroPrice) : true,
+        ignoreKeywords: Array.isArray(raw.ignoreKeywords)
+            ? raw.ignoreKeywords
+            : [...DEFAULT_CLIENT_IGNORE_KEYWORDS],
+        ignoredKeys: Array.isArray(raw.ignoredKeys) ? raw.ignoredKeys : [],
+        norms: Array.isArray(raw.norms) ? raw.norms : []
+    };
+}
+
+function setStoreStockTransferSettings(newSettings) {
+    if (!terminalState.store) terminalState.store = {};
+    terminalState.store.stockTransferSettings = newSettings;
+    const badge = document.getElementById('stockNormsCountBadge');
+    if (badge) {
+        badge.innerText = (newSettings?.norms || []).length;
+    }
+}
+
+function isStockItemIgnoredClient(item, settings) {
+    if (!item || !item.title) return true;
+    if (Array.isArray(settings.ignoredKeys) && settings.ignoredKeys.includes(item.key)) {
+        return true;
+    }
+    const lowerTitle = String(item.title || '').toLowerCase();
+    for (const kw of (settings.ignoreKeywords || [])) {
+        const cleanKw = String(kw || '').trim().toLowerCase();
+        if (cleanKw && lowerTitle.includes(cleanKw)) {
+            return true;
+        }
+    }
+    if (settings.ignoreZeroPrice) {
+        const p = Number(item.price || 0);
+        if (!Number.isFinite(p) || p <= 0) return true;
+    }
+    return false;
+}
+
+window.openStockTransferModal = function () {
+    triggerHaptic();
+    const modal = document.getElementById('termStockTransferModal');
+    if (!modal) return;
+
+    if (!stockTransferState.shopData && !stockTransferState.whData) {
+        loadStockTransferCache();
+    }
+
+    const settings = getStoreStockTransferSettings();
+    const badge = document.getElementById('stockNormsCountBadge');
+    if (badge) badge.innerText = (settings.norms || []).length;
+
+    modal.classList.remove('hidden');
+    window.switchStockTransferTab(stockTransferState.activeTab || 'compare');
+    updateStockDropZoneUI();
+    window.renderStockTransferComparison();
+};
+
+window.closeStockTransferModal = function () {
+    triggerHaptic();
+    document.getElementById('termStockTransferModal')?.classList.add('hidden');
+};
+
+window.switchStockTransferTab = function (tab) {
+    stockTransferState.activeTab = tab === 'settings' ? 'settings' : 'compare';
+
+    const tabCompare = document.getElementById('stockTransferTabCompare');
+    const tabSettings = document.getElementById('stockTransferTabSettings');
+    const btnCompare = document.getElementById('btnStockTransferTabCompare');
+    const btnSettings = document.getElementById('btnStockTransferTabSettings');
+
+    if (stockTransferState.activeTab === 'compare') {
+        tabCompare?.classList.remove('hidden');
+        tabSettings?.classList.add('hidden');
+        if (btnCompare) {
+            btnCompare.className = "px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all bg-white dark:bg-[#2C2C2E] text-indigo-600 dark:text-indigo-400 shadow-2xs";
+        }
+        if (btnSettings) {
+            btnSettings.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-gray-500 hover:text-gray-800 dark:hover:text-gray-200";
+        }
+        window.renderStockTransferComparison();
+    } else {
+        tabCompare?.classList.add('hidden');
+        tabSettings?.classList.remove('hidden');
+        if (btnSettings) {
+            btnSettings.className = "px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all bg-white dark:bg-[#2C2C2E] text-indigo-600 dark:text-indigo-400 shadow-2xs";
+        }
+        if (btnCompare) {
+            btnCompare.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-gray-500 hover:text-gray-800 dark:hover:text-gray-200";
+        }
+        renderStockSettingsTab();
+    }
+};
+
+window.handleStockDragOver = function (e, slot) {
+    e.preventDefault();
+    e.stopPropagation();
+    const zone = document.getElementById(slot === 'shop' ? 'dropZoneShop' : 'dropZoneWarehouse');
+    if (zone) {
+        zone.classList.add('ring-2', 'ring-indigo-500', 'scale-[1.01]');
+    }
+};
+
+window.handleStockDragLeave = function (e, slot) {
+    e.preventDefault();
+    e.stopPropagation();
+    const zone = document.getElementById(slot === 'shop' ? 'dropZoneShop' : 'dropZoneWarehouse');
+    if (zone) {
+        zone.classList.remove('ring-2', 'ring-indigo-500', 'scale-[1.01]');
+    }
+};
+
+window.handleStockFileDrop = async function (e, targetSlot) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.handleStockDragLeave(e, 'shop');
+    window.handleStockDragLeave(e, 'warehouse');
+
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length === 0) return;
+
+    await processUploadedStockFiles(files, targetSlot);
+};
+
+window.handleStockFileInput = async function (e, targetSlot) {
+    const files = Array.from(e.target?.files || []);
+    e.target.value = '';
+    if (files.length === 0) return;
+
+    await processUploadedStockFiles(files, targetSlot);
+};
+
+async function uploadSingleStockExcel(file) {
+    const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+    const fd = new FormData();
+    fd.append('file', file);
+    if (storeId) fd.append('storeId', storeId);
+
+    const resp = await fetch('/api/terminal/stock-transfer/parse', {
+        method: 'POST',
+        body: fd
+    });
+    return await resp.json();
+}
+
+function guessIsWarehouseFile(parsedData) {
+    const str = `${parsedData.warehouseName || ''} ${parsedData.fileName || ''}`.toLowerCase();
+    return str.includes('online') || str.includes('склад') || str.includes('wh') || str.includes('warehouse') || str.includes('opt');
+}
+
+async function processUploadedStockFiles(files, targetSlot) {
+    triggerHaptic();
+    try {
+        if (files.length >= 2) {
+            showToast("Завантаження та аналіз 2 файлів...", "info");
+            const [res1, res2] = await Promise.all([
+                uploadSingleStockExcel(files[0]),
+                uploadSingleStockExcel(files[1])
+            ]);
+
+            if (!res1?.success || !res2?.success) {
+                return showToast(res1?.message || res2?.message || "Помилка читання файлів Excel", "error");
+            }
+
+            if (res2.stockTransferSettings) {
+                setStoreStockTransferSettings(res2.stockTransferSettings);
+            }
+
+            // Якщо один із файлів схожий на склад (напр. містить "online" або "склад"), автоматично ставимо його у слот Складу
+            const is1Wh = guessIsWarehouseFile(res1);
+            const is2Wh = guessIsWarehouseFile(res2);
+
+            if (is1Wh && !is2Wh) {
+                stockTransferState.shopData = res2;
+                stockTransferState.whData = res1;
+            } else if (is2Wh && !is1Wh) {
+                stockTransferState.shopData = res1;
+                stockTransferState.whData = res2;
+            } else if (targetSlot === 'warehouse') {
+                stockTransferState.whData = res1;
+                stockTransferState.shopData = res2;
+            } else {
+                stockTransferState.shopData = res1;
+                stockTransferState.whData = res2;
+            }
+
+            saveStockTransferCache();
+            updateStockDropZoneUI();
+            window.renderStockTransferComparison();
+            showToast("Обидва файли успішно порівняно!", "success");
+        } else {
+            const file = files[0];
+            const res = await uploadSingleStockExcel(file);
+            if (!res?.success) {
+                return showToast(res?.message || "Не вдалося прочитати Excel", "error");
+            }
+
+            if (res.stockTransferSettings) {
+                setStoreStockTransferSettings(res.stockTransferSettings);
+            }
+
+            if (targetSlot === 'warehouse') {
+                stockTransferState.whData = res;
+            } else {
+                stockTransferState.shopData = res;
+            }
+
+            saveStockTransferCache();
+            updateStockDropZoneUI();
+            window.renderStockTransferComparison();
+            showToast(`Завантажено: ${res.warehouseName || res.fileName}`, "success");
+        }
+    } catch (err) {
+        showToast("Помилка при обробці Excel-файлу", "error");
+    }
+}
+
+window.swapStockTransferFiles = function () {
+    triggerHaptic();
+    const tmp = stockTransferState.shopData;
+    stockTransferState.shopData = stockTransferState.whData;
+    stockTransferState.whData = tmp;
+    saveStockTransferCache();
+    updateStockDropZoneUI();
+    window.renderStockTransferComparison();
+    showToast("Файли Магазину та Складу поміняно місцями", "info");
+};
+
+window.clearStockTransferFiles = function () {
+    triggerHaptic();
+    stockTransferState.shopData = null;
+    stockTransferState.whData = null;
+    stockTransferState.uncheckedKeys.clear();
+    stockTransferState.customBringMap = {};
+    saveStockTransferCache();
+    updateStockDropZoneUI();
+    window.renderStockTransferComparison();
+    showToast("Дані порівняння очищено", "info");
+};
+
+function updateStockDropZoneUI() {
+    const shopTitle = document.getElementById('shopFileStatusTitle');
+    const shopSub = document.getElementById('shopFileStatusSub');
+    const shopBadge = document.getElementById('shopFileCountBadge');
+
+    const whTitle = document.getElementById('whFileStatusTitle');
+    const whSub = document.getElementById('whFileStatusSub');
+    const whBadge = document.getElementById('whFileCountBadge');
+
+    const settings = getStoreStockTransferSettings();
+
+    if (stockTransferState.shopData) {
+        const d = stockTransferState.shopData;
+        const validItems = (d.items || []).filter(i => !isStockItemIgnoredClient(i, settings));
+        const totalUnits = validItems.reduce((acc, x) => acc + Number(x.qty || 0), 0);
+        if (shopTitle) shopTitle.innerText = `✅ ${d.warehouseName || d.fileName}`;
+        if (shopSub) shopSub.innerText = `Файл: ${d.fileName} • Всього ${totalUnits} од.`;
+        if (shopBadge) {
+            shopBadge.innerText = `${validItems.length} поз.`;
+            shopBadge.classList.remove('hidden');
+        }
+    } else {
+        if (shopTitle) shopTitle.innerText = 'Перетягніть файл сюди або натисніть';
+        if (shopSub) shopSub.innerText = 'Можна перетягнути одразу 2 файли (Магазин + Склад)';
+        if (shopBadge) shopBadge.classList.add('hidden');
+    }
+
+    if (stockTransferState.whData) {
+        const d = stockTransferState.whData;
+        const validItems = (d.items || []).filter(i => !isStockItemIgnoredClient(i, settings));
+        const totalUnits = validItems.reduce((acc, x) => acc + Number(x.qty || 0), 0);
+        if (whTitle) whTitle.innerText = `✅ ${d.warehouseName || d.fileName}`;
+        if (whSub) whSub.innerText = `Файл: ${d.fileName} • Всього ${totalUnits} од.`;
+        if (whBadge) {
+            whBadge.innerText = `${validItems.length} поз.`;
+            whBadge.classList.remove('hidden');
+        }
+    } else {
+        if (whTitle) whTitle.innerText = 'Перетягніть файл складу сюди або натисніть';
+        if (whSub) whSub.innerText = 'Товари з ціною 0 та [MM]/Апгрейд відсікаються автоматично';
+        if (whBadge) whBadge.classList.add('hidden');
+    }
+}
+
+window.setStockTransferFilter = function (filterKey) {
+    triggerHaptic();
+    stockTransferState.filter = filterKey;
+    document.querySelectorAll('.stock-filter-btn').forEach(btn => {
+        const isActive = btn.getAttribute('data-filter') === filterKey;
+        if (isActive) {
+            btn.className = "stock-filter-btn px-2.5 py-1.5 rounded-xl text-xs font-extrabold bg-indigo-600 text-white shadow-sm transition-all";
+        } else {
+            btn.className = "stock-filter-btn px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-[#1C1C1E] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-indigo-400 transition-all";
+        }
+    });
+    window.renderStockTransferComparison();
+};
+
+function computeStockTransferRows() {
+    const settings = getStoreStockTransferSettings();
+    const normsMap = new Map();
+    for (const n of (settings.norms || [])) {
+        if (n && n.key && !isStockItemIgnoredClient(n, settings)) {
+            normsMap.set(n.key, n);
+        }
+    }
+
+    const shopMap = new Map();
+    let clientIgnoredCount = (stockTransferState.shopData?.ignoredCount || 0) + (stockTransferState.whData?.ignoredCount || 0);
+
+    for (const item of (stockTransferState.shopData?.items || [])) {
+        if (isStockItemIgnoredClient(item, settings)) {
+            clientIgnoredCount++;
+            continue;
+        }
+        shopMap.set(item.key, item);
+    }
+
+    const whMap = new Map();
+    for (const item of (stockTransferState.whData?.items || [])) {
+        if (isStockItemIgnoredClient(item, settings)) {
+            clientIgnoredCount++;
+            continue;
+        }
+        whMap.set(item.key, item);
+    }
+
+    const allKeys = new Set([
+        ...shopMap.keys(),
+        ...whMap.keys()
+    ]);
+
+    // Також додаємо товари з норм, якщо вони задані (> 0), щоб бачити дефіцит
+    if (stockTransferState.shopData || stockTransferState.whData) {
+        for (const [k, n] of normsMap.entries()) {
+            if (Number(n.targetQty || 0) > 0) {
+                allKeys.add(k);
+            }
+        }
+    }
+
+    const rows = [];
+
+    for (const key of allKeys) {
+        const shopItem = shopMap.get(key);
+        const whItem = whMap.get(key);
+        const normItem = normsMap.get(key);
+
+        const title = whItem?.title || shopItem?.title || normItem?.title || key;
+        const color = whItem?.color || shopItem?.color || normItem?.color || '';
+        const baseCode = whItem?.baseCode || shopItem?.baseCode || normItem?.baseCode || '';
+        const price = whItem?.price || shopItem?.price || normItem?.price || 0;
+
+        if (isStockItemIgnoredClient({ key, title, price }, settings)) {
+            continue;
+        }
+
+        const shopQty = shopItem ? Number(shopItem.qty || 0) : 0;
+        const whQty = whItem ? Number(whItem.qty || 0) : 0;
+        const targetQty = normItem !== undefined
+            ? Number(normItem.targetQty || 0)
+            : Number(settings.defaultNorm || 0);
+
+        // Якщо норма задана (> 0), рахуємо дефіцит до норми.
+        // Якщо норма ще 0, але в магазині 0 шт, а на складі є (> 0) — теж показуємо як потребу поповнення!
+        let neededQty = 0;
+        let isUnconfiguredZeroShop = false;
+        if (targetQty > 0) {
+            neededQty = Math.max(0, targetQty - shopQty);
+        } else if (shopQty === 0 && whQty > 0) {
+            neededQty = whQty;
+            isUnconfiguredZeroShop = true;
+        }
+
+        const suggestedBring = Math.min(neededQty, whQty);
+        const toBring = stockTransferState.customBringMap[key] !== undefined
+            ? Math.max(0, Math.min(whQty, Number(stockTransferState.customBringMap[key]) || 0))
+            : suggestedBring;
+
+        const isZeroShop = shopQty === 0 && whQty > 0;
+        const isBelowNorm = shopQty > 0 && targetQty > shopQty && whQty > 0;
+        const isOutWh = whQty === 0 && (shopQty === 0 || (targetQty > 0 && shopQty < targetQty));
+        const isBring = toBring > 0;
+
+        const batchesText = (whItem?.batches || [])
+            .map(b => b.qty > 0 ? `${b.batch} (${b.qty})` : b.batch)
+            .join(', ');
+
+        rows.push({
+            key,
+            title,
+            color,
+            baseCode,
+            price,
+            shopQty,
+            whQty,
+            targetQty,
+            neededQty,
+            suggestedBring,
+            toBring,
+            isUnconfiguredZeroShop,
+            isZeroShop,
+            isBelowNorm,
+            isOutWh,
+            isBring,
+            batchesText
+        });
+    }
+
+    // Сортування: спочатку 0 у магазині (є на складі), потім доповнити до норми, потім решта за алфавітом
+    rows.sort((a, b) => {
+        if (a.isZeroShop !== b.isZeroShop) return a.isZeroShop ? -1 : 1;
+        if (a.isBring !== b.isBring) return a.isBring ? -1 : 1;
+        if (a.isOutWh !== b.isOutWh) return a.isOutWh ? -1 : 1;
+        return String(a.title || '').localeCompare(String(b.title || ''), 'uk');
+    });
+
+    const ignoredBadge = document.getElementById('stockTransferIgnoredBadge');
+    if (ignoredBadge) {
+        if (clientIgnoredCount > 0) {
+            ignoredBadge.innerText = `🚫 Відфільтровано ([MM] / 0 ₴): ${clientIgnoredCount}`;
+            ignoredBadge.classList.remove('hidden');
+        } else {
+            ignoredBadge.classList.add('hidden');
+        }
+    }
+
+    stockTransferState.computedRows = rows;
+    return rows;
+}
+
+window.renderStockTransferComparison = function () {
+    const tbody = document.getElementById('stockTransferTableBody');
+    const summaryEl = document.getElementById('stockTransferSummaryText');
+    if (!tbody) return;
+
+    if (!stockTransferState.shopData && !stockTransferState.whData) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="py-10 text-center text-gray-400 text-xs">
+                    Перетягніть 2 Excel-файли (Магазин та Склад) у верхні блоки, щоб порівняти залишки
+                </td>
+            </tr>
+        `;
+        if (summaryEl) summaryEl.innerText = 'Очікування завантаження файлів (.xlsx)...';
+        ['cntStockBring', 'cntStockZeroShop', 'cntStockBelowNorm', 'cntStockOutWh', 'cntStockAll'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = '0';
+        });
+        return;
+    }
+
+    const rows = computeStockTransferRows();
+    const cntBring = rows.filter(r => r.isBring).length;
+    const cntZeroShop = rows.filter(r => r.isZeroShop).length;
+    const cntBelowNorm = rows.filter(r => r.isBelowNorm).length;
+    const cntOutWh = rows.filter(r => r.isOutWh).length;
+
+    const setCnt = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = val;
+    };
+    setCnt('cntStockBring', cntBring);
+    setCnt('cntStockZeroShop', cntZeroShop);
+    setCnt('cntStockBelowNorm', cntBelowNorm);
+    setCnt('cntStockOutWh', cntOutWh);
+    setCnt('cntStockAll', rows.length);
+
+    const searchVal = (document.getElementById('stockTransferSearchInput')?.value || '').trim().toLowerCase();
+    const activeFilter = stockTransferState.filter || 'bring';
+
+    const filtered = rows.filter(r => {
+        if (activeFilter === 'bring' && !r.isBring) return false;
+        if (activeFilter === 'zero_shop' && !r.isZeroShop) return false;
+        if (activeFilter === 'below_norm' && !r.isBelowNorm) return false;
+        if (activeFilter === 'out_of_wh' && !r.isOutWh) return false;
+
+        if (searchVal) {
+            const hay = `${r.title} ${r.color} ${r.baseCode} ${r.batchesText}`.toLowerCase();
+            if (!hay.includes(searchVal)) return false;
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="py-8 text-center text-gray-400 text-xs">
+                    У цій категорії немає позицій за вашим фільтром
+                </td>
+            </tr>
+        `;
+    } else {
+        tbody.innerHTML = filtered.map(r => {
+            const isChecked = r.isBring && !stockTransferState.uncheckedKeys.has(r.key);
+            const safeKey = r.key.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+
+            let statusTag = '';
+            if (r.isZeroShop) {
+                statusTag = `<span class="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 text-[10px] font-black">🔴 0 у маг.</span>`;
+            } else if (r.isBelowNorm) {
+                statusTag = `<span class="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 text-[10px] font-black">🟡 Доповнити</span>`;
+            } else if (r.isOutWh) {
+                statusTag = `<span class="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold">⚪ 0 на складі</span>`;
+            } else {
+                statusTag = `<span class="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">🟢 В нормі</span>`;
+            }
+
+            const shopBadgeClass = r.shopQty === 0
+                ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/60'
+                : (r.shopQty < r.targetQty
+                    ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60'
+                    : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50');
+
+            return `
+                <tr class="hover:bg-gray-50/90 dark:hover:bg-[#252528]/70 transition-colors ${isChecked ? '' : 'opacity-70'}">
+                    <td class="py-2 px-3 text-center">
+                        ${r.isBring ? `
+                            <input type="checkbox" ${isChecked ? 'checked' : ''}
+                                onchange="window.toggleStockTransferRowCheck('${safeKey}', this.checked)"
+                                class="w-4 h-4 rounded accent-indigo-600 cursor-pointer">
+                        ` : `<span class="text-gray-300 dark:text-gray-700">—</span>`}
+                    </td>
+                    <td class="py-2 px-3">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            ${statusTag}
+                            <span class="font-extrabold text-gray-900 dark:text-white">${r.title}</span>
+                            ${r.color ? `<span class="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-[10px] font-bold">${r.color}</span>` : ''}
+                        </div>
+                        <div class="text-[10px] text-gray-500 dark:text-gray-400 font-mono mt-0.5 flex items-center gap-2 flex-wrap">
+                            ${r.baseCode ? `<span>Код: <b>${r.baseCode}</b></span>` : ''}
+                            ${r.batchesText ? `<span>• Партія складу: <b class="text-indigo-600 dark:text-indigo-400">${r.batchesText}</b></span>` : ''}
+                            ${r.price > 0 ? `<span>• ${r.price} ₴</span>` : ''}
+                            ${r.isUnconfiguredZeroShop ? `<span class="text-amber-600 dark:text-amber-400 font-sans font-bold">• Норма ще не задана (показано весь залишок складу)</span>` : ''}
+                        </div>
+                    </td>
+                    <td class="py-2 px-3 text-center">
+                        <span class="inline-block px-2.5 py-1 rounded-lg border font-mono font-black text-xs ${shopBadgeClass}">
+                            ${r.shopQty} шт
+                        </span>
+                    </td>
+                    <td class="py-2 px-3 text-center">
+                        <div class="inline-flex items-center gap-1 bg-gray-100 dark:bg-[#2C2C2E] p-0.5 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <button type="button" onclick="window.stepInlineStockNorm('${safeKey}', -1)"
+                                class="w-6 h-6 rounded-md bg-white dark:bg-[#1C1C1E] text-gray-600 dark:text-gray-300 hover:bg-gray-200 font-bold text-xs flex items-center justify-center">−</button>
+                            <input type="number" min="0" value="${r.targetQty}"
+                                onchange="window.updateInlineStockNorm('${safeKey}', this.value)"
+                                onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
+                                class="no-spin w-12 text-center font-mono font-black text-xs bg-transparent outline-none text-gray-900 dark:text-white">
+                            <button type="button" onclick="window.stepInlineStockNorm('${safeKey}', 1)"
+                                class="w-6 h-6 rounded-md bg-white dark:bg-[#1C1C1E] text-gray-600 dark:text-gray-300 hover:bg-gray-200 font-bold text-xs flex items-center justify-center">+</button>
+                        </div>
+                    </td>
+                    <td class="py-2 px-3 text-center">
+                        <span class="font-mono font-extrabold text-xs ${r.whQty > 0 ? 'text-purple-700 dark:text-purple-300' : 'text-gray-400'}">
+                            ${r.whQty} шт
+                        </span>
+                    </td>
+                    <td class="py-2 px-3 text-center">
+                        ${r.toBring > 0 ? `
+                            <div class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-600 text-white font-mono font-black text-xs shadow-xs">
+                                <span>+${r.toBring} шт</span>
+                            </div>
+                        ` : `<span class="text-[11px] text-gray-400 font-medium">0 шт</span>`}
+                    </td>
+                    <td class="py-2 px-2 text-center">
+                        <button type="button" onclick="window.ignoreStockProductKey('${safeKey}')"
+                            title="Більше не враховувати цей товар (додати в ігнор)"
+                            class="w-7 h-7 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-gray-400 hover:text-rose-600 transition-colors text-xs">
+                            🚫
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    updateStockTransferSummaryBar();
+};
+
+function updateStockTransferSummaryBar() {
+    const summaryEl = document.getElementById('stockTransferSummaryText');
+    if (!summaryEl) return;
+
+    const selectedRows = (stockTransferState.computedRows || []).filter(
+        r => r.isBring && !stockTransferState.uncheckedKeys.has(r.key)
+    );
+    const totalUnits = selectedRows.reduce((acc, r) => acc + Number(r.toBring || 0), 0);
+
+    if (selectedRows.length === 0) {
+        summaryEl.innerHTML = `<span class="text-gray-500">Немає обраних позицій на переміщення</span>`;
+    } else {
+        summaryEl.innerHTML = `👉 Обрано принести зі складу: <b class="text-indigo-600 dark:text-indigo-400">${selectedRows.length} поз.</b> (всього <b class="text-indigo-600 dark:text-indigo-400">${totalUnits} шт</b>)`;
+    }
+}
+
+window.toggleStockTransferRowCheck = function (key, checked) {
+    if (checked) {
+        stockTransferState.uncheckedKeys.delete(key);
+    } else {
+        stockTransferState.uncheckedKeys.add(key);
+    }
+    updateStockTransferSummaryBar();
+};
+
+window.toggleAllStockTransferCheckboxes = function (checked) {
+    if (checked) {
+        stockTransferState.uncheckedKeys.clear();
+    } else {
+        for (const r of (stockTransferState.computedRows || [])) {
+            if (r.isBring) stockTransferState.uncheckedKeys.add(r.key);
+        }
+    }
+    window.renderStockTransferComparison();
+};
+
+window.stepInlineStockNorm = function (key, delta) {
+    const row = (stockTransferState.computedRows || []).find(r => r.key === key);
+    const curr = row ? Number(row.targetQty || 0) : 0;
+    const next = Math.max(0, curr + delta);
+    window.updateInlineStockNorm(key, next);
+};
+
+window.updateInlineStockNorm = async function (key, newVal) {
+    const targetQty = Math.max(0, parseInt(newVal, 10) || 0);
+    const settings = getStoreStockTransferSettings();
+    const row = (stockTransferState.computedRows || []).find(r => r.key === key);
+    const existing = settings.norms.find(n => n.key === key);
+
+    const normUpdate = {
+        key,
+        targetQty,
+        title: existing?.title || row?.title || key,
+        color: existing?.color || row?.color || '',
+        baseCode: existing?.baseCode || row?.baseCode || '',
+        price: existing?.price || row?.price || 0
+    };
+
+    if (existing) {
+        existing.targetQty = targetQty;
+    } else {
+        settings.norms.push(normUpdate);
+    }
+    setStoreStockTransferSettings(settings);
+
+    if (stockTransferState.activeTab === 'compare') {
+        window.renderStockTransferComparison();
+    } else {
+        window.renderStockNormsCatalog();
+    }
+
+    try {
+        const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+        const res = await postJson('/api/terminal/stock-transfer/settings', {
+            storeId,
+            normUpdate
+        });
+        if (res?.success && res.stockTransferSettings) {
+            setStoreStockTransferSettings(res.stockTransferSettings);
+        }
+    } catch (e) { }
+};
+
+window.ignoreStockProductKey = async function (key) {
+    triggerHaptic();
+    const settings = getStoreStockTransferSettings();
+    if (!settings.ignoredKeys.includes(key)) {
+        settings.ignoredKeys.push(key);
+    }
+    setStoreStockTransferSettings(settings);
+    updateStockDropZoneUI();
+    window.renderStockTransferComparison();
+    if (stockTransferState.activeTab === 'settings') {
+        renderStockSettingsTab();
+    }
+
+    try {
+        const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+        const res = await postJson('/api/terminal/stock-transfer/settings', {
+            storeId,
+            ignoredKeys: settings.ignoredKeys
+        });
+        if (res?.success && res.stockTransferSettings) {
+            setStoreStockTransferSettings(res.stockTransferSettings);
+            showToast("Товар додано в ігнор-список", "info");
+        }
+    } catch (e) { }
+};
+
+window.unignoreStockProductKey = async function (key) {
+    triggerHaptic();
+    const settings = getStoreStockTransferSettings();
+    settings.ignoredKeys = (settings.ignoredKeys || []).filter(k => k !== key);
+    setStoreStockTransferSettings(settings);
+    updateStockDropZoneUI();
+    renderStockSettingsTab();
+    window.renderStockTransferComparison();
+
+    try {
+        const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+        const res = await postJson('/api/terminal/stock-transfer/settings', {
+            storeId,
+            ignoredKeys: settings.ignoredKeys
+        });
+        if (res?.success && res.stockTransferSettings) {
+            setStoreStockTransferSettings(res.stockTransferSettings);
+            showToast("Товар повернуто з ігнору", "success");
+        }
+    } catch (e) { }
+};
+
+// --- ВКЛАДКА НАЛАШТУВАНЬ НОРМ ТА ІГНОРУ ---
+
+function renderStockSettingsTab() {
+    const settings = getStoreStockTransferSettings();
+
+    const chkZero = document.getElementById('chkStockIgnoreZeroPrice');
+    if (chkZero) chkZero.checked = Boolean(settings.ignoreZeroPrice);
+
+    const defInput = document.getElementById('inputDefaultStockNorm');
+    if (defInput) defInput.value = Number(settings.defaultNorm || 0);
+
+    // 1. Рендеримо стоп-слова
+    const kwContainer = document.getElementById('stockIgnoreKeywordsContainer');
+    if (kwContainer) {
+        const kws = settings.ignoreKeywords || [];
+        if (kws.length === 0) {
+            kwContainer.innerHTML = `<span class="text-xs text-gray-400">Немає стоп-слів</span>`;
+        } else {
+            kwContainer.innerHTML = kws.map((kw, idx) => `
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-[#1C1C1E] border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-extrabold shadow-2xs">
+                    <span>${kw}</span>
+                    <button type="button" onclick="window.removeStockIgnoreKeyword(${idx})" class="text-rose-400 hover:text-rose-700 font-black">✕</button>
+                </span>
+            `).join('');
+        }
+    }
+
+    // 2. Рендеримо вручну приховані позиції
+    const manualSection = document.getElementById('stockManualIgnoredSection');
+    const manualList = document.getElementById('stockManualIgnoredList');
+    const ignoredKeys = settings.ignoredKeys || [];
+    if (manualSection && manualList) {
+        if (ignoredKeys.length === 0) {
+            manualSection.classList.add('hidden');
+        } else {
+            manualSection.classList.remove('hidden');
+            manualList.innerHTML = ignoredKeys.map(k => {
+                const normEntry = (settings.norms || []).find(n => n.key === k);
+                const label = normEntry ? normEntry.title : k;
+                const safeKey = k.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+                return `
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-xs font-bold">
+                        <span>🚫 ${label}</span>
+                        <button type="button" onclick="window.unignoreStockProductKey('${safeKey}')" class="text-indigo-600 dark:text-indigo-400 hover:underline font-extrabold ml-1">Повернути</button>
+                    </span>
+                `;
+            }).join('');
+        }
+    }
+
+    window.renderStockNormsCatalog();
+}
+
+window.saveStockIgnoreSettings = async function () {
+    triggerHaptic();
+    const settings = getStoreStockTransferSettings();
+    const chkZero = document.getElementById('chkStockIgnoreZeroPrice');
+    if (chkZero) {
+        settings.ignoreZeroPrice = Boolean(chkZero.checked);
+    }
+    setStoreStockTransferSettings(settings);
+    updateStockDropZoneUI();
+    renderStockSettingsTab();
+
+    try {
+        const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+        const res = await postJson('/api/terminal/stock-transfer/settings', {
+            storeId,
+            ignoreZeroPrice: settings.ignoreZeroPrice,
+            ignoreKeywords: settings.ignoreKeywords
+        });
+        if (res?.success && res.stockTransferSettings) {
+            setStoreStockTransferSettings(res.stockTransferSettings);
+            showToast("Налаштування фільтрації збережено", "success");
+        }
+    } catch (e) { }
+};
+
+window.addStockIgnoreKeyword = async function () {
+    const input = document.getElementById('inputNewIgnoreKeyword');
+    const val = (input?.value || '').trim();
+    if (!val) return;
+
+    const settings = getStoreStockTransferSettings();
+    if (!settings.ignoreKeywords.includes(val)) {
+        settings.ignoreKeywords.push(val);
+    }
+    if (input) input.value = '';
+    await window.saveStockIgnoreSettings();
+};
+
+window.removeStockIgnoreKeyword = async function (idx) {
+    const settings = getStoreStockTransferSettings();
+    settings.ignoreKeywords.splice(idx, 1);
+    await window.saveStockIgnoreSettings();
+};
+
+window.saveDefaultStockNorm = async function () {
+    triggerHaptic();
+    const input = document.getElementById('inputDefaultStockNorm');
+    const defaultNorm = Math.max(0, parseInt(input?.value, 10) || 0);
+    const settings = getStoreStockTransferSettings();
+    settings.defaultNorm = defaultNorm;
+    setStoreStockTransferSettings(settings);
+
+    try {
+        const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+        const res = await postJson('/api/terminal/stock-transfer/settings', {
+            storeId,
+            defaultNorm
+        });
+        if (res?.success && res.stockTransferSettings) {
+            setStoreStockTransferSettings(res.stockTransferSettings);
+            showToast(`Базову норму (${defaultNorm} шт) збережено`, "success");
+        }
+    } catch (e) { }
+};
+
+window.renderStockNormsCatalog = function () {
+    const tbody = document.getElementById('normsCatalogTableBody');
+    if (!tbody) return;
+
+    const settings = getStoreStockTransferSettings();
+    const searchVal = (document.getElementById('normsCatalogSearchInput')?.value || '').trim().toLowerCase();
+
+    const validNorms = (settings.norms || []).filter(n => !isStockItemIgnoredClient(n, settings));
+    const filtered = validNorms.filter(n => {
+        if (!searchVal) return true;
+        const hay = `${n.title || ''} ${n.color || ''} ${n.baseCode || ''}`.toLowerCase();
+        return hay.includes(searchVal);
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="py-6 text-center text-gray-400 text-xs">
+                    ${validNorms.length === 0
+                        ? 'Каталог норм порожній. Перетягніть Excel-файл у вкладці «Порівняння», щоб товари завантажились автоматично.'
+                        : 'За вашим пошуковим запитом товарів не знайдено'}
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(n => {
+        const safeKey = n.key.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+        return `
+            <tr class="hover:bg-gray-50 dark:hover:bg-[#252528]/60 transition-colors">
+                <td class="py-2 px-3">
+                    <span class="font-bold text-gray-900 dark:text-white">${n.title}</span>
+                    ${n.color ? `<span class="ml-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-[10px] font-bold">${n.color}</span>` : ''}
+                </td>
+                <td class="py-2 px-3 font-mono text-[11px] text-gray-500">${n.baseCode || '—'}</td>
+                <td class="py-2 px-3 text-right font-mono text-xs font-bold text-gray-700 dark:text-gray-300">${n.price > 0 ? `${n.price} ₴` : '—'}</td>
+                <td class="py-2 px-3 text-center">
+                    <input type="number" min="0" value="${Number(n.targetQty || 0)}"
+                        onchange="window.updateInlineStockNorm('${safeKey}', this.value)"
+                        onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
+                        class="no-spin w-20 p-1 text-center font-mono font-black text-xs bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500">
+                </td>
+                <td class="py-2 px-2 text-center">
+                    <button type="button" onclick="window.ignoreStockProductKey('${safeKey}')"
+                        title="Приховати в ігнор"
+                        class="w-7 h-7 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-gray-400 hover:text-rose-600 transition-colors text-xs">
+                        🚫
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+};
+
+window.applyBulkStockNorm = async function () {
+    triggerHaptic();
+    const qtyInput = document.getElementById('inputBulkNormQty');
+    const valStr = (qtyInput?.value || '').trim();
+    if (valStr === '') {
+        return showToast("Введіть кількість (шт) для масового встановлення", "warning");
+    }
+    const targetQty = Math.max(0, parseInt(valStr, 10) || 0);
+    const searchVal = (document.getElementById('normsCatalogSearchInput')?.value || '').trim().toLowerCase();
+
+    const settings = getStoreStockTransferSettings();
+    const validNorms = (settings.norms || []).filter(n => !isStockItemIgnoredClient(n, settings));
+    const matching = validNorms.filter(n => {
+        if (!searchVal) return true;
+        const hay = `${n.title || ''} ${n.color || ''} ${n.baseCode || ''}`.toLowerCase();
+        return hay.includes(searchVal);
+    });
+
+    if (matching.length === 0) {
+        return showToast("Немає товарів під поточним фільтром", "warning");
+    }
+
+    const bulkNormUpdates = matching.map(n => {
+        n.targetQty = targetQty;
+        return { key: n.key, targetQty, title: n.title, color: n.color, baseCode: n.baseCode, price: n.price };
+    });
+
+    setStoreStockTransferSettings(settings);
+    window.renderStockNormsCatalog();
+
+    try {
+        const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+        const res = await postJson('/api/terminal/stock-transfer/settings', {
+            storeId,
+            bulkNormUpdates
+        });
+        if (res?.success && res.stockTransferSettings) {
+            setStoreStockTransferSettings(res.stockTransferSettings);
+            showToast(`Встановлено норму ${targetQty} шт для ${bulkNormUpdates.length} товарів!`, "success");
+        }
+    } catch (e) {
+        showToast("Помилка збереження норм", "error");
+    }
+};
+
+// --- КОПІЮВАННЯ ТА ВІДПРАВКА В TELEGRAM ---
+
+function getSelectedTransferItemsForExport() {
+    const rows = stockTransferState.computedRows || computeStockTransferRows();
+    return rows.filter(r => r.isBring && !stockTransferState.uncheckedKeys.has(r.key));
+}
+
+window.copyStockTransferList = async function () {
+    triggerHaptic();
+    const items = getSelectedTransferItemsForExport();
+    if (items.length === 0) {
+        return showToast("Немає позицій для копіювання", "warning");
+    }
+
+    const totalUnits = items.reduce((acc, r) => acc + Number(r.toBring || 0), 0);
+    const lines = items.map((r, i) => {
+        const colorStr = r.color ? ` (${r.color})` : '';
+        const batchStr = r.batchesText ? ` [${r.batchesText}]` : '';
+        return `${i + 1}. ${r.title}${colorStr} — ПРИНЕСТИ: ${r.toBring} шт (Маг: ${r.shopQty} / Норма: ${r.targetQty} / Склад: ${r.whQty})${batchStr}`;
+    });
+
+    const text = `🚚 Список на підсорт зі складу (${items.length} поз., ${totalUnits} шт):\n\n` + lines.join('\n');
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast("Список скопійовано в буфер обміну!", "success");
+    } catch (e) {
+        showToast("Не вдалося скопіювати", "error");
+    }
+};
+
+window.sendStockTransferToTelegram = async function () {
+    triggerHaptic();
+    const items = getSelectedTransferItemsForExport();
+    if (items.length === 0) {
+        return showToast("Оберіть хоча б одну позицію для відправки в Telegram", "warning");
+    }
+
+    const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+    const singleEmp = getSingleActiveShiftEmployee();
+    const stockAuthor = document.getElementById('termStockAuthorSelect')?.value;
+    const cashAuthor = document.getElementById('termCashAuthorSelect')?.value;
+    const author = stockAuthor || cashAuthor || singleEmp?.name || 'Співробітник';
+
+    const btn = document.getElementById('btnSendStockTransferTelegram');
+    if (btn) btn.disabled = true;
+
+    try {
+        const res = await postJson('/api/terminal/stock-transfer/send-telegram', {
+            storeId,
+            author,
+            shopWarehouseName: stockTransferState.shopData?.warehouseName || terminalState.store?.name || 'Магазин',
+            sourceWarehouseName: stockTransferState.whData?.warehouseName || 'Окремий склад',
+            items
+        });
+        if (res && res.success) {
+            showToast("Список на підсорт надіслано в Telegram!", "success");
+        } else {
+            showToast(res?.message || "Не вдалося надіслати в Telegram", "error");
+        }
+    } catch (e) {
+        showToast("Помилка відправки в Telegram", "error");
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+};

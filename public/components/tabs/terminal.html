@@ -47,6 +47,10 @@
                 class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold active:scale-95 transition-all flex items-center gap-1 shadow-sm">
                 <span id="termFullscreenIcon">⛶</span> <span class="hidden sm:inline">На весь екран</span>
             </button>
+            <button onclick="window.openStockTransferModal()" title="Порівняти залишки Магазину та Складу (Excel)"
+                class="px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold active:scale-95 transition-all flex items-center gap-1 shadow-sm">
+                <span>🚚</span> <span>Підсорт зі складу</span>
+            </button>
             <button onclick="window.openTerminalScheduleModal()" title="Переглянути розклад змін магазину"
                 class="px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold active:scale-95 transition-all flex items-center gap-1 shadow-sm">
                 <span>📅</span> <span>Графік змін</span>
@@ -169,6 +173,11 @@
                             💾 Зберегти
                         </button>
                     </div>
+
+                    <button type="button" onclick="window.openStockTransferModal()"
+                        class="w-full mt-1.5 py-2 px-3 rounded-xl bg-indigo-50/90 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200/80 dark:border-indigo-800/70 text-indigo-700 dark:text-indigo-300 font-extrabold text-xs flex items-center justify-center gap-2 active:scale-[0.99] transition-all shadow-2xs">
+                        <span>🚚</span> <span>Підсорт зі складу (Порівняти 2 Excel)</span>
+                    </button>
                 </div>
             </div>
 
@@ -750,5 +759,359 @@
                 <span>🛡️</span> <span>Зрозуміло, йдемо в укриття</span>
             </button>
         </div>
+    </div>
+</div>
+
+
+<!-- МОДАЛЬНЕ ВІКНО: ПІДСОРТ ТОВАРУ ЗІ СКЛАДУ (ПОРІВНЯННЯ 2 EXCEL ФАЙЛІВ: МАГАЗИН ↔ СКЛАД) -->
+<div id="termStockTransferModal"
+    class="hidden fixed inset-0 z-[105] bg-black/70 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+    <div
+        class="ios-card w-full max-w-6xl bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-800 shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
+
+        <!-- Шапка модального вікна -->
+        <div
+            class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex flex-wrap justify-between items-center gap-2 bg-gray-50/70 dark:bg-[#242426]">
+            <div class="flex items-center gap-2.5">
+                <div
+                    class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 flex items-center justify-center text-white text-lg shadow-sm">
+                    🚚
+                </div>
+                <div>
+                    <h3 class="font-extrabold text-sm sm:text-base text-gray-900 dark:text-white leading-tight">
+                        Підсорт товару зі складу (Магазин ↔ Склад)
+                    </h3>
+                    <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                        Перетягніть 2 файли залишків (.xlsx) — система покаже, що і в якій кількості принести в магазин
+                    </p>
+                </div>
+            </div>
+
+            <!-- Перемикач вкладок -->
+            <div class="flex items-center gap-2">
+                <div class="flex bg-gray-200/80 dark:bg-[#161618] p-1 rounded-xl">
+                    <button type="button" id="btnStockTransferTabCompare"
+                        onclick="window.switchStockTransferTab('compare')"
+                        class="px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all bg-white dark:bg-[#2C2C2E] text-indigo-600 dark:text-indigo-400 shadow-2xs">
+                        📊 Порівняння та Список
+                    </button>
+                    <button type="button" id="btnStockTransferTabSettings"
+                        onclick="window.switchStockTransferTab('settings')"
+                        class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
+                        ⚙️ Норми та Ігнор (<span id="stockNormsCountBadge">0</span>)
+                    </button>
+                </div>
+
+                <button type="button" onclick="window.closeStockTransferModal()"
+                    class="w-8 h-8 rounded-full bg-gray-200/70 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:text-gray-800 dark:hover:text-white text-sm font-bold transition-colors">
+                    ✕
+                </button>
+            </div>
+        </div>
+
+        <!-- ВКЛАДКА 1: ПОРІВНЯННЯ ТА СПИСОК НА ПЕРЕМІЩЕННЯ -->
+        <div id="stockTransferTabCompare" class="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 custom-scrollbar">
+
+            <!-- Зона Drag & Drop для 2 файлів -->
+            <div class="grid grid-cols-1 md:grid-cols-11 gap-2.5 items-stretch">
+
+                <!-- Слот 1: Магазин -->
+                <div id="dropZoneShop"
+                    onclick="document.getElementById('inputShopExcel')?.click()"
+                    ondragover="window.handleStockDragOver(event, 'shop')"
+                    ondragleave="window.handleStockDragLeave(event, 'shop')"
+                    ondrop="window.handleStockFileDrop(event, 'shop')"
+                    class="md:col-span-5 p-3 rounded-2xl border-2 border-dashed border-blue-300 dark:border-blue-800/80 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50/80 dark:hover:bg-blue-950/40 cursor-pointer transition-all flex items-center justify-between gap-3">
+                    <input type="file" id="inputShopExcel" accept=".xlsx,.xls" multiple class="hidden"
+                        onchange="window.handleStockFileInput(event, 'shop')">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 flex items-center justify-center text-xl shrink-0">
+                            🏪
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                                1. Залишки МАГАЗИНУ (.xlsx)
+                            </div>
+                            <div id="shopFileStatusTitle"
+                                class="text-xs font-extrabold text-gray-800 dark:text-gray-100 truncate">
+                                Перетягніть файл сюди або натисніть
+                            </div>
+                            <div id="shopFileStatusSub" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                Можна перетягнути одразу 2 файли (Магазин + Склад)
+                            </div>
+                        </div>
+                    </div>
+                    <span id="shopFileCountBadge"
+                        class="hidden px-2 py-1 rounded-lg bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-mono text-[10px] font-black shrink-0">
+                        0 поз.
+                    </span>
+                </div>
+
+                <!-- Кнопка обміну місцями Магазин <-> Склад -->
+                <div class="md:col-span-1 flex items-center justify-center gap-1.5">
+                    <button type="button" onclick="window.swapStockTransferFiles()"
+                        title="Поміняти місцями файли Магазину та Складу"
+                        class="w-full md:w-10 h-9 md:h-10 rounded-xl bg-gray-100 dark:bg-[#2C2C2E] hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 border border-gray-200 dark:border-gray-700 font-black text-xs flex items-center justify-center active:scale-95 transition-all shadow-2xs">
+                        ⇄
+                    </button>
+                    <button type="button" onclick="window.clearStockTransferFiles()"
+                        title="Очистити завантажені файли"
+                        class="w-9 h-9 md:h-10 rounded-xl bg-gray-100 dark:bg-[#2C2C2E] hover:bg-red-100 dark:hover:bg-red-900/40 text-gray-500 hover:text-red-600 border border-gray-200 dark:border-gray-700 font-bold text-xs flex items-center justify-center active:scale-95 transition-all shadow-2xs">
+                        🗑
+                    </button>
+                </div>
+
+                <!-- Слот 2: Окремий Склад -->
+                <div id="dropZoneWarehouse"
+                    onclick="document.getElementById('inputWarehouseExcel')?.click()"
+                    ondragover="window.handleStockDragOver(event, 'warehouse')"
+                    ondragleave="window.handleStockDragLeave(event, 'warehouse')"
+                    ondrop="window.handleStockFileDrop(event, 'warehouse')"
+                    class="md:col-span-5 p-3 rounded-2xl border-2 border-dashed border-purple-300 dark:border-purple-800/80 bg-purple-50/40 dark:bg-purple-950/20 hover:bg-purple-50/80 dark:hover:bg-purple-950/40 cursor-pointer transition-all flex items-center justify-between gap-3">
+                    <input type="file" id="inputWarehouseExcel" accept=".xlsx,.xls" multiple class="hidden"
+                        onchange="window.handleStockFileInput(event, 'warehouse')">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 flex items-center justify-center text-xl shrink-0">
+                            🏭
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                                2. Залишки ОКРЕМОГО СКЛАДУ (.xlsx)
+                            </div>
+                            <div id="whFileStatusTitle"
+                                class="text-xs font-extrabold text-gray-800 dark:text-gray-100 truncate">
+                                Перетягніть файл складу сюди або натисніть
+                            </div>
+                            <div id="whFileStatusSub" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                Товари з ціною 0 та [MM]/Апгрейд відсікаються автоматично
+                            </div>
+                        </div>
+                    </div>
+                    <span id="whFileCountBadge"
+                        class="hidden px-2 py-1 rounded-lg bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-mono text-[10px] font-black shrink-0">
+                        0 поз.
+                    </span>
+                </div>
+
+            </div>
+
+            <!-- Панель швидких фільтрів та пошуку -->
+            <div
+                class="p-2.5 rounded-xl bg-gray-50 dark:bg-[#242426] border border-gray-200/80 dark:border-gray-800 flex flex-wrap items-center justify-between gap-2">
+                <div id="stockTransferFilterBar" class="flex items-center gap-1.5 flex-wrap">
+                    <button type="button" data-filter="bring" onclick="window.setStockTransferFilter('bring')"
+                        class="stock-filter-btn px-2.5 py-1.5 rounded-xl text-xs font-extrabold bg-indigo-600 text-white shadow-sm transition-all">
+                        🔥 Треба принести (<span id="cntStockBring">0</span>)
+                    </button>
+                    <button type="button" data-filter="zero_shop" onclick="window.setStockTransferFilter('zero_shop')"
+                        class="stock-filter-btn px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-[#1C1C1E] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-red-400 transition-all">
+                        🔴 0 у магазині (<span id="cntStockZeroShop">0</span>)
+                    </button>
+                    <button type="button" data-filter="below_norm" onclick="window.setStockTransferFilter('below_norm')"
+                        class="stock-filter-btn px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-[#1C1C1E] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-amber-400 transition-all">
+                        🟡 Доповнити до норми (<span id="cntStockBelowNorm">0</span>)
+                    </button>
+                    <button type="button" data-filter="out_of_wh" onclick="window.setStockTransferFilter('out_of_wh')"
+                        class="stock-filter-btn px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-[#1C1C1E] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 transition-all">
+                        ⚪ Немає на складі (<span id="cntStockOutWh">0</span>)
+                    </button>
+                    <button type="button" data-filter="all" onclick="window.setStockTransferFilter('all')"
+                        class="stock-filter-btn px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-[#1C1C1E] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 transition-all">
+                        📦 Усі позиції (<span id="cntStockAll">0</span>)
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <span id="stockTransferIgnoredBadge"
+                        onclick="window.switchStockTransferTab('settings')"
+                        title="Клікніть, щоб переглянути налаштування ігнорування ([MM], послуги, ціна 0)"
+                        class="hidden cursor-pointer px-2 py-1 rounded-lg bg-gray-200/80 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold hover:text-indigo-500 transition-colors shrink-0">
+                        🚫 Відфільтровано: 0
+                    </span>
+                    <input type="text" id="stockTransferSearchInput"
+                        oninput="window.renderStockTransferComparison()"
+                        placeholder="🔍 Пошук за назвою або кодом..."
+                        class="flex-1 sm:w-56 px-3 py-1.5 text-xs bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+
+            <!-- Таблиця результатів порівняння -->
+            <div class="rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-[#1C1C1E]">
+                <div class="overflow-x-auto max-h-[46vh] custom-scrollbar">
+                    <table class="w-full text-left border-collapse">
+                        <thead
+                            class="sticky top-0 z-10 bg-gray-100/95 dark:bg-[#252528]/95 backdrop-blur-xs text-[10px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800">
+                            <tr>
+                                <th class="py-2.5 px-3 w-8 text-center">
+                                    <input type="checkbox" id="stockTransferSelectAll" checked
+                                        onchange="window.toggleAllStockTransferCheckboxes(this.checked)"
+                                        class="w-4 h-4 rounded accent-indigo-600 cursor-pointer">
+                                </th>
+                                <th class="py-2.5 px-3">Товар / Код та Партія на складі</th>
+                                <th class="py-2.5 px-3 text-center w-28">🏪 В магазині</th>
+                                <th class="py-2.5 px-3 text-center w-36">🎯 Норма маг.</th>
+                                <th class="py-2.5 px-3 text-center w-28">🏭 На складі</th>
+                                <th class="py-2.5 px-3 text-center w-32">👉 Принести</th>
+                                <th class="py-2.5 px-2 text-center w-10" title="Додати товар в ігнор">🚫</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockTransferTableBody" class="divide-y divide-gray-100 dark:divide-gray-800/80 text-xs">
+                            <tr>
+                                <td colspan="7" class="py-10 text-center text-gray-400 text-xs">
+                                    Завантажте або перетягніть 2 Excel-файли (Магазин та Склад) вище, щоб побачити розрахунок підсорту
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ВКЛАДКА 2: НАЛАШТУВАННЯ НОРМ МАГАЗИНУ ТА ПРАВИЛ ІГНОРУВАННЯ -->
+        <div id="stockTransferTabSettings" class="hidden flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-4 custom-scrollbar">
+
+            <!-- Блок 1: Фільтр "Що не враховувати" ([MM], Апгрейд, Ціна 0) -->
+            <div class="p-3.5 rounded-2xl bg-rose-50/40 dark:bg-rose-950/15 border border-rose-200/70 dark:border-rose-900/40 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h4 class="text-xs font-extrabold uppercase tracking-wider text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                            <span>🚫</span> Фільтр технічних позицій (Мікромоменти, Послуги, 0 грн)
+                        </h4>
+                        <p class="text-[11px] text-gray-600 dark:text-gray-400">
+                            Ці позиції автоматично ігноруються в усіх файлах і не потрапляють ні в розрахунок, ні в список норм
+                        </p>
+                    </div>
+                    <label class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-[#1C1C1E] border border-rose-200 dark:border-rose-800 cursor-pointer text-xs font-bold text-gray-800 dark:text-gray-200 shadow-2xs">
+                        <input type="checkbox" id="chkStockIgnoreZeroPrice" checked
+                            onchange="window.saveStockIgnoreSettings()"
+                            class="w-4 h-4 rounded accent-rose-600 cursor-pointer">
+                        <span>Ігнорувати товари з ціною 0 грн</span>
+                    </label>
+                </div>
+
+                <!-- Стоп-слова у назві -->
+                <div class="space-y-1.5">
+                    <div class="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                        Стоп-слова в назві товару (якщо назва містить це слово — позиція ігнорується):
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5" id="stockIgnoreKeywordsContainer">
+                        <!-- Заповнюється динамічно -->
+                    </div>
+                    <div class="flex items-center gap-2 pt-1 max-w-md">
+                        <input type="text" id="inputNewIgnoreKeyword"
+                            onkeydown="if(event.key==='Enter') window.addStockIgnoreKeyword()"
+                            placeholder="Додати стоп-слово (напр.: [MM], Апгрейд, Пакет)..."
+                            class="flex-1 px-3 py-1.5 text-xs bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none">
+                        <button type="button" onclick="window.addStockIgnoreKeyword()"
+                            class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold active:scale-95 transition-all">
+                            + Додати
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Вручну приховані товари -->
+                <div id="stockManualIgnoredSection" class="hidden pt-2 border-t border-rose-200/50 dark:border-rose-900/40">
+                    <div class="text-[11px] font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+                        Приховані вручну позиції (кнопкою 🚫):
+                    </div>
+                    <div id="stockManualIgnoredList" class="flex flex-wrap gap-1.5"></div>
+                </div>
+            </div>
+
+            <!-- Блок 2: Масове налаштування та Довідник норм магазину -->
+            <div class="p-3.5 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/15 border border-indigo-200/70 dark:border-indigo-900/40 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h4 class="text-xs font-extrabold uppercase tracking-wider text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
+                            <span>🎯</span> Цільові норми залишків у магазині
+                        </h4>
+                        <p class="text-[11px] text-gray-600 dark:text-gray-400">
+                            Всі товари із завантажених Excel-файлів автоматично додаються сюди. Задайте, скільки штук кожного товару має підтримуватись у магазині.
+                        </p>
+                    </div>
+
+                    <!-- Базова норма для нових товарів -->
+                    <div class="flex items-center gap-2 bg-white dark:bg-[#1C1C1E] px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-2xs">
+                        <span class="text-xs font-bold text-gray-700 dark:text-gray-300">Норма за замовчуванням:</span>
+                        <input type="number" id="inputDefaultStockNorm" min="0" value="0"
+                            onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
+                            class="no-spin w-16 p-1 text-center text-xs font-mono font-black bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none">
+                        <button type="button" onclick="window.saveDefaultStockNorm()"
+                            class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold active:scale-95 transition-all">
+                            Зберегти
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Панель пошуку та масового застосування норми -->
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <input type="text" id="normsCatalogSearchInput"
+                        oninput="window.renderStockNormsCatalog()"
+                        placeholder="🔍 Фільтр товарів (напр.: ZYN, TEREA, 11mg, Девайс)..."
+                        class="flex-1 min-w-[220px] px-3 py-1.5 text-xs bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
+
+                    <div class="flex items-center gap-1.5 bg-white dark:bg-[#1C1C1E] px-2.5 py-1 rounded-xl border border-gray-200 dark:border-gray-700">
+                        <span class="text-[11px] font-bold text-gray-600 dark:text-gray-300">Встановити всім відфільтрованим:</span>
+                        <input type="number" id="inputBulkNormQty" min="0" placeholder="Шт"
+                            onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
+                            class="no-spin w-16 p-1 text-center text-xs font-mono font-black bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none">
+                        <button type="button" onclick="window.applyBulkStockNorm()"
+                            class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold active:scale-95 transition-all">
+                            Застосувати
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Таблиця каталогу норм -->
+                <div class="rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-[#1C1C1E]">
+                    <div class="overflow-x-auto max-h-[38vh] custom-scrollbar">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="sticky top-0 z-10 bg-gray-100 dark:bg-[#252528] text-[10px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800">
+                                <tr>
+                                    <th class="py-2 px-3">Назва товару</th>
+                                    <th class="py-2 px-3 w-28">Код</th>
+                                    <th class="py-2 px-3 w-24 text-right">Ціна</th>
+                                    <th class="py-2 px-3 w-40 text-center">🎯 Потрібно в маг. (шт)</th>
+                                    <th class="py-2 px-2 w-12 text-center">🚫</th>
+                                </tr>
+                            </thead>
+                            <tbody id="normsCatalogTableBody" class="divide-y divide-gray-100 dark:divide-gray-800 text-xs">
+                                <tr>
+                                    <td colspan="5" class="py-6 text-center text-gray-400 text-xs">
+                                        Завантажте хоча б один файл залишків (.xlsx), щоб каталог автоматично наповнився товарами
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Нижня панель дій -->
+        <div
+            class="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/90 dark:bg-[#242426] flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+                <span id="stockTransferSummaryText" class="text-xs font-extrabold text-gray-800 dark:text-gray-200">
+                    Завантажте обидва файли для розрахунку
+                </span>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap">
+                <button type="button" onclick="window.copyStockTransferList()"
+                    class="px-3.5 py-2 rounded-xl bg-white dark:bg-[#1C1C1E] hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 text-xs font-bold active:scale-95 transition-all flex items-center gap-1.5 shadow-2xs">
+                    <span>📋</span> <span>Скопіювати список</span>
+                </button>
+                <button type="button" id="btnSendStockTransferTelegram" onclick="window.sendStockTransferToTelegram()"
+                    class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-black active:scale-95 transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/20">
+                    <span>📲</span> <span>Відправити список у Telegram</span>
+                </button>
+            </div>
+        </div>
+
     </div>
 </div>

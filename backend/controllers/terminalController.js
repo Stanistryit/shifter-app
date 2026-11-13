@@ -1,5 +1,21 @@
+const ExcelJS = require('exceljs');
 const { Store, User, Shift, Task, CashCount, StockCount, ChecklistProgress } = require('../models');
 const { sendStoreCashReport } = require('../bot/notifications');
+
+const DEFAULT_IGNORE_KEYWORDS = ['[MM]', '[ММ]', 'Апгрейд', 'Агрейд', 'Upgrade', 'Послуга', 'Сервіс'];
+
+function getNormalizedStockTransferSettings(store) {
+    const raw = store?.stockTransferSettings || {};
+    return {
+        defaultNorm: Number(raw.defaultNorm || 0),
+        ignoreZeroPrice: raw.ignoreZeroPrice !== undefined ? Boolean(raw.ignoreZeroPrice) : true,
+        ignoreKeywords: Array.isArray(raw.ignoreKeywords)
+            ? raw.ignoreKeywords
+            : [...DEFAULT_IGNORE_KEYWORDS],
+        ignoredKeys: Array.isArray(raw.ignoredKeys) ? raw.ignoredKeys : [],
+        norms: Array.isArray(raw.norms) ? raw.norms : []
+    };
+}
 
 function formatTerminalStore(store) {
     if (!store) return {};
@@ -16,7 +32,8 @@ function formatTerminalStore(store) {
         alarmDistrict: store.alarmDistrict || '',
         alarmTrackingStart: store.alarmTrackingStart || store.openTime || '10:00',
         alarmTrackingEnd: store.alarmTrackingEnd || store.closeTime || '22:00',
-        alarmTopicId: store.telegram?.alarmTopicId || null
+        alarmTopicId: store.telegram?.alarmTopicId || null,
+        stockTransferSettings: getNormalizedStockTransferSettings(store)
     };
 }
 
@@ -611,4 +628,424 @@ exports.toggleChecklistItem = async (req, res) => {
         items: itemsObj
     });
 };
+
+// =========================================================
+// 13. ПІДСОРТ ТОВАРУ ЗІ СКЛАДУ (ПОРІВНЯННЯ EXCEL МАГАЗИН ↔ СКЛАД)
+// =========================================================
+
+function cellToPrimitive(val) {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'object') {
+        if (val.result !== undefined) return val.result;
+        if (Array.isArray(val.richText)) return val.richText.map(t => t.text || '').join('');
+        if (val.text !== undefined) return val.text;
+    }
+    return val;
+}
+
+function buildStockProductKey(title, color, code) {
+    const baseCode = code ? String(code).split('.')[0].trim().toUpperCase() : '';
+    const cleanColor = color ? String(color).trim().toLowerCase() : '';
+    const cleanTitle = String(title || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+    if (baseCode) {
+        return cleanColor ? `${baseCode}__${cleanColor}` : baseCode;
+    }
+    return cleanColor ? `${cleanTitle}__${cleanColor}` : cleanTitle;
+}
+
+function shouldIgnoreStockItem(item, settings) {
+    if (!item || !item.title) return { ignored: true, reason: 'empty' };
+
+    if (Array.isArray(settings.ignoredKeys) && settings.ignoredKeys.includes(item.key)) {
+        return { ignored: true, reason: 'manual' };
+    }
+
+    const lowerTitle = String(item.title || '').toLowerCase();
+    const keywords = Array.isArray(settings.ignoreKeywords) ? settings.ignoreKeywords : DEFAULT_IGNORE_KEYWORDS;
+    for (const kw of keywords) {
+        const cleanKw = String(kw || '').trim().toLowerCase();
+        if (cleanKw && lowerTitle.includes(cleanKw)) {
+            return { ignored: true, reason: 'keyword', keyword: kw };
+        }
+    }
+
+    if (settings.ignoreZeroPrice) {
+        const priceNum = Number(item.price || 0);
+        if (!Number.isFinite(priceNum) || priceNum <= 0) {
+            return { ignored: true, reason: 'zero_price' };
+        }
+    }
+
+    return { ignored: false };
+}
+
+exports.parseStockExcel = async (req, res) => {
+    let storeId = req.body?.storeId || req.query?.storeId || req.session?.terminalStoreId;
+    if (!storeId && req.user?.storeId) {
+        storeId = req.user.storeId;
+    }
+    if (!storeId) {
+        return res.status(400).json({ success: false, message: "storeId обов'язковий" });
+    }
+    if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ success: false, message: "Файл Excel не передано" });
+    }
+
+    const store = await Store.findById(storeId);
+    if (!store) {
+        return res.status(404).json({ success: false, message: "Магазин не знайдено" });
+    }
+
+    const settings = getNormalizedStockTransferSettings(store);
+
+    const wb = new ExcelJS.Workbook();
+    try {
+        await wb.xlsx.load(req.file.buffer);
+    } catch (err) {
+        return res.status(400).json({
+            success: false,
+            message: "Не вдалося прочитати файл Excel (.xlsx). Перевірте формат файлу."
+        });
+    }
+
+    const ws = wb.worksheets[0];
+    if (!ws || ws.rowCount < 1) {
+        return res.status(400).json({ success: false, message: "Файл порожній" });
+    }
+
+    // Визначаємо колонки за заголовками 1-го рядка (або використовуємо стандартні 1..9)
+    const colMap = {
+        title: 1,
+        color: 2,
+        code: 3,
+        barcode: 4,
+        batch: 5,
+        qty: 6,
+        warehouse: 7,
+        sold: 8,
+        price: 9
+    };
+
+    const headerRow = ws.getRow(1);
+    headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+        const h = String(cellToPrimitive(cell.value) || '').trim().toLowerCase();
+        if (h.includes('назва')) colMap.title = colNumber;
+        else if (h.includes('колір')) colMap.color = colNumber;
+        else if (h.includes('код товару') || h === 'код') colMap.code = colNumber;
+        else if (h.includes('штрих')) colMap.barcode = colNumber;
+        else if (h.includes('партія')) colMap.batch = colNumber;
+        else if (h.includes('кількість') || h.includes('залишок')) colMap.qty = colNumber;
+        else if (h.includes('склад')) colMap.warehouse = colNumber;
+        else if (h.includes('ціна')) colMap.price = colNumber;
+    });
+
+    const groupedMap = new Map();
+    let detectedWarehouse = '';
+
+    for (let r = 2; r <= ws.rowCount; r++) {
+        const row = ws.getRow(r);
+        const rawTitle = String(cellToPrimitive(row.getCell(colMap.title).value) || '').trim();
+        if (!rawTitle) continue;
+        // Пропускаємо можливий підсумковий рядок "Всього" / "Разом"
+        if (/^(всього|разом|итого|total)\b/i.test(rawTitle)) continue;
+
+        const rawColor = String(cellToPrimitive(row.getCell(colMap.color).value) || '').trim();
+        const rawCode = String(cellToPrimitive(row.getCell(colMap.code).value) || '').trim();
+        const rawBarcode = String(cellToPrimitive(row.getCell(colMap.barcode).value) || '').trim();
+        const rawBatch = String(cellToPrimitive(row.getCell(colMap.batch).value) || rawCode || '').trim();
+        const rawQty = parseFloat(String(cellToPrimitive(row.getCell(colMap.qty).value) || '0').replace(',', '.')) || 0;
+        const rawWarehouse = String(cellToPrimitive(row.getCell(colMap.warehouse).value) || '').trim();
+        const rawPrice = parseFloat(String(cellToPrimitive(row.getCell(colMap.price).value) || '0').replace(',', '.')) || 0;
+
+        if (rawWarehouse && !detectedWarehouse) {
+            detectedWarehouse = rawWarehouse;
+        }
+
+        const baseCode = rawCode ? rawCode.split('.')[0].trim().toUpperCase() : '';
+        const key = buildStockProductKey(rawTitle, rawColor, rawCode);
+
+        if (!groupedMap.has(key)) {
+            groupedMap.set(key, {
+                key,
+                title: rawTitle,
+                color: rawColor,
+                baseCode,
+                code: rawCode,
+                barcode: rawBarcode,
+                qty: 0,
+                price: rawPrice,
+                warehouse: rawWarehouse,
+                batches: []
+            });
+        }
+
+        const entry = groupedMap.get(key);
+        entry.qty += rawQty;
+        if (rawPrice > entry.price) entry.price = rawPrice;
+        if (!entry.barcode && rawBarcode) entry.barcode = rawBarcode;
+        if (!entry.baseCode && baseCode) entry.baseCode = baseCode;
+        if (rawBatch) {
+            const existingBatch = entry.batches.find(b => b.batch === rawBatch);
+            if (existingBatch) {
+                existingBatch.qty += rawQty;
+            } else {
+                entry.batches.push({ batch: rawBatch, qty: rawQty });
+            }
+        }
+    }
+
+    const validItems = [];
+    const ignoredItems = [];
+
+    for (const item of groupedMap.values()) {
+        const check = shouldIgnoreStockItem(item, settings);
+        if (check.ignored) {
+            ignoredItems.push({
+                key: item.key,
+                title: item.title,
+                price: item.price,
+                qty: item.qty,
+                reason: check.reason,
+                keyword: check.keyword || null
+            });
+        } else {
+            validItems.push(item);
+        }
+    }
+
+    // Оновлюємо довідник норм магазину (додаємо нові валідні товари та очищуємо ігноровані за правилами)
+    const existingNorms = Array.isArray(settings.norms) ? settings.norms : [];
+    const cleanedNormsMap = new Map();
+
+    for (const n of existingNorms) {
+        if (!n || !n.key) continue;
+        // Якщо товар потрапив під правило ігнору за ключовим словом чи ціною 0 — прибираємо з норм
+        const check = shouldIgnoreStockItem(n, settings);
+        if (check.ignored && check.reason !== 'manual') continue;
+        cleanedNormsMap.set(n.key, { ...n });
+    }
+
+    let normsChanged = cleanedNormsMap.size !== existingNorms.length;
+
+    for (const item of validItems) {
+        if (!cleanedNormsMap.has(item.key)) {
+            cleanedNormsMap.set(item.key, {
+                key: item.key,
+                title: item.title,
+                color: item.color || '',
+                baseCode: item.baseCode || '',
+                barcode: item.barcode || '',
+                price: item.price || 0,
+                targetQty: Number(settings.defaultNorm || 0)
+            });
+            normsChanged = true;
+        } else {
+            const normEntry = cleanedNormsMap.get(item.key);
+            if (item.price > 0 && normEntry.price !== item.price) {
+                normEntry.price = item.price;
+                normsChanged = true;
+            }
+            if (item.barcode && !normEntry.barcode) {
+                normEntry.barcode = item.barcode;
+                normsChanged = true;
+            }
+            if (item.baseCode && !normEntry.baseCode) {
+                normEntry.baseCode = item.baseCode;
+                normsChanged = true;
+            }
+        }
+    }
+
+    if (normsChanged || !store.stockTransferSettings) {
+        const sortedNorms = Array.from(cleanedNormsMap.values()).sort((a, b) =>
+            String(a.title || '').localeCompare(String(b.title || ''), 'uk')
+        );
+        store.stockTransferSettings = {
+            ...settings,
+            norms: sortedNorms
+        };
+        store.markModified('stockTransferSettings');
+        await store.save();
+    }
+
+    // Декодуємо ім'я файлу з latin1 в utf8 за потреби (особливість multer)
+    let fileName = req.file.originalname || 'file.xlsx';
+    try {
+        const decoded = Buffer.from(fileName, 'latin1').toString('utf8');
+        if (!decoded.includes('\ufffd')) fileName = decoded;
+    } catch (e) { }
+
+    res.json({
+        success: true,
+        fileName,
+        warehouseName: detectedWarehouse || fileName.replace(/\.xlsx?$/i, ''),
+        items: validItems,
+        ignoredCount: ignoredItems.length,
+        ignoredItems: ignoredItems.slice(0, 30),
+        stockTransferSettings: getNormalizedStockTransferSettings(store)
+    });
+};
+
+exports.updateStockTransferSettings = async (req, res) => {
+    let storeId = req.body?.storeId || req.query?.storeId || req.session?.terminalStoreId;
+    if (!storeId && req.user?.storeId) {
+        storeId = req.user.storeId;
+    }
+    if (!storeId) {
+        return res.status(400).json({ success: false, message: "storeId обов'язковий" });
+    }
+
+    const store = await Store.findById(storeId);
+    if (!store) {
+        return res.status(404).json({ success: false, message: "Магазин не знайдено" });
+    }
+
+    const settings = getNormalizedStockTransferSettings(store);
+    const {
+        defaultNorm,
+        ignoreZeroPrice,
+        ignoreKeywords,
+        ignoredKeys,
+        normUpdate,
+        bulkNormUpdates,
+        removeNormKey
+    } = req.body;
+
+    if (defaultNorm !== undefined) {
+        settings.defaultNorm = Math.max(0, Number(defaultNorm) || 0);
+    }
+    if (ignoreZeroPrice !== undefined) {
+        settings.ignoreZeroPrice = Boolean(ignoreZeroPrice);
+    }
+    if (Array.isArray(ignoreKeywords)) {
+        settings.ignoreKeywords = ignoreKeywords
+            .map(k => String(k || '').trim())
+            .filter(Boolean);
+    }
+    if (Array.isArray(ignoredKeys)) {
+        settings.ignoredKeys = [...new Set(ignoredKeys.map(k => String(k || '').trim()).filter(Boolean))];
+    }
+
+    const normsMap = new Map();
+    for (const n of (settings.norms || [])) {
+        if (n && n.key) normsMap.set(n.key, { ...n });
+    }
+
+    if (removeNormKey && normsMap.has(removeNormKey)) {
+        normsMap.delete(removeNormKey);
+    }
+
+    if (normUpdate && normUpdate.key) {
+        const existing = normsMap.get(normUpdate.key) || {
+            key: normUpdate.key,
+            title: normUpdate.title || normUpdate.key,
+            color: normUpdate.color || '',
+            baseCode: normUpdate.baseCode || '',
+            barcode: normUpdate.barcode || '',
+            price: Number(normUpdate.price || 0)
+        };
+        existing.targetQty = Math.max(0, Number(normUpdate.targetQty) || 0);
+        if (normUpdate.title) existing.title = normUpdate.title;
+        if (normUpdate.color !== undefined) existing.color = normUpdate.color;
+        if (normUpdate.baseCode) existing.baseCode = normUpdate.baseCode;
+        if (normUpdate.price) existing.price = Number(normUpdate.price);
+        normsMap.set(normUpdate.key, existing);
+    }
+
+    if (Array.isArray(bulkNormUpdates)) {
+        for (const u of bulkNormUpdates) {
+            if (!u || !u.key) continue;
+            const existing = normsMap.get(u.key) || {
+                key: u.key,
+                title: u.title || u.key,
+                color: u.color || '',
+                baseCode: u.baseCode || '',
+                barcode: u.barcode || '',
+                price: Number(u.price || 0)
+            };
+            existing.targetQty = Math.max(0, Number(u.targetQty) || 0);
+            normsMap.set(u.key, existing);
+        }
+    }
+
+    // Очищуємо довідник норм від позицій, які тепер підпадають під стоп-слова або ціну 0
+    for (const [k, n] of normsMap.entries()) {
+        const check = shouldIgnoreStockItem(n, settings);
+        if (check.ignored && check.reason !== 'manual') {
+            normsMap.delete(k);
+        }
+    }
+
+    settings.norms = Array.from(normsMap.values()).sort((a, b) =>
+        String(a.title || '').localeCompare(String(b.title || ''), 'uk')
+    );
+
+    store.stockTransferSettings = settings;
+    store.markModified('stockTransferSettings');
+    await store.save();
+
+    res.json({
+        success: true,
+        stockTransferSettings: getNormalizedStockTransferSettings(store)
+    });
+};
+
+exports.sendStockTransferTelegram = async (req, res) => {
+    let storeId = req.body?.storeId || req.session?.terminalStoreId;
+    if (!storeId && req.user?.storeId) {
+        storeId = req.user.storeId;
+    }
+    const { author, shopWarehouseName, sourceWarehouseName, items } = req.body;
+
+    if (!storeId || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ success: false, message: "Список товарів для відправки порожній" });
+    }
+
+    const store = await Store.findById(storeId);
+    if (!store) {
+        return res.status(404).json({ success: false, message: "Магазин не знайдено" });
+    }
+
+    const timeStr = new Date().toLocaleTimeString('uk-UA', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Europe/Kiev'
+    });
+
+    let totalUnits = 0;
+    const lines = items.map((item, idx) => {
+        const toBring = Number(item.toBring || 0);
+        totalUnits += toBring;
+        const colorPart = item.color ? ` (${item.color})` : '';
+        const batchPart = item.batchesText ? ` | 🏷 <code>${item.batchesText}</code>` : (item.baseCode ? ` | <code>${item.baseCode}</code>` : '');
+        const stockDetails = `(Маг: ${Number(item.shopQty || 0)} / Норма: ${Number(item.targetQty || 0)} / Склад: ${Number(item.whQty || 0)})`;
+        return `${idx + 1}. <b>${item.title}${colorPart}</b>\n   👉 Принести: <b>${toBring} шт</b> ${stockDetails}${batchPart}`;
+    });
+
+    const header =
+        `🚚 <b>Список на підсорт зі складу</b>\n` +
+        (sourceWarehouseName || shopWarehouseName
+            ? `🏭 <code>${sourceWarehouseName || 'Склад'}</code> ➔ 🏪 <code>${shopWarehouseName || store.name}</code>\n`
+            : '') +
+        `👤 Сформував(ла): <b>${author || 'Співробітник'}</b> | 🕒 <b>${timeStr}</b>\n` +
+        `📦 Всього позицій: <b>${items.length}</b> (на <b>${totalUnits} шт</b>)\n\n`;
+
+    // Якщо список дуже великий, розбиваємо на частини до 3800 символів
+    let currentMsg = header;
+    for (const line of lines) {
+        if ((currentMsg + line + '\n\n').length > 3800) {
+            await sendStoreCashReport(store._id, currentMsg.trim());
+            currentMsg = `🚚 <b>Продовження списку на підсорт:</b>\n\n` + line + '\n';
+        } else {
+            currentMsg += line + '\n';
+        }
+    }
+    if (currentMsg.trim()) {
+        await sendStoreCashReport(store._id, currentMsg.trim());
+    }
+
+    res.json({ success: true });
+};
+
 

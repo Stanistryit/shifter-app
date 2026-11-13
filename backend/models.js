@@ -53,6 +53,20 @@ const storeSchema = new mongoose.Schema({
     alarmTrackingEnd: { type: String, default: '22:00' },
     lastAlarmSummaryDate: { type: String, default: null },
 
+    stockTransferSettings: {
+        defaultNorm: { type: Number, default: 0 },
+        ignoreZeroPrice: { type: Boolean, default: true },
+        ignoreKeywords: {
+            type: [String],
+            default: ['[MM]', '[ММ]', 'Апгрейд', 'Агрейд', 'Upgrade', 'Послуга', 'Сервіс']
+        },
+        ignoredKeys: { type: [String], default: [] },
+        norms: {
+            type: [Object],
+            default: []
+        }
+    },
+
     telegram: {
         chatId: { type: Number, default: null },
         newsTopicId: { type: Number, default: null },
