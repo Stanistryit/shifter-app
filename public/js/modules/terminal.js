@@ -582,7 +582,8 @@ function renderActiveShifts(todayShifts, employees) {
         const emp = employees ? employees.find(e => e.name === s.name) : null;
         const displayName = emp ? (emp.fullName || emp.name) : s.name;
         const initials = getInitials(displayName);
-        const pos = emp?.position ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 font-bold ml-1 shrink-0">${emp.position}</span>` : '';
+        const validPos = emp?.position && emp.position !== 'None' && emp.position !== 'null' ? emp.position : '';
+        const pos = validPos ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 font-bold ml-1 shrink-0">${validPos}</span>` : '';
         const badges = getEmployeeBadgesList(emp);
         const info = getShiftStatus(s.start, s.end);
         return { shift: s, emp, displayName, initials, pos, badges, info };
@@ -639,8 +640,10 @@ function renderActiveShifts(todayShifts, employees) {
             <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2 overflow-hidden min-w-0">
                     <div class="relative shrink-0">
-                        <div class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-extrabold ${avatarBg}">
-                            ${x.initials}
+                        <div class="w-8 h-8 rounded-xl overflow-hidden flex items-center justify-center text-[10px] font-extrabold ${avatarBg}">
+                            ${x.emp?.avatar
+                                ? `<img src="${escapeAttr(x.emp.avatar)}" alt="" class="w-full h-full object-cover" onerror="this.parentElement.innerText='${escapeAttr(x.initials)}'">`
+                                : x.initials}
                         </div>
                         <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#1C1C1E] ${x.info.dotClass}"></span>
                     </div>
@@ -721,7 +724,7 @@ window.openTermEmployeeBadgesModal = function (empName) {
     }
     if (nameEl) nameEl.innerText = displayName;
     if (posEl) {
-        if (emp?.position) {
+        if (emp?.position && emp.position !== 'None' && emp.position !== 'null') {
             posEl.innerText = emp.position;
             posEl.classList.remove('hidden');
         } else {
