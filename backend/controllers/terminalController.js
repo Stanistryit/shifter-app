@@ -127,7 +127,12 @@ exports.getTerminalData = async (req, res) => {
     const tomorrowStr = `${ty}-${tm}-${td}`;
 
     // Користувачі магазину (виключаємо звільнених / заблокованих)
-    const allStoreUsers = await User.find({ storeId }, 'name fullName position avatar role status');
+    const allStoreUsers = await User.find(
+        { storeId },
+        'name fullName position avatar role status customBadges createdAt'
+    )
+        .populate('customBadges.issuedBy', 'name fullName')
+        .lean();
     const blockedNames = new Set(allStoreUsers.filter(u => u.status === 'blocked').map(u => u.name));
     const storeUsers = allStoreUsers.filter(u => u.status !== 'blocked');
     const storeUserNames = storeUsers.map(u => u.name);
@@ -142,6 +147,148 @@ exports.getTerminalData = async (req, res) => {
         start: { $nin: ['Відпустка', 'Лікарняний', 'Донорство', 'DELETE'] }
     }).lean();
     const todayShifts = rawTodayShifts.filter(s => !blockedNames.has(s.name));
+
+    // Якщо на зміні сьогодні є гості з інших магазинів — підвантажуємо і їхні профілі/бейджі
+    const guestNames = [...new Set(
+        todayShifts
+            .map(s => s.name)
+            .filter(n => n && !storeUserNames.includes(n) && !blockedNames.has(n))
+    )];
+    const guestUsers = guestNames.length > 0
+        ? await User.find(
+              { name: { $in: guestNames }, status: { $ne: 'blocked' } },
+              'name fullName position avatar role status customBadges createdAt'
+          )
+              .populate('customBadges.issuedBy', 'name fullName')
+              .lean()
+        : [];
+
+    const combinedUsers = [
+        ...storeUsers,
+        ...guestUsers.map(g => ({ ...g, isGuest: true }))
+    ];
+    const combinedUserNames = combinedUsers.map(u => u.name);
+
+    // Обчислюємо бейджі (кастомні + автоматичні досягнення) для співробітників
+    const allUserShifts = combinedUserNames.length > 0
+        ? await Shift.find(
+              { name: { $in: combinedUserNames }, start: { $ne: 'DELETE' } },
+              'name date start end'
+          ).lean()
+        : [];
+
+    const currentMonthPrefix = `${y}-${m}`;
+    const workerStats = {};
+    combinedUserNames.forEach(n => {
+        workerStats[n] = {
+            totalShiftsCount: 0,
+            hasSickLeave: false,
+            hasDonor: false,
+            hasRepair: false,
+            monthHours: 0
+        };
+    });
+
+    allUserShifts.forEach(s => {
+        const st = workerStats[s.name];
+        if (!st) return;
+        st.totalShiftsCount++;
+        if (s.start === 'Лікарняний') st.hasSickLeave = true;
+        if (s.start === 'Донорство') st.hasDonor = true;
+        if (s.start === 'Ремонт' || (s.start === '22:00' && s.end === '06:00')) st.hasRepair = true;
+
+        if (s.date && s.date.startsWith(currentMonthPrefix)) {
+            if (s.start && s.start.includes(':') && s.end && s.end.includes(':')) {
+                let startH = parseInt(s.start.split(':')[0], 10);
+                let endH = parseInt(s.end.split(':')[0], 10);
+                if (!isNaN(startH) && !isNaN(endH)) {
+                    if (endH <= startH) endH += 24;
+                    st.monthHours += (endH - startH);
+                }
+            } else if (s.start === 'Донорство') {
+                st.monthHours += 8;
+            }
+        }
+    });
+
+    const storeMonthHours = storeUserNames.map(n => workerStats[n]?.monthHours || 0);
+    const maxStoreMonthHours = storeMonthHours.length > 0 ? Math.max(...storeMonthHours) : 0;
+    const oneYearAgo = new Date(nowKiev);
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    const resolveAvatar = (u) => {
+        if (!u || !u.avatar) return null;
+        if (typeof u.avatar === 'string' && (u.avatar.startsWith('http://') || u.avatar.startsWith('https://'))) {
+            return u.avatar;
+        }
+        return `/api/avatar/${u._id}`;
+    };
+
+    const enrichedEmployees = combinedUsers.map(u => {
+        const badges = [];
+        if (Array.isArray(u.customBadges)) {
+            u.customBadges.forEach(b => {
+                if (b && (b.emoji || b.name)) {
+                    const issuerName = b.issuedBy ? (b.issuedBy.fullName || b.issuedBy.name) : '';
+                    badges.push({
+                        emoji: b.emoji || '🏅',
+                        title: b.name || 'Нагорода',
+                        category: 'custom',
+                        subtitle: issuerName ? `Відзнака від: ${issuerName}` : 'Персональна відзнака керівника',
+                        issuedAt: b.issuedAt || null
+                    });
+                }
+            });
+        }
+
+        const st = workerStats[u.name];
+        if (u.createdAt && new Date(u.createdAt) < oneYearAgo) {
+            badges.push({
+                emoji: '🎖️',
+                title: 'Ветеран (1 рік+)',
+                category: 'auto',
+                subtitle: 'Понад 1 рік у команді'
+            });
+        }
+        if (st && st.totalShiftsCount > 0 && !st.hasSickLeave) {
+            badges.push({
+                emoji: '🛡️',
+                title: 'Сталевий імунітет',
+                category: 'auto',
+                subtitle: 'Жодного лікарняного за весь час'
+            });
+        }
+        if (st && st.hasDonor) {
+            badges.push({
+                emoji: '🩸',
+                title: 'Донор',
+                category: 'auto',
+                subtitle: 'Участь у донорстві крові'
+            });
+        }
+        if (st && st.hasRepair) {
+            badges.push({
+                emoji: '🦉',
+                title: 'Охоронець ТРЦ',
+                category: 'auto',
+                subtitle: 'Нічні зміни та ремонти (22:00 – 06:00)'
+            });
+        }
+        if (st && maxStoreMonthHours > 0 && st.monthHours === maxStoreMonthHours) {
+            badges.push({
+                emoji: '🔥',
+                title: 'Трудоголік місяця',
+                category: 'auto',
+                subtitle: `Лідер за годинами цього місяця (${st.monthHours} год)`
+            });
+        }
+
+        return {
+            ...u,
+            avatar: resolveAvatar(u),
+            badges
+        };
+    });
 
     // Зміни завтра (щоб дізнатися хто відкриває, крім звільнених)
     const rawTomorrowShifts = await Shift.find({
@@ -222,7 +369,7 @@ exports.getTerminalData = async (req, res) => {
         store: formatTerminalStore(store),
         todayStr,
         tomorrowStr,
-        employees: storeUsers,
+        employees: enrichedEmployees,
         todayShifts,
         tomorrowOpener,
         tasks,

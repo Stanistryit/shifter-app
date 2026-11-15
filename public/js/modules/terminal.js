@@ -571,14 +571,21 @@ function renderActiveShifts(todayShifts, employees) {
         return String(name || 'С').slice(0, 2).toUpperCase();
     };
 
+    const escapeAttr = (str) => String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
     // Визначаємо статус для кожного співробітника
     const items = todayShifts.map(s => {
         const emp = employees ? employees.find(e => e.name === s.name) : null;
         const displayName = emp ? (emp.fullName || emp.name) : s.name;
         const initials = getInitials(displayName);
         const pos = emp?.position ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 font-bold ml-1 shrink-0">${emp.position}</span>` : '';
+        const badges = getEmployeeBadgesList(emp);
         const info = getShiftStatus(s.start, s.end);
-        return { shift: s, emp, displayName, initials, pos, info };
+        return { shift: s, emp, displayName, initials, pos, badges, info };
     });
 
     // Сортування:
@@ -607,19 +614,39 @@ function renderActiveShifts(todayShifts, employees) {
                 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
                 : 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400');
 
+        const safeEmpName = String(x.shift.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const hasBadges = x.badges && x.badges.length > 0;
+        const visibleBadges = hasBadges ? x.badges.slice(0, 4) : [];
+        const extraBadgesCount = hasBadges ? Math.max(0, x.badges.length - 4) : 0;
+        const badgesTooltip = hasBadges
+            ? `Нагороди (${x.badges.length}): ${x.badges.map(b => `${b.emoji} ${b.title}`).join(', ')} — натисніть для перегляду`
+            : 'Натисніть, щоб переглянути нагороди співробітника';
+
+        const badgesInlineHtml = hasBadges ? `
+            <button type="button"
+                onclick="event.stopPropagation(); window.openTermEmployeeBadgesModal('${safeEmpName}')"
+                title="${escapeAttr(badgesTooltip)}"
+                class="ml-1 px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200/80 dark:border-amber-800/60 inline-flex items-center gap-0.5 text-[11px] leading-none shrink-0 cursor-pointer active:scale-95 transition-all shadow-2xs">
+                ${visibleBadges.map(b => `<span>${b.emoji}</span>`).join('')}
+                ${extraBadgesCount > 0 ? `<span class="text-[9px] font-black text-amber-700 dark:text-amber-300 ml-0.5">+${extraBadgesCount}</span>` : ''}
+            </button>
+        ` : '';
+
         return `
-        <div class="relative overflow-hidden p-2 rounded-xl border ${x.info.cardClass}">
+        <div onclick="window.openTermEmployeeBadgesModal('${safeEmpName}')"
+            title="${escapeAttr(badgesTooltip)}"
+            class="relative overflow-hidden p-2 rounded-xl border cursor-pointer hover:border-amber-300 dark:hover:border-amber-800/70 transition-all ${x.info.cardClass}">
             <div class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-2 overflow-hidden">
+                <div class="flex items-center gap-2 overflow-hidden min-w-0">
                     <div class="relative shrink-0">
                         <div class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-extrabold ${avatarBg}">
                             ${x.initials}
                         </div>
                         <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#1C1C1E] ${x.info.dotClass}"></span>
                     </div>
-                    <div class="truncate">
+                    <div class="truncate min-w-0">
                         <div class="text-xs font-bold text-gray-900 dark:text-white flex items-center truncate">
-                            <span class="truncate">${x.displayName}</span> ${x.pos}
+                            <span class="truncate">${x.displayName}</span> ${x.pos} ${badgesInlineHtml}
                         </div>
                         <div class="text-[10px] text-gray-400 font-mono flex items-center gap-1.5">
                             <span>${x.shift.start} - ${x.shift.end}</span>
@@ -644,6 +671,142 @@ function renderActiveShifts(todayShifts, employees) {
 
     autoSelectSingleAuthor();
 }
+
+function getEmployeeBadgesList(emp) {
+    if (!emp) return [];
+    if (Array.isArray(emp.badges)) return emp.badges;
+    if (Array.isArray(emp.customBadges)) {
+        return emp.customBadges
+            .filter(b => b && (b.emoji || b.name))
+            .map(b => ({
+                emoji: b.emoji || '🏅',
+                title: b.name || 'Нагорода',
+                category: 'custom',
+                subtitle: 'Персональна відзнака керівника',
+                issuedAt: b.issuedAt || null
+            }));
+    }
+    return [];
+}
+
+window.openTermEmployeeBadgesModal = function (empName) {
+    triggerHaptic();
+    const modal = document.getElementById('termEmployeeBadgesModal');
+    if (!modal) return;
+
+    const employees = terminalState.employees || [];
+    const todayShifts = terminalState.todayShifts || [];
+    const emp = employees.find(e => e.name === empName) || null;
+    const shift = todayShifts.find(s => s.name === empName) || null;
+
+    const displayName = emp ? (emp.fullName || emp.name) : (empName || 'Співробітник');
+    const parts = String(displayName).trim().split(/\s+/).filter(Boolean);
+    const initials = parts.length >= 2
+        ? (parts[0][0] + parts[1][0]).toUpperCase()
+        : String(displayName || 'С').slice(0, 2).toUpperCase();
+
+    const avatarEl = document.getElementById('termEmpBadgeAvatar');
+    const nameEl = document.getElementById('termEmpBadgeName');
+    const posEl = document.getElementById('termEmpBadgePos');
+    const subEl = document.getElementById('termEmpBadgeSub');
+    const listEl = document.getElementById('termEmpBadgesList');
+    const totalEl = document.getElementById('termEmpBadgesTotalText');
+
+    if (avatarEl) {
+        if (emp?.avatar) {
+            avatarEl.innerHTML = `<img src="${emp.avatar}" alt="" class="w-full h-full object-cover" onerror="this.parentElement.innerText='${initials}'">`;
+        } else {
+            avatarEl.innerText = initials;
+        }
+    }
+    if (nameEl) nameEl.innerText = displayName;
+    if (posEl) {
+        if (emp?.position) {
+            posEl.innerText = emp.position;
+            posEl.classList.remove('hidden');
+        } else {
+            posEl.classList.add('hidden');
+        }
+    }
+    if (subEl) {
+        if (shift) {
+            const info = getShiftStatus(shift.start, shift.end);
+            subEl.innerText = `${info.statusText} • ${shift.start} – ${shift.end}`;
+        } else {
+            subEl.innerText = '🏅 Нагороди та досягнення';
+        }
+    }
+
+    const badges = getEmployeeBadgesList(emp);
+    if (totalEl) {
+        totalEl.innerText = `Всього відзнак: ${badges.length}`;
+    }
+
+    const escapeHtml = (str) => String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+    if (listEl) {
+        if (badges.length === 0) {
+            listEl.innerHTML = `
+                <div class="py-8 px-4 text-center rounded-2xl bg-gray-50 dark:bg-[#242426] border border-dashed border-gray-200 dark:border-gray-800 space-y-1.5">
+                    <div class="text-3xl">🏅</div>
+                    <div class="text-xs font-extrabold text-gray-700 dark:text-gray-200">Поки немає відкритих бейджів</div>
+                    <div class="text-[11px] text-gray-400">Нагороди з'являються автоматично за досягнення або видаються керівником</div>
+                </div>
+            `;
+        } else {
+            listEl.innerHTML = badges.map(b => {
+                const isCustom = b.category === 'custom';
+                const cardClass = isCustom
+                    ? 'bg-gradient-to-r from-purple-50/90 via-amber-50/60 to-amber-50/40 dark:from-purple-950/35 dark:via-amber-950/20 dark:to-[#242426] border-purple-200/80 dark:border-purple-800/60'
+                    : 'bg-gray-50/90 dark:bg-[#242426] border-gray-200/80 dark:border-gray-800';
+                const iconBoxClass = isCustom
+                    ? 'bg-white dark:bg-[#1C1C1E] border border-purple-200/70 dark:border-purple-800/60 shadow-sm'
+                    : 'bg-white dark:bg-[#1C1C1E] border border-gray-200/70 dark:border-gray-700 shadow-2xs';
+                const tagHtml = isCustom
+                    ? `<span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">👑 Відзнака</span>`
+                    : `<span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">⚡ Досягнення</span>`;
+
+                let dateStr = '';
+                if (b.issuedAt) {
+                    try {
+                        dateStr = new Date(b.issuedAt).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    } catch (e) {}
+                }
+
+                return `
+                <div class="p-3 rounded-2xl border ${cardClass} flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-2xl ${iconBoxClass} flex items-center justify-center text-2xl shrink-0">
+                        ${escapeHtml(b.emoji || '🏅')}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs sm:text-sm font-black text-gray-900 dark:text-white truncate">
+                                ${escapeHtml(b.title)}
+                            </span>
+                            ${tagHtml}
+                        </div>
+                        <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 flex items-center justify-between gap-2">
+                            <span class="truncate">${escapeHtml(b.subtitle || (isCustom ? 'Персональна відзнака' : 'Автоматичне досягнення'))}</span>
+                            ${dateStr ? `<span class="text-[10px] font-mono text-gray-400 shrink-0">${dateStr}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+    }
+
+    modal.classList.remove('hidden');
+};
+
+window.closeTermEmployeeBadgesModal = function () {
+    const modal = document.getElementById('termEmployeeBadgesModal');
+    if (modal) modal.classList.add('hidden');
+};
 
 // Визначає єдиного активного співробітника на зміні (якщо зараз працює 1 людина або всього 1 у графіку на день)
 function getSingleActiveShiftEmployee() {
