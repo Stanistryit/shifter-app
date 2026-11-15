@@ -24,6 +24,7 @@ const storeSchema = new mongoose.Schema({
 
     terminalPin: { type: String, default: '1234' },
     emergencyContacts: { type: [Object], default: [] },
+    quickLinks: { type: [Object], default: [] },
     dailyAnnouncement: { type: String, default: '' },
     shiftHandoverNote: {
         text: { type: String, default: '' },

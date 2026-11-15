@@ -352,6 +352,28 @@
                 </div>
             </div>
 
+            <!-- Блок: Швидкі посилання та QR-коди -->
+            <div
+                class="ios-card p-3 bg-white dark:bg-[#1C1C1E] border border-gray-200/80 dark:border-gray-800 shadow-sm">
+                <div class="flex items-center justify-between mb-1.5">
+                    <h3
+                        class="text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                        <span>🔗</span> <span>ШВИДКІ ПОСИЛАННЯ ТА QR</span>
+                        <span id="termQuickLinksCountBadge" class="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500">0</span>
+                    </h3>
+                    <button type="button" onclick="window.openQuickLinksManager()" title="Налаштувати посилання та QR-коди"
+                        class="px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-[#2C2C2E] hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-[10px] font-bold transition-colors flex items-center gap-1">
+                        <span>⚙️</span> <span>Налаштувати</span>
+                    </button>
+                </div>
+                <div id="termQuickLinksGrid" class="grid grid-cols-2 gap-1.5 mt-1">
+                    <button type="button" onclick="window.openQuickLinksManager()"
+                        class="col-span-2 py-2 px-3 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 text-gray-400 hover:text-indigo-500 hover:border-indigo-400 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
+                        <span>➕</span> <span>Додати робочі посилання або QR-коди</span>
+                    </button>
+                </div>
+            </div>
+
             <!-- Блок: Важливі контакти (компактний акордеон) -->
             <div
                 class="ios-card p-3 bg-white dark:bg-[#1C1C1E] border border-gray-200/80 dark:border-gray-800 shadow-sm">
@@ -1228,5 +1250,172 @@
             </div>
         </div>
 
+    </div>
+</div>
+
+
+<!-- МОДАЛЬНЕ ВІКНО ПЕРЕГЛЯДУ QR-КОДУ НА ЕКРАНІ -->
+<div id="termQrCodeViewerModal"
+    onclick="if(event.target===this) window.closeQrCodeViewerModal()"
+    class="hidden fixed inset-0 z-[120] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+    <div class="w-full max-w-sm bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-800 rounded-3xl shadow-2xl overflow-hidden text-center p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 text-left">
+                <span id="qrViewerIcon" class="text-2xl">📱</span>
+                <div>
+                    <h3 id="qrViewerTitle" class="font-extrabold text-base text-gray-900 dark:text-white leading-tight">QR-код</h3>
+                    <p id="qrViewerSubtitle" class="text-[11px] text-gray-500 dark:text-gray-400">Наведіть камеру смартфона</p>
+                </div>
+            </div>
+            <button type="button" onclick="window.closeQrCodeViewerModal()"
+                class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-800 dark:hover:text-white font-bold text-sm flex items-center justify-center">
+                ✕
+            </button>
+        </div>
+
+        <!-- Контейнер білого фону під QR для ідеального сканування -->
+        <div class="mx-auto w-64 h-64 p-3 bg-white rounded-2xl border-2 border-gray-100 shadow-inner flex items-center justify-center">
+            <img id="qrViewerImage" src="" alt="QR Code" class="w-full h-full object-contain rounded-lg">
+        </div>
+
+        <!-- Додаткова інформація для Wi-Fi -->
+        <div id="qrViewerWifiInfoBox" class="hidden p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-left space-y-1 text-xs">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-500 dark:text-gray-400 font-semibold">📶 Мережа (SSID):</span>
+                <span id="qrViewerWifiSsid" class="font-mono font-black text-gray-900 dark:text-white"></span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-gray-500 dark:text-gray-400 font-semibold">🔑 Пароль:</span>
+                <span id="qrViewerWifiPass" class="font-mono font-black text-indigo-600 dark:text-indigo-300"></span>
+            </div>
+        </div>
+
+        <!-- Кнопки дій під QR -->
+        <div class="flex items-center gap-2 pt-1">
+            <button type="button" id="qrViewerCopyBtn" onclick="window.copyActiveQrValue()"
+                class="flex-1 py-2.5 px-3 rounded-xl bg-gray-100 dark:bg-[#2C2C2E] hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold text-xs transition-colors">
+                📋 Скопіювати
+            </button>
+            <a id="qrViewerOpenLinkBtn" href="#" target="_blank" rel="noopener noreferrer"
+                class="hidden flex-1 py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs transition-colors">
+                ↗ Відкрити сайт
+            </a>
+        </div>
+    </div>
+</div>
+
+
+<!-- МОДАЛЬНЕ ВІКНО КОНСТРУКТОРА ШВИДКИХ ПОСИЛАНЬ ТА QR -->
+<div id="termQuickLinksManagerModal"
+    onclick="if(event.target===this) window.closeQuickLinksManager()"
+    class="hidden fixed inset-0 z-[115] bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fade-in">
+    <div class="w-full max-w-xl bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+
+        <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/70 dark:bg-[#242426]">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">🔗</span>
+                <div>
+                    <h3 class="font-extrabold text-sm text-gray-900 dark:text-white leading-tight">
+                        Конструктор швидких посилань та QR-кодів
+                    </h3>
+                    <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                        Додайте робочі сайти, QR-коди для клієнтів або Wi-Fi точки
+                    </p>
+                </div>
+            </div>
+            <button type="button" onclick="window.closeQuickLinksManager()"
+                class="w-8 h-8 rounded-full bg-gray-200/70 dark:bg-gray-800 text-gray-500 hover:text-gray-800 dark:hover:text-white font-bold text-sm flex items-center justify-center">
+                ✕
+            </button>
+        </div>
+
+        <div class="p-4 overflow-y-auto space-y-4 custom-scrollbar flex-1">
+
+            <!-- Форма додавання / редагування кнопки -->
+            <div class="p-3.5 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200/70 dark:border-indigo-900/50 space-y-3">
+                <div class="flex items-center justify-between">
+                    <span id="qlFormHeaderTitle" class="text-xs font-extrabold uppercase tracking-wider text-indigo-900 dark:text-indigo-300">
+                        ➕ Нова кнопка або QR-код
+                    </span>
+                    <button type="button" id="qlCancelEditBtn" onclick="window.resetQuickLinkForm()"
+                        class="hidden text-[11px] font-bold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
+                        ✕ Скасувати редагування
+                    </button>
+                </div>
+
+                <!-- Вибір типу кнопки -->
+                <div class="grid grid-cols-3 gap-1.5 bg-white dark:bg-[#1C1C1E] p-1 rounded-xl border border-gray-200 dark:border-gray-800">
+                    <button type="button" id="qlTypeBtn_link" onclick="window.setQuickLinkFormType('link')"
+                        class="py-1.5 px-2 rounded-lg text-xs font-extrabold bg-indigo-600 text-white transition-all">
+                        🌐 Сайт (вкладка)
+                    </button>
+                    <button type="button" id="qlTypeBtn_qr" onclick="window.setQuickLinkFormType('qr')"
+                        class="py-1.5 px-2 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
+                        📱 QR-код (URL/текст)
+                    </button>
+                    <button type="button" id="qlTypeBtn_wifi" onclick="window.setQuickLinkFormType('wifi')"
+                        class="py-1.5 px-2 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
+                        📶 Wi-Fi QR-код
+                    </button>
+                </div>
+
+                <!-- Іконка та Назва кнопки -->
+                <div class="space-y-1.5">
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="qlInputIcon" value="🌐" maxlength="4"
+                            title="Емодзі або іконка кнопки"
+                            class="w-12 p-2 text-center text-base bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none">
+                        <input type="text" id="qlInputTitle" placeholder="Назва кнопки (напр.: Облік 1С, Відгук Google, Wi-Fi для гостей)..."
+                            class="flex-1 p-2 text-xs font-bold bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <!-- Швидкий вибір іконки -->
+                    <div class="flex items-center gap-1 flex-wrap text-xs">
+                        <span class="text-[10px] text-gray-400 mr-1">Іконка:</span>
+                        <button type="button" onclick="document.getElementById('qlInputIcon').value='🌐'" class="w-6 h-6 rounded hover:bg-white dark:hover:bg-gray-800">🌐</button>
+                        <button type="button" onclick="document.getElementById('qlInputIcon').value='📊'" class="w-6 h-6 rounded hover:bg-white dark:hover:bg-gray-800">📊</button>
+                        <button type="button" onclick="document.getElementById('qlInputIcon').value='📱'" class="w-6 h-6 rounded hover:bg-white dark:hover:bg-gray-800">📱</button>
+                        <button type="button" onclick="document.getElementById('qlInputIcon').value='📶'" class="w-6 h-6 rounded hover:bg-white dark:hover:bg-gray-800">📶</button>
+                        <button type="button" onclick="document.getElementById('qlInputIcon').value='⭐'" class="w-6 h-6 rounded hover:bg-white dark:hover:bg-gray-800">⭐</button>
+                        <button type="button" onclick="document.getElementById('qlInputIcon').value='💬'" class="w-6 h-6 rounded hover:bg-white dark:hover:bg-gray-800">💬</button>
+                        <button type="button" onclick="document.getElementById('qlInputIcon').value='🧾'" class="w-6 h-6 rounded hover:bg-white dark:hover:bg-gray-800">🧾</button>
+                        <button type="button" onclick="document.getElementById('qlInputIcon').value='📦'" class="w-6 h-6 rounded hover:bg-white dark:hover:bg-gray-800">📦</button>
+                        <button type="button" onclick="document.getElementById('qlInputIcon').value='🛠'" class="w-6 h-6 rounded hover:bg-white dark:hover:bg-gray-800">🛠</button>
+                        <button type="button" onclick="document.getElementById('qlInputIcon').value='🏪'" class="w-6 h-6 rounded hover:bg-white dark:hover:bg-gray-800">🏪</button>
+                    </div>
+                </div>
+
+                <!-- Поля для Сайту або QR-коду за посиланням -->
+                <div id="qlUrlFieldsBox" class="space-y-2">
+                    <input type="text" id="qlInputUrl" placeholder="Посилання (https://...) або текст для QR-коду..."
+                        class="w-full p-2 text-xs font-mono bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="qlInputSubtitle" placeholder="Підпис під QR-кодом (необов'язково, напр.: Відскануйте для переходу в бот)..."
+                        class="hidden w-full p-2 text-xs bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none">
+                </div>
+
+                <!-- Поля для Wi-Fi QR-коду -->
+                <div id="qlWifiFieldsBox" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input type="text" id="qlInputWifiSsid" placeholder="📶 Назва мережі Wi-Fi (SSID)..."
+                        class="p-2 text-xs font-mono bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="qlInputWifiPass" placeholder="🔑 Пароль від Wi-Fi (або порожньо)..."
+                        class="p-2 text-xs font-mono bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <button type="button" id="qlSubmitBtn" onclick="window.submitQuickLinkForm()"
+                    class="w-full py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs transition-colors shadow-sm">
+                    ➕ Додати в термінал
+                </button>
+            </div>
+
+            <!-- Список поточних кнопок -->
+            <div class="space-y-2">
+                <div class="text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Ваші кнопки у терміналі:
+                </div>
+                <div id="qlManagerList" class="space-y-1.5">
+                    <!-- Динамічний список -->
+                </div>
+            </div>
+
+        </div>
     </div>
 </div>

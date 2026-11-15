@@ -27,6 +27,7 @@ function formatTerminalStore(store) {
         openTime: store.openTime || "10:00",
         closeTime: store.closeTime || "22:00",
         emergencyContacts: store.emergencyContacts || [],
+        quickLinks: Array.isArray(store.quickLinks) ? store.quickLinks : [],
         dailyAnnouncement: store.dailyAnnouncement || "",
         shiftHandoverNote: store.shiftHandoverNote || { text: "", author: "", updatedAt: null },
         checklists: store.checklists || null,
@@ -1161,6 +1162,49 @@ exports.saveShiftHandoverNote = async (req, res) => {
         shiftHandoverNote: store.shiftHandoverNote
     });
 };
+
+// 15. Швидкі посилання та QR-коди терміналу
+exports.saveQuickLinks = async (req, res) => {
+    let storeId = req.body?.storeId || req.session?.terminalStoreId;
+    if (!storeId && req.user?.storeId) {
+        storeId = req.user.storeId;
+    }
+    if (!storeId) {
+        return res.status(400).json({ success: false, message: "storeId обов'язковий" });
+    }
+
+    const store = await Store.findById(storeId);
+    if (!store) {
+        return res.status(404).json({ success: false, message: "Магазин не знайдено" });
+    }
+
+    const rawLinks = Array.isArray(req.body?.quickLinks) ? req.body.quickLinks : [];
+    const sanitized = rawLinks
+        .filter(item => item && String(item.title || '').trim())
+        .map((item, idx) => {
+            const type = ['link', 'qr', 'wifi'].includes(item.type) ? item.type : 'link';
+            return {
+                id: String(item.id || `ql_${Date.now()}_${idx}`),
+                title: String(item.title || '').trim().slice(0, 60),
+                icon: String(item.icon || (type === 'wifi' ? '📶' : (type === 'qr' ? '📱' : '🌐'))).trim().slice(0, 8),
+                type,
+                url: String(item.url || '').trim(),
+                ssid: String(item.ssid || '').trim(),
+                wifiPass: String(item.wifiPass || '').trim(),
+                subtitle: String(item.subtitle || '').trim().slice(0, 140)
+            };
+        });
+
+    store.quickLinks = sanitized;
+    store.markModified('quickLinks');
+    await store.save();
+
+    res.json({
+        success: true,
+        quickLinks: store.quickLinks
+    });
+};
+
 
 
 

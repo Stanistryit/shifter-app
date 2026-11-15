@@ -134,5 +134,6 @@ router.post('/terminal/stock-transfer/parse', upload.single('file'), catchAsync(
 router.post('/terminal/stock-transfer/settings', catchAsync(terminalController.updateStockTransferSettings));
 router.post('/terminal/stock-transfer/send-telegram', catchAsync(terminalController.sendStockTransferTelegram));
 router.post('/terminal/handover-note', catchAsync(terminalController.saveShiftHandoverNote));
+router.post('/terminal/quick-links', catchAsync(terminalController.saveQuickLinks));
 
 module.exports = router;

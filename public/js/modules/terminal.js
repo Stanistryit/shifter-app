@@ -269,6 +269,11 @@ try {
                     terminalState.store.shiftHandoverNote = data.note;
                 }
                 renderShiftHandoverNote(data.note);
+            } else if (data.type === 'quick_links_update') {
+                if (terminalState.store) {
+                    terminalState.store.quickLinks = data.quickLinks;
+                }
+                renderQuickLinks(data.quickLinks);
             }
         };
     }
@@ -392,6 +397,7 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
             renderActiveShifts(res.todayShifts, res.employees);
             renderTomorrowOpener(res.tomorrowOpener);
             renderShiftHandoverNote(res.store.shiftHandoverNote);
+            renderQuickLinks(res.store.quickLinks);
             renderEmergencyContacts(res.store.emergencyContacts);
             renderTasks(res.tasks);
             renderChecklists(res.store);
@@ -915,6 +921,419 @@ function renderEmergencyContacts(contacts) {
             </a>
         </div>
     `).join('');
+}
+
+// 7.1 Швидкі посилання та QR-коди («🔗 Швидкі посилання та QR»)
+let quickLinksFormState = {
+    editingId: null,
+    type: 'link', // 'link' | 'qr' | 'wifi'
+    activeQrCopyValue: ''
+};
+
+function getStoreQuickLinks() {
+    const raw = terminalState.store?.quickLinks;
+    return Array.isArray(raw) ? raw : [];
+}
+
+function renderQuickLinks(links) {
+    const gridEl = document.getElementById('termQuickLinksGrid');
+    const badgeEl = document.getElementById('termQuickLinksCountBadge');
+    if (!gridEl) return;
+
+    const validLinks = (links || []).filter(item => item && item.title);
+    if (badgeEl) badgeEl.innerText = validLinks.length;
+
+    if (validLinks.length === 0) {
+        gridEl.innerHTML = `
+            <button type="button" onclick="window.openQuickLinksManager()"
+                class="col-span-2 py-2 px-3 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 text-gray-400 hover:text-indigo-500 hover:border-indigo-400 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
+                <span>➕</span> <span>Додати робочі посилання або QR-коди</span>
+            </button>
+        `;
+        return;
+    }
+
+    gridEl.innerHTML = validLinks.map(item => {
+        const isQr = item.type === 'qr' || item.type === 'wifi';
+        const safeId = String(item.id || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+        const badgeHtml = item.type === 'wifi'
+            ? `<span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 shrink-0">Wi-Fi QR</span>`
+            : (item.type === 'qr'
+                ? `<span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 shrink-0">QR</span>`
+                : `<span class="text-[10px] font-bold text-gray-400 shrink-0">↗</span>`);
+
+        const cardStyle = isQr
+            ? 'bg-indigo-50/50 dark:bg-indigo-950/20 hover:bg-indigo-100/70 dark:hover:bg-indigo-900/40 border-indigo-200/70 dark:border-indigo-800/50'
+            : 'bg-gray-50 dark:bg-[#2C2C2E] hover:bg-blue-50/70 dark:hover:bg-blue-950/30 border-gray-200/70 dark:border-gray-800';
+
+        return `
+            <button type="button" onclick="window.triggerQuickLink('${safeId}')"
+                title="${item.title}"
+                class="p-2 rounded-xl border ${cardStyle} flex items-center justify-between gap-1.5 text-left transition-colors group">
+                <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-sm shrink-0">${item.icon || (isQr ? '📱' : '🌐')}</span>
+                    <span class="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">${item.title}</span>
+                </div>
+                ${badgeHtml}
+            </button>
+        `;
+    }).join('');
+}
+
+function normalizeUrlForOpen(url) {
+    const clean = String(url || '').trim();
+    if (!clean) return '';
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(clean)) return clean;
+    return `https://${clean}`;
+}
+
+function escapeWifiField(str) {
+    return String(str || '').replace(/([\\;,:])/g, '\\$1');
+}
+
+window.triggerQuickLink = function (id) {
+    triggerHaptic();
+    const links = getStoreQuickLinks();
+    const item = links.find(x => String(x.id) === String(id));
+    if (!item) return;
+
+    if (item.type === 'link') {
+        const fullUrl = normalizeUrlForOpen(item.url);
+        if (!fullUrl) return showToast("Посилання не вказано", "warning");
+        window.open(fullUrl, '_blank', 'noopener,noreferrer');
+    } else {
+        openQrCodeViewer(item);
+    }
+};
+
+function openQrCodeViewer(item) {
+    const modal = document.getElementById('termQrCodeViewerModal');
+    const iconEl = document.getElementById('qrViewerIcon');
+    const titleEl = document.getElementById('qrViewerTitle');
+    const subEl = document.getElementById('qrViewerSubtitle');
+    const imgEl = document.getElementById('qrViewerImage');
+    const wifiBox = document.getElementById('qrViewerWifiInfoBox');
+    const wifiSsidEl = document.getElementById('qrViewerWifiSsid');
+    const wifiPassEl = document.getElementById('qrViewerWifiPass');
+    const openLinkBtn = document.getElementById('qrViewerOpenLinkBtn');
+    const copyBtn = document.getElementById('qrViewerCopyBtn');
+
+    if (!modal || !imgEl) return;
+
+    if (iconEl) iconEl.innerText = item.icon || (item.type === 'wifi' ? '📶' : '📱');
+    if (titleEl) titleEl.innerText = item.title || 'QR-код';
+
+    let qrPayload = '';
+    if (item.type === 'wifi') {
+        const encType = item.wifiPass ? 'WPA' : 'nopass';
+        qrPayload = `WIFI:T:${encType};S:${escapeWifiField(item.ssid)};P:${escapeWifiField(item.wifiPass)};;`;
+        quickLinksFormState.activeQrCopyValue = item.wifiPass || item.ssid || '';
+        if (subEl) subEl.innerText = 'Наведіть камеру для підключення до Wi-Fi';
+        if (wifiBox) wifiBox.classList.remove('hidden');
+        if (wifiSsidEl) wifiSsidEl.innerText = item.ssid || '—';
+        if (wifiPassEl) wifiPassEl.innerText = item.wifiPass || 'Без пароля';
+        if (openLinkBtn) openLinkBtn.classList.add('hidden');
+        if (copyBtn) copyBtn.innerText = item.wifiPass ? '📋 Скопіювати пароль' : '📋 Скопіювати назву';
+    } else {
+        qrPayload = String(item.url || '').trim();
+        quickLinksFormState.activeQrCopyValue = qrPayload;
+        if (subEl) subEl.innerText = item.subtitle || 'Наведіть камеру смартфона на QR-код';
+        if (wifiBox) wifiBox.classList.add('hidden');
+        if (copyBtn) copyBtn.innerText = '📋 Скопіювати';
+
+        const looksLikeUrl = /^(https?:\/\/|t\.me\/|www\.|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/i.test(qrPayload);
+        if (openLinkBtn) {
+            if (looksLikeUrl) {
+                openLinkBtn.href = normalizeUrlForOpen(qrPayload);
+                openLinkBtn.classList.remove('hidden');
+            } else {
+                openLinkBtn.classList.add('hidden');
+            }
+        }
+    }
+
+    const encoded = encodeURIComponent(qrPayload || 'https://google.com');
+    const primarySrc = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=10&data=${encoded}`;
+    const fallbackSrc = `https://quickchart.io/qr?size=320&margin=2&text=${encoded}`;
+
+    imgEl.onerror = () => {
+        if (imgEl.src !== fallbackSrc) {
+            imgEl.src = fallbackSrc;
+        }
+    };
+    imgEl.src = primarySrc;
+
+    modal.classList.remove('hidden');
+}
+
+window.closeQrCodeViewerModal = function () {
+    document.getElementById('termQrCodeViewerModal')?.classList.add('hidden');
+};
+
+window.copyActiveQrValue = async function () {
+    triggerHaptic();
+    const val = quickLinksFormState.activeQrCopyValue;
+    if (!val) return;
+    try {
+        await navigator.clipboard.writeText(val);
+        showToast("Скопійовано в буфер обміну 📋", "success");
+    } catch (e) {
+        showToast("Не вдалося скопіювати", "error");
+    }
+};
+
+window.openQuickLinksManager = function () {
+    triggerHaptic();
+    const modal = document.getElementById('termQuickLinksManagerModal');
+    if (!modal) return;
+    window.resetQuickLinkForm();
+    renderQuickLinksManagerList();
+    modal.classList.remove('hidden');
+};
+
+window.closeQuickLinksManager = function () {
+    document.getElementById('termQuickLinksManagerModal')?.classList.add('hidden');
+};
+
+window.setQuickLinkFormType = function (type) {
+    quickLinksFormState.type = ['link', 'qr', 'wifi'].includes(type) ? type : 'link';
+
+    ['link', 'qr', 'wifi'].forEach(t => {
+        const btn = document.getElementById(`qlTypeBtn_${t}`);
+        if (!btn) return;
+        if (t === quickLinksFormState.type) {
+            btn.className = "py-1.5 px-2 rounded-lg text-xs font-extrabold bg-indigo-600 text-white transition-all";
+        } else {
+            btn.className = "py-1.5 px-2 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all";
+        }
+    });
+
+    const urlBox = document.getElementById('qlUrlFieldsBox');
+    const wifiBox = document.getElementById('qlWifiFieldsBox');
+    const subInput = document.getElementById('qlInputSubtitle');
+    const iconInput = document.getElementById('qlInputIcon');
+
+    if (quickLinksFormState.type === 'wifi') {
+        urlBox?.classList.add('hidden');
+        wifiBox?.classList.remove('hidden');
+        if (iconInput && (iconInput.value === '🌐' || iconInput.value === '📱')) iconInput.value = '📶';
+    } else {
+        wifiBox?.classList.add('hidden');
+        urlBox?.classList.remove('hidden');
+        if (quickLinksFormState.type === 'qr') {
+            subInput?.classList.remove('hidden');
+            if (iconInput && (iconInput.value === '🌐' || iconInput.value === '📶')) iconInput.value = '📱';
+        } else {
+            subInput?.classList.add('hidden');
+            if (iconInput && (iconInput.value === '📱' || iconInput.value === '📶')) iconInput.value = '🌐';
+        }
+    }
+};
+
+window.resetQuickLinkForm = function () {
+    quickLinksFormState.editingId = null;
+    const headerTitle = document.getElementById('qlFormHeaderTitle');
+    const cancelBtn = document.getElementById('qlCancelEditBtn');
+    const submitBtn = document.getElementById('qlSubmitBtn');
+
+    if (headerTitle) headerTitle.innerText = '➕ Нова кнопка або QR-код';
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+    if (submitBtn) submitBtn.innerText = '➕ Додати в термінал';
+
+    const iconInput = document.getElementById('qlInputIcon');
+    const titleInput = document.getElementById('qlInputTitle');
+    const urlInput = document.getElementById('qlInputUrl');
+    const subInput = document.getElementById('qlInputSubtitle');
+    const ssidInput = document.getElementById('qlInputWifiSsid');
+    const passInput = document.getElementById('qlInputWifiPass');
+
+    if (iconInput) iconInput.value = '🌐';
+    if (titleInput) titleInput.value = '';
+    if (urlInput) urlInput.value = '';
+    if (subInput) subInput.value = '';
+    if (ssidInput) ssidInput.value = '';
+    if (passInput) passInput.value = '';
+
+    window.setQuickLinkFormType('link');
+};
+
+window.editQuickLinkItem = function (id) {
+    triggerHaptic();
+    const links = getStoreQuickLinks();
+    const item = links.find(x => String(x.id) === String(id));
+    if (!item) return;
+
+    quickLinksFormState.editingId = item.id;
+    window.setQuickLinkFormType(item.type || 'link');
+
+    const headerTitle = document.getElementById('qlFormHeaderTitle');
+    const cancelBtn = document.getElementById('qlCancelEditBtn');
+    const submitBtn = document.getElementById('qlSubmitBtn');
+
+    if (headerTitle) headerTitle.innerText = `✏️ Редагування: ${item.title}`;
+    if (cancelBtn) cancelBtn.classList.remove('hidden');
+    if (submitBtn) submitBtn.innerText = '💾 Зберегти зміни';
+
+    const iconInput = document.getElementById('qlInputIcon');
+    const titleInput = document.getElementById('qlInputTitle');
+    const urlInput = document.getElementById('qlInputUrl');
+    const subInput = document.getElementById('qlInputSubtitle');
+    const ssidInput = document.getElementById('qlInputWifiSsid');
+    const passInput = document.getElementById('qlInputWifiPass');
+
+    if (iconInput) iconInput.value = item.icon || '🌐';
+    if (titleInput) titleInput.value = item.title || '';
+    if (urlInput) urlInput.value = item.url || '';
+    if (subInput) subInput.value = item.subtitle || '';
+    if (ssidInput) ssidInput.value = item.ssid || '';
+    if (passInput) passInput.value = item.wifiPass || '';
+};
+
+window.submitQuickLinkForm = async function () {
+    triggerHaptic();
+    const type = quickLinksFormState.type || 'link';
+    const icon = (document.getElementById('qlInputIcon')?.value || '').trim() || (type === 'wifi' ? '📶' : (type === 'qr' ? '📱' : '🌐'));
+    const title = (document.getElementById('qlInputTitle')?.value || '').trim();
+    const url = (document.getElementById('qlInputUrl')?.value || '').trim();
+    const subtitle = (document.getElementById('qlInputSubtitle')?.value || '').trim();
+    const ssid = (document.getElementById('qlInputWifiSsid')?.value || '').trim();
+    const wifiPass = (document.getElementById('qlInputWifiPass')?.value || '').trim();
+
+    if (!title) {
+        return showToast("Вкажіть назву кнопки", "warning");
+    }
+    if (type === 'wifi' && !ssid) {
+        return showToast("Вкажіть назву мережі Wi-Fi (SSID)", "warning");
+    }
+    if ((type === 'link' || type === 'qr') && !url) {
+        return showToast("Вкажіть посилання (URL) або текст для QR-коду", "warning");
+    }
+
+    const links = [...getStoreQuickLinks()];
+    const newItem = {
+        id: quickLinksFormState.editingId || `ql_${Date.now()}`,
+        title,
+        icon,
+        type,
+        url,
+        subtitle,
+        ssid,
+        wifiPass
+    };
+
+    if (quickLinksFormState.editingId) {
+        const idx = links.findIndex(x => String(x.id) === String(quickLinksFormState.editingId));
+        if (idx >= 0) {
+            links[idx] = newItem;
+        } else {
+            links.push(newItem);
+        }
+    } else {
+        links.push(newItem);
+    }
+
+    await persistQuickLinks(links, quickLinksFormState.editingId ? "Кнопку оновлено!" : "Кнопку додано в термінал!");
+    window.resetQuickLinkForm();
+};
+
+window.deleteQuickLinkItem = async function (id) {
+    triggerHaptic();
+    const links = getStoreQuickLinks().filter(x => String(x.id) !== String(id));
+    await persistQuickLinks(links, "Кнопку видалено");
+};
+
+window.moveQuickLinkItem = async function (idx, dir) {
+    triggerHaptic();
+    const links = [...getStoreQuickLinks()];
+    const targetIdx = idx + dir;
+    if (targetIdx < 0 || targetIdx >= links.length) return;
+    const tmp = links[idx];
+    links[idx] = links[targetIdx];
+    links[targetIdx] = tmp;
+    await persistQuickLinks(links);
+};
+
+async function persistQuickLinks(links, toastMsg = null) {
+    if (!terminalState.store) terminalState.store = {};
+    terminalState.store.quickLinks = links;
+    renderQuickLinks(links);
+    renderQuickLinksManagerList();
+
+    try {
+        const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+        const res = await postJson('/api/terminal/quick-links', {
+            storeId,
+            quickLinks: links
+        });
+        if (res && res.success) {
+            terminalState.store.quickLinks = res.quickLinks;
+            renderQuickLinks(res.quickLinks);
+            renderQuickLinksManagerList();
+            if (terminalSyncChannel && storeId) {
+                terminalSyncChannel.postMessage({
+                    type: 'quick_links_update',
+                    storeId,
+                    quickLinks: res.quickLinks
+                });
+            }
+            if (toastMsg) showToast(toastMsg, "success");
+        }
+    } catch (e) {
+        showToast("Помилка збереження швидких посилань", "error");
+    }
+}
+
+function renderQuickLinksManagerList() {
+    const listEl = document.getElementById('qlManagerList');
+    if (!listEl) return;
+
+    const links = getStoreQuickLinks();
+    if (links.length === 0) {
+        listEl.innerHTML = `
+            <div class="p-4 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] text-center text-xs text-gray-400">
+                Ще не додано жодної кнопки. Скористайтеся формою вище, щоб додати робочий сайт, QR-код або Wi-Fi!
+            </div>
+        `;
+        return;
+    }
+
+    listEl.innerHTML = links.map((item, idx) => {
+        const safeId = String(item.id || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+        const typeLabel = item.type === 'wifi'
+            ? `<span class="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[10px] font-bold">📶 Wi-Fi QR (${item.ssid})</span>`
+            : (item.type === 'qr'
+                ? `<span class="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">📱 QR-код</span>`
+                : `<span class="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[10px] font-bold">🌐 Сайт ↗</span>`);
+
+        const detailText = item.type === 'wifi'
+            ? `Мережа: ${item.ssid} • Пароль: ${item.wifiPass || 'без пароля'}`
+            : (item.url || '');
+
+        return `
+            <div class="p-2.5 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200/70 dark:border-gray-800 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="text-base shrink-0">${item.icon || '🌐'}</span>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="text-xs font-extrabold text-gray-900 dark:text-white truncate">${item.title}</span>
+                            ${typeLabel}
+                        </div>
+                        <div class="text-[10px] font-mono text-gray-500 dark:text-gray-400 truncate mt-0.5">${detailText}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <button type="button" onclick="window.moveQuickLinkItem(${idx}, -1)" ${idx === 0 ? 'disabled' : ''}
+                        class="w-6 h-6 rounded-lg bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-gray-800 disabled:opacity-30 text-[10px] font-bold">↑</button>
+                    <button type="button" onclick="window.moveQuickLinkItem(${idx}, 1)" ${idx === links.length - 1 ? 'disabled' : ''}
+                        class="w-6 h-6 rounded-lg bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-gray-800 disabled:opacity-30 text-[10px] font-bold">↓</button>
+                    <button type="button" onclick="window.editQuickLinkItem('${safeId}')" title="Редагувати"
+                        class="w-7 h-7 rounded-lg bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 text-indigo-600 hover:bg-indigo-50 text-xs">✏️</button>
+                    <button type="button" onclick="window.deleteQuickLinkItem('${safeId}')" title="Видалити"
+                        class="w-7 h-7 rounded-lg bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 text-rose-500 hover:bg-rose-50 text-xs">🗑</button>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 // 8. Оперативні задачі
