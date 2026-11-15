@@ -133,5 +133,6 @@ router.post('/terminal/checklist/toggle', catchAsync(terminalController.toggleCh
 router.post('/terminal/stock-transfer/parse', upload.single('file'), catchAsync(terminalController.parseStockExcel));
 router.post('/terminal/stock-transfer/settings', catchAsync(terminalController.updateStockTransferSettings));
 router.post('/terminal/stock-transfer/send-telegram', catchAsync(terminalController.sendStockTransferTelegram));
+router.post('/terminal/handover-note', catchAsync(terminalController.saveShiftHandoverNote));
 
 module.exports = router;

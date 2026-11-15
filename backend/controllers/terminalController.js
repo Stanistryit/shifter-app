@@ -28,6 +28,7 @@ function formatTerminalStore(store) {
         closeTime: store.closeTime || "22:00",
         emergencyContacts: store.emergencyContacts || [],
         dailyAnnouncement: store.dailyAnnouncement || "",
+        shiftHandoverNote: store.shiftHandoverNote || { text: "", author: "", updatedAt: null },
         checklists: store.checklists || null,
         alarmRegion: store.alarmRegion || 'м. Київ',
         alarmDistrict: store.alarmDistrict || '',
@@ -1119,5 +1120,47 @@ exports.sendStockTransferTelegram = async (req, res) => {
 
     res.json({ success: true });
 };
+
+// 14. Нотатка для наступної зміни («Передати зміні»)
+exports.saveShiftHandoverNote = async (req, res) => {
+    let storeId = req.body?.storeId || req.session?.terminalStoreId;
+    if (!storeId && req.user?.storeId) {
+        storeId = req.user.storeId;
+    }
+    if (!storeId) {
+        return res.status(400).json({ success: false, message: "storeId обов'язковий" });
+    }
+
+    const store = await Store.findById(storeId);
+    if (!store) {
+        return res.status(404).json({ success: false, message: "Магазин не знайдено" });
+    }
+
+    const cleanText = String(req.body?.text || '').trim();
+    const cleanAuthor = String(req.body?.author || 'Співробітник').trim();
+
+    if (cleanText) {
+        store.shiftHandoverNote = {
+            text: cleanText,
+            author: cleanAuthor,
+            updatedAt: new Date()
+        };
+    } else {
+        store.shiftHandoverNote = {
+            text: '',
+            author: '',
+            updatedAt: null
+        };
+    }
+
+    store.markModified('shiftHandoverNote');
+    await store.save();
+
+    res.json({
+        success: true,
+        shiftHandoverNote: store.shiftHandoverNote
+    });
+};
+
 
 

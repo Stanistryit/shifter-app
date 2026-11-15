@@ -128,6 +128,68 @@
                         <span class="text-xs text-gray-400">Перевірка графіка на завтра...</span>
                     </div>
                 </div>
+
+                <!-- Нотатка для наступної зміни («📌 Передати зміні») -->
+                <div class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800/80">
+                    <!-- Компактна кнопка, коли нотатки немає -->
+                    <button type="button" id="termHandoverEmptyBtn" onclick="window.openHandoverNoteEditor()"
+                        class="w-full px-2.5 py-1.5 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-100/70 dark:hover:bg-amber-900/30 border border-dashed border-amber-300/80 dark:border-amber-800/60 flex items-center justify-between text-xs transition-colors">
+                        <span class="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                            <span>📌</span> <span>Передати зміні (залишити нотатку)</span>
+                        </span>
+                        <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-200/60 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200">
+                            + Додати
+                        </span>
+                    </button>
+
+                    <!-- Активна нотатка (стікер), коли повідомлення залишено -->
+                    <div id="termHandoverActiveBox"
+                        class="hidden p-2.5 rounded-xl bg-amber-50/95 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 shadow-2xs space-y-1.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[10px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                                <span>📌</span> <span>Нотатка для зміни</span>
+                            </span>
+                            <span id="termHandoverMeta" class="text-[10px] font-mono text-amber-700/90 dark:text-amber-400/90 font-semibold"></span>
+                        </div>
+                        <div id="termHandoverTextDisplay"
+                            class="text-xs font-bold text-amber-950 dark:text-amber-100 whitespace-pre-wrap leading-snug bg-white/70 dark:bg-[#1C1C1E]/60 p-2 rounded-lg border border-amber-200/60 dark:border-amber-800/50"></div>
+                        <div class="flex items-center justify-end gap-1.5 pt-0.5">
+                            <button type="button" onclick="window.openHandoverNoteEditor(true)"
+                                class="px-2 py-1 rounded-lg bg-amber-200/60 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-800 text-amber-900 dark:text-amber-200 text-[10px] font-bold transition-colors">
+                                ✏️ Змінити
+                            </button>
+                            <button type="button" onclick="window.clearHandoverNote()"
+                                class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-extrabold transition-colors flex items-center gap-1 shadow-2xs">
+                                <span>✅</span> <span>Прочитано</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Редактор нотатки -->
+                    <div id="termHandoverEditorBox"
+                        class="hidden p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/25 border border-amber-300/80 dark:border-amber-800/70 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                                <span>📌</span> <span>Передати наступній зміні</span>
+                            </span>
+                            <button type="button" onclick="window.closeHandoverNoteEditor()"
+                                class="text-[10px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">✕ Скасувати</button>
+                        </div>
+                        <textarea id="termHandoverInput" rows="2"
+                            placeholder="Напр.: Відкладено резерв ILUMA під касою, закінчуються пакети М..."
+                            class="w-full p-2 text-xs bg-white dark:bg-[#1C1C1E] border border-amber-200 dark:border-amber-800/80 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 resize-y"></textarea>
+                        <div class="flex items-center gap-1.5">
+                            <select id="termHandoverAuthorSelect"
+                                class="flex-1 p-1.5 text-xs bg-white dark:bg-[#1C1C1E] border border-amber-200 dark:border-amber-800/80 rounded-lg outline-none font-bold text-gray-800 dark:text-gray-200">
+                                <option value="">👤 Хто передає...</option>
+                            </select>
+                            <button type="button" onclick="window.saveHandoverNote()"
+                                class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs transition-colors shadow-2xs">
+                                📌 Залишити
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Блок: Вечірній перерахунок складу (SE) -->

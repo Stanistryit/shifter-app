@@ -264,6 +264,11 @@ try {
             } else if (data.type === 'cash_update') {
                 terminalState.latestCashToday = data.cash;
                 renderCashTodayStatus(data.cash);
+            } else if (data.type === 'handover_note_update') {
+                if (terminalState.store) {
+                    terminalState.store.shiftHandoverNote = data.note;
+                }
+                renderShiftHandoverNote(data.note);
             }
         };
     }
@@ -386,6 +391,7 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
             renderHeader(res.store);
             renderActiveShifts(res.todayShifts, res.employees);
             renderTomorrowOpener(res.tomorrowOpener);
+            renderShiftHandoverNote(res.store.shiftHandoverNote);
             renderEmergencyContacts(res.store.emergencyContacts);
             renderTasks(res.tasks);
             renderChecklists(res.store);
@@ -674,6 +680,7 @@ function autoSelectSingleAuthor() {
     const cashSelect = document.getElementById('termCashAuthorSelect');
     const stockSelect = document.getElementById('termStockAuthorSelect');
     const transferSelect = document.getElementById('termStockTransferAuthorSelect');
+    const handoverSelect = document.getElementById('termHandoverAuthorSelect');
 
     if (cashSelect && !cashSelect.value) {
         const hasOpt = Array.from(cashSelect.options).some(o => o.value === singleEmp.name);
@@ -686,6 +693,10 @@ function autoSelectSingleAuthor() {
     if (transferSelect && !transferSelect.value) {
         const hasOpt = Array.from(transferSelect.options).some(o => o.value === singleEmp.name);
         if (hasOpt) transferSelect.value = singleEmp.name;
+    }
+    if (handoverSelect && !handoverSelect.value) {
+        const hasOpt = Array.from(handoverSelect.options).some(o => o.value === singleEmp.name);
+        if (hasOpt) handoverSelect.value = singleEmp.name;
     }
 }
 
@@ -712,6 +723,146 @@ function renderTomorrowOpener(opener) {
         </span>
     `;
 }
+
+// 6.1 Нотатка для наступної зміни («📌 Передати зміні»)
+function renderShiftHandoverNote(note) {
+    const emptyBtn = document.getElementById('termHandoverEmptyBtn');
+    const activeBox = document.getElementById('termHandoverActiveBox');
+    const editorBox = document.getElementById('termHandoverEditorBox');
+    const textDisplay = document.getElementById('termHandoverTextDisplay');
+    const metaEl = document.getElementById('termHandoverMeta');
+
+    if (!emptyBtn || !activeBox || !editorBox) return;
+
+    // Якщо редактор відкритий — не закриваємо його під час фонового полінгу
+    if (!editorBox.classList.contains('hidden')) return;
+
+    const cleanText = String(note?.text || '').trim();
+    if (cleanText) {
+        emptyBtn.classList.add('hidden');
+        activeBox.classList.remove('hidden');
+        if (textDisplay) textDisplay.innerText = cleanText;
+
+        let timeStr = '';
+        if (note.updatedAt) {
+            try {
+                const dt = new Date(note.updatedAt);
+                if (!isNaN(dt.getTime())) {
+                    timeStr = dt.toLocaleString('uk-UA', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZone: 'Europe/Kiev'
+                    });
+                }
+            } catch (e) { }
+        }
+        if (metaEl) {
+            metaEl.innerText = `${note.author ? `👤 ${note.author}` : ''}${timeStr ? ` • ${timeStr}` : ''}`;
+        }
+    } else {
+        activeBox.classList.add('hidden');
+        emptyBtn.classList.remove('hidden');
+    }
+}
+
+window.openHandoverNoteEditor = function (isEdit = false) {
+    triggerHaptic();
+    const emptyBtn = document.getElementById('termHandoverEmptyBtn');
+    const activeBox = document.getElementById('termHandoverActiveBox');
+    const editorBox = document.getElementById('termHandoverEditorBox');
+    const inputEl = document.getElementById('termHandoverInput');
+
+    if (!editorBox || !inputEl) return;
+
+    emptyBtn?.classList.add('hidden');
+    activeBox?.classList.add('hidden');
+    editorBox.classList.remove('hidden');
+
+    const currentNote = terminalState.store?.shiftHandoverNote;
+    inputEl.value = isEdit && currentNote?.text ? currentNote.text : '';
+    autoSelectSingleAuthor();
+    inputEl.focus();
+};
+
+window.closeHandoverNoteEditor = function () {
+    triggerHaptic();
+    const editorBox = document.getElementById('termHandoverEditorBox');
+    if (editorBox) editorBox.classList.add('hidden');
+    renderShiftHandoverNote(terminalState.store?.shiftHandoverNote);
+};
+
+window.saveHandoverNote = async function () {
+    triggerHaptic();
+    const inputEl = document.getElementById('termHandoverInput');
+    const authorSelect = document.getElementById('termHandoverAuthorSelect');
+    const editorBox = document.getElementById('termHandoverEditorBox');
+
+    const text = String(inputEl?.value || '').trim();
+    if (!text) {
+        return showToast("Введіть текст нотатки для зміни", "warning");
+    }
+
+    let author = authorSelect?.value || '';
+    if (!author) {
+        const singleEmp = getSingleActiveShiftEmployee();
+        if (singleEmp) {
+            author = singleEmp.name;
+            if (authorSelect) authorSelect.value = singleEmp.name;
+        }
+    }
+    if (!author) {
+        author = document.getElementById('termCashAuthorSelect')?.value ||
+            document.getElementById('termStockAuthorSelect')?.value || 'Співробітник';
+    }
+
+    try {
+        const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+        const res = await postJson('/api/terminal/handover-note', { storeId, text, author });
+        if (res && res.success) {
+            if (terminalState.store) {
+                terminalState.store.shiftHandoverNote = res.shiftHandoverNote;
+            }
+            if (editorBox) editorBox.classList.add('hidden');
+            renderShiftHandoverNote(res.shiftHandoverNote);
+            if (terminalSyncChannel && storeId) {
+                terminalSyncChannel.postMessage({
+                    type: 'handover_note_update',
+                    storeId,
+                    note: res.shiftHandoverNote
+                });
+            }
+            showToast("Нотатку для зміни збережено 📌", "success");
+        }
+    } catch (e) {
+        showToast("Не вдалося зберегти нотатку", "error");
+    }
+};
+
+window.clearHandoverNote = async function () {
+    triggerHaptic();
+    try {
+        const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+        const res = await postJson('/api/terminal/handover-note', { storeId, text: '', author: '' });
+        if (res && res.success) {
+            if (terminalState.store) {
+                terminalState.store.shiftHandoverNote = res.shiftHandoverNote;
+            }
+            renderShiftHandoverNote(res.shiftHandoverNote);
+            if (terminalSyncChannel && storeId) {
+                terminalSyncChannel.postMessage({
+                    type: 'handover_note_update',
+                    storeId,
+                    note: res.shiftHandoverNote
+                });
+            }
+            showToast("Нотатку позначено як прочитану ✅", "info");
+        }
+    } catch (e) {
+        showToast("Помилка оновлення нотатки", "error");
+    }
+};
 
 // 7. Важливі контакти (Акордеон)
 window.toggleEmergencyContacts = function () {
@@ -1851,10 +2002,12 @@ function populateAuthorSelects(employees) {
     const cashSelect = document.getElementById('termCashAuthorSelect');
     const stockSelect = document.getElementById('termStockAuthorSelect');
     const transferSelect = document.getElementById('termStockTransferAuthorSelect');
+    const handoverSelect = document.getElementById('termHandoverAuthorSelect');
 
     const prevCashAuthor = cashSelect?.value || '';
     const prevStockAuthor = stockSelect?.value || '';
     const prevTransferAuthor = transferSelect?.value || '';
+    const prevHandoverAuthor = handoverSelect?.value || '';
 
     const activeEmployees = (employees || []).filter(e => e.status !== 'blocked');
     const blockedSet = new Set((employees || []).filter(e => e.status === 'blocked').map(e => e.name));
@@ -1879,6 +2032,10 @@ function populateAuthorSelects(employees) {
     if (transferSelect) {
         transferSelect.innerHTML = optionsHtml;
         if (prevTransferAuthor && names.includes(prevTransferAuthor)) transferSelect.value = prevTransferAuthor;
+    }
+    if (handoverSelect) {
+        handoverSelect.innerHTML = optionsHtml;
+        if (prevHandoverAuthor && names.includes(prevHandoverAuthor)) handoverSelect.value = prevHandoverAuthor;
     }
 
     autoSelectSingleAuthor();
