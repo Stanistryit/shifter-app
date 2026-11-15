@@ -8,6 +8,7 @@ function getNormalizedStockTransferSettings(store) {
     const raw = store?.stockTransferSettings || {};
     return {
         defaultNorm: Number(raw.defaultNorm || 0),
+        defaultMinBring: Math.max(1, Number(raw.defaultMinBring || 1)),
         ignoreZeroPrice: raw.ignoreZeroPrice !== undefined ? Boolean(raw.ignoreZeroPrice) : true,
         ignoreKeywords: Array.isArray(raw.ignoreKeywords)
             ? raw.ignoreKeywords
@@ -837,7 +838,8 @@ exports.parseStockExcel = async (req, res) => {
                 baseCode: item.baseCode || '',
                 barcode: item.barcode || '',
                 price: item.price || 0,
-                targetQty: Number(settings.defaultNorm || 0)
+                targetQty: Number(settings.defaultNorm || 0),
+                minBringQty: Math.max(1, Number(settings.defaultMinBring || 1))
             });
             normsChanged = true;
         } else {
@@ -904,6 +906,7 @@ exports.updateStockTransferSettings = async (req, res) => {
     const settings = getNormalizedStockTransferSettings(store);
     const {
         defaultNorm,
+        defaultMinBring,
         ignoreZeroPrice,
         ignoreKeywords,
         ignoredKeys,
@@ -914,6 +917,9 @@ exports.updateStockTransferSettings = async (req, res) => {
 
     if (defaultNorm !== undefined) {
         settings.defaultNorm = Math.max(0, Number(defaultNorm) || 0);
+    }
+    if (defaultMinBring !== undefined) {
+        settings.defaultMinBring = Math.max(1, Number(defaultMinBring) || 1);
     }
     if (ignoreZeroPrice !== undefined) {
         settings.ignoreZeroPrice = Boolean(ignoreZeroPrice);
@@ -943,9 +949,16 @@ exports.updateStockTransferSettings = async (req, res) => {
             color: normUpdate.color || '',
             baseCode: normUpdate.baseCode || '',
             barcode: normUpdate.barcode || '',
-            price: Number(normUpdate.price || 0)
+            price: Number(normUpdate.price || 0),
+            targetQty: Number(settings.defaultNorm || 0),
+            minBringQty: Math.max(1, Number(settings.defaultMinBring || 1))
         };
-        existing.targetQty = Math.max(0, Number(normUpdate.targetQty) || 0);
+        if (normUpdate.targetQty !== undefined) {
+            existing.targetQty = Math.max(0, Number(normUpdate.targetQty) || 0);
+        }
+        if (normUpdate.minBringQty !== undefined) {
+            existing.minBringQty = Math.max(1, Number(normUpdate.minBringQty) || 1);
+        }
         if (normUpdate.title) existing.title = normUpdate.title;
         if (normUpdate.color !== undefined) existing.color = normUpdate.color;
         if (normUpdate.baseCode) existing.baseCode = normUpdate.baseCode;
@@ -962,9 +975,16 @@ exports.updateStockTransferSettings = async (req, res) => {
                 color: u.color || '',
                 baseCode: u.baseCode || '',
                 barcode: u.barcode || '',
-                price: Number(u.price || 0)
+                price: Number(u.price || 0),
+                targetQty: Number(settings.defaultNorm || 0),
+                minBringQty: Math.max(1, Number(settings.defaultMinBring || 1))
             };
-            existing.targetQty = Math.max(0, Number(u.targetQty) || 0);
+            if (u.targetQty !== undefined) {
+                existing.targetQty = Math.max(0, Number(u.targetQty) || 0);
+            }
+            if (u.minBringQty !== undefined) {
+                existing.minBringQty = Math.max(1, Number(u.minBringQty) || 1);
+            }
             normsMap.set(u.key, existing);
         }
     }
@@ -1067,10 +1087,14 @@ exports.sendStockTransferTelegram = async (req, res) => {
         const groupUnits = groupItems.reduce((acc, x) => acc + Number(x.toBring || 0), 0);
         const itemLines = groupItems.map(item => {
             const toBring = Number(item.toBring || 0);
+            const minBring = Math.max(1, Number(item.minBringQty || 1));
+            const blocksInfo = (minBring > 1 && toBring >= minBring && toBring % minBring === 0)
+                ? ` <i>(${toBring / minBring} бл.)</i>`
+                : '';
             const icon = Number(item.shopQty || 0) === 0 ? '🔴' : '▫️';
             const shortName = cleanProductTitleForTelegram(item.title, groupName, item.color);
             const batchPart = (showBatches && item.batchesText) ? ` <code>[${item.batchesText}]</code>` : '';
-            return `${icon} ${shortName} — <b>${toBring} шт</b>${batchPart}`;
+            return `${icon} ${shortName} — <b>${toBring} шт</b>${blocksInfo}${batchPart}`;
         });
         groupBlocks.push(`🔹 <b>${groupName}</b> <i>(${groupUnits} шт)</i>:\n` + itemLines.join('\n'));
     }

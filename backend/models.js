@@ -55,6 +55,7 @@ const storeSchema = new mongoose.Schema({
 
     stockTransferSettings: {
         defaultNorm: { type: Number, default: 0 },
+        defaultMinBring: { type: Number, default: 1 },
         ignoreZeroPrice: { type: Boolean, default: true },
         ignoreKeywords: {
             type: [String],

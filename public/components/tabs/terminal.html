@@ -973,16 +973,17 @@
                                         class="w-4 h-4 rounded accent-indigo-600 cursor-pointer">
                                 </th>
                                 <th class="py-2.5 px-3">Товар / Код та Партія на складі</th>
-                                <th class="py-2.5 px-3 text-center w-28">🏪 В магазині</th>
-                                <th class="py-2.5 px-3 text-center w-36">🎯 Норма маг.</th>
-                                <th class="py-2.5 px-3 text-center w-28">🏭 На складі</th>
+                                <th class="py-2.5 px-3 text-center w-24">🏪 В магазині</th>
+                                <th class="py-2.5 px-3 text-center w-32">🎯 Норма маг.</th>
+                                <th class="py-2.5 px-3 text-center w-32" title="Мінімальна кількість / розмір блоку для приносу (напр. 10 шт = 1 блок)">📦 Мін. принос</th>
+                                <th class="py-2.5 px-3 text-center w-24">🏭 На складі</th>
                                 <th class="py-2.5 px-3 text-center w-32">👉 Принести</th>
                                 <th class="py-2.5 px-2 text-center w-10" title="Додати товар в ігнор">🚫</th>
                             </tr>
                         </thead>
                         <tbody id="stockTransferTableBody" class="divide-y divide-gray-100 dark:divide-gray-800/80 text-xs">
                             <tr>
-                                <td colspan="7" class="py-10 text-center text-gray-400 text-xs">
+                                <td colspan="8" class="py-10 text-center text-gray-400 text-xs">
                                     Завантажте або перетягніть 2 Excel-файли (Магазин та Склад) вище, щоб побачити розрахунок поповнення зі складу
                                 </td>
                             </tr>
@@ -1056,35 +1057,54 @@
                         </p>
                     </div>
 
-                    <!-- Базова норма для нових товарів -->
-                    <div class="flex items-center gap-2 bg-white dark:bg-[#1C1C1E] px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-2xs">
-                        <span class="text-xs font-bold text-gray-700 dark:text-gray-300">Норма за замовчуванням:</span>
-                        <input type="number" id="inputDefaultStockNorm" min="0" value="0"
-                            onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
-                            class="no-spin w-16 p-1 text-center text-xs font-mono font-black bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none">
-                        <button type="button" onclick="window.saveDefaultStockNorm()"
-                            class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition-colors">
-                            Зберегти
-                        </button>
+                    <!-- Базова норма та мін. принос для нових товарів -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="flex items-center gap-1.5 bg-white dark:bg-[#1C1C1E] px-2.5 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-2xs">
+                            <span class="text-[11px] font-bold text-gray-700 dark:text-gray-300">Норма за замовч.:</span>
+                            <input type="number" id="inputDefaultStockNorm" min="0" value="0"
+                                onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
+                                class="no-spin w-14 p-1 text-center text-xs font-mono font-black bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none">
+                            <span class="text-[11px] font-bold text-gray-700 dark:text-gray-300 ml-1">Мін. принос:</span>
+                            <input type="number" id="inputDefaultMinBring" min="1" value="1"
+                                onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
+                                class="no-spin w-14 p-1 text-center text-xs font-mono font-black bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none">
+                            <button type="button" onclick="window.saveDefaultStockNorm()"
+                                class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition-colors">
+                                Зберегти
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Панель пошуку та масового застосування норми -->
+                <!-- Панель пошуку та масового застосування норми і мін. приносу -->
                 <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
                     <input type="text" id="normsCatalogSearchInput"
                         oninput="window.renderStockNormsCatalog()"
-                        placeholder="🔍 Фільтр товарів (напр.: ZYN, TEREA, 11mg, Девайс)..."
-                        class="flex-1 min-w-[220px] px-3 py-1.5 text-xs bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
+                        placeholder="🔍 Фільтр товарів (напр.: TEREA, DELIA, BLENDS, Мініблок, ZYN)..."
+                        class="flex-1 min-w-[200px] px-3 py-1.5 text-xs bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
 
-                    <div class="flex items-center gap-1.5 bg-white dark:bg-[#1C1C1E] px-2.5 py-1 rounded-xl border border-gray-200 dark:border-gray-700">
-                        <span class="text-[11px] font-bold text-gray-600 dark:text-gray-300">Встановити всім відфільтрованим:</span>
-                        <input type="number" id="inputBulkNormQty" min="0" placeholder="Шт"
-                            onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
-                            class="no-spin w-16 p-1 text-center text-xs font-mono font-black bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none">
-                        <button type="button" onclick="window.applyBulkStockNorm()"
-                            class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold transition-colors">
-                            Застосувати
-                        </button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="flex items-center gap-1.5 bg-white dark:bg-[#1C1C1E] px-2.5 py-1 rounded-xl border border-gray-200 dark:border-gray-700">
+                            <span class="text-[11px] font-bold text-gray-600 dark:text-gray-300">🎯 Норма всім:</span>
+                            <input type="number" id="inputBulkNormQty" min="0" placeholder="Шт"
+                                onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
+                                class="no-spin w-14 p-1 text-center text-xs font-mono font-black bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none">
+                            <button type="button" onclick="window.applyBulkStockNorm()"
+                                class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold transition-colors">
+                                Застосувати
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-1.5 bg-white dark:bg-[#1C1C1E] px-2.5 py-1 rounded-xl border border-gray-200 dark:border-gray-700">
+                            <span class="text-[11px] font-bold text-gray-600 dark:text-gray-300">📦 Мін. принос (блок) всім:</span>
+                            <input type="number" id="inputBulkMinBringQty" min="1" placeholder="10"
+                                onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
+                                class="no-spin w-14 p-1 text-center text-xs font-mono font-black bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none">
+                            <button type="button" onclick="window.applyBulkStockMinBring()"
+                                class="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-extrabold transition-colors">
+                                Застосувати
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1097,13 +1117,14 @@
                                     <th class="py-2 px-3">Назва товару</th>
                                     <th class="py-2 px-3 w-28">Код</th>
                                     <th class="py-2 px-3 w-24 text-right">Ціна</th>
-                                    <th class="py-2 px-3 w-40 text-center">🎯 Потрібно в маг. (шт)</th>
+                                    <th class="py-2 px-3 w-36 text-center">🎯 Норма в маг. (шт)</th>
+                                    <th class="py-2 px-3 w-36 text-center">📦 Мін. принос / блок (шт)</th>
                                     <th class="py-2 px-2 w-12 text-center">🚫</th>
                                 </tr>
                             </thead>
                             <tbody id="normsCatalogTableBody" class="divide-y divide-gray-100 dark:divide-gray-800 text-xs">
                                 <tr>
-                                    <td colspan="5" class="py-6 text-center text-gray-400 text-xs">
+                                    <td colspan="6" class="py-6 text-center text-gray-400 text-xs">
                                         Завантажте хоча б один файл залишків (.xlsx), щоб каталог автоматично наповнився товарами
                                     </td>
                                 </tr>

@@ -3420,6 +3420,7 @@ function getStoreStockTransferSettings() {
     const raw = terminalState.store?.stockTransferSettings || {};
     return {
         defaultNorm: Number(raw.defaultNorm || 0),
+        defaultMinBring: Math.max(1, Number(raw.defaultMinBring || 1)),
         ignoreZeroPrice: raw.ignoreZeroPrice !== undefined ? Boolean(raw.ignoreZeroPrice) : true,
         ignoreKeywords: Array.isArray(raw.ignoreKeywords)
             ? raw.ignoreKeywords
@@ -3785,9 +3786,10 @@ function computeStockTransferRows() {
 
         const shopQty = shopItem ? Number(shopItem.qty || 0) : 0;
         const whQty = whItem ? Number(whItem.qty || 0) : 0;
-        const targetQty = normItem !== undefined
+        const targetQty = normItem !== undefined && normItem.targetQty !== undefined
             ? Number(normItem.targetQty || 0)
             : Number(settings.defaultNorm || 0);
+        const minBringQty = Math.max(1, Number((normItem && normItem.minBringQty) || settings.defaultMinBring || 1));
 
         // Якщо норма задана (> 0), рахуємо дефіцит до норми.
         // Якщо норма ще 0, але в магазині 0 шт, а на складі є (> 0) — теж показуємо як потребу поповнення!
@@ -3800,13 +3802,38 @@ function computeStockTransferRows() {
             isUnconfiguredZeroShop = true;
         }
 
-        const suggestedBring = Math.min(neededQty, whQty);
+        let suggestedBring = 0;
+        let isBelowMinBring = false;
+
+        if (neededQty > 0 && whQty > 0) {
+            if (minBringQty <= 1) {
+                suggestedBring = Math.min(neededQty, whQty);
+            } else if (shopQty === 0) {
+                // Якщо в магазині 0 — нести кратно блокам, а якщо на складі менше 1 блоку — нести все, що є
+                const maxPossible = Math.min(neededQty, whQty);
+                const fullBlocksQty = Math.floor(maxPossible / minBringQty) * minBringQty;
+                suggestedBring = fullBlocksQty > 0 ? fullBlocksQty : maxPossible;
+            } else {
+                // Якщо в магазині > 0: не турбуємо склад, поки дефіцит менший за мін. принос (блок)
+                if (neededQty < minBringQty) {
+                    suggestedBring = 0;
+                    isBelowMinBring = true;
+                } else {
+                    const maxPossible = Math.min(neededQty, whQty);
+                    suggestedBring = Math.floor(maxPossible / minBringQty) * minBringQty;
+                    if (suggestedBring === 0) {
+                        isBelowMinBring = true;
+                    }
+                }
+            }
+        }
+
         const toBring = stockTransferState.customBringMap[key] !== undefined
             ? Math.max(0, Math.min(whQty, Number(stockTransferState.customBringMap[key]) || 0))
             : suggestedBring;
 
         const isZeroShop = shopQty === 0 && whQty > 0;
-        const isBelowNorm = shopQty > 0 && targetQty > shopQty && whQty > 0;
+        const isBelowNorm = shopQty > 0 && toBring > 0;
         const isOutWh = whQty === 0 && (shopQty === 0 || (targetQty > 0 && shopQty < targetQty));
         const isBring = toBring > 0;
 
@@ -3823,9 +3850,11 @@ function computeStockTransferRows() {
             shopQty,
             whQty,
             targetQty,
+            minBringQty,
             neededQty,
             suggestedBring,
             toBring,
+            isBelowMinBring,
             isUnconfiguredZeroShop,
             isZeroShop,
             isBelowNorm,
@@ -3865,7 +3894,7 @@ window.renderStockTransferComparison = function () {
     if (!stockTransferState.shopData && !stockTransferState.whData) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="py-10 text-center text-gray-400 text-xs">
+                <td colspan="8" class="py-10 text-center text-gray-400 text-xs">
                     Перетягніть 2 Excel-файли (Магазин та Склад) у верхні блоки, щоб порівняти залишки
                 </td>
             </tr>
@@ -3917,7 +3946,7 @@ window.renderStockTransferComparison = function () {
     if (filtered.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="py-8 text-center text-gray-400 text-xs">
+                <td colspan="8" class="py-8 text-center text-gray-400 text-xs">
                     У цій категорії немає позицій за вашим фільтром
                 </td>
             </tr>
@@ -3932,6 +3961,8 @@ window.renderStockTransferComparison = function () {
                 statusTag = `<span class="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 text-[10px] font-black">🔴 0 у маг.</span>`;
             } else if (r.isBelowNorm) {
                 statusTag = `<span class="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 text-[10px] font-black">🟡 Доповнити</span>`;
+            } else if (r.isBelowMinBring) {
+                statusTag = `<span class="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-[10px] font-bold" title="Дефіцит (${r.neededQty} шт) менший за мінімальний принос (${r.minBringQty} шт)">⏳ Чекає блоку (${r.neededQty}/${r.minBringQty})</span>`;
             } else if (r.isOutWh) {
                 statusTag = `<span class="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold">⚪ 0 на складі</span>`;
             } else {
@@ -3943,6 +3974,10 @@ window.renderStockTransferComparison = function () {
                 : (r.shopQty < r.targetQty
                     ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60'
                     : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50');
+
+            const blocksBadge = (r.minBringQty > 1 && r.toBring >= r.minBringQty && r.toBring % r.minBringQty === 0)
+                ? `<div class="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 mt-0.5">${r.toBring / r.minBringQty} бл. (по ${r.minBringQty})</div>`
+                : '';
 
             return `
                 <tr class="hover:bg-gray-50/90 dark:hover:bg-[#252528]/70 transition-colors ${isChecked ? '' : 'opacity-70'}">
@@ -3978,9 +4013,21 @@ window.renderStockTransferComparison = function () {
                             <input type="number" min="0" value="${r.targetQty}"
                                 onchange="window.updateInlineStockNorm('${safeKey}', this.value)"
                                 onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
-                                class="no-spin w-12 text-center font-mono font-black text-xs bg-transparent outline-none text-gray-900 dark:text-white">
+                                class="no-spin w-11 text-center font-mono font-black text-xs bg-transparent outline-none text-gray-900 dark:text-white">
                             <button type="button" onclick="window.stepInlineStockNorm('${safeKey}', 1)"
                                 class="w-6 h-6 rounded-md bg-white dark:bg-[#1C1C1E] text-gray-600 dark:text-gray-300 hover:bg-gray-200 font-bold text-xs flex items-center justify-center">+</button>
+                        </div>
+                    </td>
+                    <td class="py-2 px-3 text-center">
+                        <div class="inline-flex items-center gap-1 bg-purple-50/70 dark:bg-purple-950/25 p-0.5 rounded-lg border border-purple-200/80 dark:border-purple-800/60" title="Мінімальна кількість / розмір блоку для приносу">
+                            <button type="button" onclick="window.stepInlineStockMinBring('${safeKey}', -1)"
+                                class="w-6 h-6 rounded-md bg-white dark:bg-[#1C1C1E] text-purple-700 dark:text-purple-300 hover:bg-purple-100 font-bold text-xs flex items-center justify-center">−</button>
+                            <input type="number" min="1" value="${r.minBringQty}"
+                                onchange="window.updateInlineStockMinBring('${safeKey}', this.value)"
+                                onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
+                                class="no-spin w-10 text-center font-mono font-black text-xs bg-transparent outline-none text-purple-900 dark:text-purple-200">
+                            <button type="button" onclick="window.stepInlineStockMinBring('${safeKey}', 1)"
+                                class="w-6 h-6 rounded-md bg-white dark:bg-[#1C1C1E] text-purple-700 dark:text-purple-300 hover:bg-purple-100 font-bold text-xs flex items-center justify-center">+</button>
                         </div>
                     </td>
                     <td class="py-2 px-3 text-center">
@@ -3993,7 +4040,11 @@ window.renderStockTransferComparison = function () {
                             <div class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-600 text-white font-mono font-black text-xs shadow-xs">
                                 <span>+${r.toBring} шт</span>
                             </div>
-                        ` : `<span class="text-[11px] text-gray-400 font-medium">0 шт</span>`}
+                            ${blocksBadge}
+                        ` : `
+                            <span class="text-[11px] text-gray-400 font-medium">0 шт</span>
+                            ${r.isBelowMinBring ? `<div class="text-[9px] text-blue-500 dark:text-blue-400 font-semibold mt-0.5">дефіцит ${r.neededQty} &lt; ${r.minBringQty}</div>` : ''}
+                        `}
                     </td>
                     <td class="py-2 px-2 text-center">
                         <button type="button" onclick="window.ignoreStockProductKey('${safeKey}')"
@@ -4062,6 +4113,7 @@ window.updateInlineStockNorm = async function (key, newVal) {
     const normUpdate = {
         key,
         targetQty,
+        minBringQty: Math.max(1, Number(existing?.minBringQty || row?.minBringQty || settings.defaultMinBring || 1)),
         title: existing?.title || row?.title || key,
         color: existing?.color || row?.color || '',
         baseCode: existing?.baseCode || row?.baseCode || '',
@@ -4070,6 +4122,56 @@ window.updateInlineStockNorm = async function (key, newVal) {
 
     if (existing) {
         existing.targetQty = targetQty;
+    } else {
+        settings.norms.push(normUpdate);
+    }
+    setStoreStockTransferSettings(settings);
+
+    if (stockTransferState.activeTab === 'compare') {
+        window.renderStockTransferComparison();
+    } else {
+        window.renderStockNormsCatalog();
+    }
+
+    try {
+        const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+        const res = await postJson('/api/terminal/stock-transfer/settings', {
+            storeId,
+            normUpdate
+        });
+        if (res?.success && res.stockTransferSettings) {
+            setStoreStockTransferSettings(res.stockTransferSettings);
+        }
+    } catch (e) { }
+};
+
+window.stepInlineStockMinBring = function (key, delta) {
+    const row = (stockTransferState.computedRows || []).find(r => r.key === key);
+    const settings = getStoreStockTransferSettings();
+    const existing = (settings.norms || []).find(n => n.key === key);
+    const curr = row ? Number(row.minBringQty || 1) : Number(existing?.minBringQty || settings.defaultMinBring || 1);
+    const next = Math.max(1, curr + delta);
+    window.updateInlineStockMinBring(key, next);
+};
+
+window.updateInlineStockMinBring = async function (key, newVal) {
+    const minBringQty = Math.max(1, parseInt(newVal, 10) || 1);
+    const settings = getStoreStockTransferSettings();
+    const row = (stockTransferState.computedRows || []).find(r => r.key === key);
+    const existing = settings.norms.find(n => n.key === key);
+
+    const normUpdate = {
+        key,
+        targetQty: existing !== undefined ? Number(existing.targetQty || 0) : Number(row?.targetQty || settings.defaultNorm || 0),
+        minBringQty,
+        title: existing?.title || row?.title || key,
+        color: existing?.color || row?.color || '',
+        baseCode: existing?.baseCode || row?.baseCode || '',
+        price: existing?.price || row?.price || 0
+    };
+
+    if (existing) {
+        existing.minBringQty = minBringQty;
     } else {
         settings.norms.push(normUpdate);
     }
@@ -4151,6 +4253,9 @@ function renderStockSettingsTab() {
 
     const defInput = document.getElementById('inputDefaultStockNorm');
     if (defInput) defInput.value = Number(settings.defaultNorm || 0);
+
+    const defMinInput = document.getElementById('inputDefaultMinBring');
+    if (defMinInput) defMinInput.value = Math.max(1, Number(settings.defaultMinBring || 1));
 
     // 1. Рендеримо стоп-слова
     const kwContainer = document.getElementById('stockIgnoreKeywordsContainer');
@@ -4241,20 +4346,24 @@ window.removeStockIgnoreKeyword = async function (idx) {
 window.saveDefaultStockNorm = async function () {
     triggerHaptic();
     const input = document.getElementById('inputDefaultStockNorm');
+    const minInput = document.getElementById('inputDefaultMinBring');
     const defaultNorm = Math.max(0, parseInt(input?.value, 10) || 0);
+    const defaultMinBring = Math.max(1, parseInt(minInput?.value, 10) || 1);
     const settings = getStoreStockTransferSettings();
     settings.defaultNorm = defaultNorm;
+    settings.defaultMinBring = defaultMinBring;
     setStoreStockTransferSettings(settings);
 
     try {
         const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
         const res = await postJson('/api/terminal/stock-transfer/settings', {
             storeId,
-            defaultNorm
+            defaultNorm,
+            defaultMinBring
         });
         if (res?.success && res.stockTransferSettings) {
             setStoreStockTransferSettings(res.stockTransferSettings);
-            showToast(`Базову норму (${defaultNorm} шт) збережено`, "success");
+            showToast(`Збережено: норма ${defaultNorm} шт, мін. принос ${defaultMinBring} шт`, "success");
         }
     } catch (e) { }
 };
@@ -4276,7 +4385,7 @@ window.renderStockNormsCatalog = function () {
     if (filtered.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" class="py-6 text-center text-gray-400 text-xs">
+                <td colspan="6" class="py-6 text-center text-gray-400 text-xs">
                     ${validNorms.length === 0
                         ? 'Каталог норм порожній. Перетягніть Excel-файл у вкладці «Порівняння», щоб товари завантажились автоматично.'
                         : 'За вашим пошуковим запитом товарів не знайдено'}
@@ -4288,6 +4397,7 @@ window.renderStockNormsCatalog = function () {
 
     tbody.innerHTML = filtered.map(n => {
         const safeKey = n.key.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+        const minBringVal = Math.max(1, Number(n.minBringQty || settings.defaultMinBring || 1));
         return `
             <tr class="hover:bg-gray-50 dark:hover:bg-[#252528]/60 transition-colors">
                 <td class="py-2 px-3">
@@ -4301,6 +4411,12 @@ window.renderStockNormsCatalog = function () {
                         onchange="window.updateInlineStockNorm('${safeKey}', this.value)"
                         onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
                         class="no-spin w-20 p-1 text-center font-mono font-black text-xs bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500">
+                </td>
+                <td class="py-2 px-3 text-center">
+                    <input type="number" min="1" value="${minBringVal}"
+                        onchange="window.updateInlineStockMinBring('${safeKey}', this.value)"
+                        onwheel="this.blur()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown') event.preventDefault();"
+                        class="no-spin w-20 p-1 text-center font-mono font-black text-xs bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg outline-none focus:ring-2 focus:ring-purple-500 text-purple-900 dark:text-purple-200">
                 </td>
                 <td class="py-2 px-2 text-center">
                     <button type="button" onclick="window.ignoreStockProductKey('${safeKey}')"
@@ -4319,7 +4435,7 @@ window.applyBulkStockNorm = async function () {
     const qtyInput = document.getElementById('inputBulkNormQty');
     const valStr = (qtyInput?.value || '').trim();
     if (valStr === '') {
-        return showToast("Введіть кількість (шт) для масового встановлення", "warning");
+        return showToast("Введіть кількість (шт) для масового встановлення норми", "warning");
     }
     const targetQty = Math.max(0, parseInt(valStr, 10) || 0);
     const searchVal = (document.getElementById('normsCatalogSearchInput')?.value || '').trim().toLowerCase();
@@ -4338,7 +4454,15 @@ window.applyBulkStockNorm = async function () {
 
     const bulkNormUpdates = matching.map(n => {
         n.targetQty = targetQty;
-        return { key: n.key, targetQty, title: n.title, color: n.color, baseCode: n.baseCode, price: n.price };
+        return {
+            key: n.key,
+            targetQty,
+            minBringQty: Math.max(1, Number(n.minBringQty || settings.defaultMinBring || 1)),
+            title: n.title,
+            color: n.color,
+            baseCode: n.baseCode,
+            price: n.price
+        };
     });
 
     setStoreStockTransferSettings(settings);
@@ -4356,6 +4480,59 @@ window.applyBulkStockNorm = async function () {
         }
     } catch (e) {
         showToast("Помилка збереження норм", "error");
+    }
+};
+
+window.applyBulkStockMinBring = async function () {
+    triggerHaptic();
+    const qtyInput = document.getElementById('inputBulkMinBringQty');
+    const valStr = (qtyInput?.value || '').trim();
+    if (valStr === '') {
+        return showToast("Введіть мін. кількість / блок (напр. 10) для масового встановлення", "warning");
+    }
+    const minBringQty = Math.max(1, parseInt(valStr, 10) || 1);
+    const searchVal = (document.getElementById('normsCatalogSearchInput')?.value || '').trim().toLowerCase();
+
+    const settings = getStoreStockTransferSettings();
+    const validNorms = (settings.norms || []).filter(n => !isStockItemIgnoredClient(n, settings));
+    const matching = validNorms.filter(n => {
+        if (!searchVal) return true;
+        const hay = `${n.title || ''} ${n.color || ''} ${n.baseCode || ''}`.toLowerCase();
+        return hay.includes(searchVal);
+    });
+
+    if (matching.length === 0) {
+        return showToast("Немає товарів під поточним фільтром", "warning");
+    }
+
+    const bulkNormUpdates = matching.map(n => {
+        n.minBringQty = minBringQty;
+        return {
+            key: n.key,
+            targetQty: Number(n.targetQty || 0),
+            minBringQty,
+            title: n.title,
+            color: n.color,
+            baseCode: n.baseCode,
+            price: n.price
+        };
+    });
+
+    setStoreStockTransferSettings(settings);
+    window.renderStockNormsCatalog();
+
+    try {
+        const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
+        const res = await postJson('/api/terminal/stock-transfer/settings', {
+            storeId,
+            bulkNormUpdates
+        });
+        if (res?.success && res.stockTransferSettings) {
+            setStoreStockTransferSettings(res.stockTransferSettings);
+            showToast(`Встановлено мін. принос ${minBringQty} шт для ${bulkNormUpdates.length} товарів!`, "success");
+        }
+    } catch (e) {
+        showToast("Помилка збереження мін. приносу", "error");
     }
 };
 
@@ -4424,8 +4601,12 @@ window.copyStockTransferList = async function () {
         const lines = groupItems.map(r => {
             const icon = r.shopQty === 0 ? '🔴' : '▫️';
             const shortName = cleanClientProductTitle(r.title, groupName, r.color);
+            const minBring = Math.max(1, Number(r.minBringQty || 1));
+            const blocksStr = (minBring > 1 && r.toBring >= minBring && r.toBring % minBring === 0)
+                ? ` (${r.toBring / minBring} бл.)`
+                : '';
             const batchStr = (showBatches && r.batchesText) ? ` [${r.batchesText}]` : '';
-            return `${icon} ${shortName} — ${r.toBring} шт${batchStr}`;
+            return `${icon} ${shortName} — ${r.toBring} шт${blocksStr}${batchStr}`;
         });
         blocks.push(`📦 ${groupName} (${groupUnits} шт):\n` + lines.join('\n'));
     }
