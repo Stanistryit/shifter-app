@@ -35,3 +35,5 @@ export const state = {
         { label: '16-22', start: '16:00', end: '22:00' }
     ]
 };
+
+window.state = state;

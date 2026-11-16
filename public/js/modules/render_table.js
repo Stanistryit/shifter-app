@@ -559,7 +559,7 @@ export function renderTable() {
                                 : draft.storeId;
                             const storeName = subStoreObj?.name || 'Інший магазин';
                             const safeStoreName = storeName.replace(/'/g, "\\'");
-                            content = `<div onclick="window.showToast('📍 Підміна в магазині: ${safeStoreName}')" title="Підміна в магазині: ${storeName}" class="relative text-[9.5px] font-mono leading-tight bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-200 rounded px-1 py-0.5 shadow-sm border border-orange-300 dark:border-orange-800 cursor-pointer transform scale-105">
+                            content = `<div onclick="if(!window.state?.isEditMode) window.showToast('📍 Підміна в магазині: ${safeStoreName}')" title="Підміна в магазині: ${storeName}" class="relative text-[9.5px] font-mono leading-tight bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-200 rounded px-1 py-0.5 shadow-sm border border-orange-300 dark:border-orange-800 cursor-pointer transform scale-105">
                                 <div class="text-[7.5px] font-sans font-bold truncate text-orange-700 dark:text-orange-300 leading-none mb-0.5 flex items-center justify-center gap-0.5">
                                     <span class="text-[8px] leading-none">📍</span>
                                     <span class="truncate">${storeName}</span>
@@ -574,7 +574,7 @@ export function renderTable() {
                                 const homeStoreName = homeStore ? homeStore.name : 'Інший магазин';
                                 const safeHomeStoreName = homeStoreName.replace(/'/g, "\\'");
                                 guestIndicator = '<div class="absolute -top-1.5 -left-1.5 z-10 text-[10px] filter drop-shadow-md">📍</div>';
-                                guestAttr = `title="Гість з: ${homeStoreName}" onclick="window.showToast('Гість з: ${safeHomeStoreName}')"`;
+                                guestAttr = `title="Гість з: ${homeStoreName}" onclick="if(!window.state?.isEditMode) window.showToast('Гість з: ${safeHomeStoreName}')"`;
                             }
                             content = `<div ${guestAttr} class="relative text-[10px] font-mono leading-tight bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 border border-yellow-300 dark:border-yellow-600 shadow-sm transform scale-105 ${isGuestRender ? 'cursor-pointer' : ''}">
                                 ${guestIndicator}

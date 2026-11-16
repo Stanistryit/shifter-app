@@ -328,6 +328,7 @@ export function closeTaskDetailsModal() {
 
 // --- ЗМІНИ (MODAL) ---
 export function openShiftDetailsModal(info) {
+    if (state.isEditMode) return;
     if (window.triggerHaptic) window.triggerHaptic();
 
     const existing = document.getElementById('shiftDetailsModal');

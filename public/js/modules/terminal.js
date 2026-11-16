@@ -45,7 +45,7 @@ let activeDesktopReopenNotif = null;
 function requestTerminalNotificationPermission() {
     try {
         if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission().catch(() => {});
+            Notification.requestPermission().catch(() => { });
         }
     } catch (e) { }
 }
@@ -56,7 +56,7 @@ function showDesktopAlarmNotification(data) {
         if (Notification.permission === 'default') {
             Notification.requestPermission().then(p => {
                 if (p === 'granted') showDesktopAlarmNotification(data);
-            }).catch(() => {});
+            }).catch(() => { });
             return;
         }
         if (Notification.permission !== 'granted') return;
@@ -95,7 +95,7 @@ function showDesktopReopenNotification(data) {
         if (Notification.permission === 'default') {
             Notification.requestPermission().then(p => {
                 if (p === 'granted') showDesktopReopenNotification(data);
-            }).catch(() => {});
+            }).catch(() => { });
             return;
         }
         if (Notification.permission !== 'granted') return;
@@ -174,7 +174,7 @@ function playTerminalSound(type = 'notification') {
         if (!AudioCtx) return;
         if (!termAudioCtx) termAudioCtx = new AudioCtx();
         if (termAudioCtx.state === 'suspended') {
-            termAudioCtx.resume().catch(() => {});
+            termAudioCtx.resume().catch(() => { });
         }
 
         const now = termAudioCtx.currentTime;
@@ -642,8 +642,8 @@ function renderActiveShifts(todayShifts, employees) {
                     <div class="relative shrink-0">
                         <div class="w-8 h-8 rounded-xl overflow-hidden flex items-center justify-center text-[10px] font-extrabold ${avatarBg}">
                             ${x.emp?.avatar
-                                ? `<img src="${escapeAttr(x.emp.avatar)}" alt="" class="w-full h-full object-cover" onerror="this.parentElement.innerText='${escapeAttr(x.initials)}'">`
-                                : x.initials}
+                ? `<img src="${escapeAttr(x.emp.avatar)}" alt="" class="w-full h-full object-cover" onerror="this.parentElement.innerText='${escapeAttr(x.initials)}'">`
+                : x.initials}
                         </div>
                         <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#1C1C1E] ${x.info.dotClass}"></span>
                     </div>
@@ -778,7 +778,7 @@ window.openTermEmployeeBadgesModal = function (empName) {
                 if (b.issuedAt) {
                     try {
                         dateStr = new Date(b.issuedAt).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                    } catch (e) {}
+                    } catch (e) { }
                 }
 
                 const customDesc = b.description ? String(b.description).trim() : '';
@@ -1581,7 +1581,7 @@ function renderTasks(tasks) {
     }).join('');
 }
 
-window.toggleTermTask = async function(taskId, doneStatus) {
+window.toggleTermTask = async function (taskId, doneStatus) {
     triggerHaptic();
     try {
         const authorSelect = document.getElementById('termCashAuthorSelect');
@@ -1598,16 +1598,16 @@ window.toggleTermTask = async function(taskId, doneStatus) {
                 window.openTaskProxy(taskId);
             }
         }
-    } catch(e) {
+    } catch (e) {
         showToast('Помилка оновлення задачі', 'error');
     }
 };
 
-window.getTerminalTask = function(id) {
+window.getTerminalTask = function (id) {
     return terminalState.terminalData?.tasks?.find(t => t._id === id || String(t._id) === String(id));
 };
 
-window.reloadTerminalTasks = function() {
+window.reloadTerminalTasks = function () {
     if (terminalState.store?._id) {
         loadTerminalData(terminalState.store._id, null, true);
     }
@@ -3399,13 +3399,13 @@ window.toggleTerminalFullscreen = function () {
     triggerHaptic();
     if (!document.fullscreenElement) {
         if (document.documentElement.requestFullscreen) {
-            document.documentElement.requestFullscreen().catch(() => {});
+            document.documentElement.requestFullscreen().catch(() => { });
         }
         const icon = document.getElementById('termFullscreenIcon');
         if (icon) icon.innerText = '🗗';
     } else {
         if (document.exitFullscreen) {
-            document.exitFullscreen().catch(() => {});
+            document.exitFullscreen().catch(() => { });
         }
         const icon = document.getElementById('termFullscreenIcon');
         if (icon) icon.innerText = '⛶';
@@ -3415,7 +3415,7 @@ window.toggleTerminalFullscreen = function () {
 window.exitTerminalMode = function () {
     triggerHaptic();
     if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
+        document.exitFullscreen().catch(() => { });
         const icon = document.getElementById('termFullscreenIcon');
         if (icon) icon.innerText = '⛶';
     }
@@ -5143,8 +5143,8 @@ window.renderStockNormsCatalog = function () {
             <tr>
                 <td colspan="6" class="py-6 text-center text-gray-400 text-xs">
                     ${validNorms.length === 0
-                        ? 'Каталог норм порожній. Перетягніть Excel-файл у вкладці «Порівняння», щоб товари завантажились автоматично.'
-                        : 'За вашим пошуковим запитом товарів не знайдено'}
+                ? 'Каталог норм порожній. Перетягніть Excel-файл у вкладці «Порівняння», щоб товари завантажились автоматично.'
+                : 'За вашим пошуковим запитом товарів не знайдено'}
                 </td>
             </tr>
         `;
