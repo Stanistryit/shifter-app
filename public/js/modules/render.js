@@ -126,22 +126,29 @@ window.openEditUserProxy = (userId) => {
                 ${storeSelectHtml}
 
                 <div class="mt-4 p-3 bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30 rounded-xl">
-                    <label class="block text-xs font-bold text-purple-600 dark:text-purple-400 mb-2">🏅 Видати кастомний бейдж</label>
+                    <div class="flex items-center justify-between mb-2">
+                        <label id="badgeFormTitle" class="block text-xs font-bold text-purple-600 dark:text-purple-400">🏅 Видати кастомний бейдж</label>
+                        <button type="button" id="badgeCancelEditBtn" onclick="window.cancelEditCustomBadge()" class="hidden text-[11px] font-bold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">✕ Скасувати</button>
+                    </div>
+                    <input type="hidden" id="editingBadgeId" value="">
                     <div class="flex gap-2 mb-2">
                         <input type="text" id="badgeEmoji" placeholder="🦇" class="w-12 p-2 bg-white dark:bg-[#1C1C1E] border border-purple-200 dark:border-purple-800 rounded-lg outline-none text-center text-lg">
                         <input type="text" id="badgeName" placeholder="Назва бейджу" class="flex-1 p-2 bg-white dark:bg-[#1C1C1E] border border-purple-200 dark:border-purple-800 rounded-lg outline-none text-sm">
                     </div>
                     <input type="text" id="badgeDescription" placeholder="Опис / за що видано (необов'язково)..." class="w-full mb-2 p-2 bg-white dark:bg-[#1C1C1E] border border-purple-200 dark:border-purple-800 rounded-lg outline-none text-xs text-gray-700 dark:text-gray-200">
-                    <button onclick="window.issueCustomBadge('${user._id}')" class="w-full py-2 bg-purple-500 text-white font-bold rounded-lg shadow-sm active:scale-95 transition-transform text-sm">Видати бейдж</button>
+                    <button id="badgeSubmitBtn" onclick="window.issueCustomBadge('${user._id}')" class="w-full py-2 bg-purple-500 text-white font-bold rounded-lg shadow-sm active:scale-95 transition-transform text-sm">Видати бейдж</button>
                     
                     <div id="userBadgesList" class="mt-2 space-y-1">
                         ${user.customBadges && user.customBadges.length > 0 ? user.customBadges.map(b => `
                             <div class="flex justify-between items-center gap-2 text-xs p-2 bg-white dark:bg-[#1C1C1E] rounded-md border border-gray-100 dark:border-gray-800">
                                 <div class="min-w-0">
                                     <div class="font-bold text-gray-800 dark:text-gray-100">${b.emoji} ${b.name}</div>
-                                    ${b.description ? `<div class="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-snug">${b.description}</div>` : ''}
+                                    ${b.description ? `<div class="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-snug">${b.description}</div>` : `<div class="text-[10px] text-gray-400 italic mt-0.5">Без опису</div>`}
                                 </div>
-                                <button onclick="window.removeCustomBadge('${user._id}', '${b._id}')" class="text-red-500 hover:text-red-700 font-bold px-2 py-0.5 bg-red-50 dark:bg-red-900/20 rounded active:scale-95 shrink-0">✕</button>
+                                <div class="flex items-center gap-1 shrink-0">
+                                    <button onclick="window.startEditCustomBadge('${user._id}', '${b._id}')" title="Редагувати бейдж / додати опис" class="text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30 font-bold px-2 py-0.5 bg-purple-50 dark:bg-purple-900/20 rounded active:scale-95">✏️</button>
+                                    <button onclick="window.removeCustomBadge('${user._id}', '${b._id}')" title="Видалити бейдж" class="text-red-500 hover:text-red-700 font-bold px-2 py-0.5 bg-red-50 dark:bg-red-900/20 rounded active:scale-95">✕</button>
+                                </div>
                             </div>
                         `).join('') : '<div class="text-xs text-gray-500 text-center italic py-1">Немає бейджів</div>'}
                     </div>
@@ -276,15 +283,65 @@ window.saveUserChanges = async (id, overrideData = null) => {
     }
 };
 
+window.startEditCustomBadge = (targetUserId, badgeId) => {
+    const user = state.users.find(u => String(u._id) === String(targetUserId));
+    if (!user || !Array.isArray(user.customBadges)) return;
+    const badge = user.customBadges.find(b => String(b._id) === String(badgeId));
+    if (!badge) return;
+
+    const idEl = document.getElementById('editingBadgeId');
+    const emojiEl = document.getElementById('badgeEmoji');
+    const nameEl = document.getElementById('badgeName');
+    const descEl = document.getElementById('badgeDescription');
+    const titleEl = document.getElementById('badgeFormTitle');
+    const submitBtn = document.getElementById('badgeSubmitBtn');
+    const cancelBtn = document.getElementById('badgeCancelEditBtn');
+
+    if (idEl) idEl.value = badge._id;
+    if (emojiEl) emojiEl.value = badge.emoji || '';
+    if (nameEl) nameEl.value = badge.name || '';
+    if (descEl) {
+        descEl.value = badge.description || '';
+        descEl.focus();
+    }
+    if (titleEl) titleEl.innerText = '✏️ Редагування бейджу';
+    if (submitBtn) submitBtn.innerText = '💾 Зберегти зміни бейджу';
+    if (cancelBtn) cancelBtn.classList.remove('hidden');
+};
+
+window.cancelEditCustomBadge = () => {
+    const idEl = document.getElementById('editingBadgeId');
+    const emojiEl = document.getElementById('badgeEmoji');
+    const nameEl = document.getElementById('badgeName');
+    const descEl = document.getElementById('badgeDescription');
+    const titleEl = document.getElementById('badgeFormTitle');
+    const submitBtn = document.getElementById('badgeSubmitBtn');
+    const cancelBtn = document.getElementById('badgeCancelEditBtn');
+
+    if (idEl) idEl.value = '';
+    if (emojiEl) emojiEl.value = '';
+    if (nameEl) nameEl.value = '';
+    if (descEl) descEl.value = '';
+    if (titleEl) titleEl.innerText = '🏅 Видати кастомний бейдж';
+    if (submitBtn) submitBtn.innerText = 'Видати бейдж';
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+};
+
 window.issueCustomBadge = async (targetUserId) => {
     const emoji = document.getElementById('badgeEmoji').value.trim();
     const name = document.getElementById('badgeName').value.trim();
     const description = document.getElementById('badgeDescription')?.value?.trim() || '';
+    const editingBadgeId = document.getElementById('editingBadgeId')?.value?.trim() || '';
     if (!emoji || !name) return showToast('Введіть емоджі та назву', 'error');
 
-    const res = await postJson('/api/admin/badges/add', { targetUserId, emoji, name, description });
+    const endpoint = editingBadgeId ? '/api/admin/badges/update' : '/api/admin/badges/add';
+    const payload = editingBadgeId
+        ? { targetUserId, badgeId: editingBadgeId, emoji, name, description }
+        : { targetUserId, emoji, name, description };
+
+    const res = await postJson(endpoint, payload);
     if (res.success) {
-        showToast('Бейдж видано!');
+        showToast(editingBadgeId ? 'Бейдж оновлено! ✅' : 'Бейдж видано!');
         const idx = state.users.findIndex(u => u._id === targetUserId);
         if (idx !== -1) state.users[idx].customBadges = res.badges;
         if (state.currentUser && String(state.currentUser._id) === String(targetUserId)) {

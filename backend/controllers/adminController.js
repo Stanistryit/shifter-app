@@ -695,6 +695,44 @@ exports.addCustomBadge = async (req, res) => {
     }
 };
 
+exports.updateCustomBadge = async (req, res) => {
+    const u = await User.findById(req.session.userId);
+    if (!['admin', 'SM'].includes(u?.role)) {
+        return res.status(403).json({ success: false, message: "Тільки для Admin / SM" });
+    }
+
+    try {
+        const { targetUserId, badgeId, emoji, name, description } = req.body;
+        if (!targetUserId || !badgeId || !emoji || !name) {
+            return res.json({ success: false, message: "Вкажіть емоджі та назву бейджу" });
+        }
+
+        const targetUser = await User.findById(targetUserId);
+        if (!targetUser) return res.json({ success: false, message: "Користувача не знайдено" });
+
+        if (u.role === 'SM' && targetUser.storeId?.toString() !== u.storeId?.toString()) {
+            return res.status(403).json({ success: false, message: "Ви можете редагувати значки лише своїх працівників" });
+        }
+
+        const badge = targetUser.customBadges.id(badgeId) ||
+            targetUser.customBadges.find(b => b._id.toString() === String(badgeId));
+        if (!badge) {
+            return res.status(404).json({ success: false, message: "Бейдж не знайдено" });
+        }
+
+        badge.emoji = String(emoji).trim();
+        badge.name = String(name).trim();
+        badge.description = description !== undefined ? String(description).trim() : '';
+
+        await targetUser.save();
+
+        logAction(u.name, 'update_badge', `Updated badge ${badge.emoji} ${badge.name} for ${targetUser.name}`);
+        res.json({ success: true, badges: targetUser.customBadges });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+};
+
 exports.removeCustomBadge = async (req, res) => {
     const u = await User.findById(req.session.userId);
     if (!['admin', 'SM'].includes(u?.role)) {
