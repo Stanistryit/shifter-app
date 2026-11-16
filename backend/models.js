@@ -144,6 +144,7 @@ const userSchema = new mongoose.Schema({
     customBadges: [{
         emoji: String,
         name: String,
+        description: { type: String, default: '' },
         issuedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         issuedAt: { type: Date, default: Date.now }
     }],

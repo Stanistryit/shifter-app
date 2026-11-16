@@ -684,8 +684,9 @@ function getEmployeeBadgesList(emp) {
             .map(b => ({
                 emoji: b.emoji || '🏅',
                 title: b.name || 'Нагорода',
+                description: b.description || '',
                 category: 'custom',
-                subtitle: 'Персональна відзнака керівника',
+                subtitle: b.description || 'Персональна відзнака керівника',
                 issuedAt: b.issuedAt || null
             }));
     }
@@ -780,8 +781,11 @@ window.openTermEmployeeBadgesModal = function (empName) {
                     } catch (e) {}
                 }
 
+                const customDesc = b.description ? String(b.description).trim() : '';
+                const issuerLine = b.issuer ? `Відзнака від: ${b.issuer}` : (isCustom ? 'Персональна відзнака керівника' : '');
+
                 return `
-                <div class="p-3 rounded-2xl border ${cardClass} flex items-center gap-3">
+                <div class="p-3 rounded-2xl border ${cardClass} flex items-start gap-3">
                     <div class="w-11 h-11 rounded-2xl ${iconBoxClass} flex items-center justify-center text-2xl shrink-0">
                         ${escapeHtml(b.emoji || '🏅')}
                     </div>
@@ -792,10 +796,20 @@ window.openTermEmployeeBadgesModal = function (empName) {
                             </span>
                             ${tagHtml}
                         </div>
-                        <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 flex items-center justify-between gap-2">
-                            <span class="truncate">${escapeHtml(b.subtitle || (isCustom ? 'Персональна відзнака' : 'Автоматичне досягнення'))}</span>
-                            ${dateStr ? `<span class="text-[10px] font-mono text-gray-400 shrink-0">${dateStr}</span>` : ''}
-                        </div>
+                        ${customDesc ? `
+                            <div class="text-xs text-gray-700 dark:text-gray-200 mt-1 leading-snug break-words">
+                                ${escapeHtml(customDesc)}
+                            </div>
+                            <div class="text-[10px] text-gray-400 mt-1 flex items-center justify-between gap-2">
+                                <span class="truncate">${escapeHtml(issuerLine)}</span>
+                                ${dateStr ? `<span class="font-mono shrink-0">${dateStr}</span>` : ''}
+                            </div>
+                        ` : `
+                            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 flex items-center justify-between gap-2">
+                                <span class="truncate">${escapeHtml(b.subtitle || issuerLine || 'Автоматичне досягнення')}</span>
+                                ${dateStr ? `<span class="text-[10px] font-mono text-gray-400 shrink-0">${dateStr}</span>` : ''}
+                            </div>
+                        `}
                     </div>
                 </div>
                 `;

@@ -131,13 +131,17 @@ window.openEditUserProxy = (userId) => {
                         <input type="text" id="badgeEmoji" placeholder="🦇" class="w-12 p-2 bg-white dark:bg-[#1C1C1E] border border-purple-200 dark:border-purple-800 rounded-lg outline-none text-center text-lg">
                         <input type="text" id="badgeName" placeholder="Назва бейджу" class="flex-1 p-2 bg-white dark:bg-[#1C1C1E] border border-purple-200 dark:border-purple-800 rounded-lg outline-none text-sm">
                     </div>
+                    <input type="text" id="badgeDescription" placeholder="Опис / за що видано (необов'язково)..." class="w-full mb-2 p-2 bg-white dark:bg-[#1C1C1E] border border-purple-200 dark:border-purple-800 rounded-lg outline-none text-xs text-gray-700 dark:text-gray-200">
                     <button onclick="window.issueCustomBadge('${user._id}')" class="w-full py-2 bg-purple-500 text-white font-bold rounded-lg shadow-sm active:scale-95 transition-transform text-sm">Видати бейдж</button>
                     
                     <div id="userBadgesList" class="mt-2 space-y-1">
                         ${user.customBadges && user.customBadges.length > 0 ? user.customBadges.map(b => `
-                            <div class="flex justify-between items-center text-xs p-1.5 bg-white dark:bg-[#1C1C1E] rounded-md border border-gray-100 dark:border-gray-800">
-                                <span>${b.emoji} ${b.name}</span>
-                                <button onclick="window.removeCustomBadge('${user._id}', '${b._id}')" class="text-red-500 hover:text-red-700 font-bold px-2 py-0.5 bg-red-50 dark:bg-red-900/20 rounded active:scale-95">✕</button>
+                            <div class="flex justify-between items-center gap-2 text-xs p-2 bg-white dark:bg-[#1C1C1E] rounded-md border border-gray-100 dark:border-gray-800">
+                                <div class="min-w-0">
+                                    <div class="font-bold text-gray-800 dark:text-gray-100">${b.emoji} ${b.name}</div>
+                                    ${b.description ? `<div class="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-snug">${b.description}</div>` : ''}
+                                </div>
+                                <button onclick="window.removeCustomBadge('${user._id}', '${b._id}')" class="text-red-500 hover:text-red-700 font-bold px-2 py-0.5 bg-red-50 dark:bg-red-900/20 rounded active:scale-95 shrink-0">✕</button>
                             </div>
                         `).join('') : '<div class="text-xs text-gray-500 text-center italic py-1">Немає бейджів</div>'}
                     </div>
@@ -275,13 +279,17 @@ window.saveUserChanges = async (id, overrideData = null) => {
 window.issueCustomBadge = async (targetUserId) => {
     const emoji = document.getElementById('badgeEmoji').value.trim();
     const name = document.getElementById('badgeName').value.trim();
+    const description = document.getElementById('badgeDescription')?.value?.trim() || '';
     if (!emoji || !name) return showToast('Введіть емоджі та назву', 'error');
 
-    const res = await postJson('/api/admin/badges/add', { targetUserId, emoji, name });
+    const res = await postJson('/api/admin/badges/add', { targetUserId, emoji, name, description });
     if (res.success) {
         showToast('Бейдж видано!');
         const idx = state.users.findIndex(u => u._id === targetUserId);
         if (idx !== -1) state.users[idx].customBadges = res.badges;
+        if (state.currentUser && String(state.currentUser._id) === String(targetUserId)) {
+            state.currentUser.customBadges = res.badges;
+        }
         window.openEditUserProxy(targetUserId); // re-render modal
     } else {
         showToast(res.message || 'Помилка', 'error');
@@ -295,6 +303,9 @@ window.removeCustomBadge = async (targetUserId, badgeId) => {
         showToast('Бейдж видалено');
         const idx = state.users.findIndex(u => u._id === targetUserId);
         if (idx !== -1) state.users[idx].customBadges = res.badges;
+        if (state.currentUser && String(state.currentUser._id) === String(targetUserId)) {
+            state.currentUser.customBadges = res.badges;
+        }
         window.openEditUserProxy(targetUserId); // re-render modal
     } else {
         showToast(res.message || 'Помилка', 'error');

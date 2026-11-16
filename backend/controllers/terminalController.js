@@ -230,11 +230,14 @@ exports.getTerminalData = async (req, res) => {
             u.customBadges.forEach(b => {
                 if (b && (b.emoji || b.name)) {
                     const issuerName = b.issuedBy ? (b.issuedBy.fullName || b.issuedBy.name) : '';
+                    const desc = b.description ? String(b.description).trim() : '';
                     badges.push({
                         emoji: b.emoji || '🏅',
                         title: b.name || 'Нагорода',
+                        description: desc,
+                        issuer: issuerName,
                         category: 'custom',
-                        subtitle: issuerName ? `Відзнака від: ${issuerName}` : 'Персональна відзнака керівника',
+                        subtitle: desc || (issuerName ? `Відзнака від: ${issuerName}` : 'Персональна відзнака керівника'),
                         issuedAt: b.issuedAt || null
                     });
                 }

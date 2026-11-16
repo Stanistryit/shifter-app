@@ -914,7 +914,7 @@ async function setMode(mode) {
                 // 1. Custom badges from DB
                 if (state.currentUser.customBadges) {
                     state.currentUser.customBadges.forEach(b => {
-                        badges.push({ emoji: b.emoji, title: b.name });
+                        badges.push({ emoji: b.emoji, title: b.name, description: b.description || '' });
                     });
                 }
 
@@ -984,9 +984,13 @@ async function setMode(mode) {
                     badgesContainer.innerHTML = '<span class="text-xs text-gray-400">Поки немає бейджів</span>';
                 } else {
                     badgesContainer.innerHTML = badges.map(b => `
-                        <div class="flex items-center gap-1.5 bg-gray-100 dark:bg-[#2C2C2E] px-3 py-1.5 rounded-full shadow-sm border border-gray-200 dark:border-gray-700 hover:scale-105 transition-transform">
-                            <span class="text-lg">${b.emoji}</span>
-                            <span class="text-xs font-bold text-gray-700 dark:text-gray-300">${b.title}</span>
+                        <div title="${(b.description || b.title || '').replace(/"/g, '&quot;')}"
+                            class="flex items-center gap-2 bg-gray-100 dark:bg-[#2C2C2E] px-3 py-1.5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:scale-105 transition-transform text-left">
+                            <span class="text-lg shrink-0">${b.emoji}</span>
+                            <div class="flex flex-col leading-tight">
+                                <span class="text-xs font-bold text-gray-700 dark:text-gray-300">${b.title}</span>
+                                ${b.description ? `<span class="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">${b.description}</span>` : ''}
+                            </div>
                         </div>
                     `).join('');
                 }

@@ -652,8 +652,8 @@ exports.addCustomBadge = async (req, res) => {
     }
 
     try {
-        const { targetUserId, emoji, name } = req.body;
-        if (!targetUserId || !emoji || !name) return res.json({ success: false, message: "Всі поля обов'язкові" });
+        const { targetUserId, emoji, name, description } = req.body;
+        if (!targetUserId || !emoji || !name) return res.json({ success: false, message: "Вкажіть емоджі та назву бейджу" });
 
         const targetUser = await User.findById(targetUserId);
         if (!targetUser) return res.json({ success: false, message: "Користувача не знайдено" });
@@ -663,7 +663,8 @@ exports.addCustomBadge = async (req, res) => {
             return res.status(403).json({ success: false, message: "Ви можете видавати значки лише своїм працівникам" });
         }
 
-        targetUser.customBadges.push({ emoji, name, issuedBy: u._id });
+        const cleanDesc = description ? String(description).trim() : '';
+        targetUser.customBadges.push({ emoji, name, description: cleanDesc, issuedBy: u._id });
         await targetUser.save();
 
         logAction(u.name, 'add_badge', `Issued badge ${emoji} ${name} to ${targetUser.name}`);
@@ -675,7 +676,8 @@ exports.addCustomBadge = async (req, res) => {
                 if (store && store.telegram && store.telegram.chatId) {
                     const bot = getBot();
                     if (bot) {
-                        const msg = `🎉 <b>Нова нагорода!</b>\n\nSM нагородив <b>${targetUser.name}</b> новим бейджем:\n${emoji} <i>${name}</i>\n\nВітаємо! 👏`;
+                        const descLine = cleanDesc ? `\n💬 <i>«${cleanDesc}»</i>` : '';
+                        const msg = `🎉 <b>Нова нагорода!</b>\n\nSM нагородив <b>${targetUser.name}</b> новим бейджем:\n${emoji} <b>${name}</b>${descLine}\n\nВітаємо! 👏`;
                         await bot.sendMessage(store.telegram.chatId, msg, {
                             message_thread_id: store.telegram.eveningTopicId || undefined,
                             parse_mode: 'HTML'
