@@ -81,16 +81,44 @@ export function updateDashboard() {
     }
 
     const me = state.currentUser;
-    const activeStoreIdStr = String(state.activeStoreId || me.storeId?._id || me.storeId);
+    const myUserRecord = Array.isArray(state.users) ? state.users.find(u => u.name === me.name) : null;
+    const homeStoreId = me.storeId?._id || me.storeId || myUserRecord?.storeId?._id || myUserRecord?.storeId || '';
+    const activeStoreIdStr = String(
+        (me.role === 'admin' && state.selectedStoreFilter && state.selectedStoreFilter !== 'all')
+            ? state.selectedStoreFilter
+            : (homeStoreId || (state.selectedStoreFilter && state.selectedStoreFilter !== 'all' ? state.selectedStoreFilter : ''))
+    );
+
     const shiftsArr = Array.isArray(state.shifts) ? state.shifts : [];
     const tasksArr = Array.isArray(state.tasks) ? state.tasks : [];
     
-    // Фільтруємо зміни: лише мої, і лише ті, що відносяться до вибраного магазину
+    // Фільтруємо зміни: лише мої
     const myShifts = shiftsArr.filter(s => {
         if (s.name !== me.name) return false;
+        if (!activeStoreIdStr || activeStoreIdStr === 'undefined' || activeStoreIdStr === 'null') return true;
         const shiftStoreId = s.storeId?._id || s.storeId;
+        if (!shiftStoreId) return true;
         return String(shiftStoreId) === activeStoreIdStr;
     });
+
+    let currentStore = null;
+    if (Array.isArray(state.stores) && state.stores.length > 0) {
+        if (activeStoreIdStr) {
+            currentStore = state.stores.find(s => String(s._id) === activeStoreIdStr || String(s.code) === activeStoreIdStr) || null;
+        }
+        if (!currentStore && homeStoreId) {
+            currentStore = state.stores.find(s => String(s._id) === String(homeStoreId) || String(s.code) === String(homeStoreId)) || null;
+        }
+        if (!currentStore && myShifts.length > 0) {
+            const firstShiftStoreId = myShifts[0].storeId?._id || myShifts[0].storeId;
+            if (firstShiftStoreId) {
+                currentStore = state.stores.find(s => String(s._id) === String(firstShiftStoreId) || String(s.code) === String(firstShiftStoreId)) || null;
+            }
+        }
+    }
+    if (!currentStore && me.store) {
+        currentStore = me.store;
+    }
 
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
@@ -312,7 +340,7 @@ export function updateDashboard() {
 
     let totalHours = 0, totalShifts = 0;
     monthlyShifts.forEach(s => {
-        const dur = getDuration(s.start, s.end);
+        const dur = getDuration(s.start, s.end, currentStore);
         if (dur > 0) { totalHours += dur; totalShifts++; }
     });
     
@@ -322,19 +350,19 @@ export function updateDashboard() {
         return y === viewYear && (m - 1) === viewMonth;
     });
     monthlyTasks.forEach(t => {
-        let taskDur = getDuration(t.start, t.end);
+        if (!t.start || !t.end) return;
+        const timeToNum = (timeStr) => {
+            if (!timeStr) return 0;
+            const [h, m] = timeStr.split(':').map(Number);
+            return h + (m / 60);
+        };
+        let ts = timeToNum(t.start);
+        let te = timeToNum(t.end);
+        if (te < ts) te += 24;
+        let taskDur = te - ts;
         
         const shift = monthlyShifts.find(s => s.date === t.date);
         if (shift && shift.start !== 'Відпустка' && shift.start !== 'Лікарняний' && shift.start !== 'Донорство' && shift.start !== 'DELETE') {
-            const timeToNum = (timeStr) => {
-                if (!timeStr) return 0;
-                const [h, m] = timeStr.split(':').map(Number);
-                return h + (m / 60);
-            };
-            let ts = timeToNum(t.start);
-            let te = timeToNum(t.end);
-            if (te < ts) te += 24;
-            
             let ss = timeToNum(shift.start);
             let se = timeToNum(shift.end);
             if (se < ss) se += 24;
@@ -351,7 +379,12 @@ export function updateDashboard() {
 
     const pad = n => String(n).padStart(2, '0');
     const monthKey = `${viewYear}-${pad(viewMonth + 1)}`;
-    let norm = parseInt(state.currentUser?.store?.normHours?.[monthKey] || 160);
+    let rawNorm = currentStore?.normHours?.[monthKey] ?? state.currentUser?.store?.normHours?.[monthKey];
+    if (!rawNorm && Array.isArray(state.stores)) {
+        const storeWithNorm = state.stores.find(s => s?.normHours && s.normHours[monthKey]);
+        if (storeWithNorm) rawNorm = storeWithNorm.normHours[monthKey];
+    }
+    let norm = parseInt(rawNorm || 160, 10);
     const percentVal = Math.min(100, (totalHours / norm) * 100);
 
     const hoursEl = document.getElementById('dashHoursText');
@@ -407,15 +440,17 @@ export function updateDashboard() {
 }
 
 // Helpers
-function getDuration(start, end) {
-    if (!start || !end || start === 'Відпустка' || start === 'Лікарняний' || start === 'DELETE') return 0;
+function getDuration(start, end, storeObj = null) {
+    if (!start || !end || start === 'Відпустка' || start === 'Лікарняний' || start === 'Донорство' || start === 'DELETE') return 0;
     const s = timeToVal(start);
     let e = timeToVal(end);
     if (e < s) e += 24; // Handle overnight shifts if any
     
     // Враховуємо обід
     let lunchMins = 60;
-    if (state.currentUser && state.currentUser.store && state.currentUser.store.lunch_duration_minutes !== undefined) {
+    if (storeObj && storeObj.lunch_duration_minutes !== undefined) {
+        lunchMins = storeObj.lunch_duration_minutes;
+    } else if (state.currentUser && state.currentUser.store && state.currentUser.store.lunch_duration_minutes !== undefined) {
         lunchMins = state.currentUser.store.lunch_duration_minutes;
     }
     

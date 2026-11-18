@@ -304,17 +304,21 @@ async function showApp(user) {
 }
 
 export async function loadData() {
-    const [users, shifts, tasks, notes] = await Promise.all([
+    const [users, shifts, tasks, notes, stores] = await Promise.all([
         fetchJson('/api/users'),
         fetchJson('/api/shifts'),
         fetchJson('/api/tasks'),
-        fetchJson('/api/notes')
+        fetchJson('/api/notes'),
+        fetchJson('/api/stores').catch(() => [])
     ]);
 
     state.users = Array.isArray(users) ? users.filter(u => u.role !== 'RRP') : (Array.isArray(state.users) ? state.users : []);
     state.shifts = Array.isArray(shifts) ? shifts : (Array.isArray(state.shifts) ? state.shifts : []);
     state.tasks = Array.isArray(tasks) ? tasks : (Array.isArray(state.tasks) ? state.tasks : []);
     state.notes = Array.isArray(notes) ? notes : (Array.isArray(state.notes) ? state.notes : []);
+    if (Array.isArray(stores) && stores.length > 0) {
+        state.stores = stores;
+    }
 
     // 🔥 ВИПРАВЛЕНО: Залишили тільки список для Задач (s2)
     const s2 = document.getElementById('taskEmployee');

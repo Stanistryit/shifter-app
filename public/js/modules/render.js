@@ -6,6 +6,7 @@ import { fetchJson, postJson } from './api.js';
 import { renderTimeline } from './render_timeline.js';
 import { renderTable } from './render_table.js';
 import { renderCalendar } from './render_calendar.js';
+import { updateDashboard } from './dashboard.js';
 
 // Експортуємо їх, щоб app.js міг їх використовувати
 export { renderTimeline, renderTable, renderCalendar };
@@ -15,6 +16,7 @@ export function renderAll() {
     renderTimeline();
     renderCalendar();
     renderTable();
+    updateDashboard();
 }
 
 // ==========================================
