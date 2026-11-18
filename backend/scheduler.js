@@ -317,6 +317,69 @@ const initScheduler = async (tgConfig) => {
                 }
             }
         }
+
+        // --- ДНІ НАРОДЖЕННЯ КОМАНДИ (ВІТАННЯ О 09:00+ ТА НАГАДУВАННЯ SM НАПЕРЕДОДНІ О 10:00) ---
+        if (currentUAHour >= 9 && currentUAHour <= 12) {
+            try {
+                const currentYear = parseInt(currentUADay.slice(0, 4), 10);
+                const todayMmDd = currentUADay.slice(5); // 'MM-DD'
+                const birthdayUsers = await User.find({
+                    status: 'active',
+                    birthDate: { $regex: `${todayMmDd}$` },
+                    lastBirthdayGreetingYear: { $ne: currentYear }
+                }).populate('storeId');
+
+                const bot = getBot();
+                for (const bUser of birthdayUsers) {
+                    bUser.lastBirthdayGreetingYear = currentYear;
+                    await bUser.save();
+
+                    const displayName = bUser.fullName || bUser.name;
+                    // 1. Особисте привітання імениннику
+                    await notifyUser(
+                        bUser.name,
+                        `🎂🎉 <b>З Днем народження, ${displayName}!</b> 🥳🎈\n\nВся команда вітає тебе зі святом! Бажаємо міцного здоров'я, крутого настрою, натхнення та здійснення всіх мрій! 🚀✨`,
+                        { title: '🎂 З Днем народження!' }
+                    );
+
+                    // 2. Святкове оголошення у Telegram-групу магазину
+                    if (bot && bUser.storeId && bUser.storeId.telegram?.chatId) {
+                        const groupMsg = `🎂🎉 <b>Сьогодні День народження у нашого колеги!</b>\n\nВітаємо <b>${displayName}</b> зі святом! 🥳🎈\nБажаємо яскравих емоцій, невичерпної енергії та крутих звершень! 👏✨`;
+                        const groupOpts = { parse_mode: 'HTML' };
+                        if (bUser.storeId.telegram.newsTopicId) {
+                            groupOpts.message_thread_id = bUser.storeId.telegram.newsTopicId;
+                        }
+                        await bot.sendMessage(bUser.storeId.telegram.chatId, groupMsg, groupOpts).catch(err => console.error('Birthday group msg error:', err.message));
+                    }
+                }
+            } catch (bErr) {
+                console.error('Birthday greeting job error:', bErr.message);
+            }
+        }
+
+        if (currentUAHour === 10) {
+            try {
+                const tomorrowMmDd = tomorrowStr.slice(5);
+                const tomorrowBdayUsers = await User.find({
+                    status: 'active',
+                    birthDate: { $regex: `${tomorrowMmDd}$` }
+                });
+                for (const bUser of tomorrowBdayUsers) {
+                    if (!bUser.storeId) continue;
+                    const sms = await User.find({ storeId: bUser.storeId, role: 'SM', status: 'active' });
+                    for (const sm of sms) {
+                        if (sm.name === bUser.name) continue;
+                        await notifyUser(
+                            sm.name,
+                            `🎁 <b>Нагадування для SM:</b>\nЗавтра День народження святкує <b>${bUser.fullName || bUser.name}</b>! 🎂`,
+                            { title: '🎁 Завтра День народження у команді' }
+                        );
+                    }
+                }
+            } catch (e) {
+                console.error('Tomorrow birthday reminder error:', e.message);
+            }
+        }
     });
 
     await agenda.start();

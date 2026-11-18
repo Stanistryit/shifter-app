@@ -129,7 +129,7 @@ exports.getTerminalData = async (req, res) => {
     // Користувачі магазину (виключаємо звільнених / заблокованих)
     const allStoreUsers = await User.find(
         { storeId },
-        'name fullName position avatar role status customBadges createdAt'
+        'name fullName position avatar role status birthDate customBadges createdAt'
     )
         .populate('customBadges.issuedBy', 'name fullName')
         .lean();
@@ -157,7 +157,7 @@ exports.getTerminalData = async (req, res) => {
     const guestUsers = guestNames.length > 0
         ? await User.find(
               { name: { $in: guestNames }, status: { $ne: 'blocked' } },
-              'name fullName position avatar role status customBadges createdAt'
+              'name fullName position avatar role status birthDate customBadges createdAt'
           )
               .populate('customBadges.issuedBy', 'name fullName')
               .lean()
@@ -224,8 +224,18 @@ exports.getTerminalData = async (req, res) => {
         return `/api/avatar/${u._id}`;
     };
 
+    const todayMonthDay = todayStr.slice(5); // 'MM-DD'
     const enrichedEmployees = combinedUsers.map(u => {
         const badges = [];
+        if (u.birthDate && String(u.birthDate).slice(-5) === todayMonthDay) {
+            badges.push({
+                emoji: '🎂',
+                title: 'Іменинник дня!',
+                description: 'Сьогодні святкує свій День народження! 🎉',
+                category: 'custom',
+                subtitle: 'Сьогодні День народження! 🥳'
+            });
+        }
         if (Array.isArray(u.customBadges)) {
             u.customBadges.forEach(b => {
                 if (b && (b.emoji || b.name)) {

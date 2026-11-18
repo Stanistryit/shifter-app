@@ -183,8 +183,8 @@ exports.updateUser = async (req, res) => {
     }
 
     try {
-        // 🔥 НОВЕ: отримуємо sortOrder
-        const { id, fullName, email, phone, position, grade, role, status, storeId, sortOrder } = req.body;
+        // 🔥 НОВЕ: отримуємо sortOrder та birthDate
+        const { id, fullName, email, phone, birthDate, position, grade, role, status, storeId, sortOrder } = req.body;
         const userToEdit = await User.findById(id);
         if (!userToEdit) return res.json({ success: false, message: "Користувача не знайдено" });
 
@@ -195,6 +195,7 @@ exports.updateUser = async (req, res) => {
         if (fullName !== undefined) userToEdit.fullName = fullName;
         if (email !== undefined) userToEdit.email = email;
         if (phone !== undefined) userToEdit.phone = phone;
+        if (birthDate !== undefined) userToEdit.birthDate = String(birthDate || '').trim();
         if (position !== undefined) userToEdit.position = position;
         if (grade !== undefined) userToEdit.grade = Number(grade);
         if (role !== undefined) userToEdit.role = role;
@@ -318,7 +319,7 @@ exports.getUsers = async (req, res) => {
     }
 
     // 🔥 Оптимізовано: lean() та легкий resolveAvatarUrl замість величезного base64 у відповіді
-    const users = await User.find(query, 'name role avatar fullName email phone position grade status storeId sortOrder createdAt customBadges isTemp inviteCode')
+    const users = await User.find(query, 'name role avatar fullName email phone birthDate position grade status storeId sortOrder createdAt customBadges isTemp inviteCode')
         .populate('storeId', 'name')
         .lean();
 
@@ -370,6 +371,7 @@ exports.getMe = async (req, res) => {
             } : null,
             notificationPreference: user.notificationPreference || 'telegram',
             reminderTime: user.reminderTime || 'off',
+            birthDate: user.birthDate || '',
             hasTelegram: !!user.telegramChatId,
             customBadges: user.customBadges || [],
             notifiedBadges: user.notifiedBadges || [],
@@ -393,6 +395,21 @@ exports.updateReminderTime = async (req, res) => {
         } else {
             res.json({ success: false });
         }
+    } catch (e) {
+        res.json({ success: false, message: e.message });
+    }
+};
+
+exports.updateMyBirthDate = async (req, res) => {
+    try {
+        if (!req.session.userId) return res.json({ success: false, message: 'Not logged in' });
+        const { birthDate } = req.body;
+        const user = await User.findById(req.session.userId);
+        if (!user) return res.json({ success: false });
+
+        user.birthDate = birthDate ? String(birthDate).trim() : '';
+        await user.save();
+        res.json({ success: true, birthDate: user.birthDate });
     } catch (e) {
         res.json({ success: false, message: e.message });
     }

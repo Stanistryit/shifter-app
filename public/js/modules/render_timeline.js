@@ -152,6 +152,9 @@ export function renderTimeline() {
             const blockedStyle = user.status === 'blocked' ? 'opacity-60 grayscale' : '';
 
             let tasksHtml = ''; let badges = '';
+            if (user.birthDate && String(user.birthDate).slice(-5) === dateStr.slice(5)) {
+                badges += `<span class="ml-1.5 px-1.5 py-0.5 rounded-full bg-pink-100 dark:bg-pink-900/40 text-pink-600 dark:text-pink-300 text-[10px] font-bold">🎂 Іменинник!</span>`;
+            }
 
             userTasks.forEach(task => {
                 const isCompleted = task.status === 'completed';

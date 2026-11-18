@@ -648,7 +648,10 @@ export function renderTable() {
             }
 
             const hasTask = (state.tasks || []).some(t => t.name === user.name && t.date === ds && t.status !== 'completed');
-            const taskHtml = hasTask ? '<div class="absolute top-0 left-0 z-10 text-[11px] drop-shadow-sm pointer-events-none">📌</div>' : '';
+            const isUserBday = Boolean(user.birthDate && String(user.birthDate).slice(-5) === ds.slice(5));
+            const taskHtml = isUserBday
+                ? `<div title="🎂 День народження: ${user.fullName || user.name}" class="absolute top-0 left-0 z-10 text-[11px] drop-shadow-sm pointer-events-none">🎂</div>`
+                : (hasTask ? '<div class="absolute top-0 left-0 z-10 text-[11px] drop-shadow-sm pointer-events-none">📌</div>' : '');
 
             html += `<td ${dataAttrs} ${ctxAttr} class="shift-cell relative text-center p-0.5 border-r border-gray-100 dark:border-gray-800 ${cellClass} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">${taskHtml}${content}</td>`;
         }

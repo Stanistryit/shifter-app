@@ -39,6 +39,14 @@
             <span class="font-medium text-gray-700 dark:text-gray-200">Змінити пароль</span>
             <span>🔐</span>
         </button>
+        <div class="w-full flex justify-between items-center ios-input p-4 text-left">
+            <div class="flex flex-col">
+                <label class="font-medium text-gray-700 dark:text-gray-200">🎂 Дата народження</label>
+                <span class="text-[10px] text-gray-400">Для привітань у команді</span>
+            </div>
+            <input type="date" id="profileBirthDate" onchange="saveBirthDate(this.value)"
+                class="bg-transparent font-bold text-blue-500 text-right outline-none text-sm cursor-pointer">
+        </div>
         <!-- Appearance Settings Block -->
         <div class="w-full flex flex-col bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-3">
             <div class="px-4 py-3 bg-gray-50/50 dark:bg-[#2C2C2E]/50 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">

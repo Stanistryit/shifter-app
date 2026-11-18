@@ -108,6 +108,8 @@ const userSchema = new mongoose.Schema({
     fullName: { type: String, default: '' },
     email: { type: String, default: '' },
     phone: { type: String, default: '' },
+    birthDate: { type: String, default: '' }, // Формат 'YYYY-MM-DD'
+    lastBirthdayGreetingYear: { type: Number, default: 0 },
 
     name: { type: String, required: true },
     avatar: { type: String, default: null },

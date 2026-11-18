@@ -57,7 +57,7 @@ exports.exportCalendar = async (req, res) => {
         const user = await User.findOne({ calendarToken: token });
         if (!user) return res.status(404).send('Not found');
 
-        const [shifts, tasks] = await Promise.all([
+        const [shifts, tasks, storeColleagues] = await Promise.all([
             Shift.find({
                 name: user.name,
                 start: { $ne: 'DELETE' }
@@ -71,7 +71,10 @@ exports.exportCalendar = async (req, res) => {
                         ]
                     }
                     : { name: user.name }
-            ).lean()
+            ).lean(),
+            user.storeId
+                ? User.find({ storeId: user.storeId, status: 'active', birthDate: { $ne: '' } }, 'name fullName birthDate').lean()
+                : []
         ]);
 
         let icsLines = [
@@ -302,6 +305,34 @@ exports.exportCalendar = async (req, res) => {
                     `DTEND;VALUE=DATE:${nextDateStr}`,
                     `SUMMARY:${escapeIcsText(summary)}`,
                     `DESCRIPTION:${description}`,
+                    'END:VEVENT'
+                );
+            }
+        }
+
+        // 3. Дні народження колег по магазину (на поточний та наступний рік)
+        const curYear = new Date().getFullYear();
+        for (const col of (storeColleagues || [])) {
+            const bStr = String(col.birthDate || '').trim();
+            const mMatch = bStr.match(/(\d{2})-(\d{2})$/);
+            if (!mMatch) continue;
+            const [, mm, dd] = mMatch;
+            const cName = col.fullName || col.name;
+
+            for (const yr of [curYear, curYear + 1]) {
+                const isoDate = `${yr}-${mm}-${dd}`;
+                const datePlain = `${yr}${mm}${dd}`;
+                const nextDateStr = getNextDatePlain(isoDate);
+                const uid = `bday-${col._id}-${yr}@shifter.app`;
+
+                icsLines.push(
+                    'BEGIN:VEVENT',
+                    `UID:${uid}`,
+                    `DTSTAMP:${nowUtc}`,
+                    `DTSTART;VALUE=DATE:${datePlain}`,
+                    `DTEND;VALUE=DATE:${nextDateStr}`,
+                    `SUMMARY:${escapeIcsText(`🎂 День народження: ${cName}`)}`,
+                    `DESCRIPTION:${escapeIcsText(`Сьогодні День народження святкує ${cName}! 🎉`)}`,
                     'END:VEVENT'
                 );
             }

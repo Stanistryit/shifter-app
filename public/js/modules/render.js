@@ -87,6 +87,11 @@ window.openEditUserProxy = (userId) => {
                         <input type="text" id="edit_phone" value="${user.phone || ''}" class="w-full p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-xl outline-none">
                     </div>
                 </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-pink-500 mb-1">🎂 Дата народження</label>
+                    <input type="date" id="edit_birthDate" value="${user.birthDate || ''}" class="w-full p-3 bg-gray-50 dark:bg-[#2C2C2E] rounded-xl outline-none">
+                </div>
                 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -230,6 +235,7 @@ window.saveUserChanges = async (id, overrideData = null) => {
             fullName: document.getElementById('edit_fullName').value,
             email: document.getElementById('edit_email').value,
             phone: document.getElementById('edit_phone').value,
+            birthDate: document.getElementById('edit_birthDate')?.value || '',
             position: document.getElementById('edit_position').value,
             grade: document.getElementById('edit_grade').value,
             role: document.getElementById('edit_role').value,

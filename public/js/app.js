@@ -280,6 +280,26 @@ window.saveReminderTime = async (val) => {
     }
 };
 
+window.saveBirthDate = async (val) => {
+    triggerHaptic();
+    try {
+        const data = await postJson('/api/user/birth-date', { birthDate: val });
+        if (data.success) {
+            showToast('Дату народження збережено 🎂', 'success');
+            if (state.currentUser) state.currentUser.birthDate = data.birthDate;
+            if (Array.isArray(state.users) && state.currentUser) {
+                const u = state.users.find(x => x.name === state.currentUser.name);
+                if (u) u.birthDate = data.birthDate;
+            }
+            renderAll();
+        } else {
+            showToast('Помилка збереження', 'error');
+        }
+    } catch (e) {
+        showToast('Помилка з\'єднання', 'error');
+    }
+};
+
 window.toggleReminderTime = (isChecked) => {
     const remindContainer = document.getElementById('profileReminderTimeContainer');
     const remindHint = document.getElementById('profileReminderTimeHint');
@@ -903,8 +923,13 @@ async function setMode(mode) {
 
         const pfName = document.getElementById('profileNameDisplay');
         const pfRole = document.getElementById('profileRoleDisplay');
+        const pfBirthDate = document.getElementById('profileBirthDate');
         if (pfName) pfName.innerText = state.currentUser ? state.currentUser.name : 'Гість';
         if (pfRole) pfRole.innerText = state.currentUser ? state.currentUser.role : '';
+        if (pfBirthDate) {
+            const myUser = Array.isArray(state.users) ? state.users.find(u => u.name === state.currentUser?.name) : null;
+            pfBirthDate.value = state.currentUser?.birthDate || myUser?.birthDate || '';
+        }
 
         const pfImg = document.getElementById('profileAvatarImg');
         const pfPlaceholder = document.getElementById('profileAvatarPlaceholder');

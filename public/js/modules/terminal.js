@@ -394,6 +394,7 @@ export async function loadTerminalData(storeId, storeCode, isSilent = false) {
             }
 
             renderHeader(res.store);
+            renderTerminalBirthdays(res.employees, res.todayStr);
             renderActiveShifts(res.todayShifts, res.employees);
             renderTomorrowOpener(res.tomorrowOpener);
             renderShiftHandoverNote(res.store.shiftHandoverNote);
@@ -452,6 +453,77 @@ function renderHeader(store) {
         annBox?.classList.add('hidden');
         annBox?.classList.remove('md:block');
         annBoxMob?.classList.add('hidden');
+    }
+}
+
+// 4.1 Святковий банер Дня народження в терміналі
+function renderTerminalBirthdays(employees, todayStr) {
+    const bannerEl = document.getElementById('termBirthdayBanner');
+    if (!bannerEl) return;
+
+    const list = (employees || []).filter(e => e && e.status !== 'blocked' && !e.isGuest && e.birthDate);
+    if (list.length === 0) {
+        bannerEl.classList.add('hidden');
+        bannerEl.innerHTML = '';
+        return;
+    }
+
+    const baseDateStr = todayStr || new Date().toISOString().split('T')[0];
+    const [ty, tm, td] = baseDateStr.split('-').map(Number);
+    const todayMmDd = `${String(tm).padStart(2, '0')}-${String(td).padStart(2, '0')}`;
+
+    const todayBirthdays = [];
+    const upcomingBirthdays = [];
+
+    list.forEach(emp => {
+        const bStr = String(emp.birthDate || '').trim();
+        const match = bStr.match(/(\d{2})-(\d{2})$/);
+        if (!match) return;
+        const [, bm, bd] = match;
+        const mmDd = `${bm}-${bd}`;
+        const displayName = emp.fullName || emp.name;
+
+        if (mmDd === todayMmDd) {
+            todayBirthdays.push(displayName);
+        } else {
+            const todayDate = new Date(ty, tm - 1, td);
+            let nextBday = new Date(ty, Number(bm) - 1, Number(bd));
+            if (nextBday < todayDate) {
+                nextBday = new Date(ty + 1, Number(bm) - 1, Number(bd));
+            }
+            const diffDays = Math.round((nextBday - todayDate) / (1000 * 60 * 60 * 24));
+            if (diffDays >= 1 && diffDays <= 3) {
+                upcomingBirthdays.push({ name: displayName, dateStr: `${bd}.${bm}`, diffDays });
+            }
+        }
+    });
+
+    if (todayBirthdays.length > 0) {
+        bannerEl.innerHTML = `
+            <div class="rounded-2xl px-4 py-2.5 bg-gradient-to-r from-pink-500/15 via-amber-500/15 to-purple-500/15 dark:from-pink-500/20 dark:via-amber-500/15 dark:to-purple-500/20 border border-pink-300/80 dark:border-pink-800/70 flex flex-wrap items-center justify-between gap-2 shadow-sm">
+                <div class="flex items-center gap-2.5 text-xs sm:text-sm font-extrabold text-pink-950 dark:text-pink-100">
+                    <span class="text-xl animate-bounce">🎂</span>
+                    <span>Сьогодні День народження святкує: <b class="underline decoration-pink-400">${todayBirthdays.join(', ')}</b>! Вітаємо! 🥳🎉</span>
+                </div>
+                <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-pink-500 text-white shadow-2xs">🎈 Свято в команді</span>
+            </div>
+        `;
+        bannerEl.classList.remove('hidden');
+    } else if (upcomingBirthdays.length > 0) {
+        upcomingBirthdays.sort((a, b) => a.diffDays - b.diffDays);
+        const itemsText = upcomingBirthdays
+            .map(u => `<b>${u.name}</b> (${u.dateStr} — ${u.diffDays === 1 ? 'завтра' : `через ${u.diffDays} дн.`})`)
+            .join(', ');
+        bannerEl.innerHTML = `
+            <div class="rounded-xl px-3.5 py-1.5 bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200/70 dark:border-purple-800/50 flex items-center gap-2 text-xs text-purple-900 dark:text-purple-200">
+                <span>🎁</span>
+                <span>Скоро День народження у команді: ${itemsText}</span>
+            </div>
+        `;
+        bannerEl.classList.remove('hidden');
+    } else {
+        bannerEl.classList.add('hidden');
+        bannerEl.innerHTML = '';
     }
 }
 
