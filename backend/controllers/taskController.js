@@ -1,6 +1,41 @@
 const { Task, User, Request, Store } = require('../models');
 const { logAction, handlePermission } = require('../utils');
-const { notifyUser, sendRequestToSM } = require('../bot');
+const { notifyUser, sendRequestToSM, getBot } = require('../bot');
+
+async function sendTaskAttachmentsToTelegram(chatId, taskTitle, attachments = []) {
+    if (!chatId || !Array.isArray(attachments) || attachments.length === 0) return;
+    const bot = getBot();
+    if (!bot) return;
+
+    const nowKiev = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
+    const hours = nowKiev.getHours();
+    const isQuietHour = hours >= 22 || hours < 8;
+
+    for (const att of attachments) {
+        if (!att || !att.data) continue;
+        try {
+            const buffer = Buffer.from(att.data, 'base64');
+            const filename = att.name || 'file';
+            const contentType = att.mimeType || 'application/octet-stream';
+            const ext = filename.split('.').pop().toLowerCase();
+            const isImage = contentType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
+            const opts = {
+                caption: `📎 <b>${filename}</b>\n📝 Задача: <i>${taskTitle}</i>`,
+                parse_mode: 'HTML',
+                disable_notification: isQuietHour
+            };
+            const fileOpts = { filename, contentType };
+
+            if (isImage) {
+                await bot.sendPhoto(chatId, buffer, opts, fileOpts);
+            } else {
+                await bot.sendDocument(chatId, buffer, opts, fileOpts);
+            }
+        } catch (err) {
+            console.error(`Failed to send task attachment "${att?.name}" to Telegram (${chatId}):`, err.message);
+        }
+    }
+}
 
 function decodeOriginalFilename(rawName) {
     if (!rawName) return 'file';
@@ -106,7 +141,8 @@ exports.addTask = async (req, res) => {
 
     const { title, date, name, description, isFullDay, start, end, type, deadline, subtasks, recurrence } = req.body;
 
-    const sendTaskNotification = async (targetName, taskTitle, taskDate, tStart, tEnd, tIsFullDay, tDesc, tType, tDeadline, tSubtasks, attCount = 0) => {
+    const sendTaskNotification = async (targetName, taskTitle, taskDate, tStart, tEnd, tIsFullDay, tDesc, tType, tDeadline, tSubtasks, attachments = []) => {
+        const attCount = Array.isArray(attachments) ? attachments.length : 0;
         let msg = '';
         if (tType === 'todo') {
             msg = `📌 <b>Нова ToDo задача!</b>\n\n📝 <b>${taskTitle}</b>`;
@@ -129,7 +165,10 @@ exports.addTask = async (req, res) => {
         const pref = user ? (user.notificationPreference || 'telegram') : 'telegram';
 
         if (pref === 'telegram' || pref === 'both') {
-            notifyUser(targetName, msg);
+            await notifyUser(targetName, msg);
+            if (user && user.telegramChatId && attCount > 0) {
+                await sendTaskAttachmentsToTelegram(user.telegramChatId, taskTitle, attachments);
+            }
         }
 
         if ((pref === 'push' || pref === 'both') && user && user.pushSubscriptions && user.pushSubscriptions.length > 0) {
@@ -187,7 +226,7 @@ exports.addTask = async (req, res) => {
 
         if (tasksToCreate.length > 0) {
             await Task.insertMany(tasksToCreate);
-            users.forEach(u => sendTaskNotification(u.name, title, date, start, end, isFullDay, description, type, deadline, subtasks, uploadedAttachments.length));
+            users.forEach(u => sendTaskNotification(u.name, title, date, start, end, isFullDay, description, type, deadline, subtasks, uploadedAttachments));
             logAction(perm.user.name, 'add_task_all', title);
         }
     } else {
@@ -205,7 +244,7 @@ exports.addTask = async (req, res) => {
 
         applyAutoComplete(taskData);
         await Task.create(taskData);
-        sendTaskNotification(name, title, date, start, end, isFullDay, description, type, deadline, subtasks, uploadedAttachments.length);
+        sendTaskNotification(name, title, date, start, end, isFullDay, description, type, deadline, subtasks, uploadedAttachments);
         logAction(perm.user.name, 'add_task', title);
     }
     res.json({ success: true });
@@ -260,7 +299,13 @@ exports.editTask = async (req, res) => {
 
     await task.save();
 
-    notifyUser(task.name, `✏️ Задача змінена: <b>${task.title}</b>\n(Відредаговано ${u.name})`);
+    await notifyUser(task.name, `✏️ Задача змінена: <b>${task.title}</b>\n(Відредаговано ${u.name})`);
+    if (uploadedAttachments.length > 0) {
+        const targetUser = await User.findOne({ name: task.name });
+        if (targetUser && targetUser.telegramChatId) {
+            await sendTaskAttachmentsToTelegram(targetUser.telegramChatId, task.title, uploadedAttachments);
+        }
+    }
     res.json({ success: true, task: sanitizeTaskForClient(task) });
 };
 
@@ -366,11 +411,18 @@ exports.forceRemind = async (req, res) => {
     if (!req.session.userId) return res.status(403).json({ success: false });
     const u = await User.findById(req.session.userId);
     const { id } = req.body;
-    const t = await Task.findById(id);
+    const t = await Task.findById(id).select('+attachments.data');
 
     if (!t) return res.json({ success: false, message: "Task not found" });
     if (u.role !== 'SM' && u.role !== 'admin') return res.status(403).json({ success: false, message: 'Немає прав' });
 
-    notifyUser(t.name, `‼️ <b>Нагадування від ${u.name}</b>\n\nНе забудь про задачу: 📝 <b>${t.title}</b>${t.deadline ? `\n⏳ Дедлайн: ${t.deadline}` : ''}`);
+    const descLine = t.description ? `\n\nℹ️ <b>Опис:</b> ${t.description}` : '';
+    await notifyUser(t.name, `‼️ <b>Нагадування від ${u.name}</b>\n\nНе забудь про задачу: 📝 <b>${t.title}</b>${t.deadline ? `\n⏳ Дедлайн: ${t.deadline}` : ''}${descLine}`);
+    if (Array.isArray(t.attachments) && t.attachments.length > 0) {
+        const targetUser = await User.findOne({ name: t.name });
+        if (targetUser && targetUser.telegramChatId) {
+            await sendTaskAttachmentsToTelegram(targetUser.telegramChatId, t.title, t.attachments);
+        }
+    }
     res.json({ success: true });
 };
