@@ -53,7 +53,8 @@ const schemas = {
                 completed: z.boolean().optional()
             })).optional(),
             includeHours: z.boolean().optional(),
-            requireCompletion: z.boolean().optional()
+            requireCompletion: z.boolean().optional(),
+            keepAttachmentIds: z.array(z.string()).optional()
         }).strict()
     }),
 

@@ -24,6 +24,65 @@ export async function delS(id) {
 // --- TASKS ---
 
 let tempSubtasks = [];
+let tempExistingAttachments = [];
+let tempNewFiles = [];
+
+function renderTaskAttachmentsBuilder() {
+    const list = document.getElementById('taskAttachmentsBuilderList');
+    if (!list) return;
+    list.innerHTML = '';
+
+    tempExistingAttachments.forEach((att) => {
+        const safeName = String(att.name || 'Файл').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        list.insertAdjacentHTML('beforeend', `
+            <div class="flex items-center justify-between gap-2 text-xs bg-gray-50 dark:bg-[#2C2C2E] p-2 rounded-lg border border-gray-200/70 dark:border-gray-700">
+                <span class="truncate pr-2 font-medium">📎 ${safeName}</span>
+                <button type="button" onclick="window.removeExistingTaskAttachment('${att._id}')" class="text-red-500 font-bold px-2 py-0.5 bg-red-100 dark:bg-red-900/30 rounded active:scale-95 shrink-0">✕</button>
+            </div>
+        `);
+    });
+
+    tempNewFiles.forEach((file, idx) => {
+        const safeName = String(file.name || 'Файл').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const kb = file.size ? ` (${(file.size / 1024).toFixed(0)} КБ)` : '';
+        list.insertAdjacentHTML('beforeend', `
+            <div class="flex items-center justify-between gap-2 text-xs bg-purple-50/70 dark:bg-purple-950/30 p-2 rounded-lg border border-purple-200/70 dark:border-purple-800/60">
+                <span class="truncate pr-2 font-medium text-purple-900 dark:text-purple-200">🆕 ${safeName}${kb}</span>
+                <button type="button" onclick="window.removeNewTaskFile(${idx})" class="text-red-500 font-bold px-2 py-0.5 bg-red-100 dark:bg-red-900/30 rounded active:scale-95 shrink-0">✕</button>
+            </div>
+        `);
+    });
+}
+
+window.handleTaskFilesSelect = function (input) {
+    if (!input || !input.files) return;
+    const files = Array.from(input.files);
+    for (const f of files) {
+        if (tempExistingAttachments.length + tempNewFiles.length >= 5) {
+            showToast("Максимум 5 файлів до однієї задачі", "error");
+            break;
+        }
+        if (f.size > 10 * 1024 * 1024) {
+            showToast(`Файл "${f.name}" перевищує 10 МБ`, "error");
+            continue;
+        }
+        tempNewFiles.push(f);
+    }
+    input.value = '';
+    renderTaskAttachmentsBuilder();
+};
+
+window.removeExistingTaskAttachment = function (attId) {
+    triggerHaptic();
+    tempExistingAttachments = tempExistingAttachments.filter(a => String(a._id) !== String(attId));
+    renderTaskAttachmentsBuilder();
+};
+
+window.removeNewTaskFile = function (idx) {
+    triggerHaptic();
+    tempNewFiles.splice(idx, 1);
+    renderTaskAttachmentsBuilder();
+};
 
 export function toggleTaskTimeInputs() {
     const c = document.getElementById('taskFullDay').checked;
@@ -96,7 +155,12 @@ export function openAddTaskModal() {
     if (recurrenceEl) recurrenceEl.value = 'none';
 
     tempSubtasks = [];
+    tempExistingAttachments = [];
+    tempNewFiles = [];
+    const fileInput = document.getElementById('taskFilesInput');
+    if (fileInput) fileInput.value = '';
     renderSubtasksBuilder();
+    renderTaskAttachmentsBuilder();
     toggleTaskTypeUI('timeline');
     
     document.getElementById('taskRequireCompletion').checked = true;
@@ -161,22 +225,45 @@ export async function submitTaskModal() {
     btn.disabled = true;
 
     try {
+        const hasFiles = tempNewFiles.length > 0;
         if (editId) {
             payload.id = editId;
-            const res = await postJson('/api/tasks/edit', payload);
+            payload.keepAttachmentIds = tempExistingAttachments.map(a => String(a._id));
+
+            let res;
+            if (hasFiles) {
+                const formData = new FormData();
+                formData.append('payload', JSON.stringify(payload));
+                tempNewFiles.forEach(f => formData.append('files', f));
+                const rawRes = await fetch('/api/tasks/edit', { method: 'POST', body: formData });
+                res = await rawRes.json();
+            } else {
+                res = await postJson('/api/tasks/edit', payload);
+            }
+
             if (res.success) {
                 if (res.pending) showToast("Запит відправлено SM");
                 else showToast("Збережено");
             } else {
-                return showToast("Помилка", 'error');
+                return showToast(res.message || "Помилка", 'error');
             }
         } else {
-            const res = await postJson('/api/tasks', payload);
+            let res;
+            if (hasFiles) {
+                const formData = new FormData();
+                formData.append('payload', JSON.stringify(payload));
+                tempNewFiles.forEach(f => formData.append('files', f));
+                const rawRes = await fetch('/api/tasks', { method: 'POST', body: formData });
+                res = await rawRes.json();
+            } else {
+                res = await postJson('/api/tasks', payload);
+            }
+
             if (res.success) {
                 if (res.pending) showToast("Запит відправлено SM на підтвердження");
                 else showToast("Створено");
             } else {
-                return showToast("Помилка", 'error');
+                return showToast(res.message || "Помилка", 'error');
             }
         }
 
@@ -184,6 +271,7 @@ export async function submitTaskModal() {
         closeAddTaskModal();
         state.tasks = await fetchJson('/api/tasks');
         renderAll();
+        if (window.reloadTerminalTasks) window.reloadTerminalTasks();
         
         if (state.currentMode === 'todo') {
             import('./render_todo.js').then(m => m.renderTodo());
@@ -349,7 +437,14 @@ export function openEditTaskModal(task) {
     }
 
     tempSubtasks = task.subtasks ? JSON.parse(JSON.stringify(task.subtasks)) : [];
+    tempExistingAttachments = Array.isArray(task.attachments)
+        ? task.attachments.map(a => ({ _id: a._id, name: a.name, mimeType: a.mimeType, size: a.size }))
+        : [];
+    tempNewFiles = [];
+    const fileInput = document.getElementById('taskFilesInput');
+    if (fileInput) fileInput.value = '';
     renderSubtasksBuilder();
+    renderTaskAttachmentsBuilder();
 
     document.getElementById('addTaskModal').classList.remove('hidden');
 }

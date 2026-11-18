@@ -149,13 +149,23 @@ function buildTodoCard(t) {
 
     // Type indicator
     const typeIndicator = t.type === 'timeline' ? '🕒' : '📝';
+    const cleanDescPreview = t.description
+        ? String(t.description)
+              .replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, '$2')
+              .replace(/<[^>]+>/g, '')
+              .trim()
+        : '';
+    const attInfo = (Array.isArray(t.attachments) && t.attachments.length > 0)
+        ? `<div class="text-xs text-indigo-500 font-medium mt-1 flex items-center gap-1">📎 Файли: ${t.attachments.length}</div>`
+        : '';
 
     return `
     <div onclick="window.openTaskProxy('${t._id}')" class="relative overflow-hidden cursor-pointer bg-white dark:bg-[#2C2C2E] border ${isCompleted && reqComp ? 'border-green-200 dark:border-green-900/30 opacity-70' : 'border-gray-100 dark:border-gray-800'} rounded-xl p-3 shadow-sm hover:shadow-md transition-all active:scale-[0.98]">
         ${isCompleted && reqComp ? '<div class="absolute top-0 right-0 w-8 h-8 bg-green-500 rounded-bl-xl flex items-center justify-center text-white text-xs font-bold shadow-sm">✓</div>' : ''}
         <h4 class="font-bold text-gray-900 dark:text-white mb-1 ${isCompleted && reqComp ? 'line-through text-gray-500' : ''} pr-6"><span class="text-xs opacity-70 mr-1">${typeIndicator}</span>${t.title}</h4>
-        ${t.description ? `<p class="text-xs text-gray-500 line-clamp-2 mb-1">${t.description}</p>` : ''}
+        ${cleanDescPreview ? `<p class="text-xs text-gray-500 line-clamp-2 mb-1">${cleanDescPreview}</p>` : ''}
         ${subInfo}
+        ${attInfo}
         ${recurInfo}
         ${timeInfo}
     </div>

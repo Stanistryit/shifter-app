@@ -2,6 +2,45 @@ const { Task, User, Request, Store } = require('../models');
 const { logAction, handlePermission } = require('../utils');
 const { notifyUser, sendRequestToSM } = require('../bot');
 
+function decodeOriginalFilename(rawName) {
+    if (!rawName) return 'file';
+    try {
+        if (!/[а-яА-ЯіїєґІЇЄҐ]/.test(rawName)) {
+            const utf8 = Buffer.from(rawName, 'latin1').toString('utf8');
+            if (/[а-яА-ЯіїєґІЇЄҐ]/.test(utf8) || !utf8.includes('\uFFFD')) {
+                return utf8;
+            }
+        }
+    } catch (e) {}
+    return rawName;
+}
+
+function extractUploadedAttachments(req) {
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) return [];
+    return req.files
+        .filter(f => f && f.buffer && f.buffer.length > 0)
+        .map(f => ({
+            name: decodeOriginalFilename(f.originalname),
+            mimeType: f.mimetype || 'application/octet-stream',
+            size: Number(f.size || f.buffer.length || 0),
+            data: f.buffer.toString('base64')
+        }));
+}
+
+function sanitizeTaskForClient(taskDoc) {
+    if (!taskDoc) return taskDoc;
+    const obj = typeof taskDoc.toObject === 'function' ? taskDoc.toObject() : { ...taskDoc };
+    if (Array.isArray(obj.attachments)) {
+        obj.attachments = obj.attachments.map(att => ({
+            _id: att._id,
+            name: att.name,
+            mimeType: att.mimeType,
+            size: att.size
+        }));
+    }
+    return obj;
+}
+
 exports.getTasks = async (req, res) => {
     if (!req.session.userId) return res.status(403).json([]);
 
@@ -16,6 +55,36 @@ exports.getTasks = async (req, res) => {
     res.json(t);
 };
 
+exports.getTaskAttachment = async (req, res) => {
+    const isTerminal = Boolean(req.session?.isTerminal && req.session?.terminalStoreId);
+    if (!req.session.userId && !isTerminal) {
+        return res.status(403).send('Forbidden');
+    }
+
+    const { taskId, attId } = req.params;
+    const task = await Task.findById(taskId).select('+attachments.data').lean();
+    if (!task || !Array.isArray(task.attachments)) {
+        return res.status(404).send('Attachment not found');
+    }
+
+    const att = task.attachments.find(a => String(a._id) === String(attId));
+    if (!att || !att.data) {
+        return res.status(404).send('Attachment not found');
+    }
+
+    const buffer = Buffer.from(att.data, 'base64');
+    const mimeType = att.mimeType || 'application/octet-stream';
+    const isDownload = req.query.download === '1';
+    const isInlineType = !isDownload && (mimeType.startsWith('image/') || mimeType === 'application/pdf' || mimeType.startsWith('text/'));
+    const dispositionType = isInlineType ? 'inline' : 'attachment';
+    const encodedName = encodeURIComponent(att.name || 'file');
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Content-Disposition', `${dispositionType}; filename*=UTF-8''${encodedName}`);
+    return res.send(buffer);
+};
+
 exports.addTask = async (req, res) => {
     const perm = await handlePermission(req, req.session.userId);
     
@@ -23,15 +92,21 @@ exports.addTask = async (req, res) => {
         return res.status(403).json({ success: false, message: "Немає прав" });
     }
 
+    const uploadedAttachments = extractUploadedAttachments(req);
+
     if (perm.status === 'pending') {
-        const reqDoc = await Request.create({ type: 'add_task', data: req.body, createdBy: perm.user.name });
+        const reqData = { ...req.body };
+        if (uploadedAttachments.length > 0) {
+            reqData.attachments = uploadedAttachments;
+        }
+        const reqDoc = await Request.create({ type: 'add_task', data: reqData, createdBy: perm.user.name });
         sendRequestToSM(reqDoc);
         return res.json({ success: true, pending: true });
     }
 
     const { title, date, name, description, isFullDay, start, end, type, deadline, subtasks, recurrence } = req.body;
 
-    const sendTaskNotification = async (targetName, taskTitle, taskDate, tStart, tEnd, tIsFullDay, tDesc, tType, tDeadline, tSubtasks) => {
+    const sendTaskNotification = async (targetName, taskTitle, taskDate, tStart, tEnd, tIsFullDay, tDesc, tType, tDeadline, tSubtasks, attCount = 0) => {
         let msg = '';
         if (tType === 'todo') {
             msg = `📌 <b>Нова ToDo задача!</b>\n\n📝 <b>${taskTitle}</b>`;
@@ -47,6 +122,7 @@ exports.addTask = async (req, res) => {
         }
         
         if (tDesc) msg += `\n\nℹ️ <b>Опис:</b> ${tDesc}`;
+        if (attCount > 0) msg += `\n📎 <b>Прикріплено файлів:</b> ${attCount}`;
         
         const pushController = require('./pushController');
         const user = await User.findOne({ name: targetName });
@@ -102,7 +178,8 @@ exports.addTask = async (req, res) => {
             const tData = {
                 ...req.body,
                 name: u.name,
-                storeId: u.storeId
+                storeId: u.storeId,
+                attachments: uploadedAttachments
             };
             applyAutoComplete(tData);
             return tData;
@@ -110,12 +187,15 @@ exports.addTask = async (req, res) => {
 
         if (tasksToCreate.length > 0) {
             await Task.insertMany(tasksToCreate);
-            users.forEach(u => sendTaskNotification(u.name, title, date, start, end, isFullDay, description, type, deadline, subtasks));
+            users.forEach(u => sendTaskNotification(u.name, title, date, start, end, isFullDay, description, type, deadline, subtasks, uploadedAttachments.length));
             logAction(perm.user.name, 'add_task_all', title);
         }
     } else {
         const targetUser = await User.findOne({ name: req.body.name });
-        const taskData = { ...req.body };
+        const taskData = {
+            ...req.body,
+            attachments: uploadedAttachments
+        };
 
         if (targetUser && targetUser.storeId) {
             taskData.storeId = targetUser.storeId;
@@ -125,7 +205,7 @@ exports.addTask = async (req, res) => {
 
         applyAutoComplete(taskData);
         await Task.create(taskData);
-        sendTaskNotification(name, title, date, start, end, isFullDay, description, type, deadline, subtasks);
+        sendTaskNotification(name, title, date, start, end, isFullDay, description, type, deadline, subtasks, uploadedAttachments.length);
         logAction(perm.user.name, 'add_task', title);
     }
     res.json({ success: true });
@@ -138,11 +218,21 @@ exports.editTask = async (req, res) => {
         return res.status(403).json({ success: false, message: 'Тільки для SM та Admin' });
     }
 
-    const { id, ...updateFields } = req.body;
-    const task = await Task.findById(id);
+    const { id, keepAttachmentIds, ...updateFields } = req.body;
+    const task = await Task.findById(id).select('+attachments.data');
     if (!task) return res.json({ success: false, message: 'Task not found' });
 
     Object.assign(task, updateFields);
+
+    const uploadedAttachments = extractUploadedAttachments(req);
+    if (Array.isArray(keepAttachmentIds)) {
+        const keepSet = new Set(keepAttachmentIds.map(String));
+        task.attachments = (task.attachments || []).filter(att => keepSet.has(String(att._id)));
+    }
+    if (uploadedAttachments.length > 0) {
+        if (!Array.isArray(task.attachments)) task.attachments = [];
+        task.attachments.push(...uploadedAttachments);
+    }
 
     if (task.requireCompletion === false && task.status !== 'completed') {
         let isDeadlineReached = false;
@@ -171,7 +261,7 @@ exports.editTask = async (req, res) => {
     await task.save();
 
     notifyUser(task.name, `✏️ Задача змінена: <b>${task.title}</b>\n(Відредаговано ${u.name})`);
-    res.json({ success: true, task });
+    res.json({ success: true, task: sanitizeTaskForClient(task) });
 };
 
 exports.deleteTask = async (req, res) => {

@@ -21,12 +21,19 @@ function formatHmToIcsTime(hmStr) {
     return `${hh}${mm}00`;
 }
 
+function stripHtmlForIcs(str) {
+    return String(str || '')
+        .replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi, '$2 ($1)')
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1 ($2)')
+        .replace(/<[^>]+>/g, '');
+}
+
 function buildTaskDescription(task, extraLine = '') {
     const lines = [];
     lines.push(`Статус: ${task.status === 'completed' ? '✅ Виконано' : '⏳ В роботі'}`);
     if (extraLine) lines.push(extraLine);
     if (task.description && String(task.description).trim()) {
-        lines.push(`Опис: ${String(task.description).trim()}`);
+        lines.push(`Опис: ${stripHtmlForIcs(task.description).trim()}`);
     }
     if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {
         lines.push('Підзадачі:');
@@ -35,6 +42,9 @@ function buildTaskDescription(task, extraLine = '') {
                 lines.push(`${st.completed ? '☑️' : '⬜'} ${st.title}`);
             }
         }
+    }
+    if (Array.isArray(task.attachments) && task.attachments.length > 0) {
+        lines.push(`📎 Файли (${task.attachments.length}): ${task.attachments.map(a => a.name).join(', ')}`);
     }
     return escapeIcsText(lines.join('\n'));
 }

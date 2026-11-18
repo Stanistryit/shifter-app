@@ -115,6 +115,10 @@
                 <div class="text-xs font-bold text-gray-400 mb-2 uppercase">Підзадачі</div>
                 <div id="taskModalSubtasksList" class="space-y-2"></div>
             </div>
+            <div id="taskModalAttachmentsWrapper" class="hidden mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <div class="text-xs font-bold text-gray-400 mb-2 uppercase">📎 Прикріплені файли</div>
+                <div id="taskModalAttachmentsList" class="space-y-2"></div>
+            </div>
         </div>
         <button id="btnForceRemindTask" onclick="forceRemindTask()"
             class="hidden w-full py-3 text-white font-bold bg-orange-500 rounded-xl active:scale-95 transition-transform mb-2 shadow-sm shadow-orange-500/30">‼️ Нагадати</button>
@@ -289,16 +293,41 @@
                 </div>
             </div>
 
-            <textarea id="taskDescription" placeholder="Опис (посилання, деталі...)"
-                class="ios-input h-20 text-sm"></textarea>
+            <div class="space-y-1.5">
+                <div class="flex items-center justify-between px-1">
+                    <span class="text-xs font-bold text-gray-500 uppercase">Опис</span>
+                    <div class="flex gap-1.5">
+                        <button type="button" onclick="formatText('bold', 'taskDescription')" title="Жирний текст"
+                            class="bg-gray-200 dark:bg-[#3A3A3C] hover:bg-gray-300 dark:hover:bg-gray-600 px-2.5 py-0.5 rounded-lg text-xs font-bold transition-colors">B</button>
+                        <button type="button" onclick="formatText('italic', 'taskDescription')" title="Курсив"
+                            class="bg-gray-200 dark:bg-[#3A3A3C] hover:bg-gray-300 dark:hover:bg-gray-600 px-2.5 py-0.5 rounded-lg text-xs italic transition-colors">I</button>
+                        <button type="button" onclick="formatText('link', 'taskDescription')" title="Вставити посилання з текстом"
+                            class="bg-gray-200 dark:bg-[#3A3A3C] hover:bg-gray-300 dark:hover:bg-gray-600 px-2.5 py-0.5 rounded-lg text-xs font-medium transition-colors">🔗 Посилання</button>
+                    </div>
+                </div>
+                <textarea id="taskDescription" placeholder="Опис (посилання, деталі...)"
+                    class="ios-input h-20 text-sm"></textarea>
+            </div>
 
             <div class="mt-2 border border-gray-200 dark:border-gray-800 rounded-xl p-3">
                 <span class="text-xs font-bold text-gray-500 uppercase mb-2 block">Підзадачі</span>
                 <div id="subtasksBuilderList" class="space-y-2 mb-2 max-h-32 overflow-y-auto empty:hidden"></div>
                 <div class="flex gap-2">
                     <input type="text" id="newSubtaskInput" placeholder="Нова підзадача..." class="ios-input flex-1 text-sm h-9">
-                    <button onclick="window.addSubtaskToBuilder()" class="px-3 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm font-bold active:scale-95">+</button>
+                    <button type="button" onclick="window.addSubtaskToBuilder()" class="px-3 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm font-bold active:scale-95">+</button>
                 </div>
+            </div>
+
+            <div class="mt-2 border border-gray-200 dark:border-gray-800 rounded-xl p-3">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-gray-500 uppercase">📎 Прикріплені файли (до 5)</span>
+                </div>
+                <div id="taskAttachmentsBuilderList" class="space-y-1.5 mb-2 max-h-32 overflow-y-auto empty:hidden"></div>
+                <label class="flex items-center justify-center gap-2 bg-[#E5E5EA] dark:bg-[#2C2C2E] p-2.5 rounded-xl cursor-pointer hover:opacity-80 transition-opacity border border-dashed border-gray-300 dark:border-gray-700">
+                    <span class="text-base">📎</span>
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Додати фото або файл</span>
+                    <input type="file" id="taskFilesInput" class="hidden" multiple onchange="window.handleTaskFilesSelect(this)">
+                </label>
             </div>
 
             <button id="btnSaveTaskModal" onclick="submitTaskModal()" class="btn-primary bg-purple-500 shadow-purple-500/30 mt-2">Зберегти</button>

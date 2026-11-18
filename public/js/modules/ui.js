@@ -164,18 +164,73 @@ export function formatText(type, fieldId = 'newsText') {
     const text = field.value;
     const selectedText = text.substring(start, end);
     let before = '', after = '';
+    let customLabel = '';
 
     if (type === 'bold') { before = '<b>'; after = '</b>'; }
     else if (type === 'italic') { before = '<i>'; after = '</i>'; }
     else if (type === 'link') {
-        const url = prompt("URL:", "https://");
-        if (!url) return;
+        let url = prompt("Вставте посилання (URL):", "https://");
+        if (!url || !url.trim() || url.trim() === 'https://') return;
+        url = url.trim();
+        if (!/^https?:\/\//i.test(url) && !/^tg:\/\//i.test(url) && !/^mailto:/i.test(url)) {
+            url = 'https://' + url;
+        }
+        if (!selectedText) {
+            const labelInput = prompt("Текст посилання (як воно буде відображатися):", "Посилання");
+            if (labelInput === null) return;
+            customLabel = labelInput.trim() || 'Посилання';
+        }
         before = `<a href="${url}">`; after = '</a>';
     }
 
-    const content = selectedText || (type === 'link' ? 'посилання' : 'текст');
+    const content = selectedText || customLabel || (type === 'link' ? 'Посилання' : 'текст');
     field.value = text.substring(0, start) + before + content + after + text.substring(end);
     field.focus();
+}
+
+export function formatRichTextHtml(rawText) {
+    if (!rawText) return '';
+    const links = [];
+    const addLinkPlaceholder = (url, label) => {
+        let cleanUrl = String(url || '').trim();
+        if (!/^https?:\/\//i.test(cleanUrl) && !/^tg:\/\//i.test(cleanUrl) && !/^mailto:/i.test(cleanUrl)) {
+            cleanUrl = 'https://' + cleanUrl;
+        }
+        const safeUrl = cleanUrl.replace(/"/g, '&quot;');
+        const idx = links.length;
+        links.push(`<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="text-blue-500 hover:text-blue-600 dark:text-blue-400 underline font-semibold break-all">🔗 ${label || cleanUrl}</a>`);
+        return `%%RICH_LINK_${idx}%%`;
+    };
+
+    let processed = String(rawText)
+        // 1. Існуючі HTML-посилання <a href="...">...</a>
+        .replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, url, label) => addLinkPlaceholder(url, label))
+        // 2. Markdown-посилання [текст](url)
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi, (_, label, url) => addLinkPlaceholder(url, label))
+        // 3. Звичайні URL у тексті
+        .replace(/(https?:\/\/[^\s<>"']+)/gi, (url) => addLinkPlaceholder(url, url));
+
+    processed = processed.replace(/%%RICH_LINK_(\d+)%%/g, (_, idx) => links[Number(idx)] || '');
+    return processed;
+}
+
+function formatFileSize(bytes) {
+    const num = Number(bytes || 0);
+    if (!num) return '';
+    if (num < 1024) return `${num} Б`;
+    if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} КБ`;
+    return `${(num / (1024 * 1024)).toFixed(1)} МБ`;
+}
+
+function getAttachmentIcon(mimeType = '', fileName = '') {
+    const m = String(mimeType).toLowerCase();
+    const n = String(fileName).toLowerCase();
+    if (m.startsWith('image/')) return '🖼️';
+    if (m === 'application/pdf' || n.endsWith('.pdf')) return '📕';
+    if (n.endsWith('.xls') || n.endsWith('.xlsx') || n.endsWith('.csv') || m.includes('spreadsheet') || m.includes('excel')) return '📊';
+    if (n.endsWith('.doc') || n.endsWith('.docx') || m.includes('word')) return '📘';
+    if (n.endsWith('.zip') || n.endsWith('.rar') || n.endsWith('.7z')) return '🗜️';
+    return '📄';
 }
 
 export function updateFileName(inputId = 'newsFile', labelId = 'fileName') {
@@ -224,11 +279,7 @@ export function openTaskDetailsModal(task) {
     const descText = document.getElementById('taskModalDescription');
 
     if (task.description && task.description.trim() !== "") {
-        const linkedText = task.description.replace(
-            /(https?:\/\/[^\s]+)/g,
-            '<a href="$1" target="_blank" class="text-blue-500 underline break-all">$1</a>'
-        );
-        descText.innerHTML = linkedText;
+        descText.innerHTML = formatRichTextHtml(task.description);
         descWrapper.classList.remove('hidden');
     } else {
         descWrapper.classList.add('hidden');
@@ -252,6 +303,51 @@ export function openTaskDetailsModal(task) {
             });
         } else {
             subtasksContainer.parentElement.classList.add('hidden');
+        }
+    }
+
+    const attWrapper = document.getElementById('taskModalAttachmentsWrapper');
+    const attList = document.getElementById('taskModalAttachmentsList');
+    if (attWrapper && attList) {
+        if (Array.isArray(task.attachments) && task.attachments.length > 0) {
+            attWrapper.classList.remove('hidden');
+            attList.innerHTML = task.attachments.map(att => {
+                const viewUrl = `/api/tasks/${task._id}/attachment/${att._id}`;
+                const downloadUrl = `/api/tasks/${task._id}/attachment/${att._id}?download=1`;
+                const isImage = String(att.mimeType || '').toLowerCase().startsWith('image/');
+                const icon = getAttachmentIcon(att.mimeType, att.name);
+                const sizeStr = formatFileSize(att.size);
+                const safeName = String(att.name || 'Файл')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+
+                return `
+                    <div class="p-2.5 bg-gray-50 dark:bg-[#1C1C1E] border border-gray-200/70 dark:border-gray-800 rounded-xl space-y-2">
+                        ${isImage ? `
+                            <a href="${viewUrl}" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden max-h-48 bg-black/5 dark:bg-white/5">
+                                <img src="${viewUrl}" alt="${safeName}" class="w-full max-h-48 object-contain mx-auto">
+                            </a>
+                        ` : ''}
+                        <div class="flex items-center justify-between gap-2">
+                            <a href="${viewUrl}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 min-w-0 flex-1 hover:opacity-80 transition-opacity">
+                                <span class="text-lg shrink-0">${icon}</span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">${safeName}</div>
+                                    ${sizeStr ? `<div class="text-[10px] text-gray-400 font-mono">${sizeStr}</div>` : ''}
+                                </div>
+                            </a>
+                            <a href="${downloadUrl}" download="${safeName}"
+                                class="px-2.5 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 text-xs font-bold shrink-0 transition-colors">
+                                ⬇ Скачати
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            attWrapper.classList.add('hidden');
+            attList.innerHTML = '';
         }
     }
 

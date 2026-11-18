@@ -1561,6 +1561,8 @@ function renderTasks(tasks) {
 
         const hasDesc = t.description && t.description.trim();
         const descBadge = hasDesc ? `<span class="text-[10px] text-gray-400" title="Є опис задачі">📄</span>` : '';
+        const hasAtt = Array.isArray(t.attachments) && t.attachments.length > 0;
+        const attBadge = hasAtt ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-mono font-medium" title="Прикріплені файли">📎 ${t.attachments.length}</span>` : '';
 
         return `
             <div onclick="window.openTaskProxy('${t._id}')" title="Натисніть для перегляду деталей" class="p-2 rounded-xl bg-gray-50 dark:bg-[#2C2C2E] border border-gray-200/70 dark:border-gray-800 flex items-center justify-between gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 active:scale-[0.99] transition-all ${opacity}">
@@ -1572,6 +1574,7 @@ function renderTasks(tasks) {
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
                     ${descBadge}
+                    ${attBadge}
                     ${subBadge}
                     ${timeBadge}
                     ${t.name ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 font-bold">${t.name}</span>` : ''}

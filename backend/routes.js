@@ -85,9 +85,18 @@ router.get('/statistics/personal', catchAsync(statsController.getPersonalStats))
 router.post('/shifts/save', validate(schemas.saveSchedule), catchAsync(shiftController.saveSchedule));
 
 // --- TASKS ---
+const parseTaskMultipart = (req, res, next) => {
+    if (req.body && typeof req.body.payload === 'string') {
+        try {
+            req.body = JSON.parse(req.body.payload);
+        } catch (e) {}
+    }
+    next();
+};
 router.get('/tasks', catchAsync(taskController.getTasks));
-router.post('/tasks', validate(schemas.addTask), catchAsync(taskController.addTask));
-router.post('/tasks/edit', catchAsync(taskController.editTask));
+router.get('/tasks/:taskId/attachment/:attId', catchAsync(taskController.getTaskAttachment));
+router.post('/tasks', upload.array('files', 5), parseTaskMultipart, validate(schemas.addTask), catchAsync(taskController.addTask));
+router.post('/tasks/edit', upload.array('files', 5), parseTaskMultipart, catchAsync(taskController.editTask));
 router.post('/tasks/delete', catchAsync(taskController.deleteTask));
 router.post('/tasks/toggle', catchAsync(taskController.toggleTaskStatus));
 router.post('/tasks/force-remind', catchAsync(taskController.forceRemind));
