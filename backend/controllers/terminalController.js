@@ -304,17 +304,29 @@ exports.getTerminalData = async (req, res) => {
     }).lean();
     const tomorrowShifts = rawTomorrowShifts.filter(s => !blockedNames.has(s.name));
 
-    // Працюючі сьогодні співробітники на зміні
-    const workingNames = todayShifts.map(s => s.name);
-    const targetNames = workingNames.length > 0 ? workingNames : storeUserNames;
+    // Працюючі сьогодні співробітники на зміні (виключаємо особисті задачі SM та Admin із оперативних задач терміналу)
+    const managerNames = new Set(
+        allStoreUsers
+            .filter(u => u.role === 'SM' || u.role === 'admin' || u.position === 'SM')
+            .map(u => u.name)
+    );
+    combinedUsers.forEach(u => {
+        if (u.role === 'SM' || u.role === 'admin' || u.position === 'SM') {
+            managerNames.add(u.name);
+        }
+    });
 
-    // Задачі на сьогодні (і з Таймлайну, і з ToDo за дедлайном) для тих, хто на зміні
+    const workingNames = todayShifts.map(s => s.name);
+    const rawTargetNames = workingNames.length > 0 ? workingNames : storeUserNames;
+    const targetNames = rawTargetNames.filter(n => !managerNames.has(n));
+
+    // Задачі на сьогодні (і з Таймлайну за датою, і з ToDo за дедлайном) для співробітників точки (без особистих задач SM)
     const tasks = await Task.find({
         storeId: store._id,
         $and: [
             {
                 $or: [
-                    { date: todayStr },
+                    { type: { $ne: 'todo' }, date: todayStr },
                     { deadline: { $regex: `^${todayStr}` } }
                 ]
             },
@@ -325,6 +337,9 @@ exports.getTerminalData = async (req, res) => {
                     { name: 'Всі' },
                     { name: 'Зміна' }
                 ]
+            },
+            {
+                name: { $nin: Array.from(managerNames) }
             }
         ]
     }).lean();

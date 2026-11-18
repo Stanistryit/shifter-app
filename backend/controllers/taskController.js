@@ -364,7 +364,8 @@ exports.toggleTaskStatus = async (req, res) => {
                     if (t.recurrence === 'yearly')  nextDeadline.setFullYear(nextDeadline.getFullYear() + 1);
 
                     const pad = n => String(n).padStart(2, '0');
-                    const dl = `${nextDeadline.getFullYear()}-${pad(nextDeadline.getMonth()+1)}-${pad(nextDeadline.getDate())} ${pad(nextDeadline.getHours())}:${pad(nextDeadline.getMinutes())}`;
+                    const nextDateStr = `${nextDeadline.getFullYear()}-${pad(nextDeadline.getMonth()+1)}-${pad(nextDeadline.getDate())}`;
+                    const dl = `${nextDateStr} ${pad(nextDeadline.getHours())}:${pad(nextDeadline.getMinutes())}`;
 
                     await Task.create({
                         title: t.title,
@@ -372,7 +373,7 @@ exports.toggleTaskStatus = async (req, res) => {
                         storeId: t.storeId,
                         type: 'todo',
                         description: t.description,
-                        date: new Date().toISOString().split('T')[0],
+                        date: nextDateStr,
                         deadline: dl,
                         reminders: t.reminders,
                         recurrence: t.recurrence,

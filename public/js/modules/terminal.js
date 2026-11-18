@@ -1522,15 +1522,22 @@ function renderTasks(tasks) {
     const badgeEl = document.getElementById('termTasksCountBadge');
     if (!listEl) return;
 
-    const activeTasks = (tasks || []).filter(t => t.status !== 'completed' && !t.done);
+    const managerNames = new Set(
+        (terminalState.employees || [])
+            .filter(u => u.role === 'SM' || u.role === 'admin' || u.position === 'SM')
+            .map(u => u.name)
+    );
+    const filteredTasks = (tasks || []).filter(t => !managerNames.has(t.name));
+
+    const activeTasks = filteredTasks.filter(t => t.status !== 'completed' && !t.done);
     if (badgeEl) badgeEl.innerText = activeTasks.length;
 
-    if (!tasks || tasks.length === 0) {
+    if (filteredTasks.length === 0) {
         listEl.innerHTML = `<div class="text-center text-xs text-gray-400 py-4">Немає задач на сьогодні</div>`;
         return;
     }
 
-    listEl.innerHTML = tasks.map(t => {
+    listEl.innerHTML = filteredTasks.map(t => {
         const isDone = t.status === 'completed' || Boolean(t.done);
         const taskTitle = t.title || t.text || 'Задача';
         const opacity = isDone ? 'opacity-40 line-through' : '';
