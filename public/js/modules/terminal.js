@@ -267,6 +267,9 @@ try {
             } else if (data.type === 'handover_note_update') {
                 if (terminalState.store) {
                     terminalState.store.shiftHandoverNote = data.note;
+                    if (Array.isArray(data.history)) {
+                        terminalState.store.shiftHandoverHistory = data.history;
+                    }
                 }
                 renderShiftHandoverNote(data.note);
             } else if (data.type === 'quick_links_update') {
@@ -1039,6 +1042,7 @@ window.openHandoverNoteEditor = function (isEdit = false) {
     editorBox.classList.remove('hidden');
 
     const currentNote = terminalState.store?.shiftHandoverNote;
+    editorBox.dataset.isEdit = isEdit ? '1' : '0';
     inputEl.value = isEdit && currentNote?.text ? currentNote.text : '';
     autoSelectSingleAuthor();
     inputEl.focus();
@@ -1056,6 +1060,7 @@ window.saveHandoverNote = async function () {
     const inputEl = document.getElementById('termHandoverInput');
     const authorSelect = document.getElementById('termHandoverAuthorSelect');
     const editorBox = document.getElementById('termHandoverEditorBox');
+    const isEdit = editorBox?.dataset.isEdit === '1';
 
     const text = String(inputEl?.value || '').trim();
     if (!text) {
@@ -1077,10 +1082,13 @@ window.saveHandoverNote = async function () {
 
     try {
         const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
-        const res = await postJson('/api/terminal/handover-note', { storeId, text, author });
+        const res = await postJson('/api/terminal/handover-note', { storeId, text, author, isEdit });
         if (res && res.success) {
             if (terminalState.store) {
                 terminalState.store.shiftHandoverNote = res.shiftHandoverNote;
+                if (Array.isArray(res.shiftHandoverHistory)) {
+                    terminalState.store.shiftHandoverHistory = res.shiftHandoverHistory;
+                }
             }
             if (editorBox) editorBox.classList.add('hidden');
             renderShiftHandoverNote(res.shiftHandoverNote);
@@ -1088,7 +1096,8 @@ window.saveHandoverNote = async function () {
                 terminalSyncChannel.postMessage({
                     type: 'handover_note_update',
                     storeId,
-                    note: res.shiftHandoverNote
+                    note: res.shiftHandoverNote,
+                    history: res.shiftHandoverHistory
                 });
             }
             showToast("Нотатку для зміни збережено 📌", "success");
@@ -1102,24 +1111,123 @@ window.clearHandoverNote = async function () {
     triggerHaptic();
     try {
         const storeId = terminalState.store?._id || localStorage.getItem('shifter_terminal_storeId');
-        const res = await postJson('/api/terminal/handover-note', { storeId, text: '', author: '' });
+        const singleEmp = getSingleActiveShiftEmployee();
+        const readBy = document.getElementById('termHandoverAuthorSelect')?.value ||
+            document.getElementById('termCashAuthorSelect')?.value ||
+            document.getElementById('termStockAuthorSelect')?.value ||
+            singleEmp?.name ||
+            'Зміна';
+        const res = await postJson('/api/terminal/handover-note', { storeId, text: '', author: '', readBy });
         if (res && res.success) {
             if (terminalState.store) {
                 terminalState.store.shiftHandoverNote = res.shiftHandoverNote;
+                if (Array.isArray(res.shiftHandoverHistory)) {
+                    terminalState.store.shiftHandoverHistory = res.shiftHandoverHistory;
+                }
             }
             renderShiftHandoverNote(res.shiftHandoverNote);
             if (terminalSyncChannel && storeId) {
                 terminalSyncChannel.postMessage({
                     type: 'handover_note_update',
                     storeId,
-                    note: res.shiftHandoverNote
+                    note: res.shiftHandoverNote,
+                    history: res.shiftHandoverHistory
                 });
             }
-            showToast("Нотатку позначено як прочитану ✅", "info");
+            showToast("Нотатку позначено як прочитану та збережено в історію ✅", "info");
         }
     } catch (e) {
         showToast("Помилка оновлення нотатки", "error");
     }
+};
+
+window.openHandoverHistoryModal = function () {
+    triggerHaptic();
+    const modal = document.getElementById('termHandoverHistoryModal');
+    const listEl = document.getElementById('termHandoverHistoryList');
+    const totalEl = document.getElementById('termHandoverHistoryTotalText');
+    if (!modal || !listEl) return;
+
+    const history = Array.isArray(terminalState.store?.shiftHandoverHistory)
+        ? [...terminalState.store.shiftHandoverHistory]
+        : [];
+    const activeNote = terminalState.store?.shiftHandoverNote;
+    if (activeNote?.text && !history.some(h => String(h.text).trim() === String(activeNote.text).trim() && !h.readAt)) {
+        history.unshift({
+            text: activeNote.text,
+            author: activeNote.author || 'Співробітник',
+            createdAt: activeNote.updatedAt || new Date(),
+            readAt: null
+        });
+    }
+
+    if (totalEl) totalEl.innerText = `Всього записів: ${history.length}`;
+
+    const formatDt = (val) => {
+        if (!val) return '';
+        try {
+            const dt = new Date(val);
+            if (isNaN(dt.getTime())) return '';
+            return dt.toLocaleString('uk-UA', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Europe/Kiev'
+            });
+        } catch (e) {
+            return '';
+        }
+    };
+
+    const escapeHtml = (str) => String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    if (history.length === 0) {
+        listEl.innerHTML = `
+            <div class="py-8 px-4 text-center rounded-2xl bg-gray-50 dark:bg-[#242426] border border-dashed border-gray-200 dark:border-gray-800 space-y-1.5">
+                <div class="text-3xl">📌</div>
+                <div class="text-xs font-extrabold text-gray-700 dark:text-gray-200">Історія нотаток порожня</div>
+                <div class="text-[11px] text-gray-400">Усі залишені для наступної зміни нотатки автоматично зберігатимуться тут</div>
+            </div>
+        `;
+    } else {
+        listEl.innerHTML = history.map(item => {
+            const isActive = !item.readAt;
+            const createdStr = formatDt(item.createdAt);
+            const readStr = formatDt(item.readAt);
+            const cardClass = isActive
+                ? 'bg-amber-50/90 dark:bg-amber-950/35 border-amber-300 dark:border-amber-700/80'
+                : 'bg-gray-50/90 dark:bg-[#242426] border-gray-200/80 dark:border-gray-800';
+            const statusBadge = isActive
+                ? `<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-white">📌 Активна зараз</span>`
+                : `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">✅ Прочитано${item.readBy ? `: ${escapeHtml(item.readBy)}` : ''}${readStr ? ` (${readStr})` : ''}</span>`;
+
+            return `
+                <div class="p-3 rounded-2xl border ${cardClass} space-y-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-xs font-extrabold text-gray-800 dark:text-gray-100">
+                            👤 ${escapeHtml(item.author || 'Співробітник')}
+                            ${createdStr ? `<span class="text-[10px] font-mono text-gray-400 font-normal ml-1">• ${createdStr}</span>` : ''}
+                        </span>
+                        ${statusBadge}
+                    </div>
+                    <div class="text-xs font-semibold text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed bg-white/80 dark:bg-[#1C1C1E]/80 p-2.5 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                        ${escapeHtml(item.text)}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    modal.classList.remove('hidden');
+};
+
+window.closeHandoverHistoryModal = function () {
+    document.getElementById('termHandoverHistoryModal')?.classList.add('hidden');
 };
 
 // 7. Важливі контакти (Акордеон)

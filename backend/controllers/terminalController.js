@@ -18,6 +18,26 @@ function getNormalizedStockTransferSettings(store) {
     };
 }
 
+function getNormalizedHandoverHistory(store) {
+    const raw = Array.isArray(store?.shiftHandoverHistory) ? [...store.shiftHandoverHistory] : [];
+    const active = store?.shiftHandoverNote;
+    const activeText = String(active?.text || '').trim();
+    if (activeText) {
+        const alreadyInHistory = raw.some(item => String(item?.text || '').trim() === activeText && !item?.readAt);
+        if (!alreadyInHistory) {
+            raw.unshift({
+                id: `hn_active_${active.updatedAt ? new Date(active.updatedAt).getTime() : Date.now()}`,
+                text: activeText,
+                author: active.author || 'Співробітник',
+                createdAt: active.updatedAt || new Date(),
+                readBy: '',
+                readAt: null
+            });
+        }
+    }
+    return raw.slice(0, 50);
+}
+
 function formatTerminalStore(store) {
     if (!store) return {};
     return {
@@ -30,6 +50,7 @@ function formatTerminalStore(store) {
         quickLinks: Array.isArray(store.quickLinks) ? store.quickLinks : [],
         dailyAnnouncement: store.dailyAnnouncement || "",
         shiftHandoverNote: store.shiftHandoverNote || { text: "", author: "", updatedAt: null },
+        shiftHandoverHistory: getNormalizedHandoverHistory(store),
         checklists: store.checklists || null,
         alarmRegion: store.alarmRegion || 'м. Київ',
         alarmDistrict: store.alarmDistrict || '',
@@ -1314,14 +1335,53 @@ exports.saveShiftHandoverNote = async (req, res) => {
 
     const cleanText = String(req.body?.text || '').trim();
     const cleanAuthor = String(req.body?.author || 'Співробітник').trim();
+    const cleanReadBy = String(req.body?.readBy || cleanAuthor || 'Співробітник').trim();
+    const isEdit = Boolean(req.body?.isEdit);
+    const now = new Date();
+
+    const history = getNormalizedHandoverHistory(store);
 
     if (cleanText) {
+        if (isEdit && history.length > 0 && !history[0].readAt) {
+            history[0] = {
+                ...history[0],
+                text: cleanText,
+                author: cleanAuthor,
+                createdAt: now
+            };
+        } else {
+            // Якщо попередня активна нотатка не була позначена прочитаною, фіксуємо її заміну
+            if (history.length > 0 && !history[0].readAt) {
+                history[0] = {
+                    ...history[0],
+                    readBy: cleanAuthor,
+                    readAt: now
+                };
+            }
+            history.unshift({
+                id: `hn_${now.getTime()}`,
+                text: cleanText,
+                author: cleanAuthor,
+                createdAt: now,
+                readBy: '',
+                readAt: null
+            });
+        }
+
         store.shiftHandoverNote = {
             text: cleanText,
             author: cleanAuthor,
-            updatedAt: new Date()
+            updatedAt: now
         };
     } else {
+        // Клік по «Прочитано» — зберігаємо в історії хто і коли прочитав
+        if (history.length > 0 && !history[0].readAt) {
+            history[0] = {
+                ...history[0],
+                readBy: cleanReadBy,
+                readAt: now
+            };
+        }
         store.shiftHandoverNote = {
             text: '',
             author: '',
@@ -1329,12 +1389,15 @@ exports.saveShiftHandoverNote = async (req, res) => {
         };
     }
 
+    store.shiftHandoverHistory = history.slice(0, 50);
     store.markModified('shiftHandoverNote');
+    store.markModified('shiftHandoverHistory');
     await store.save();
 
     res.json({
         success: true,
-        shiftHandoverNote: store.shiftHandoverNote
+        shiftHandoverNote: store.shiftHandoverNote,
+        shiftHandoverHistory: store.shiftHandoverHistory
     });
 };
 

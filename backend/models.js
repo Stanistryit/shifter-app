@@ -31,6 +31,7 @@ const storeSchema = new mongoose.Schema({
         author: { type: String, default: '' },
         updatedAt: { type: Date, default: null }
     },
+    shiftHandoverHistory: { type: [Object], default: [] },
     checklists: {
         morning: {
             type: [String],
