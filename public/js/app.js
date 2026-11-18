@@ -624,8 +624,21 @@ function checkEditorButtonVisibility() {
 
 function toggleEditMode() {
     triggerHaptic();
+    const adminDiv = document.getElementById('admin-container');
+    if (adminDiv) adminDiv.classList.remove('hidden');
+
     const panel = document.getElementById('adminPanel');
+    if (!panel) return;
     panel.classList.toggle('hidden');
+
+    if (state.currentUser?.role === 'admin') {
+        const btnGlobal = document.getElementById('btnTabGlobal');
+        if (btnGlobal) {
+            btnGlobal.classList.remove('hidden');
+            btnGlobal.classList.add('flex');
+        }
+    }
+
     updateFabIcon(!panel.classList.contains('hidden'));
 }
 
@@ -765,14 +778,15 @@ async function setMode(mode) {
     if (profileDiv) profileDiv.classList.add('hidden');
     if (statDiv) statDiv.classList.add('hidden');
     if (termDiv) termDiv.classList.add('hidden');
-    if (adminDiv) adminDiv.classList.add('hidden');
 
     if (mode === 'terminal') {
         applyTerminalLayout(true);
         if (dashDiv) dashDiv.classList.add('hidden');
+        if (adminDiv) adminDiv.classList.add('hidden');
     } else {
         applyTerminalLayout(false);
         if (dashDiv) dashDiv.classList.remove('hidden');
+        if (adminDiv) adminDiv.classList.remove('hidden');
     }
 
     const filtersContainer = document.getElementById('filtersContainer');
